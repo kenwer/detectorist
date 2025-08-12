@@ -1,0 +1,187 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "modelviewer"
+dynamic = ["version"]
+
+description = "A user interface to play with AI models that detect fish in images."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "onnxruntime",
+    "opencv-python",
+    "pillow-heif",
+    "pyside6",
+    "rawpy",
+    "exifread",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "modelviewer._version.__version__"}
+
+[project.optional-dependencies]
+dev = [
+    "nuitka",
+    "imageio",
+    "poethepoet",
+]
+
+[project.scripts]
+modelviewer = "modelviewer.main:main"
+
+[tool.poe.tasks]
+compile-ui = "pyside6-uic modelviewer/model_viewer_gui.ui -o modelviewer/model_viewer_gui.py"
+run-app = "uv run modelviewer/main.py"
+run = ["compile-ui", "run-app"]
+
+build-mac = { shell = """
+python -c 'from modelviewer._version import __version__; print(__version__)' | xargs -I % nuitka \
+    --standalone \
+    --macos-create-app-bundle \
+    --macos-app-icon=assets/icon.png \
+    --enable-plugin=pyside6 \
+    --noinclude-qt-translations \
+    --noinclude-dlls='*.cpp.o' \
+    --noinclude-dlls='*.qsb' \
+    --include-qt-plugins=platforminputcontexts \
+    --include-data-dir=models=models \
+    --disable-ccache \
+    --output-dir=dist/macos \
+    --remove-output \
+    --macos-app-name=ModelViewer \
+    --macos-app-version=% \
+    --macos-signed-app-name=de.ken.ModelViewer \
+    ./modelviewer/main.py
+""" }
+
+download-upx = """
+python -c "
+import urllib.request
+import zipfile
+import os
+
+url = 'https://github.com/upx/upx/releases/download/v5.0.2/upx-5.0.2-win64.zip'
+zip_path = 'upx.zip'
+extract_path = 'dist'
+
+urllib.request.urlretrieve(url, zip_path)
+
+with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    zip_ref.extractall(extract_path)
+
+os.remove(zip_path)
+print(f'UPX downloaded and extracted to {extract_path}')
+"
+"""
+
+
+nuitka-windows = """
+python -c "
+import os
+import sys
+import subprocess
+import urllib.request
+import zipfile
+import shutil
+
+# Find Nuitka executable
+def find_nuitka():
+    # Check common locations
+    possible_paths = [
+        os.path.join(sys.prefix, 'Scripts', 'nuitka.exe'),
+        os.path.join(os.path.expanduser('~'), '.local', 'bin', 'nuitka'),
+        shutil.which('nuitka'),
+        shutil.which('nuitka.exe')
+    ]
+    
+    for path in possible_paths:
+        if path and os.path.exists(path):
+            return path
+    
+    raise FileNotFoundError('Nuitka executable not found')
+
+# Download UPX
+url = 'https://github.com/upx/upx/releases/download/v5.0.2/upx-5.0.2-win64.zip'
+zip_path = 'upx.zip'
+extract_path = 'upx'
+
+# Download and extract UPX
+urllib.request.urlretrieve(url, zip_path)
+with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    zip_ref.extractall(extract_path)
+os.remove(zip_path)
+
+# Add UPX directory to PATH
+upx_path = os.path.abspath('upx/upx-5.0.2-win64')
+os.environ['PATH'] = f'{upx_path};{os.environ['PATH']}'
+
+# Find Nuitka executable
+nuitka_exe = find_nuitka()
+
+# Run Nuitka command
+nuitka_cmd = [
+    nuitka_exe,
+    '--standalone',
+    '--onefile',
+    '--windows-icon-from-ico=assets/icon.ico',
+    '--enable-plugin=pyside6',
+    '--noinclude-qt-translations',
+    '--noinclude-dlls=*.cpp.o',
+    '--noinclude-dlls=*.qsb',
+    '--include-qt-plugins=platforminputcontexts',
+    '--include-data-dir=models=models',
+    '--disable-ccache',
+    '--output-dir=dist',
+    '--remove-output',
+    '--onefile-windows-splash-screen-image=assets/splash.png',
+    '--windows-console-mode=disable',
+    '--force-stdout-spec={PROGRAM_BASE}.out.txt',
+    '--force-stderr-spec={PROGRAM_BASE}.err.txt',
+    '--plugin-enable=upx',
+    'modelviewer/main.py'
+]
+
+print(f'Using Nuitka executable: {nuitka_exe}')
+subprocess.run(nuitka_cmd, check=True)
+"
+"""
+
+
+build-windows = [
+    "download-upx",
+    "nuitka-windows"
+]
+
+
+build-linux = """
+nuitka
+    --standalone
+    --enable-plugin=pyside6
+    --noinclude-qt-translations
+    --noinclude-dlls='*.cpp.o'
+    --noinclude-dlls='*.qsb'
+    --include-qt-plugins=platforminputcontexts
+    --include-data-dir=models=models
+    --disable-ccache
+    --output-dir=dist
+    --remove-output
+    modelviewer/main.py
+"""
+
+build = ["build-mac", "build-windows"]
+
+
+
+
+clean = { shell = "rm -rf dist/*" }
+
+[tool.setuptools]
+packages = ["modelviewer"]
+
+[tool.vscode.tasks]
+compile-ui = "pyside6-uic modelviewer/model_viewer_gui.ui -o modelviewer/model_viewer_gui.py"
+run = "python modelviewer/main.py"
+build-and-run = ["compile-ui", "run"]
