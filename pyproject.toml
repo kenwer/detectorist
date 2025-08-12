@@ -134,13 +134,14 @@ nuitka_cmd = [
     '--include-qt-plugins=platforminputcontexts',
     '--include-data-dir=models=models',
     '--disable-ccache',
-    '--output-dir=dist',
+    '--output-dir=dist/windows',
     '--remove-output',
     '--onefile-windows-splash-screen-image=assets/splash.png',
     '--windows-console-mode=disable',
     '--force-stdout-spec={PROGRAM_BASE}.out.txt',
     '--force-stderr-spec={PROGRAM_BASE}.err.txt',
     '--plugin-enable=upx',
+    '--assume-yes-for-downloads',
     'modelviewer/main.py'
 ]
 

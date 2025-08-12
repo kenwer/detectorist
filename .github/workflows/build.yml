@@ -34,20 +34,16 @@ jobs:
       run: |
         source .venv/bin/activate
         poe build-mac
-
     
     - name: Rename macOS app
       run: |
-        mv dist/macos/main.app dist/modelviewer.app
+        mv dist/macos/main.app dist/macos/fish-model-viewer.app
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
       with:
-        name: macos-app
-        path: dist/modelviewer.app
-
-
-
+        name: fish-model-viewer.app
+        path: dist/macos/fish-model-viewer.app
 
   build-windows:
     runs-on: windows-latest
@@ -74,12 +70,17 @@ jobs:
       run: |
         .\.venv\Scripts\activate
         poe build-windows
-        
+
+    - name: Rename Windows app
+      run: |
+        mv dist\windows\main.exe dist\windows\fish-model-viewer.exe
+
+
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
-        name: windows-exe
-        path: dist/modelviewer.dist
+        name: fish-model-viewer.exe
+        path: dist/windows/fish-model-viewer.exe
 
   create-release:
     needs: [build-macos, build-windows]
@@ -88,15 +89,16 @@ jobs:
     
     steps:
     - uses: actions/download-artifact@v4
-    
+
     - name: Compress artifacts
       run: |
-        zip -r macos-app.zip macos-app
-        zip -r windows-exe.zip windows-exe
-        
+        zip -r dist/macos/fish-model-viewer.app.zip dist/macos/fish-model-viewer.app
+        zip -r dist/windows/fish-model-viewer.exe.zip dist/windows/fish-model-viewer.exe
+
     - name: Upload Release Assets
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
+      if: github.ref_type == 'tag'
       with:
         files: |
-          macos-app.zip
-          windows-exe.zip
+          dist/macos/modelviewer.app.zip
+          dist/windows/modelviewer.exe.zip
