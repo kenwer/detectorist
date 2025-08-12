@@ -2,7 +2,7 @@
 
 A desktop application for viewing images and running a local AI model to perform object detection. This application is designed for easily inspecting image datasets and testing model performance with adjustable parameters like confidence and Non-Maximum Suppression (NMS) thresholds. It features support for various image formats, including Sony RAW (.arw) files, and displays selected EXIF information.
 
-![Main application interface](FishModelViewer-0.1.3.jpg)
+![Main application interface](https://github.com/user-attachments/assets/a90bffff-b038-4a0c-aa35-e71d57ba8e63)
 
 
 ## Key Features
