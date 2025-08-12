@@ -29,6 +29,8 @@ Download the binary for your operating system the releases section and start the
 *   View image and EXIF information in the panels on the right.
 *   Use the sliders and spin-boxes on the right to adjust the **Confidence** and **NMS** thresholds. Detections will update automatically.
 
+## AI Model
+The current fish detection model has been trained in about 130 epochs on ~900 images of fish. It's a start...
 
 ## Development
 
@@ -48,7 +50,7 @@ To run the application from the source code, I recommend to use `Python 3.12+` a
     uv pip install -e '.[dev]'
     ```
 
-3. ***Run from source:**
+3. **Run from source:**
     ```shell
     uv run modelviewer
     ```
