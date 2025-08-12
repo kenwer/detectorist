@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- convert -background none -resize 256x256 icon.svg icon.png -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Background - Soft gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4ECDC4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#45B7D1;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background Rectangle -->
+  <rect width="1024" height="1024" rx="204.8" ry="204.8" fill="url(#bgGradient)"/>
+    
+  <!-- Detecting Waves -->
+  <g stroke="#FFFFFF" stroke-width="20" fill="none" opacity="0.7">
+    <path d="M312 512 Q412 412, 512 512 Q612 612, 712 512" />
+    <path d="M262 512 Q412 362, 512 512 Q612 662, 762 512" opacity="0.6"/>
+  </g>
+  
+  <!-- Lens/Detection Overlay -->
+  <circle cx="512" cy="512" r="200" fill="none" stroke="#FFFFFF" stroke-width="40" opacity="0.5"/>
+</svg>

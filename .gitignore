@@ -1,0 +1,22 @@
+# Python-specific ignores
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Egg-info directories (multiple patterns for comprehensive coverage)
+*.egg-info/
+**/*.egg-info/
+*.egg
+# Project specific ignores
+dist/
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# Miscellaneous
+*.log
+.DS_Store
