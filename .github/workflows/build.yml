@@ -71,10 +71,9 @@ jobs:
         .\.venv\Scripts\activate
         poe build-windows
 
-    - name: Rename Windows app
+    - name: Rename Windows executable
       run: |
-        mv dist\windows\main.exe dist\windows\fish-model-viewer.exe
-
+        mv dist/windows/main.exe dist/windows/fish-model-viewer.exe
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
@@ -90,15 +89,20 @@ jobs:
     steps:
     - uses: actions/download-artifact@v4
 
+    - name: list contents
+      run: ls -la
+
     - name: Compress artifacts
       run: |
-        zip -r dist/macos/fish-model-viewer.app.zip dist/macos/fish-model-viewer.app
-        zip -r dist/windows/fish-model-viewer.exe.zip dist/windows/fish-model-viewer.exe
+        zip -r fish-model-viewer.app.zip fish-model-viewer.app
+        zip -r fish-model-viewer.exe.zip fish-model-viewer.exe
 
     - name: Upload Release Assets
       uses: softprops/action-gh-release@v2
       if: github.ref_type == 'tag'
       with:
         files: |
-          dist/macos/modelviewer.app.zip
-          dist/windows/modelviewer.exe.zip
+          fish-model-viewer.app.zip
+          fish-model-viewer.exe.zip
+      env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
