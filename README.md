@@ -10,9 +10,16 @@ A desktop application for viewing images and running local AI to perform object 
 *   **Image Browser:** Load and browse images (ideally showing fish) from a local folder with drag & drop support.
 *   **AI model Inference:** Run object detection using a pre-loaded ONNX model.
 *   **Adjustable Thresholds:** Interactively change confidence and NMS thresholds to see their effect on detections in real-time.
-*   **Broad Image Format Support:** Handles common formats (PNG, JPG, HEIC/HEIF, BMP) and Sony RAW (.ARW).
+*   **Multiple Image Formats:** Supports common image formats like PNG, JPG, BMP, and also 10 bit HEIC/HEIF or Sony RAW (.ARW).
 *   **EXIF Data Viewer:** Displays selected EXIF metadata for each image.
 *   **Drag & Drop:** Easily open folders or images by dragging them into the application window.
+
+## Roadmap/TODOs
+
+*   Show basic image properties (resoultion, color depth)
+*   Implement support for persistent settings
+*   Allow to crop (detected) objects from images
+*   Configurable aspect ratio for cropping
 
 ## Usage
 
