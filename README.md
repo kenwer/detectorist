@@ -1,6 +1,6 @@
 # Fish Model Viewer
 
-A desktop application for viewing images and running a local AI model to perform object detection. This application is designed for easily inspecting image datasets and testing model performance with adjustable parameters like confidence and Non-Maximum Suppression (NMS) thresholds. It features support for various image formats, including Sony RAW (.arw) files, and displays selected EXIF information.
+A desktop application for viewing images and running local AI to perform object (fish) detection. This niche application is designed for inspecting image datasets and testing model performance with adjustable parameters like confidence and Non-Maximum Suppression (NMS) thresholds. It features support for various image formats, including Sony RAW (.arw) files, and displays selected EXIF information.
 
 ![Main application interface](https://github.com/user-attachments/assets/a90bffff-b038-4a0c-aa35-e71d57ba8e63)
 
@@ -14,27 +14,29 @@ A desktop application for viewing images and running a local AI model to perform
 *   **EXIF Data Viewer:** Displays selected EXIF metadata for each image.
 *   **Drag & Drop:** Easily open folders or images by dragging them into the application window.
 
-
 ## Usage
 
 ### Download
 
-Download the binary for your operating system the releases section and start the application.
+Download the binary for your operating system from the releases section and start the application.
 
-### Using the Fish Model Viewer
+### Using Fish Model Viewer
+
 *   Go to `File > Open Folder...` or simply drag a folder containing images onto the application window.
-*   The folder will be scanned for supported images and load the first image.
+*   The folder will be scanned for supported images and the first image will load automatically.
 *   The AI model will automatically run, and detection boxes will be drawn on the image.
-*   Click on an item in the list on the left to navigate the image set.
+*   Click on an item in the list on the left to navigate through the image set.
 *   View image and EXIF information in the panels on the right.
 *   Use the sliders and spin-boxes on the right to adjust the **Confidence** and **NMS** thresholds. Detections will update automatically.
+    * The **Confidence** threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
+    * The **NMS** (non-maximum suppression) threshold helps to eliminate redundant and overlapping bounding boxes. The lower the threshold, the more strictly bounding boxes are calculated.
 
 ## AI Model
-The current fish detection model has been trained in about 130 epochs on ~900 images of fish. It's a start...
+The current fish detection model has been trained for approximately 130 epochs on around 900 images of fish. It's a start...
 
 ## Development
 
-To run the application from the source code, I recommend to use `Python 3.12+` and `uv`.
+To run the application from source code, I recommend to use `Python 3.12+` and `uv`.
 
 1.  **Clone the repository:**
     ```shell
@@ -64,29 +66,27 @@ Make sure you have a python3 and uv installed.
 
 ### macOS App Bundle
 
-1.  **Set up the environment:**
+On macOS:
+*   **Set up the build environment and run the build:**
     ```shell
     uv venv -p `which python3` .venv
     uv pip install -e '.[dev]'
     source .venv/bin/activate
-    ```
-
-2.  **Run the build command:**
-    This command will use Nuitka to compile the Python code into a `.app` bundle in the `dist/` directory.
-    ```shell
     poe build-mac
     ```
+    This will use Nuitka to compile the Python code into a `.app` bundle in the `dist/macos/` directory.
 
 ### Windows Executable
 
-1.  **Set up the environment and run the build:**
+On Windows:
+1.  **Set up the build environment and run the build:**
     ```shell
     uv venv .venv --python 3.12
     uv pip install -e '.[dev]'
     .venv\Scripts\activate
     poe build-windows
     ```
-    This will create a standalone executable inside a folder in the `dist/` directory.
+    This will create a standalone executable inside a folder in the `dist/windows/` directory.
 
 
 ## License
