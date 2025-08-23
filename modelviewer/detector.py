@@ -81,11 +81,11 @@ class Detector:
         # NMSBoxes returns indices of the boxes to keep
         indices = cv2.dnn.NMSBoxes(boxes_for_nms, scores.tolist(), score_threshold=confidence_threshold, nms_threshold=nms_threshold)
 
-        final_boxes = []
+        final_results = []
         if len(indices) > 0:
             # Flatten in case of nested list
             indices = indices.flatten()
             for i in indices:
-                final_boxes.append(boxes_for_nms[i])
+                final_results.append((boxes_for_nms[i], scores[i]))
 
-        return final_boxes
+        return final_results

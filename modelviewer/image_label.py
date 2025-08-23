@@ -1,20 +1,93 @@
 import os
 from PySide6.QtWidgets import QLabel, QRubberBand
-from PySide6.QtGui import QPixmap, QPainter, QImage
+from PySide6.QtGui import QPixmap, QPainter, QImage, QColor, QBrush, QPen
 from PySide6.QtCore import Qt, QRect, QSize, QPoint
 import numpy as np
 from .image import Image
+
+
+class CustomRubberBand(QRubberBand):
+    def __init__(self, shape, parent=None, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 13)):
+        super().__init__(shape, parent)
+        self.border_color = border_color
+        self.fill_color = fill_color
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setBrush(QBrush(self.fill_color))
+        pen = QPen(self.border_color)
+        pen.setWidth(1)
+        painter.setPen(pen)
+        painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
 
 
 class ImageLabel(QLabel):
     def __init__(self, app_instance, parent=None):
         super().__init__(parent)
         self.app_instance = app_instance
-        self.rubber_band = QRubberBand(QRubberBand.Rectangle, self)
+        self.detection_bands = []
+        self.last_detection_rects = []
+        self.crop_band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 5))
+        self.crop_band.hide()
         self._pixmap = QPixmap()
         self.image = None
+        self.last_crop_rect = None
+
+    def _map_rect_from_image_to_widget(self, image_rect):
+        if self._pixmap.isNull() or self.image is None:
+            return QRect()
+
+        widget_size = self.size()
+        pixmap_size = self._pixmap.size()
+
+        scaled_pixmap = pixmap_size.scaled(widget_size, Qt.KeepAspectRatio)
+
+        scale_x = scaled_pixmap.width() / pixmap_size.width()
+        scale_y = scaled_pixmap.height() / pixmap_size.height()
+
+        offset_x = (widget_size.width() - scaled_pixmap.width()) / 2
+        offset_y = (widget_size.height() - scaled_pixmap.height()) / 2
+
+        widget_rect_x = int(image_rect.x() * scale_x + offset_x)
+        widget_rect_y = int(image_rect.y() * scale_y + offset_y)
+        widget_rect_w = int(image_rect.width() * scale_x)
+        widget_rect_h = int(image_rect.height() * scale_y)
+
+        return QRect(widget_rect_x, widget_rect_y, widget_rect_w, widget_rect_h)
+
+    def _clear_detection_bands(self):
+        for band in self.detection_bands:
+            band.hide()
+            band.setParent(None)
+            band.deleteLater()
+        self.detection_bands = []
+        self.last_detection_rects = []
+
+    def set_detection_boxes(self, image_rects, scores):
+        self._clear_detection_bands()
+        self.last_detection_rects = list(zip(image_rects, scores))
+        for rect, score in self.last_detection_rects:
+            alpha = int(10 + (score * (255-10))) # Scale score (0.0-1.0) to alpha (10-255)
+            alpha_fill = int(score * 20) # Scale score (0.0-1.0) to alpha (0-20)
+            band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(0, 255, 0, alpha), fill_color=QColor(0, 255, 0, alpha_fill))
+            widget_rect = self._map_rect_from_image_to_widget(rect)
+            band.setGeometry(widget_rect)
+            band.show()
+            self.detection_bands.append(band)
+
+    def set_crop_box(self, image_rect):
+        self.last_crop_rect = image_rect
+        widget_rect = self._map_rect_from_image_to_widget(image_rect)
+        self.crop_band.setGeometry(widget_rect)
+        self.crop_band.show()
+
+    def hide_bands(self):
+        self._clear_detection_bands()
+        self.crop_band.hide()
+        self.last_crop_rect = None
 
     def replace_image(self, image_path):
+        self.hide_bands()
         try:
             self.image = Image(image_path)
             pixmap = QPixmap(image_path)
@@ -92,19 +165,28 @@ class ImageLabel(QLabel):
             painter = QPainter(self)
             painter.drawPixmap(point, scaled_pixmap)
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.origin = event.position().toPoint()
-            self.rubber_band.setGeometry(QRect(self.origin, QSize()))
-            self.rubber_band.show()
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        for i, (rect, score) in enumerate(self.last_detection_rects):
+            if i < len(self.detection_bands):
+                widget_rect = self._map_rect_from_image_to_widget(rect)
+                self.detection_bands[i].setGeometry(widget_rect)
+        if self.last_crop_rect and self.crop_band.isVisible():
+            self.set_crop_box(self.last_crop_rect)
 
-    def mouseMoveEvent(self, event):
-        if self.rubber_band:
-            self.rubber_band.setGeometry(QRect(self.origin, event.position().toPoint()).normalized())
+    # def mousePressEvent(self, event):
+    #     if event.button() == Qt.LeftButton:
+    #         self.origin = event.position().toPoint()
+    #         self.detection_band.setGeometry(QRect(self.origin, QSize()))
+    #         self.detection_band.show()
 
-    def mouseReleaseEvent(self, event):
-        if self.rubber_band:
-            self.rubber_band.hide()
+    # def mouseMoveEvent(self, event):
+    #     if self.detection_band.isVisible():
+    #         self.detection_band.setGeometry(QRect(self.origin, event.position().toPoint()).normalized())
+
+    # def mouseReleaseEvent(self, event):
+    #     # The detection_band is left visible for the user to see the result
+    #     pass
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():

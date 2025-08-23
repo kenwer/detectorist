@@ -54,7 +54,7 @@ class ModelViewer(QMainWindow):
         self.ui.openFolderAction.triggered.connect(self.open_folder)
         self.ui.detectFishAction.triggered.connect(self.detect_fish)
         self.ui.imageListView.selectionModel().currentChanged.connect(self.on_image_selected)
-        self.ui.cropAction.triggered.connect(self.crop_image)
+        self.ui.cropAction.setEnabled(False)
         self.ui.resetCropAction.triggered.connect(self.reset_crop)
 
         # Delayed Sliders and SpinBoxes (because they are emitted very often)
@@ -221,14 +221,15 @@ class ModelViewer(QMainWindow):
         print("Detecting fish...")
 
         try:
-            boxes = self.detector.detect(self.ui.imageLabel.image, confidence_threshold=confidence, nms_threshold=nms)
-            image_with_boxes = self.ui.imageLabel.image.draw_boxes(boxes)
+            results = self.detector.detect(self.ui.imageLabel.image, confidence_threshold=confidence, nms_threshold=nms)
+            print(f"-> Detected {len(results)} fish")
 
             # Update the number of detections label
-            self.ui.numDetectionsLabel.setText(str(len(boxes)))
+            self.ui.numDetectionsLabel.setText(str(len(results)))
 
-            # Convert to QPixmap and display
-            self.ui.imageLabel.setImageData(image_with_boxes)
+            q_rects = [QRect(x, y, w, h) for (x, y, w, h), score in results]
+            scores = [score for (x, y, w, h), score in results]
+            self.ui.imageLabel.set_detection_boxes(q_rects, scores)
 
             # Cache the new values
             self.last_confidence = confidence
@@ -242,30 +243,34 @@ class ModelViewer(QMainWindow):
             self.ui.imageLabel.setPixmap(QPixmap(self.current_image_path))
 
     def crop_image(self):
-        if not self.ui.imageLabel.image or not self.ui.imageLabel.rubber_band:
-            return
+        # TODO unclear which box to use when multiple are detected.
+        pass
 
-        # Original image size
-        original_size = self.ui.imageLabel.pixmap().size()
-        # Scaled pixmap size (as displayed in the label)
-        scaled_size = self.ui.imageLabel.pixmap().size()
+        # if not self.ui.imageLabel.image or not self.ui.imageLabel.detection_band.isVisible():
+        #     return
 
-        # Calculate the scale factor
-        x_scale = original_size.width() / scaled_size.width()
-        y_scale = original_size.height() / scaled_size.height()
+        # original_size = self.ui.imageLabel.image.image_data.shape[1], self.ui.imageLabel.image.image_data.shape[0]
+        # scaled_size = self.ui.imageLabel.pixmap().size()
 
-        # Get the rubber band geometry (in label coordinates)
-        rect = self.ui.imageLabel.rubber_band.geometry()
+        # # Calculate the scale factors
+        # x_scale = original_size[0] / scaled_size.width()
+        # y_scale = original_size[1] / scaled_size.height()
 
-        # Scale the rectangle to original image coordinates
-        x = int(rect.x() * x_scale)
-        y = int(rect.y() * y_scale)
-        w = int(rect.width() * x_scale)
-        h = int(rect.height() * y_scale)
+        # # Get the rubber band geometry (in label coordinates)
+        # rect = self.ui.imageLabel.detection_band.geometry()
 
-        # Create a new QRect for cropping
-        crop_rect = QRect(x, y, w, h)
+        # # Scale the rectangle to original image coordinates
+        # x = int(rect.x() * x_scale)
+        # y = int(rect.y() * y_scale)
+        # w = int(rect.width() * x_scale)
+        # h = int(rect.height() * y_scale)
 
-        self.ui.imageLabel.image.crop(crop_rect)
-        # Update pixmap
-        self.ui.imageLabel.setImageData(self.ui.imageLabel.image.image_data)
+        # # Create a new QRect for cropping
+        # crop_rect = QRect(x, y, w, h)
+
+        # self.ui.imageLabel.image.crop(crop_rect)
+        # # Update pixmap
+        # self.ui.imageLabel.setImageData(self.ui.imageLabel.image.image_data)
+
+        # # Hide the rubber band after cropping
+        # self.ui.imageLabel.detection_band.hide()
