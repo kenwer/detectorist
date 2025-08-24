@@ -124,13 +124,18 @@ class ModelViewer(QMainWindow):
         if self.current_folder_path:
             self.current_image_path = os.path.join(self.current_folder_path, file_name)
             self.ui.statusBar.showMessage(file_name)
-            # TODO: show the image dimension and other info at the imageInfoLabel
-            #self.ui.imageInfoLabel.setText()
-            
+
             if self.ui.imageLabel.replace_image(self.current_image_path):
                 self.last_confidence = None  # Reset for new image
                 self.last_nms = None  # Reset for new image
                 self.ui.numDetectionsLabel.setText("0")
+  
+                # Add image info to the self.ui.imageInfoLabel
+                height, width, _ = self.ui.imageLabel.image.image_data.shape
+                #color_depth = "16-bit" if self.ui.imageLabel.image.is16bit else "8-bit" #TODO: rework color depth logic HIF have BitDepthChroma and BitDepthLuma in EXIF, ARW and JPG have BitsPerSample
+                file_type = self.ui.imageLabel.image.file_extension.upper()[1:]
+                #self.ui.imageInfoLabel.setText(f"Resolution\t: {width}x{height}\nColor depth\t: {color_depth}\nFile type \t: {file_type}")
+                self.ui.imageInfoLabel.setText(f"Resolution\t: {width}x{height}\nFile type \t: {file_type}")
 
                 # Add EXIF info to the self.ui.imageExifLabel
                 items = [
@@ -219,6 +224,7 @@ class ModelViewer(QMainWindow):
             return
 
         print("Detecting fish...")
+        # TODO: display the detection time
 
         try:
             results = self.detector.detect(self.ui.imageLabel.image, confidence_threshold=confidence, nms_threshold=nms)
