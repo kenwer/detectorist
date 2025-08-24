@@ -227,9 +227,7 @@ class ModelViewer(QMainWindow):
             # Update the number of detections label
             self.ui.numDetectionsLabel.setText(str(len(results)))
 
-            q_rects = [QRect(x, y, w, h) for (x, y, w, h), score in results]
-            scores = [score for (x, y, w, h), score in results]
-            self.ui.imageLabel.set_detection_boxes(q_rects, scores)
+            self.ui.imageLabel.set_detection_boxes(results)
 
             # Cache the new values
             self.last_confidence = confidence

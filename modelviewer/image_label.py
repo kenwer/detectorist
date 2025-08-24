@@ -1,16 +1,17 @@
 import os
-from PySide6.QtWidgets import QLabel, QRubberBand
+from PySide6.QtWidgets import QLabel, QRubberBand, QToolTip
 from PySide6.QtGui import QPixmap, QPainter, QImage, QColor, QBrush, QPen
-from PySide6.QtCore import Qt, QRect, QSize, QPoint
+from PySide6.QtCore import Qt, QRect, QSize, QPoint, QObject, QEvent
 import numpy as np
 from .image import Image
 
 
 class CustomRubberBand(QRubberBand):
-    def __init__(self, shape, parent=None, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 13)):
+    def __init__(self, shape, parent=None, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 13), score=None):
         super().__init__(shape, parent)
         self.border_color = border_color
         self.fill_color = fill_color
+        self.score = score
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -21,17 +22,36 @@ class CustomRubberBand(QRubberBand):
         painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
 
 
+class TooltipEventFilter(QObject):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent_label = parent
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.MouseMove:
+            for band in self.parent_label.detection_bands:
+                if band.geometry().contains(event.pos()):
+                    tooltip_text = f"Confidence: {band.score:.2f}"
+                    QToolTip.showText(event.globalPos(), tooltip_text, band)
+                    return True
+            QToolTip.hideText()
+        return super().eventFilter(watched, event)
+
+
 class ImageLabel(QLabel):
     def __init__(self, app_instance, parent=None):
         super().__init__(parent)
         self.app_instance = app_instance
         self.detection_bands = []
-        self.last_detection_rects = []
+        self.orig_detection_rects = [] # stores the original detection data—a list of QRect and score tuples—in the image's original coordinate system
         self.crop_band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 5))
         self.crop_band.hide()
         self._pixmap = QPixmap()
         self.image = None
         self.last_crop_rect = None
+        self.setMouseTracking(True)
+        self._tooltip_filter = TooltipEventFilter(self)
+        self.installEventFilter(self._tooltip_filter)
 
     def _map_rect_from_image_to_widget(self, image_rect):
         if self._pixmap.isNull() or self.image is None:
@@ -61,19 +81,23 @@ class ImageLabel(QLabel):
             band.setParent(None)
             band.deleteLater()
         self.detection_bands = []
-        self.last_detection_rects = []
+        self.orig_detection_rects = []
 
-    def set_detection_boxes(self, image_rects, scores):
+    def set_detection_boxes(self, detections):
         self._clear_detection_bands()
-        self.last_detection_rects = list(zip(image_rects, scores))
-        for rect, score in self.last_detection_rects:
+        # Convert detections to QRects and store them to always have a reference to the original bounding box coordinates
+        self.orig_detection_rects = [(QRect(x, y, w, h), score) for (x, y, w, h), score in detections]
+
+        for rect, score in self.orig_detection_rects:
             alpha = int(10 + (score * (255-10))) # Scale score (0.0-1.0) to alpha (10-255)
             alpha_fill = int(score * 20) # Scale score (0.0-1.0) to alpha (0-20)
-            band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(0, 255, 0, alpha), fill_color=QColor(0, 255, 0, alpha_fill))
+            band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(0, 255, 0, alpha), fill_color=QColor(0, 255, 0, alpha_fill), score=score)
             widget_rect = self._map_rect_from_image_to_widget(rect)
             band.setGeometry(widget_rect)
             band.show()
             self.detection_bands.append(band)
+
+    
 
     def set_crop_box(self, image_rect):
         self.last_crop_rect = image_rect
@@ -167,25 +191,27 @@ class ImageLabel(QLabel):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        for i, (rect, score) in enumerate(self.last_detection_rects):
+        # Update the rubber band geometries based on the new size
+        for i, (rect, score) in enumerate(self.orig_detection_rects):
             if i < len(self.detection_bands):
                 widget_rect = self._map_rect_from_image_to_widget(rect)
                 self.detection_bands[i].setGeometry(widget_rect)
         if self.last_crop_rect and self.crop_band.isVisible():
             self.set_crop_box(self.last_crop_rect)
 
+    # TODO: the cropping band logic has issues with the confidence tooltips - probably caused by the event filter
     # def mousePressEvent(self, event):
     #     if event.button() == Qt.LeftButton:
     #         self.origin = event.position().toPoint()
-    #         self.detection_band.setGeometry(QRect(self.origin, QSize()))
-    #         self.detection_band.show()
+    #         self.crop_band.setGeometry(QRect(self.origin, QSize()))
+    #         self.crop_band.show()
 
     # def mouseMoveEvent(self, event):
-    #     if self.detection_band.isVisible():
-    #         self.detection_band.setGeometry(QRect(self.origin, event.position().toPoint()).normalized())
+    #     if self.crop_band.isVisible():
+    #         self.crop_band.setGeometry(QRect(self.origin, event.position().toPoint()).normalized())
 
     # def mouseReleaseEvent(self, event):
-    #     # The detection_band is left visible for the user to see the result
+    #     # The crop_band is left visible for the user to see the result
     #     pass
 
     def dragEnterEvent(self, event):
