@@ -173,8 +173,8 @@ class Ui_ModelViewerUI(object):
         self.paddingSlider.setEnabled(True)
         sizePolicy2.setHeightForWidth(self.paddingSlider.sizePolicy().hasHeightForWidth())
         self.paddingSlider.setSizePolicy(sizePolicy2)
-        self.paddingSlider.setMaximum(100)
-        self.paddingSlider.setSingleStep(10)
+        self.paddingSlider.setMaximum(50)
+        self.paddingSlider.setSingleStep(1)
         self.paddingSlider.setSliderPosition(15)
         self.paddingSlider.setOrientation(Qt.Orientation.Horizontal)
         self.paddingSlider.setTickPosition(QSlider.TickPosition.NoTicks)
@@ -183,7 +183,7 @@ class Ui_ModelViewerUI(object):
 
         self.paddingSpinBox = QSpinBox(self.cropInfoGroupBox)
         self.paddingSpinBox.setObjectName(u"paddingSpinBox")
-        self.paddingSpinBox.setMaximum(100)
+        self.paddingSpinBox.setMaximum(50)
         self.paddingSpinBox.setValue(15)
 
         self.grdlyt_crop.addWidget(self.paddingSpinBox, 1, 2, 1, 1)
@@ -193,13 +193,14 @@ class Ui_ModelViewerUI(object):
         self.btngroup_crop.setObjectName(u"btngroup_crop")
         self.btngroup_crop.addButton(self.rb_crop_to_top_conf)
         self.rb_crop_to_top_conf.setObjectName(u"rb_crop_to_top_conf")
+        self.rb_crop_to_top_conf.setChecked(True)
 
         self.grdlyt_crop.addWidget(self.rb_crop_to_top_conf, 2, 0, 1, 2)
 
         self.rb_crop_largest_area = QRadioButton(self.cropInfoGroupBox)
         self.btngroup_crop.addButton(self.rb_crop_largest_area)
         self.rb_crop_largest_area.setObjectName(u"rb_crop_largest_area")
-        self.rb_crop_largest_area.setChecked(True)
+        self.rb_crop_largest_area.setChecked(False)
 
         self.grdlyt_crop.addWidget(self.rb_crop_largest_area, 3, 0, 1, 2)
 
@@ -227,7 +228,7 @@ class Ui_ModelViewerUI(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents_2 = QWidget()
         self.scrollAreaWidgetContents_2.setObjectName(u"scrollAreaWidgetContents_2")
-        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 260, 84))
+        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 254, 84))
         self.horizontalLayout = QHBoxLayout(self.scrollAreaWidgetContents_2)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.imageExifLabel = QLabel(self.scrollAreaWidgetContents_2)

@@ -54,6 +54,7 @@ class ModelViewer(QMainWindow):
         self.ui.openFolderAction.triggered.connect(self.open_folder)
         self.ui.detectFishAction.triggered.connect(self.detect_fish)
         self.ui.imageListView.selectionModel().currentChanged.connect(self.on_image_selected)
+        self.ui.cropAction.triggered.connect(self.crop_image)
         self.ui.cropAction.setEnabled(False)
         self.ui.resetCropAction.triggered.connect(self.reset_crop)
 
@@ -68,6 +69,13 @@ class ModelViewer(QMainWindow):
         self.ui.nmsSlider.sliderReleased.connect(self.detect_fish)
         self.ui.confidenceSpinBox.editingFinished.connect(self.detect_fish)
         self.ui.nmsSpinBox.editingFinished.connect(self.detect_fish)
+
+
+        # Connect crop controls
+        self.ui.rb_crop_to_top_conf.toggled.connect(self.update_crop_band)
+        self.ui.rb_crop_largest_area.toggled.connect(self.update_crop_band)
+        self.ui.cropRatioComboBox.currentIndexChanged.connect(self.update_crop_band)
+        self.ui.paddingSlider.valueChanged.connect(self.update_crop_band)
 
         self.models_dir=get_model_path() 
         if not os.path.exists(self.models_dir):
@@ -221,6 +229,8 @@ class ModelViewer(QMainWindow):
 
         # Skip detection if the values haven't changed
         if confidence == self.last_confidence and nms == self.last_nms:
+            # Still update the crop band, e.g. padding could have changed
+            self.update_crop_band()
             return
 
         print("Detecting fish...")
@@ -234,6 +244,7 @@ class ModelViewer(QMainWindow):
             self.ui.numDetectionsLabel.setText(str(len(results)))
 
             self.ui.imageLabel.set_detection_boxes(results)
+            self.update_crop_band()
 
             # Cache the new values
             self.last_confidence = confidence
@@ -242,39 +253,84 @@ class ModelViewer(QMainWindow):
         except Exception as e:
             self.ui.imageLabel.setText(f"Error detecting fish: {e}")
 
+    def update_crop_band(self):
+        if not self.ui.imageLabel.orig_detection_rects:
+            self.ui.imageLabel.crop_band.hide()
+            self.ui.cropAction.setEnabled(False)
+            return
+
+        detections = self.ui.imageLabel.orig_detection_rects
+        
+        if self.ui.rb_crop_to_top_conf.isChecked():
+            # Find the detection with the highest confidence
+            top_detection = max(detections, key=lambda d: d[1])
+            crop_rect = QRect(top_detection[0]) # Create a copy
+        elif self.ui.rb_crop_largest_area.isChecked():
+            # Find the bounding box that covers all detections
+            left = min(d[0].left() for d in detections)
+            top = min(d[0].top() for d in detections)
+            right = max(d[0].right() for d in detections)
+            bottom = max(d[0].bottom() for d in detections)
+            crop_rect = QRect(left, top, right - left, bottom - top)
+        else:
+            self.ui.imageLabel.crop_band.hide()
+            self.ui.cropAction.setEnabled(False)
+            return # No crop option selected
+
+        # Add padding
+        padding_percentage = self.ui.paddingSlider.value() / 100.0
+        padding_x = int(crop_rect.width() * padding_percentage)
+        padding_y = int(crop_rect.height() * padding_percentage)
+        
+        crop_rect.adjust(-padding_x, -padding_y, padding_x, padding_y)
+
+        # Adjust for aspect ratio
+        ratio_str = self.ui.cropRatioComboBox.currentText()
+        ratio_w, ratio_h = map(int, ratio_str.split(':'))
+        
+        rect_w = crop_rect.width()
+        rect_h = crop_rect.height()
+        
+        current_ratio = rect_w / rect_h
+        target_ratio = ratio_w / ratio_h
+
+        if current_ratio > target_ratio:
+            # Too wide, adjust height
+            new_h = int(rect_w / target_ratio)
+            diff_h = new_h - rect_h
+            crop_rect.setTop(crop_rect.top() - diff_h // 2)
+            crop_rect.setHeight(new_h)
+        else:
+            # Too tall, adjust width
+            new_w = int(rect_h * target_ratio)
+            diff_w = new_w - rect_w
+            crop_rect.setLeft(crop_rect.left() - diff_w // 2)
+            crop_rect.setWidth(new_w)
+
+        # Ensure the crop rectangle is within the image boundaries
+        image_height, image_width, _ = self.ui.imageLabel.image.image_data.shape
+        image_rect = QRect(0, 0, image_width, image_height)
+        crop_rect = crop_rect.intersected(image_rect)
+
+        self.ui.imageLabel.set_crop_box(crop_rect)
+        self.ui.cropAction.setEnabled(True)
+
     def reset_crop(self):
         if self.ui.imageLabel.image:
+            self.ui.imageLabel.hide_bands()
+            self.ui.cropAction.setEnabled(False)
             self.ui.imageLabel.setPixmap(QPixmap(self.current_image_path))
 
     def crop_image(self):
-        # TODO unclear which box to use when multiple are detected.
-        pass
+        if not self.ui.imageLabel.image or not self.ui.imageLabel.last_crop_rect:
+            return
 
-        # if not self.ui.imageLabel.image or not self.ui.imageLabel.detection_band.isVisible():
-        #     return
-
-        # original_size = self.ui.imageLabel.image.image_data.shape[1], self.ui.imageLabel.image.image_data.shape[0]
-        # scaled_size = self.ui.imageLabel.pixmap().size()
-
-        # # Calculate the scale factors
-        # x_scale = original_size[0] / scaled_size.width()
-        # y_scale = original_size[1] / scaled_size.height()
-
-        # # Get the rubber band geometry (in label coordinates)
-        # rect = self.ui.imageLabel.detection_band.geometry()
-
-        # # Scale the rectangle to original image coordinates
-        # x = int(rect.x() * x_scale)
-        # y = int(rect.y() * y_scale)
-        # w = int(rect.width() * x_scale)
-        # h = int(rect.height() * y_scale)
-
-        # # Create a new QRect for cropping
-        # crop_rect = QRect(x, y, w, h)
-
-        # self.ui.imageLabel.image.crop(crop_rect)
-        # # Update pixmap
-        # self.ui.imageLabel.setImageData(self.ui.imageLabel.image.image_data)
-
-        # # Hide the rubber band after cropping
-        # self.ui.imageLabel.detection_band.hide()
+        self.ui.imageLabel.image.crop(self.ui.imageLabel.last_crop_rect)
+        self.ui.imageLabel.setImageData(self.ui.imageLabel.image.image_data)
+        self.ui.imageLabel.hide_bands()
+        self.ui.cropAction.setEnabled(False)
+        
+    def closeEvent(self, event):
+        # Clean up resources, if any
+        print("Closing application...")
+        super().closeEvent(event)
