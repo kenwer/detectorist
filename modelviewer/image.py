@@ -49,7 +49,9 @@ class Image:
         print(f"image loaded: {self.image_path}")
         print(f"  image_data dtype: {self._image_data.dtype}")
         print(f"  image_data shape: {self._image_data.shape}")
-
+        # TODO: how do I find out infos about the color depth?
+        # HIF have BitDepthChroma and BitDepthLuma in EXIF, ARW and JPG have BitsPerSample
+        # but I ideally I don't want to rely on EXIF data for this
 
     @property
     def exif(self) -> Exif:
