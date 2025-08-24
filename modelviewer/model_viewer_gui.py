@@ -16,11 +16,12 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QComboBox, QGridLayout, QGroupBox,
-    QHBoxLayout, QLabel, QListView, QMainWindow,
-    QMenu, QMenuBar, QScrollArea, QSizePolicy,
-    QSlider, QSpacerItem, QSpinBox, QSplitter,
-    QStatusBar, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QComboBox, QGridLayout,
+    QGroupBox, QHBoxLayout, QLabel, QListView,
+    QMainWindow, QMenu, QMenuBar, QRadioButton,
+    QScrollArea, QSizePolicy, QSlider, QSpacerItem,
+    QSpinBox, QSplitter, QStatusBar, QVBoxLayout,
+    QWidget)
 
 class Ui_ModelViewerUI(object):
     def setupUi(self, ModelViewerUI):
@@ -63,29 +64,20 @@ class Ui_ModelViewerUI(object):
         self.modelGroupBox.setEnabled(True)
         self.gridLayout_2 = QGridLayout(self.modelGroupBox)
         self.gridLayout_2.setObjectName(u"gridLayout_2")
-        self.confidenceSpinBox = QSpinBox(self.modelGroupBox)
-        self.confidenceSpinBox.setObjectName(u"confidenceSpinBox")
-        self.confidenceSpinBox.setMaximum(100)
-        self.confidenceSpinBox.setValue(75)
-
-        self.gridLayout_2.addWidget(self.confidenceSpinBox, 1, 2, 1, 1)
-
-        self.nmsSpinBox = QSpinBox(self.modelGroupBox)
-        self.nmsSpinBox.setObjectName(u"nmsSpinBox")
-        self.nmsSpinBox.setMaximum(100)
-        self.nmsSpinBox.setValue(45)
-
-        self.gridLayout_2.addWidget(self.nmsSpinBox, 2, 2, 1, 1)
-
-        self.nmsLabel = QLabel(self.modelGroupBox)
-        self.nmsLabel.setObjectName(u"nmsLabel")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+        self.modelSelectComboBox = QComboBox(self.modelGroupBox)
+        self.modelSelectComboBox.setObjectName(u"modelSelectComboBox")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.nmsLabel.sizePolicy().hasHeightForWidth())
-        self.nmsLabel.setSizePolicy(sizePolicy1)
+        sizePolicy1.setHeightForWidth(self.modelSelectComboBox.sizePolicy().hasHeightForWidth())
+        self.modelSelectComboBox.setSizePolicy(sizePolicy1)
 
-        self.gridLayout_2.addWidget(self.nmsLabel, 2, 0, 1, 1)
+        self.gridLayout_2.addWidget(self.modelSelectComboBox, 0, 0, 1, 3)
+
+        self.confidenceLabel = QLabel(self.modelGroupBox)
+        self.confidenceLabel.setObjectName(u"confidenceLabel")
+
+        self.gridLayout_2.addWidget(self.confidenceLabel, 1, 0, 1, 1)
 
         self.confidenceSlider = QSlider(self.modelGroupBox)
         self.confidenceSlider.setObjectName(u"confidenceSlider")
@@ -103,14 +95,31 @@ class Ui_ModelViewerUI(object):
 
         self.gridLayout_2.addWidget(self.confidenceSlider, 1, 1, 1, 1)
 
+        self.confidenceSpinBox = QSpinBox(self.modelGroupBox)
+        self.confidenceSpinBox.setObjectName(u"confidenceSpinBox")
+        self.confidenceSpinBox.setMaximum(100)
+        self.confidenceSpinBox.setValue(75)
+
+        self.gridLayout_2.addWidget(self.confidenceSpinBox, 1, 2, 1, 1)
+
+        self.nmsLabel = QLabel(self.modelGroupBox)
+        self.nmsLabel.setObjectName(u"nmsLabel")
+        sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.nmsLabel.sizePolicy().hasHeightForWidth())
+        self.nmsLabel.setSizePolicy(sizePolicy3)
+
+        self.gridLayout_2.addWidget(self.nmsLabel, 2, 0, 1, 1)
+
         self.nmsSlider = QSlider(self.modelGroupBox)
         self.nmsSlider.setObjectName(u"nmsSlider")
         self.nmsSlider.setEnabled(True)
-        sizePolicy3 = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
-        sizePolicy3.setHorizontalStretch(0)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.nmsSlider.sizePolicy().hasHeightForWidth())
-        self.nmsSlider.setSizePolicy(sizePolicy3)
+        sizePolicy4 = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
+        sizePolicy4.setHorizontalStretch(0)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.nmsSlider.sizePolicy().hasHeightForWidth())
+        self.nmsSlider.setSizePolicy(sizePolicy4)
         self.nmsSlider.setMaximum(100)
         self.nmsSlider.setSingleStep(10)
         self.nmsSlider.setValue(45)
@@ -120,20 +129,12 @@ class Ui_ModelViewerUI(object):
 
         self.gridLayout_2.addWidget(self.nmsSlider, 2, 1, 1, 1)
 
-        self.modelSelectComboBox = QComboBox(self.modelGroupBox)
-        self.modelSelectComboBox.setObjectName(u"modelSelectComboBox")
-        sizePolicy4 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
-        sizePolicy4.setHorizontalStretch(0)
-        sizePolicy4.setVerticalStretch(0)
-        sizePolicy4.setHeightForWidth(self.modelSelectComboBox.sizePolicy().hasHeightForWidth())
-        self.modelSelectComboBox.setSizePolicy(sizePolicy4)
+        self.nmsSpinBox = QSpinBox(self.modelGroupBox)
+        self.nmsSpinBox.setObjectName(u"nmsSpinBox")
+        self.nmsSpinBox.setMaximum(100)
+        self.nmsSpinBox.setValue(45)
 
-        self.gridLayout_2.addWidget(self.modelSelectComboBox, 0, 0, 1, 3)
-
-        self.confidenceLabel = QLabel(self.modelGroupBox)
-        self.confidenceLabel.setObjectName(u"confidenceLabel")
-
-        self.gridLayout_2.addWidget(self.confidenceLabel, 1, 0, 1, 1)
+        self.gridLayout_2.addWidget(self.nmsSpinBox, 2, 2, 1, 1)
 
         self.detectionsLabel = QLabel(self.modelGroupBox)
         self.detectionsLabel.setObjectName(u"detectionsLabel")
@@ -150,14 +151,69 @@ class Ui_ModelViewerUI(object):
 
         self.verticalLayout.addWidget(self.modelGroupBox)
 
+        self.cropInfoGroupBox = QGroupBox(self.rightSidewidget)
+        self.cropInfoGroupBox.setObjectName(u"cropInfoGroupBox")
+        self.grdlyt_crop = QGridLayout(self.cropInfoGroupBox)
+        self.grdlyt_crop.setObjectName(u"grdlyt_crop")
+        self.cropRatioComboBox = QComboBox(self.cropInfoGroupBox)
+        self.cropRatioComboBox.addItem("")
+        self.cropRatioComboBox.addItem("")
+        self.cropRatioComboBox.addItem("")
+        self.cropRatioComboBox.setObjectName(u"cropRatioComboBox")
+
+        self.grdlyt_crop.addWidget(self.cropRatioComboBox, 0, 0, 1, 3)
+
+        self.paddingLabel = QLabel(self.cropInfoGroupBox)
+        self.paddingLabel.setObjectName(u"paddingLabel")
+
+        self.grdlyt_crop.addWidget(self.paddingLabel, 1, 0, 1, 1)
+
+        self.paddingSlider = QSlider(self.cropInfoGroupBox)
+        self.paddingSlider.setObjectName(u"paddingSlider")
+        self.paddingSlider.setEnabled(True)
+        sizePolicy2.setHeightForWidth(self.paddingSlider.sizePolicy().hasHeightForWidth())
+        self.paddingSlider.setSizePolicy(sizePolicy2)
+        self.paddingSlider.setMaximum(100)
+        self.paddingSlider.setSingleStep(10)
+        self.paddingSlider.setSliderPosition(15)
+        self.paddingSlider.setOrientation(Qt.Orientation.Horizontal)
+        self.paddingSlider.setTickPosition(QSlider.TickPosition.NoTicks)
+
+        self.grdlyt_crop.addWidget(self.paddingSlider, 1, 1, 1, 1)
+
+        self.paddingSpinBox = QSpinBox(self.cropInfoGroupBox)
+        self.paddingSpinBox.setObjectName(u"paddingSpinBox")
+        self.paddingSpinBox.setMaximum(100)
+        self.paddingSpinBox.setValue(15)
+
+        self.grdlyt_crop.addWidget(self.paddingSpinBox, 1, 2, 1, 1)
+
+        self.rb_crop_to_top_conf = QRadioButton(self.cropInfoGroupBox)
+        self.btngroup_crop = QButtonGroup(ModelViewerUI)
+        self.btngroup_crop.setObjectName(u"btngroup_crop")
+        self.btngroup_crop.addButton(self.rb_crop_to_top_conf)
+        self.rb_crop_to_top_conf.setObjectName(u"rb_crop_to_top_conf")
+
+        self.grdlyt_crop.addWidget(self.rb_crop_to_top_conf, 2, 0, 1, 2)
+
+        self.rb_crop_largest_area = QRadioButton(self.cropInfoGroupBox)
+        self.btngroup_crop.addButton(self.rb_crop_largest_area)
+        self.rb_crop_largest_area.setObjectName(u"rb_crop_largest_area")
+        self.rb_crop_largest_area.setChecked(True)
+
+        self.grdlyt_crop.addWidget(self.rb_crop_largest_area, 3, 0, 1, 2)
+
+
+        self.verticalLayout.addWidget(self.cropInfoGroupBox)
+
         self.imageInfoGroupBox = QGroupBox(self.rightSidewidget)
         self.imageInfoGroupBox.setObjectName(u"imageInfoGroupBox")
-        self.verticalLayout_2 = QVBoxLayout(self.imageInfoGroupBox)
-        self.verticalLayout_2.setObjectName(u"verticalLayout_2")
+        self.verticalLayout_3 = QVBoxLayout(self.imageInfoGroupBox)
+        self.verticalLayout_3.setObjectName(u"verticalLayout_3")
         self.imageInfoLabel = QLabel(self.imageInfoGroupBox)
         self.imageInfoLabel.setObjectName(u"imageInfoLabel")
 
-        self.verticalLayout_2.addWidget(self.imageInfoLabel)
+        self.verticalLayout_3.addWidget(self.imageInfoLabel)
 
 
         self.verticalLayout.addWidget(self.imageInfoGroupBox)
@@ -171,7 +227,7 @@ class Ui_ModelViewerUI(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents_2 = QWidget()
         self.scrollAreaWidgetContents_2.setObjectName(u"scrollAreaWidgetContents_2")
-        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 212, 167))
+        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 260, 84))
         self.horizontalLayout = QHBoxLayout(self.scrollAreaWidgetContents_2)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.imageExifLabel = QLabel(self.scrollAreaWidgetContents_2)
@@ -197,7 +253,7 @@ class Ui_ModelViewerUI(object):
         ModelViewerUI.setCentralWidget(self.centralWidget)
         self.menuBar = QMenuBar(ModelViewerUI)
         self.menuBar.setObjectName(u"menuBar")
-        self.menuBar.setGeometry(QRect(0, 0, 1500, 24))
+        self.menuBar.setGeometry(QRect(0, 0, 1500, 37))
         self.menuFile = QMenu(self.menuBar)
         self.menuFile.setObjectName(u"menuFile")
         self.menuEdit = QMenu(self.menuBar)
@@ -219,6 +275,8 @@ class Ui_ModelViewerUI(object):
         self.nmsSpinBox.valueChanged.connect(self.nmsSlider.setValue)
         self.confidenceSlider.valueChanged.connect(self.confidenceSpinBox.setValue)
         self.nmsSlider.valueChanged.connect(self.nmsSpinBox.setValue)
+        self.paddingSlider.valueChanged.connect(self.paddingSpinBox.setValue)
+        self.paddingSpinBox.valueChanged.connect(self.paddingSlider.setValue)
 
         QMetaObject.connectSlotsByName(ModelViewerUI)
     # setupUi
@@ -245,24 +303,38 @@ class Ui_ModelViewerUI(object):
         self.imageLabel.setText(QCoreApplication.translate("ModelViewerUI", u"Open Folder...", None))
         self.modelGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Model", None))
 #if QT_CONFIG(tooltip)
-        self.nmsLabel.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The Non-Maximum Suppression threshold for the bounding boxes", None))
+        self.confidenceLabel.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The confidence threshold for filtering detections", None))
 #endif // QT_CONFIG(tooltip)
-        self.nmsLabel.setText(QCoreApplication.translate("ModelViewerUI", u"NMS", None))
+        self.confidenceLabel.setText(QCoreApplication.translate("ModelViewerUI", u"Confidence", None))
 #if QT_CONFIG(tooltip)
         self.confidenceSlider.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The confidence threshold for filtering detections", None))
 #endif // QT_CONFIG(tooltip)
 #if QT_CONFIG(tooltip)
+        self.nmsLabel.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The Non-Maximum Suppression threshold for the bounding boxes", None))
+#endif // QT_CONFIG(tooltip)
+        self.nmsLabel.setText(QCoreApplication.translate("ModelViewerUI", u"NMS", None))
+#if QT_CONFIG(tooltip)
         self.nmsSlider.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The Non-Maximum Suppression threshold for the bounding boxes", None))
 #endif // QT_CONFIG(tooltip)
-#if QT_CONFIG(tooltip)
-        self.confidenceLabel.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The confidence threshold for filtering detections", None))
-#endif // QT_CONFIG(tooltip)
-        self.confidenceLabel.setText(QCoreApplication.translate("ModelViewerUI", u"Confidence", None))
 #if QT_CONFIG(tooltip)
         self.detectionsLabel.setToolTip(QCoreApplication.translate("ModelViewerUI", u"Amount of object detections in the current image", None))
 #endif // QT_CONFIG(tooltip)
         self.detectionsLabel.setText(QCoreApplication.translate("ModelViewerUI", u"Detections:", None))
         self.numDetectionsLabel.setText(QCoreApplication.translate("ModelViewerUI", u"0", None))
+        self.cropInfoGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Crop", None))
+        self.cropRatioComboBox.setItemText(0, QCoreApplication.translate("ModelViewerUI", u"3:2", None))
+        self.cropRatioComboBox.setItemText(1, QCoreApplication.translate("ModelViewerUI", u"4:3", None))
+        self.cropRatioComboBox.setItemText(2, QCoreApplication.translate("ModelViewerUI", u"16:9", None))
+
+#if QT_CONFIG(tooltip)
+        self.paddingLabel.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The padding added to the crop (percent of the image size in percent)", None))
+#endif // QT_CONFIG(tooltip)
+        self.paddingLabel.setText(QCoreApplication.translate("ModelViewerUI", u"Padding", None))
+#if QT_CONFIG(tooltip)
+        self.paddingSlider.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The padding added to the crop (percent of the image size in percent)", None))
+#endif // QT_CONFIG(tooltip)
+        self.rb_crop_to_top_conf.setText(QCoreApplication.translate("ModelViewerUI", u"Crop to highest confidence box", None))
+        self.rb_crop_largest_area.setText(QCoreApplication.translate("ModelViewerUI", u"Crop to largest area", None))
         self.imageInfoGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Image", None))
         self.imageInfoLabel.setText(QCoreApplication.translate("ModelViewerUI", u"-", None))
         self.imageExifGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Exif", None))
