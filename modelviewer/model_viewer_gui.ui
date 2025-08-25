@@ -170,32 +170,26 @@
              </property>
             </widget>
            </item>
-           <item row="3" column="0" colspan="2">
-            <widget class="QLabel" name="detectionsLabel">
-             <property name="toolTip">
-              <string>Amount of object detections in the current image</string>
-             </property>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="detectionInfoGroupBox">
+          <property name="title">
+           <string>Detection</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_4">
+           <item>
+            <widget class="QLabel" name="detectionInfoLabel">
              <property name="text">
-              <string>Detections:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="2">
-            <widget class="QLabel" name="numDetectionsLabel">
-             <property name="text">
-              <string>0</string>
-             </property>
-             <property name="textFormat">
-              <enum>Qt::TextFormat::PlainText</enum>
-             </property>
-             <property name="textInteractionFlags">
-              <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+              <string>Objects&#x9;&#x9;&#x9;: -&#xA;Detection time&#x9;&#x9;: -&#xA;Highest confidence&#x9;: -</string>
              </property>
             </widget>
            </item>
           </layout>
          </widget>
         </item>
+
         <item>
          <widget class="QGroupBox" name="cropInfoGroupBox">
           <property name="title">

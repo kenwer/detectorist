@@ -1,5 +1,5 @@
 import os
-
+import time
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog
 from PySide6.QtGui import QPixmap
@@ -93,6 +93,16 @@ class ModelViewer(QMainWindow):
         self.on_model_selected(0)
 
 
+    def _update_detection_info(self, objects="-", confidence="-", time="-"):
+        detection_info_items = [
+            ("Objects\t\t\t", objects),
+            ("Highest confidence\t", confidence),
+            ("Detection time\t\t", time)
+        ]
+        detection_info = "\n".join(f"{k}: {v}" for k, v in detection_info_items)
+        self.ui.detectionInfoLabel.setText(detection_info)
+
+
     def request_detection(self):
         self.detection_timer.start()
 
@@ -136,8 +146,8 @@ class ModelViewer(QMainWindow):
             if self.ui.imageLabel.replace_image(self.current_image_path):
                 self.last_confidence = None  # Reset for new image
                 self.last_nms = None  # Reset for new image
-                self.ui.numDetectionsLabel.setText("0")
-  
+                self._update_detection_info() # Reset for new detection
+
                 # Add image info to the self.ui.imageInfoLabel
                 height, width, _ = self.ui.imageLabel.image.image_data.shape
                 #color_depth = "16-bit" if self.ui.imageLabel.image.is16bit else "8-bit" #TODO: rework color depth logic HIF have BitDepthChroma and BitDepthLuma in EXIF, ARW and JPG have BitsPerSample
@@ -233,15 +243,17 @@ class ModelViewer(QMainWindow):
             self.update_crop_band()
             return
 
-        print("Detecting fish...")
-        # TODO: display the detection time
-
         try:
+            start_time = time.perf_counter()
             results = self.detector.detect(self.ui.imageLabel.image, confidence_threshold=confidence, nms_threshold=nms)
-            print(f"-> Detected {len(results)} fish")
+            end_time = time.perf_counter()            
+            detection_time_ms = (end_time - start_time) * 1000
 
-            # Update the number of detections label
-            self.ui.numDetectionsLabel.setText(str(len(results)))
+            self._update_detection_info(
+                objects=len(results),
+                confidence=f"{max((det[1] for det in results), default=0):.4f}",
+                time=f"{detection_time_ms:.2f} ms"
+            )
 
             self.ui.imageLabel.set_detection_boxes(results)
             self.update_crop_band()
