@@ -136,20 +136,20 @@ class Ui_ModelViewerUI(object):
 
         self.gridLayout_2.addWidget(self.nmsSpinBox, 2, 2, 1, 1)
 
-        self.detectionsLabel = QLabel(self.modelGroupBox)
-        self.detectionsLabel.setObjectName(u"detectionsLabel")
-
-        self.gridLayout_2.addWidget(self.detectionsLabel, 3, 0, 1, 2)
-
-        self.numDetectionsLabel = QLabel(self.modelGroupBox)
-        self.numDetectionsLabel.setObjectName(u"numDetectionsLabel")
-        self.numDetectionsLabel.setTextFormat(Qt.TextFormat.PlainText)
-        self.numDetectionsLabel.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse|Qt.TextInteractionFlag.TextSelectableByMouse)
-
-        self.gridLayout_2.addWidget(self.numDetectionsLabel, 3, 2, 1, 1)
-
 
         self.verticalLayout.addWidget(self.modelGroupBox)
+
+        self.detectionInfoGroupBox = QGroupBox(self.rightSidewidget)
+        self.detectionInfoGroupBox.setObjectName(u"detectionInfoGroupBox")
+        self.verticalLayout_4 = QVBoxLayout(self.detectionInfoGroupBox)
+        self.verticalLayout_4.setObjectName(u"verticalLayout_4")
+        self.detectionInfoLabel = QLabel(self.detectionInfoGroupBox)
+        self.detectionInfoLabel.setObjectName(u"detectionInfoLabel")
+
+        self.verticalLayout_4.addWidget(self.detectionInfoLabel)
+
+
+        self.verticalLayout.addWidget(self.detectionInfoGroupBox)
 
         self.cropInfoGroupBox = QGroupBox(self.rightSidewidget)
         self.cropInfoGroupBox.setObjectName(u"cropInfoGroupBox")
@@ -317,11 +317,10 @@ class Ui_ModelViewerUI(object):
 #if QT_CONFIG(tooltip)
         self.nmsSlider.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The Non-Maximum Suppression threshold for the bounding boxes", None))
 #endif // QT_CONFIG(tooltip)
-#if QT_CONFIG(tooltip)
-        self.detectionsLabel.setToolTip(QCoreApplication.translate("ModelViewerUI", u"Amount of object detections in the current image", None))
-#endif // QT_CONFIG(tooltip)
-        self.detectionsLabel.setText(QCoreApplication.translate("ModelViewerUI", u"Detections:", None))
-        self.numDetectionsLabel.setText(QCoreApplication.translate("ModelViewerUI", u"0", None))
+        self.detectionInfoGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Detection", None))
+        self.detectionInfoLabel.setText(QCoreApplication.translate("ModelViewerUI", u"Objects			: -\n"
+"Detection time		: -\n"
+"Highest confidence	: -", None))
         self.cropInfoGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Crop", None))
         self.cropRatioComboBox.setItemText(0, QCoreApplication.translate("ModelViewerUI", u"3:2", None))
         self.cropRatioComboBox.setItemText(1, QCoreApplication.translate("ModelViewerUI", u"4:3", None))
