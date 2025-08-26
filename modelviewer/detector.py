@@ -68,6 +68,7 @@ class Detector:
         boxes_yolo = output[:, :4]
         class_scores = output[:, 4:]
         scores = np.max(class_scores, axis=1)
+        class_ids = np.argmax(class_scores, axis=1)
 
         # Convert boxes from YOLO format (center_x, center_y, w, h) to OpenCV's NMS format (x, y, w, h),
         # where (x,y) is the top-left corner, and scale to the original image size.
@@ -86,6 +87,6 @@ class Detector:
             # Flatten in case of nested list
             indices = indices.flatten()
             for i in indices:
-                final_results.append((boxes_for_nms[i], scores[i]))
+                final_results.append((boxes_for_nms[i], scores[i], class_ids[i]))
 
         return final_results

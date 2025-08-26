@@ -155,6 +155,22 @@ class Image:
         """Converts and saves an image to the given file path and target format."""
         print(f"Saving image to {output_path}")
 
+        file_extension = os.path.splitext(output_path)[1].lower()
+
+        # TODO: maybe use a different technique to crop & save images
+        if file_extension in ('.heic', '.hif'):
+            if image_data.dtype == np.uint16:
+                image_data = Image.convert_16bit_to_8bit(image_data)
+
+            image_data = np.ascontiguousarray(image_data)
+            pil_image = PILImage.fromarray(image_data)
+            
+            if pil_image.mode != 'RGB':
+                pil_image = pil_image.convert('RGB')
+
+            pil_image.save(output_path, format="HEIF")
+            return
+
         if image_data.dtype == np.uint16:
             file_extension = os.path.splitext(output_path)[1].lower()
             if file_extension in ('.png', '.tiff', '.tif'):
@@ -165,7 +181,8 @@ class Image:
                 if not cv2.imwrite(output_path, image_8bit):
                     raise IOError(f"Error: Could not save converted 8-bit image to {output_path}")
         else:
-            if not cv2.imwrite(output_path, image_data):
+            bgr_image = image_data[...,::-1]
+            if not cv2.imwrite(output_path, bgr_image):
                 raise IOError(f"Error: Could not save image to {output_path}")
 
     def preprocess_for_onnx(self, input_width: int, input_height: int) -> np.ndarray:
@@ -190,20 +207,7 @@ class Image:
 
     def save_as(self, output_path: str):
         """Saves an image to the given file path."""
-        print(f"Saving image to {output_path}")
-
-        if self.is16bit:
-            file_extension = os.path.splitext(output_path)[1].lower()
-            if file_extension in ('.png', '.tiff', '.tif'):
-                Image.save_16bit_image(self._image_data, output_path)
-            else:  # Reduce to 8 bit and save
-                print(f"Format '{file_extension}' does not support 16-bit. Converting to 8-bit for saving.")
-                image_8bit = self.convert_16bit_to_8bit(self._image_data)
-                if not cv2.imwrite(output_path, image_8bit):
-                    raise IOError(f"Error: Could not save converted 8-bit image to {output_path}")
-        else:
-            if not cv2.imwrite(output_path, self._image_data):
-                raise IOError(f"Error: Could not save image to {output_path}")
+        Image.save_image_data_as(self._image_data, output_path)
 
     def save_with_boxes(self, output_path: str, boxes: list):
         """Saves an image with bounding boxes drawn on it to the given file path."""
@@ -226,7 +230,9 @@ class Image:
             cv2.rectangle(output_image, (x, y), (x2, y2), color, 2)
         return output_image
 
-    def crop(self, rect):
-        """Crops the image to the given rectangle."""
-        x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+    
+
+    def crop(self, rect: tuple[int, int, int, int]):
+        """Crops the image to the given rectangle tuple (x, y, w, h)."""
+        x, y, w, h = rect
         self._image_data = self._image_data[y:y+h, x:x+w]
