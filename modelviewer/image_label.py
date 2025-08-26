@@ -43,7 +43,7 @@ class ImageLabel(QLabel):
         super().__init__(parent)
         self.app_instance = app_instance
         self.detection_bands = []
-        self.orig_detection_rects = [] # stores the original detection data—a list of QRect and score tuples—in the image's original coordinate system
+        self.orig_detection_rects = [] # stores the original detection data—a list of QRect, score and class_id tuples—in the image's original coordinate system
         self.crop_band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 5))
         self.crop_band.hide()
         self._pixmap = QPixmap()
@@ -86,9 +86,9 @@ class ImageLabel(QLabel):
     def set_detection_boxes(self, detections):
         self._clear_detection_bands()
         # Convert detections to QRects and store them to always have a reference to the original bounding box coordinates
-        self.orig_detection_rects = [(QRect(x, y, w, h), score) for (x, y, w, h), score in detections]
+        self.orig_detection_rects = [(QRect(x, y, w, h), score, class_id) for (x, y, w, h), score, class_id in detections]
 
-        for rect, score in self.orig_detection_rects:
+        for rect, score, class_id in self.orig_detection_rects:
             alpha = int(10 + (score * (255-10))) # Scale score (0.0-1.0) to alpha (10-255)
             alpha_fill = int(score * 20) # Scale score (0.0-1.0) to alpha (0-20)
             band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(0, 255, 0, alpha), fill_color=QColor(0, 255, 0, alpha_fill), score=score)
@@ -192,7 +192,7 @@ class ImageLabel(QLabel):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         # Update the rubber band geometries based on the new size
-        for i, (rect, score) in enumerate(self.orig_detection_rects):
+        for i, (rect, score, class_id) in enumerate(self.orig_detection_rects):
             if i < len(self.detection_bands):
                 widget_rect = self._map_rect_from_image_to_widget(rect)
                 self.detection_bands[i].setGeometry(widget_rect)
