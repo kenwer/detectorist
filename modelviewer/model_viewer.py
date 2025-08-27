@@ -1,5 +1,6 @@
 import os
 import time
+import pillow_heif
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QProgressDialog
 from PySide6.QtGui import QPixmap
@@ -9,9 +10,10 @@ from modelviewer._version import __version__
 from modelviewer.model_viewer_gui import Ui_ModelViewerUI
 
 from .detector import Detector
-from .image import Image
+from .image_object import ImageObject
 from .image_label import ImageLabel
 from .utils import get_model_path
+from . import image_utils
 
 class ModelViewer(QMainWindow):
     SUPPORTED_FORMATS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.heic', '.heif', '.hif', '.arw')
@@ -109,6 +111,9 @@ class ModelViewer(QMainWindow):
         self.last_confidence = None
         self.last_nms = None
         
+        # Ensure opener is registered (otherwise the native code will segfault)
+        pillow_heif.register_heif_opener()
+
         # Set up the UI
         self.ui = Ui_ModelViewerUI()
         self.ui.setupUi(self)
@@ -242,15 +247,15 @@ class ModelViewer(QMainWindow):
 
                 # Add EXIF info to the self.ui.imageExifLabel
                 items = [
-                    ("Camera\t\t", f"{self.ui.imageLabel.image.exif.get('Image Make')} {self.ui.imageLabel.image.exif.get('Image Model')}"),
-                    ("Software\t\t", self.ui.imageLabel.image.exif.get('Image Software')),
-                    ("Lens model\t", self.ui.imageLabel.image.exif.get('EXIF LensModel')),
-                    ("Date\t\t", self.ui.imageLabel.image.exif.get('Image DateTime')),
-                    ("ISO\t\t", self.ui.imageLabel.image.exif.get('EXIF ISOSpeedRatings')),
-                    ("FNumber\t", self.ui.imageLabel.image.exif.get('EXIF FNumber')),
-                    ("Exposure\t", self.ui.imageLabel.image.exif.get('EXIF ExposureTime')),
-                    ("Focal length\t", self.ui.imageLabel.image.exif.get('EXIF FocalLength')),
-                    ("Focal length FF\t", self.ui.imageLabel.image.exif.get('EXIF FocalLengthIn35mmFilm'))
+                    ("Camera\t\t", f"{self.ui.imageLabel.image.exif_wrapper.get('Image Make')} {self.ui.imageLabel.image.exif_wrapper.get('Image Model')}"),
+                    ("Software\t\t", self.ui.imageLabel.image.exif_wrapper.get('Image Software')),
+                    ("Lens model\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF LensModel')),
+                    ("Date\t\t", self.ui.imageLabel.image.exif_wrapper.get('Image DateTime')),
+                    ("ISO\t\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF ISOSpeedRatings')),
+                    ("FNumber\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF FNumber')),
+                    ("Exposure\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF ExposureTime')),
+                    ("Focal length\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF FocalLength')),
+                    ("Focal length FF\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF FocalLengthIn35mmFilm'))
                 ]
                 exif_info = "\n".join(f"{k}: {v}" for k, v in items if v)
                 self.ui.imageExifLabel.setText(exif_info)
@@ -406,25 +411,14 @@ class ModelViewer(QMainWindow):
         if not self.current_image_path or not self.ui.imageLabel.last_crop_rect:
             return
 
-        try:
-            # Create a new Image object to not modify the one in the viewer
-            image_to_crop = Image(self.current_image_path)
-            rect = self.ui.imageLabel.last_crop_rect
-            crop_tuple = (rect.x(), rect.y(), rect.width(), rect.height())
-            image_to_crop.crop(crop_tuple)
+        base_name, ext = os.path.splitext(os.path.basename(self.current_image_path))
+        cropped_dir = os.path.join(self.current_folder_path, "cropped")
+        os.makedirs(cropped_dir, exist_ok=True) # Create the output directory
+        output_path = os.path.join(cropped_dir, f"{base_name}_cropped{ext}")
+        rect = self.ui.imageLabel.last_crop_rect
+        crop_tuple = (rect.x(), rect.y(), rect.width(), rect.height())
+        image_utils.crop_image_file(self.current_image_path, output_path, crop_tuple)
 
-            # Create the output directory
-            cropped_dir = os.path.join(self.current_folder_path, "cropped")
-            os.makedirs(cropped_dir, exist_ok=True)
-
-            # Save the cropped image
-            base_name, ext = os.path.splitext(os.path.basename(self.current_image_path))
-            output_path = os.path.join(cropped_dir, f"{base_name}_cropped{ext}")
-            image_to_crop.save_as(output_path)
-            self.ui.statusBar.showMessage(f"Saved cropped image to {output_path}", 5000)
-
-        except Exception as e:
-            self.ui.statusBar.showMessage(f"Error saving cropped image: {e}", 5000)
 
     def crop_save_all_images(self):
         if not self.current_folder_path:
@@ -458,7 +452,7 @@ class ModelViewer(QMainWindow):
                 image_path = os.path.join(self.current_folder_path, file_name)
                 
                 # Load image
-                image = Image(image_path)
+                image = ImageObject(image_path)
 
                 # Detect
                 confidence = self.ui.confidenceSlider.value() / 100.0
@@ -472,14 +466,17 @@ class ModelViewer(QMainWindow):
                 image_shape = image.image_data.shape
                 crop_tuple = ModelViewer._calculate_crop_rect(results, image_shape, crop_mode, padding_percentage, aspect_ratio)
 
+                # Validate crop rect, if faulty, skip
                 if not crop_tuple or crop_tuple[2] <= 0 or crop_tuple[3] <= 0:
+                    print(f"Skipping {file_name}: invalid crop rectangle, crop_tuple: {crop_tuple}")
                     continue
 
                 # Crop and save
-                image.crop(crop_tuple)
                 base_name, ext = os.path.splitext(file_name)
                 output_path = os.path.join(cropped_dir, f"{base_name}_cropped{ext}")
-                image.save_as(output_path)
+                image_utils.crop_image_file(image_path, output_path, crop_tuple)
+                #image.crop(crop_tuple)
+                #image.save_as(output_path)
 
             progress_dialog.setValue(total_files)
             self.ui.statusBar.showMessage("Finished cropping all images.", 5000)

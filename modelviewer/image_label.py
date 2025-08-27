@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QLabel, QRubberBand, QToolTip
 from PySide6.QtGui import QPixmap, QPainter, QImage, QColor, QBrush, QPen
 from PySide6.QtCore import Qt, QRect, QSize, QPoint, QObject, QEvent
 import numpy as np
-from .image import Image
+from .image_object import ImageObject
 
 
 class CustomRubberBand(QRubberBand):
@@ -113,7 +113,7 @@ class ImageLabel(QLabel):
     def replace_image(self, image_path):
         self.hide_bands()
         try:
-            self.image = Image(image_path)
+            self.image = ImageObject(image_path)
             pixmap = QPixmap(image_path)
             if not pixmap.isNull():
                 self.setPixmap(pixmap)
