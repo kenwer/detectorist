@@ -192,8 +192,23 @@ def crop_heif_image(input_path, output_path, rect, quality=80):
     # Save the new image, preserving original bit depth and chroma plus meta data for orientation
     new_heif_image.save(output_path, format="HEIF", quality=quality, bit_depth=bit_depth, chroma=chroma, nclx_profile=nclx_profile, exif=updated_exif, xmp=xmp)
     #print(f"Cropped image to {w}x{h} at ({x},{y}) and saved to {output_path}")
-    
-def crop_image_file(input_path, output_path: str, rect: tuple[int, int, int, int]):
+
+def crop_PIL_image(input_path, output_path, rect):
+    """
+    Crops an image using PIL and saves the cropped image.
+
+    Args:
+        input_path (str): Path to the input image file.
+        output_path (str): Path to save the cropped image file.
+        rect (tuple): A tuple of (x, y, width, height) for the crop.
+    """
+    pil_image = PILImage.open(input_path)
+    x, y, w, h = rect
+    cropped_image = pil_image.crop((x, y, x + w, y + h))
+    cropped_image.save(output_path)
+
+
+def crop_image_file(input_path: str, output_path: str, rect: tuple[int, int, int, int]):
     file_extension = os.path.splitext(input_path)[1].lower()
     # check if file_extension is empty
     if not file_extension:
@@ -201,11 +216,7 @@ def crop_image_file(input_path, output_path: str, rect: tuple[int, int, int, int
 
     if file_extension in HEIF_EXTENSIONS:
         print(f"Cropping HEIF image file: {input_path}")
-        crop_heif_image(input_path, output_path, rect)  
+        crop_heif_image(input_path, output_path, rect)
     else:
-        # for all other formats, load the image again, crop and save
-        print(f"Cropping image file: {input_path}")
-        from .image_object import ImageObject
-        image = ImageObject(input_path)
-        image.crop(rect)
-        image.save_as(output_path)
+        # for all other (8bit) formats use PIL
+        crop_PIL_image(input_path, output_path, rect)
