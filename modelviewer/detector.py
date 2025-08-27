@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 
-from .image import Image
+from .image_object import ImageObject
 
 
 class Detector:
@@ -30,7 +30,7 @@ class Detector:
         input_shape = self.session.get_inputs()[0].shape
         self.input_height, self.input_width = input_shape[2], input_shape[3]
 
-    def detect(self, image: Image, confidence_threshold: float = 0.5, nms_threshold: float = 0.45) -> list:
+    def detect(self, image: ImageObject, confidence_threshold: float = 0.5, nms_threshold: float = 0.45) -> list:
         """
         Detects objects in an image using the ONNX model.
 

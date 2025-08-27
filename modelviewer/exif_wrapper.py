@@ -8,7 +8,7 @@ import os
 from .structures import CaseInsensitiveDict
 
 
-class Exif:
+class ExifWrapper:
     """
     A class that represents EXIF data of an image.
     """
