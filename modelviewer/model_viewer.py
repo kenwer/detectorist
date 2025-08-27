@@ -213,17 +213,15 @@ class ModelViewer(QMainWindow):
             image_files = sorted([f for f in os.listdir(folder_path)
                            if f.lower().endswith(self.SUPPORTED_FORMATS)])
 
-            if not image_files:
-                self.ui.imageLabel.setText("No supported images found in folder.")
-                return
-
-            self.model.setStringList(image_files)
             if image_files:
+                self.model.setStringList(image_files)
                 # Select the first image in the list view
                 first_index = self.model.index(0)
                 self.ui.imageListView.setCurrentIndex(first_index)
                 self.on_image_selected(first_index)
+                self.ui.actionCropSaveAllImages.setEnabled(True)
             else:
+                self.ui.actionCropSaveAllImages.setEnabled(False)
                 self.ui.imageLabel.setText("No supported images found in folder.")
 
 
@@ -375,7 +373,6 @@ class ModelViewer(QMainWindow):
         if not self.ui.imageLabel.image or not self.ui.imageLabel.orig_detection_rects:
             self.ui.imageLabel.crop_band.hide()
             self.ui.actionCropSaveImage.setEnabled(False)
-            self.ui.actionCropSaveAllImages.setEnabled(False)
             return
 
         # The detections in imageLabel are (QRect, score, class_id)
@@ -390,7 +387,6 @@ class ModelViewer(QMainWindow):
         if not crop_mode:
             self.ui.imageLabel.crop_band.hide()
             self.ui.actionCropSaveImage.setEnabled(False)
-            self.ui.actionCropSaveAllImages.setEnabled(False)
             return
 
         image_shape = self.ui.imageLabel.image.image_data.shape
@@ -399,7 +395,6 @@ class ModelViewer(QMainWindow):
         if not crop_tuple or crop_tuple[2] <= 0 or crop_tuple[3] <= 0:
             self.ui.imageLabel.crop_band.hide()
             self.ui.actionCropSaveImage.setEnabled(False)
-            self.ui.actionCropSaveAllImages.setEnabled(False)
             return
 
         crop_rect = QRect(*crop_tuple)
