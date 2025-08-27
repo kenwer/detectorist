@@ -5,6 +5,7 @@ from PIL import Image as PILImage
 
 from .exif_wrapper import ExifWrapper
 from . import image_utils
+from .image_utils import HEIF_EXTENSIONS
 
 class ImageObject:
     """
@@ -13,6 +14,8 @@ class ImageObject:
     and provides methods for various image utility operations. 
     Think of it as the "Model" in the MVC pattern.
     """
+    SUPPORTED_IMG_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.arw') + HEIF_EXTENSIONS
+
     def __init__(self, image_path: str):
         """
         Initializes the ImageProcessor by loading an image from the given path.

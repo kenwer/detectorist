@@ -9,7 +9,7 @@ import pillow_heif
 pillow_heif.register_heif_opener()
 
 # Files with these extensions will be treated as HEIF files
-heif_extensions = ('.heic', '.heics', '.heif', '.heifs', '.hif')
+HEIF_EXTENSIONS = ('.heic', '.heics', '.heif', '.heifs', '.hif')
 
 def load_arw_image(path: str, output_bps=16) -> np.ndarray:
     """
@@ -199,7 +199,7 @@ def crop_image_file(input_path, output_path: str, rect: tuple[int, int, int, int
     if not file_extension:
         raise ValueError(f"Input file has no extension: {input_path}")
 
-    if file_extension in heif_extensions:
+    if file_extension in HEIF_EXTENSIONS:
         print(f"Cropping HEIF image file: {input_path}")
         crop_heif_image(input_path, output_path, rect)  
     else:

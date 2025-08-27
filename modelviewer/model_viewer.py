@@ -16,7 +16,7 @@ from .utils import get_model_path
 from . import image_utils
 
 class ModelViewer(QMainWindow):
-    SUPPORTED_FORMATS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.heic', '.heif', '.hif', '.arw')
+    
 
     @staticmethod
     def _calculate_crop_rect(detections: list, image_shape: tuple, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> tuple[int, int, int, int] | None:
@@ -210,13 +210,13 @@ class ModelViewer(QMainWindow):
             self.ui.imageLabel.setText("Loading Images...")
             QApplication.processEvents()  # Update the UI to show the message
 
+            # Filter the selected directory for supported files
             image_files = sorted([f for f in os.listdir(folder_path)
-                           if f.lower().endswith(self.SUPPORTED_FORMATS)])
+                           if f.lower().endswith(ImageObject.SUPPORTED_IMG_EXTENSIONS)])
 
             if image_files:
                 self.model.setStringList(image_files)
-                # Select the first image in the list view
-                first_index = self.model.index(0)
+                first_index = self.model.index(0) # Select the first image in the list view
                 self.ui.imageListView.setCurrentIndex(first_index)
                 self.on_image_selected(first_index)
                 self.ui.actionCropSaveAllImages.setEnabled(True)
@@ -285,7 +285,7 @@ class ModelViewer(QMainWindow):
             if os.path.isdir(path):
                 self.open_folder(path)
                 break
-            elif os.path.isfile(path) and path.lower().endswith(self.SUPPORTED_FORMATS):
+            elif os.path.isfile(path) and path.lower().endswith(ImageObject.SUPPORTED_FORMATS):
                 self.open_file(path)
                 break
         event.acceptProposedAction()
@@ -298,7 +298,7 @@ class ModelViewer(QMainWindow):
         self.current_image_path = None
         self.ui.imageLabel.clear()
         image_files = sorted([f for f in os.listdir(folder_path)
-                               if f.lower().endswith(self.SUPPORTED_FORMATS)])
+                               if f.lower().endswith(ImageObject.SUPPORTED_FORMATS)])
         self.model.setStringList(image_files)
         
         # Select the dropped file in the list view
