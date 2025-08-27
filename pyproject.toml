@@ -10,12 +10,12 @@ description = "A user interface to play with AI models that detect fish in image
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "numpy",
     "onnxruntime",
     "opencv-python",
     "pillow-heif",
     "pyside6",
     "rawpy",
+    "numpy",
     "exifread",
 ]
 
