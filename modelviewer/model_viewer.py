@@ -309,15 +309,6 @@ class ModelViewer(QMainWindow):
         except ValueError:
             self.ui.imageLabel.setText(f"Error: {os.path.basename(file_path)} not found in folder.")
 
-    def display_image(self, image_path):
-        self.current_image_path = image_path
-        pixmap = QPixmap(image_path)
-        if not pixmap.isNull():
-            self.ui.imageLabel.setPixmap(pixmap)
-        else:
-            self.ui.imageLabel.setText(f"Cannot load image:\n{os.path.basename(self.current_image_path)}")
-            self.ui.imageLabel.setAlignment(Qt.AlignCenter)
-
     def detect_fish(self):
         if not self.ui.imageLabel.image:
             return

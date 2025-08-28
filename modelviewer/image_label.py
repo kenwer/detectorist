@@ -114,18 +114,32 @@ class ImageLabel(QLabel):
         self.hide_bands()
         try:
             self.image = ImageObject(image_path)
-            pixmap = QPixmap(image_path)
-            if not pixmap.isNull():
-                self.setPixmap(pixmap)
-            else:
-                self.setText(f"Cannot load image:\n{os.path.basename(image_path)}")
-                self.setAlignment(Qt.AlignCenter)
+            pixmap = self._create_qpixmap(self.image)
+            self.setPixmap(pixmap)
             return True
         except Exception as e:
             self.setText(f"Error loading image: {e}")
             print(f"Error loading image: {e}")
             self.image = None
             return False
+
+    def _create_qpixmap(self, image):
+        rgb_image = image.image_data
+        
+        # Convert 16-bit to 8-bit if needed
+        if rgb_image.dtype == np.uint16:
+            rgb_image = (rgb_image / 256).astype(np.uint8)
+        
+        # Ensure correct format
+        if len(rgb_image.shape) != 3 or rgb_image.shape[2] != 3:
+            raise ValueError("Invalid image format: must be (height, width, 3)")
+        
+        height, width, _ = rgb_image.shape
+        # Create QImage from the NumPy array
+        #qimage = QImage(rgb_image.data, width, height, width * 3, QImage.Format_RGB888)
+        qimage = QImage(rgb_image.data, width, height, rgb_image.strides[0], QImage.Format.Format_RGB888)
+        
+        return QPixmap.fromImage(qimage)
 
     def setPixmap(self, pixmap):
         super().setText("")

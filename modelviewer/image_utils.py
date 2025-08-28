@@ -8,8 +8,14 @@ import pillow_heif
 # Ensure the HEIF Pillow plugin is registered
 pillow_heif.register_heif_opener()
 
-# Files with these extensions will be treated as HEIF files
+# Files with these extensions will be treated as HEIF files (using pillow_heif)
 HEIF_EXTENSIONS = ('.heic', '.heics', '.heif', '.heifs', '.hif')
+
+# Files with these extensions will be treated as RAW files (using rawpy)
+RAW_EXTENSIONS = ('.arw', '.nef', '.cwr', 'cr2', 'cr3', 'orf', 'pef' )
+
+# All supported image file extensions
+IMG_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp') + HEIF_EXTENSIONS + RAW_EXTENSIONS
 
 def load_arw_image(path: str, output_bps=16) -> np.ndarray:
     """
@@ -193,6 +199,33 @@ def crop_heif_image(input_path, output_path, rect, quality=80):
     new_heif_image.save(output_path, format="HEIF", quality=quality, bit_depth=bit_depth, chroma=chroma, nclx_profile=nclx_profile, exif=updated_exif, xmp=xmp)
     #print(f"Cropped image to {w}x{h} at ({x},{y}) and saved to {output_path}")
 
+def crop_raw_image(input_path, output_path, rect, output_bps=16):
+    """
+    Crops a RAW image and saves it as a lossless 16 bit PNG or TIFF image. 
+
+    Args:
+        input_path (str): Path to the input RAW file.
+        output_path (str): Path to save the cropped file (file extension will be replaced).
+        rect (tuple): A tuple of (x, y, width, height) for the crop.
+        output_bps (int): 16 or 8 bit output, default is 16.
+    """
+    file_extension = os.path.splitext(output_path)[1]
+    if file_extension.lower() not in ('.png', '.tiff'):
+        raise ValueError(f"Output file extension must be .png or .tiff for saving 16-bit images, but got: {file_extension}")
+
+    np_array = load_arw_image(input_path, output_bps=16)
+
+    # Crop the array using numpy slicing
+    x, y, w, h = rect
+    cropped_np_array = np_array[y:y+h, x:x+w]
+
+    # TODO: load and save the exif data to the cropped image
+    # exif = ExifWrapper(input_path)
+    # exif.data
+
+    # Save the cropped image as a 16-bit PNG or TIFF file
+    save_16bit_image(cropped_np_array, output_path)
+
 def crop_PIL_image(input_path, output_path, rect):
     """
     Crops an image using PIL and saves the cropped image.
@@ -207,7 +240,6 @@ def crop_PIL_image(input_path, output_path, rect):
     cropped_image = pil_image.crop((x, y, x + w, y + h))
     cropped_image.save(output_path)
 
-
 def crop_image_file(input_path: str, output_path: str, rect: tuple[int, int, int, int]):
     file_extension = os.path.splitext(input_path)[1].lower()
     # check if file_extension is empty
@@ -217,6 +249,12 @@ def crop_image_file(input_path: str, output_path: str, rect: tuple[int, int, int
     if file_extension in HEIF_EXTENSIONS:
         print(f"Cropping HEIF image file: {input_path}")
         crop_heif_image(input_path, output_path, rect)
+    elif file_extension in RAW_EXTENSIONS:
+        print(f"Cropping RAW image file: {input_path}")
+        # replace output file extension with .png
+        output_path = os.path.splitext(output_path)[0] + '.png'
+        crop_raw_image(input_path, output_path, rect)
     else:
+        print(f"Cropping image file: {input_path}")
         # for all other (8bit) formats use PIL
         crop_PIL_image(input_path, output_path, rect)
