@@ -2,7 +2,7 @@
 
 A desktop application for viewing images and running local AI to perform object (fish) detection. This niche application is designed for inspecting image datasets and testing model performance with adjustable parameters like confidence and Non-Maximum Suppression (NMS) thresholds. It features support for various image formats, including Sony RAW (.arw) files, and displays selected EXIF information.
 
-![Main application interface](https://github.com/user-attachments/assets/e7dc06b9-5758-4deb-944d-dcda206aad67)
+![Main application interface](https://github.com/user-attachments/assets/407526be-5a97-4f85-b89a-3951cc4435c2)
 
 
 ## Key Features
