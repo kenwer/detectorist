@@ -46,6 +46,14 @@ def load_arw_image(path: str, output_bps=16) -> np.ndarray:
 def convert_16bit_to_8bit(image_16bit: np.ndarray) -> np.ndarray:
     """
     Converts a 16-bit image (uint16) to an 8-bit image (uint8) by scaling.
+
+    Args:
+        image_16bit (np.ndarray): The input 16-bit image data (dtype must be uint16).
+    Returns:
+        np.ndarray: The converted 8-bit image data (dtype is uint8).
+    Raises:
+        ValueError: If the input image is None.
+        TypeError: If the input image is not of dtype uint16.
     """
     if image_16bit is None:
         raise ValueError("Input image data cannot be None.")
@@ -62,6 +70,10 @@ def save_16bit_image(image_16bit: np.ndarray, output_path: str):
     """
     Save a 16-bit image to the specified path (PNG or TIFF).
     The file format is inferred from the output_path extension.
+
+    Args:
+        image_16bit (np.ndarray): The 16-bit image data to save (dtype must be uint16).
+        output_path (str): The path where the image will be saved.
     """
     if image_16bit.dtype != np.uint16:
         raise TypeError(f"Input image must be of dtype uint16, but got {image_16bit.dtype}.")
@@ -94,7 +106,6 @@ def get_exif_orientation(exif):
 
     Args:
         exif (bytes or None): The raw EXIF data from the image.
-
     Returns:
         int: The EXIF orientation value (1-8), or 1 as a default.
     """
@@ -107,7 +118,14 @@ def get_exif_orientation(exif):
     return exif_obj.get(0x0112, 1)
 
 def get_human_readable_exif_orientation(orientation):
-    """Returns a human-readable string for an EXIF orientation value."""
+    """
+    Returns a human-readable string for an EXIF orientation value.
+
+    Args:
+        orientation (int): The EXIF orientation value (1-8).
+    Returns:
+        str: A human-readable description of the orientation.
+    """
     orientation_map = {
         1: "Normal",
         2: "Mirrored horizontal",
@@ -240,11 +258,22 @@ def crop_PIL_image(input_path, output_path, rect):
     cropped_image = pil_image.crop((x, y, x + w, y + h))
     cropped_image.save(output_path)
 
-def crop_image_file(input_path: str, output_path: str, rect: tuple[int, int, int, int]):
+def crop_image_file(input_path: str, output_dir: str, rect: tuple[int, int, int, int]):
+    """
+    Crops an image file and saves it to the specified output directory.
+    The cropped image will retain the original file name, but for RAW files, the extension will be replaced with .png.
+    
+    Args:
+        input_path (str): Path to the input image file.
+        output_dir (str): Directory to save the cropped image file.
+        rect (tuple): A tuple of (x, y, width, height) for the crop.
+    """
     file_extension = os.path.splitext(input_path)[1].lower()
-    # check if file_extension is empty
+    # check if the input_path has a file_extension
     if not file_extension:
         raise ValueError(f"Input file has no extension: {input_path}")
+
+    output_path = os.path.join(output_dir, os.path.basename(input_path))
 
     if file_extension in HEIF_EXTENSIONS:
         print(f"Cropping HEIF image file: {input_path}")

@@ -36,8 +36,9 @@ Download the binary for your operating system from the releases section and star
 *   Use the sliders and spin-boxes on the right to adjust the **Confidence** and **NMS** thresholds. Detections will update automatically.
     * The **Confidence** threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
     * The **NMS** (non-maximum suppression) threshold helps to eliminate redundant and overlapping bounding boxes. The lower the threshold, the more strictly bounding boxes are calculated.
-*   Optionally configure the crop & padding settings
-*   
+*   Optionally configure the crop & padding settings, and start cropping via the menu actions
+    * The cropped images will be placed in a subdirectory of the directory that is currently being viewed.
+    * The name of the output directory encodes the confidence level and the model used (like: `toutput_conf75_fish-detect-2025-08-01`).
 
 ## AI Model
 The current fish detection model has been trained for approximately 130 epochs on around 900 images of fish. It's a start...

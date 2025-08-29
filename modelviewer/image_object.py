@@ -1,5 +1,6 @@
 import os
 import cv2
+import shutil
 import numpy as np
 from PIL import Image as PILImage
 
@@ -118,3 +119,9 @@ class ImageObject:
         """Crops the image to the given rectangle tuple (x, y, w, h)."""
         x, y, w, h = rect
         self._image_data = self._image_data[y:y+h, x:x+w]
+
+    def copy_image_file(self, target_dir_path):
+        """Copies the original image file to the specified output directory preserving its file name."""
+        input_file_name = os.path.basename(self._image_path)
+        output_path = os.path.join(target_dir_path, input_file_name)
+        shutil.copy2(self._image_path, output_path)
