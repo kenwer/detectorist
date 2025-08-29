@@ -98,6 +98,53 @@ On Windows:
     This will create a standalone executable inside a folder in the `dist/windows/` directory.
 
 
+## Changelog
+
+### [0.2.0] - 2025-08-29
+#### Added
+- Cropping feature to save detected objects as separate images.
+- Configurable aspect ratios (3:2, 4:4, 16:9) and padding for cropped images.
+- Confidence scores are now shown as tooltips when hovering over bounding boxes.
+- Object detection information is displayed in the UI.
+- The native file explorer is opened to show the cropped images after the crop action is finished.
+- Simple About dialog added with link to the project page
+
+#### Changed
+- The "Crop" actions have been moved into a dedicated "Tools" menu.
+- Reworked path handling for cropping to be more robust.
+- Refactored `Image` to `ImageObject` and `Exif` to `ExifWrapper` for better code organization.
+- Updated dependencies to their latest versions.
+
+#### Fixed
+- Support for RAW image files has been fixed.
+- Cropping of non-HEIF images is now correctly handled using PIL.
+- The "Crop & Save All" action now works correctly even if the currently displayed image has no detections.
+
+### [0.1.3] - 2025-08-15
+#### Fixed
+- Resolved problem with the Windows build process.
+- Fixed the release packaging.
+
+#### Changed
+- Migrated GitHub Actions to use `astral-sh/setup-uv@v6` and `actions/upload-artifact@v4`.
+
+### [0.1.2] - 2025-08-15
+#### Added
+- Drag & drop support for folders and images.
+- Added a GitHub Actions workflow for automated builds.
+
+### [0.1.1] - 2025-08-12
+#### Added
+- Display selected EXIF data.
+
+### [0.1.0] - 2025-08-01
+#### Added
+- Initial release with MVP functionality.
+- Image browser with navigation
+- Basic object detection using an ONNX model.
+- Support for PNG, JPG, BMP, HEIC/HEIF, and Sony RAW (.ARW) images.
+
+
 ## License
 
 This project is licensed under the Apache License, Version 2.0. See the LICENSE file for the full text.
