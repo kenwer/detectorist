@@ -37,6 +37,7 @@ compile-ui = { shell = "for f in modelviewer/*.ui; do pyside6-uic \"$f\" -o \"${
 run-app = "uv run modelviewer/main.py"
 run = ["compile-ui", "run-app"]
 
+
 build-mac = { shell = """
 python -c 'from modelviewer._version import __version__; print(__version__)' | xargs -I % nuitka \
     --standalone \
@@ -54,6 +55,7 @@ python -c 'from modelviewer._version import __version__; print(__version__)' | x
     --macos-app-name=ModelViewer \
     --macos-app-version=% \
     --macos-signed-app-name=de.ken.ModelViewer \
+    --output-filename=ModelViewer \
     ./modelviewer/main.py
 """ }
 
@@ -150,7 +152,6 @@ subprocess.run(nuitka_cmd, check=True)
 "
 """
 
-
 build-windows = [
     "download-upx",
     "nuitka-windows"
@@ -172,10 +173,8 @@ nuitka
     modelviewer/main.py
 """
 
+
 build = ["build-mac", "build-windows"]
-
-
-
 
 clean = { shell = "rm -rf dist/*" }
 
