@@ -11,14 +11,14 @@ A desktop application for viewing images and running local AI to perform object 
 *   **AI model Inference:** Run object detection using a pre-loaded ONNX model.
 *   **Adjustable Thresholds:** Interactively change confidence and NMS thresholds to see their effect on detections in real-time.
 *   **Multiple Image Formats:** Supports common image formats like PNG, JPG, BMP, and also 10 bit HEIC/HEIF or Sony RAW (.ARW).
-*   **EXIF Data Viewer:** Displays selected EXIF metadata for each image.
+*   **EXIF Data Viewer:** Displays selected EXIF metadata for the current image.
 *   **Drag & Drop:** Easily open folders or images by dragging them into the application window.
+*   Allows to **save cropped copies** that isolates detected objects.
+*   **Configurable aspect ratio for cropping:** with 3:2, 4:4, 16:9, plus support for padding.
 
 ## Roadmap/TODOs
 
-*   **Configurable aspect ratio for cropping:** with 3:2, 4:4, 16:9, plus support for padding
-*   Allow to **save cropped copies** that isolates detected objects
-*   Implement support for **persistent settings**
+*   Implement support for **persistent settings**.
 
 ## Usage
 
@@ -36,6 +36,8 @@ Download the binary for your operating system from the releases section and star
 *   Use the sliders and spin-boxes on the right to adjust the **Confidence** and **NMS** thresholds. Detections will update automatically.
     * The **Confidence** threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
     * The **NMS** (non-maximum suppression) threshold helps to eliminate redundant and overlapping bounding boxes. The lower the threshold, the more strictly bounding boxes are calculated.
+*   Optionally configure the crop & padding settings
+*   
 
 ## AI Model
 The current fish detection model has been trained for approximately 130 epochs on around 900 images of fish. It's a start...
