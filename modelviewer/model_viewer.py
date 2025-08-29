@@ -393,28 +393,39 @@ class ModelViewer(QMainWindow):
         self.ui.actionCropSaveImage.setEnabled(True)
         self.ui.actionCropSaveAllImages.setEnabled(True)
 
+    def _create_crop_dirs(self):
+        """
+        Create the output directory for the images, encoding the date and model name.
+        Returns the paths to the cropped and not-cropped directories.
+        """
+        #timestamp = time.strftime("%Y%m%d")
+        confidence = self.ui.confidenceSlider.value()
+        model_name = os.path.splitext(self.ui.modelSelectComboBox.currentText())[0]
+        output_dir = os.path.join(self.current_folder_path, f"output_conf{confidence}_{model_name}")
+        cropped_dir = os.path.join(output_dir, "cropped")
+        not_cropped_dir = os.path.join(output_dir, "not-cropped")
+        os.makedirs(cropped_dir, exist_ok=True)
+        os.makedirs(not_cropped_dir, exist_ok=True)
+        return cropped_dir, not_cropped_dir
+
     def crop_save_image(self):
+        """Crops and saves the currently displayed image based on the last crop rectangle."""
         if not self.current_image_path or not self.ui.imageLabel.last_crop_rect:
             return
 
-        base_name, ext = os.path.splitext(os.path.basename(self.current_image_path))
-        cropped_dir = os.path.join(self.current_folder_path, "cropped")
-        os.makedirs(cropped_dir, exist_ok=True) # Create the output directory
-        output_path = os.path.join(cropped_dir, f"{base_name}_cropped{ext}")
         rect = self.ui.imageLabel.last_crop_rect
         crop_tuple = (rect.x(), rect.y(), rect.width(), rect.height())
-        image_utils.crop_image_file(self.current_image_path, output_path, crop_tuple)
 
+        cropped_dir, _ = self._create_crop_dirs()
+        image_utils.crop_image_file(self.current_image_path, cropped_dir, crop_tuple)
 
     def crop_save_all_images(self):
+        """Crops and saves all images in the current folder based on detections and crop settings."""
         if not self.current_folder_path:
             return
 
         try:
-            # Create the output directory
-            cropped_dir = os.path.join(self.current_folder_path, "cropped")
-            os.makedirs(cropped_dir, exist_ok=True)
-
+            cropped_dir, not_cropped_dir = self._create_crop_dirs()
             image_files = self.model.stringList()
             total_files = len(image_files)
 
@@ -436,8 +447,6 @@ class ModelViewer(QMainWindow):
                     break
 
                 image_path = os.path.join(self.current_folder_path, file_name)
-                
-                # Load image
                 image = ImageObject(image_path)
 
                 # Detect
@@ -445,22 +454,23 @@ class ModelViewer(QMainWindow):
                 nms = self.ui.nmsSlider.value() / 100.0
                 results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=nms)
 
+                # If no detections, copy the image as-is into the not-cropped sub folder
                 if not results:
+                    image.copy_image_file(not_cropped_dir)
                     continue
 
                 # Get crop rect
                 image_shape = image.image_data.shape
                 crop_tuple = ModelViewer._calculate_crop_rect(results, image_shape, crop_mode, padding_percentage, aspect_ratio)
 
-                # Validate crop rect, if faulty, skip
+                # Validate crop rect, if faulty, skip the crop but copy the image as-is into the not-cropped sub folder
                 if not crop_tuple or crop_tuple[2] <= 0 or crop_tuple[3] <= 0:
-                    print(f"Skipping {file_name}: invalid crop rectangle, crop_tuple: {crop_tuple}")
+                    print(f"Warning {file_name}: invalid crop rectangle, crop_tuple: {crop_tuple}")
+                    image.copy_image_file(not_cropped_dir)
                     continue
 
                 # Crop and save
-                base_name, ext = os.path.splitext(file_name)
-                output_path = os.path.join(cropped_dir, f"{base_name}_cropped{ext}")
-                image_utils.crop_image_file(image_path, output_path, crop_tuple)
+                image_utils.crop_image_file(image_path, cropped_dir, crop_tuple)
                 #image.crop(crop_tuple)
                 #image.save_as(output_path)
 
