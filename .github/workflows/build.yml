@@ -18,12 +18,10 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: '3.13'
 
     - name: Install uv
       uses: astral-sh/setup-uv@v6
-      with:
-        version: "0.8.9"
         
     - name: Install dependencies
       run: |
@@ -34,16 +32,22 @@ jobs:
       run: |
         source .venv/bin/activate
         poe build-mac
-    
+
     - name: Rename macOS app
       run: |
         mv dist/macos/main.app dist/macos/fish-model-viewer.app
+        ls -l dist/macos/fish-model-viewer.app/Contents/MacOS/ModelViewer
+
+    - name: Zip macOS app
+      run: |
+        cd dist/macos
+        zip -r fish-model-viewer.app.zip fish-model-viewer.app
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
       with:
-        name: fish-model-viewer.app
-        path: dist/macos/fish-model-viewer.app
+        name: fish-model-viewer.app.zip
+        path: dist/macos/fish-model-viewer.app.zip
 
   build-windows:
     runs-on: windows-latest
@@ -54,12 +58,10 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: '3.13'
         
     - name: Install uv
       uses: astral-sh/setup-uv@v6
-      with:
-        version: "0.8.9"
 
     - name: Install dependencies
       run: |
@@ -75,11 +77,15 @@ jobs:
       run: |
         mv dist/windows/main.exe dist/windows/fish-model-viewer.exe
 
+    - name: Zip Windows executable
+      run: |
+        Compress-Archive -Path dist/windows/fish-model-viewer.exe -DestinationPath dist/windows/fish-model-viewer.exe.zip
+
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
-        name: fish-model-viewer.exe
-        path: dist/windows/fish-model-viewer.exe
+        name: fish-model-viewer.exe.zip
+        path: dist/windows/fish-model-viewer.exe.zip
 
   create-release:
     needs: [build-macos, build-windows]
@@ -88,14 +94,11 @@ jobs:
     
     steps:
     - uses: actions/download-artifact@v4
+      with:
+        merge-multiple: true # downloaded artifacts directly into the current directory (instead of separate folders)
 
-    - name: list contents
+    - name: List contents
       run: ls -la
-
-    - name: Compress artifacts
-      run: |
-        zip -r fish-model-viewer.app.zip fish-model-viewer.app
-        zip -r fish-model-viewer.exe.zip fish-model-viewer.exe
 
     - name: Upload Release Assets
       uses: softprops/action-gh-release@v2
@@ -105,4 +108,4 @@ jobs:
           fish-model-viewer.app.zip
           fish-model-viewer.exe.zip
       env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
