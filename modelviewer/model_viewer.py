@@ -1,5 +1,8 @@
 import os
+import sys
 import time
+import subprocess
+
 import pillow_heif
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QProgressDialog
@@ -396,7 +399,7 @@ class ModelViewer(QMainWindow):
     def _create_crop_dirs(self):
         """
         Create the output directory for the images, encoding the date and model name.
-        Returns the paths to the cropped and not-cropped directories.
+        Returns the paths to the output, cropped and not-cropped directories.
         """
         #timestamp = time.strftime("%Y%m%d")
         confidence = self.ui.confidenceSlider.value()
@@ -406,7 +409,17 @@ class ModelViewer(QMainWindow):
         not_cropped_dir = os.path.join(output_dir, "not-cropped")
         os.makedirs(cropped_dir, exist_ok=True)
         os.makedirs(not_cropped_dir, exist_ok=True)
-        return cropped_dir, not_cropped_dir
+        return output_dir, cropped_dir, not_cropped_dir
+
+    def _open_native_file_manager(self, path):
+        """Opens a folder in the native (OS specicic) file manager."""
+        path = os.path.normpath(path)
+        if sys.platform == 'win32': # Windows
+            os.startfile(path)
+        elif sys.platform == 'darwin': # macOS
+            subprocess.Popen(['open', path])
+        elif os.name == 'posix': # Linux
+            subprocess.Popen(['xdg-open', path])
 
     def crop_save_image(self):
         """Crops and saves the currently displayed image based on the last crop rectangle."""
@@ -416,8 +429,9 @@ class ModelViewer(QMainWindow):
         rect = self.ui.imageLabel.last_crop_rect
         crop_tuple = (rect.x(), rect.y(), rect.width(), rect.height())
 
-        cropped_dir, _ = self._create_crop_dirs()
+        output_dir, cropped_dir, _ = self._create_crop_dirs()
         image_utils.crop_image_file(self.current_image_path, cropped_dir, crop_tuple)
+        self._open_native_file_manager(output_dir)
 
     def crop_save_all_images(self):
         """Crops and saves all images in the current folder based on detections and crop settings."""
@@ -425,7 +439,7 @@ class ModelViewer(QMainWindow):
             return
 
         try:
-            cropped_dir, not_cropped_dir = self._create_crop_dirs()
+            output_dir, cropped_dir, not_cropped_dir = self._create_crop_dirs()
             image_files = self.model.stringList()
             total_files = len(image_files)
 
@@ -476,6 +490,8 @@ class ModelViewer(QMainWindow):
 
             progress_dialog.setValue(total_files)
             self.ui.statusBar.showMessage("Finished cropping all images.", 5000)
+
+            self._open_native_file_manager(output_dir)
 
         except Exception as e:
             print(f"Error cropping all images: {e}")
