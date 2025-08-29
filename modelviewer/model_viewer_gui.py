@@ -40,6 +40,8 @@ class Ui_ModelViewerUI(object):
         self.actionCropSaveAllImages = QAction(ModelViewerUI)
         self.actionCropSaveAllImages.setObjectName(u"actionCropSaveAllImages")
         self.actionCropSaveAllImages.setEnabled(False)
+        self.actionAbout = QAction(ModelViewerUI)
+        self.actionAbout.setObjectName(u"actionAbout")
         self.centralWidget = QWidget(ModelViewerUI)
         self.centralWidget.setObjectName(u"centralWidget")
         self.mainLayout = QHBoxLayout(self.centralWidget)
@@ -263,6 +265,8 @@ class Ui_ModelViewerUI(object):
         self.menuFile.setObjectName(u"menuFile")
         self.menuTools = QMenu(self.menuBar)
         self.menuTools.setObjectName(u"menuTools")
+        self.menuHelp = QMenu(self.menuBar)
+        self.menuHelp.setObjectName(u"menuHelp")
         ModelViewerUI.setMenuBar(self.menuBar)
         self.statusBar = QStatusBar(ModelViewerUI)
         self.statusBar.setObjectName(u"statusBar")
@@ -270,9 +274,11 @@ class Ui_ModelViewerUI(object):
 
         self.menuBar.addAction(self.menuFile.menuAction())
         self.menuBar.addAction(self.menuTools.menuAction())
+        self.menuBar.addAction(self.menuHelp.menuAction())
         self.menuFile.addAction(self.openFolderAction)
         self.menuTools.addAction(self.actionCropSaveImage)
         self.menuTools.addAction(self.actionCropSaveAllImages)
+        self.menuHelp.addAction(self.actionAbout)
 
         self.retranslateUi(ModelViewerUI)
         self.confidenceSpinBox.valueChanged.connect(self.confidenceSlider.setValue)
@@ -304,6 +310,7 @@ class Ui_ModelViewerUI(object):
 #if QT_CONFIG(shortcut)
         self.actionCropSaveAllImages.setShortcut(QCoreApplication.translate("ModelViewerUI", u"Ctrl+K", None))
 #endif // QT_CONFIG(shortcut)
+        self.actionAbout.setText(QCoreApplication.translate("ModelViewerUI", u"About", None))
         self.imageLabel.setStyleSheet(QCoreApplication.translate("ModelViewerUI", u"background-color: gray;", None))
         self.imageLabel.setText(QCoreApplication.translate("ModelViewerUI", u"Open Folder...", None))
         self.modelGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Model", None))
@@ -344,5 +351,6 @@ class Ui_ModelViewerUI(object):
         self.imageExifGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Exif", None))
         self.menuFile.setTitle(QCoreApplication.translate("ModelViewerUI", u"File", None))
         self.menuTools.setTitle(QCoreApplication.translate("ModelViewerUI", u"Tools", None))
+        self.menuHelp.setTitle(QCoreApplication.translate("ModelViewerUI", u"Help", None))
     # retranslateUi
 

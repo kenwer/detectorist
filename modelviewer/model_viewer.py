@@ -5,12 +5,13 @@ import subprocess
 
 import pillow_heif
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QProgressDialog
+from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QProgressDialog, QDialog
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import QDir, Qt, QStringListModel, QRect, QTimer
 
 from modelviewer._version import __version__
 from modelviewer.model_viewer_gui import Ui_ModelViewerUI
+from modelviewer.about_dialog import Ui_AboutDialog
 
 from .detector import Detector
 from .image_object import ImageObject
@@ -150,6 +151,7 @@ class ModelViewer(QMainWindow):
         self.ui.imageListView.selectionModel().currentChanged.connect(self.on_image_selected)
         self.ui.actionCropSaveImage.triggered.connect(self.crop_save_image)
         self.ui.actionCropSaveAllImages.triggered.connect(self.crop_save_all_images)
+        self.ui.actionAbout.triggered.connect(self.show_about_dialog)
 
         # Delayed Sliders and SpinBoxes (because they are emitted very often)
         self.ui.confidenceSlider.valueChanged.connect(self.request_detection)
@@ -274,6 +276,13 @@ class ModelViewer(QMainWindow):
             print(f"Loaded model: {model_path}")
         except IOError as e:
             self.ui.imageLabel.setText(f"Error loading model: {e}")
+
+    def show_about_dialog(self):
+        about_dialog = QDialog(self)
+        about_ui = Ui_AboutDialog()
+        about_ui.setupUi(about_dialog)
+        about_ui.versionLabel.setText(f"Version {__version__}")
+        about_dialog.exec()
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():

@@ -33,7 +33,7 @@ dev = [
 modelviewer = "modelviewer.main:main"
 
 [tool.poe.tasks]
-compile-ui = "pyside6-uic modelviewer/model_viewer_gui.ui -o modelviewer/model_viewer_gui.py"
+compile-ui = { shell = "for f in modelviewer/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
 run-app = "uv run modelviewer/main.py"
 run = ["compile-ui", "run-app"]
 
@@ -183,6 +183,6 @@ clean = { shell = "rm -rf dist/*" }
 packages = ["modelviewer"]
 
 [tool.vscode.tasks]
-compile-ui = "pyside6-uic modelviewer/model_viewer_gui.ui -o modelviewer/model_viewer_gui.py"
+compile-ui = { shell = "for f in modelviewer/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
 run = "python modelviewer/main.py"
 build-and-run = ["compile-ui", "run"]
