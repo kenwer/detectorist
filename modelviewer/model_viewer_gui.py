@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'model_viewer_gui.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.1
+## Created by: Qt User Interface Compiler version 6.9.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -261,16 +261,18 @@ class Ui_ModelViewerUI(object):
         self.menuBar.setGeometry(QRect(0, 0, 1500, 24))
         self.menuFile = QMenu(self.menuBar)
         self.menuFile.setObjectName(u"menuFile")
+        self.menuTools = QMenu(self.menuBar)
+        self.menuTools.setObjectName(u"menuTools")
         ModelViewerUI.setMenuBar(self.menuBar)
         self.statusBar = QStatusBar(ModelViewerUI)
         self.statusBar.setObjectName(u"statusBar")
         ModelViewerUI.setStatusBar(self.statusBar)
 
         self.menuBar.addAction(self.menuFile.menuAction())
+        self.menuBar.addAction(self.menuTools.menuAction())
         self.menuFile.addAction(self.openFolderAction)
-        self.menuFile.addSeparator()
-        self.menuFile.addAction(self.actionCropSaveImage)
-        self.menuFile.addAction(self.actionCropSaveAllImages)
+        self.menuTools.addAction(self.actionCropSaveImage)
+        self.menuTools.addAction(self.actionCropSaveAllImages)
 
         self.retranslateUi(ModelViewerUI)
         self.confidenceSpinBox.valueChanged.connect(self.confidenceSlider.setValue)
@@ -341,5 +343,6 @@ class Ui_ModelViewerUI(object):
         self.imageInfoLabel.setText(QCoreApplication.translate("ModelViewerUI", u"-", None))
         self.imageExifGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Exif", None))
         self.menuFile.setTitle(QCoreApplication.translate("ModelViewerUI", u"File", None))
+        self.menuTools.setTitle(QCoreApplication.translate("ModelViewerUI", u"Tools", None))
     # retranslateUi
 

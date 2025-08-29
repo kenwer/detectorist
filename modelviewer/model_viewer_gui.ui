@@ -182,7 +182,9 @@
            <item>
             <widget class="QLabel" name="detectionInfoLabel">
              <property name="text">
-<string>Objects&#x9;&#x9;&#x9;: -&#xA;Detection time&#x9;&#x9;: -&#xA;Highest confidence&#x9;: -</string>
+              <string>Objects			: -
+Detection time		: -
+Highest confidence	: -</string>
              </property>
             </widget>
            </item>
@@ -374,11 +376,16 @@
      <string>File</string>
     </property>
     <addaction name="openFolderAction"/>
-    <addaction name="separator"/>
+   </widget>
+   <widget class="QMenu" name="menuTools">
+    <property name="title">
+     <string>Tools</string>
+    </property>
     <addaction name="actionCropSaveImage"/>
     <addaction name="actionCropSaveAllImages"/>
    </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuTools"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <action name="openFolderAction">
