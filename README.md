@@ -19,12 +19,17 @@ A desktop application for viewing images and running local AI to perform object 
 ## Roadmap/TODOs
 
 *   Implement support for **persistent settings**.
+*   Train and include better models.
 
 ## Usage
 
 ### Download
 
-Download the binary for your operating system from the releases section and start the application.
+Download the binary for your operating system from the [release page](https://github.com/kenwer/fish-model-viewer/releases) and start the application.
+* macOS: [fish-model-viewer.app.zip](https://github.com/kenwer/fish-model-viewer/releases/latest/download/fish-model-viewer.app.zip) 
+  * Note: The macOS app is not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
+* Windows: [fish-model-viewer.exe.zip](https://github.com/kenwer/fish-model-viewer/releases/latest/download/fish-model-viewer.exe.zip)
+  * Note: The compiled Windows executable is not signed and since it extract additional contents to load it afterwards it's common that Anti Virus/Malware tools like Defender detects the application as malicious.
 
 ### Using Fish Model Viewer
 
@@ -38,7 +43,11 @@ Download the binary for your operating system from the releases section and star
     * The **NMS** (non-maximum suppression) threshold helps to eliminate redundant and overlapping bounding boxes. The lower the threshold, the more strictly bounding boxes are calculated.
 *   Optionally configure the crop & padding settings, and start cropping via the menu actions
     * The cropped images will be placed in a subdirectory of the directory that is currently being viewed.
-    * The name of the output directory encodes the confidence level and the model used (like: `toutput_conf75_fish-detect-2025-08-01`).
+    * The name of the output directory encodes the confidence level and the model used (like: `output_conf75_fish-detect-2025-08-01`).
+
+## FAQ
+
+Frequently asked questions can be found at the [FAQ page](FAQ.md).
 
 ## AI Model
 The current fish detection model has been trained for approximately 130 epochs on around 900 images of fish. It's a start...
@@ -99,6 +108,16 @@ On Windows:
 
 
 ## Changelog
+
+### [0.2.1] - 2025-08-30
+#### Added
+- Initial [FAQ](FAQ.md)
+
+#### Changed
+- Improved the GitHub actions build & release workflow
+
+#### Fixed
+- Fixed the macOS app bundle build and binary release
 
 ### [0.2.0] - 2025-08-29
 #### Added
