@@ -63,7 +63,7 @@ wheels = [
 ]
 
 [[package]]
-name = "modelviewer"
+name = "detectorist"
 source = { editable = "." }
 dependencies = [
     { name = "exifread" },

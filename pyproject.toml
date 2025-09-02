@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "modelviewer"
+name = "detectorist"
 dynamic = ["version"]
 
-description = "A user interface to play with AI models that detect fish in images."
+description = "A desktop application for sorting and cropping photos using a machine learning for object detection."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "modelviewer._version.__version__"}
+version = {attr = "detectorist._version.__version__"}
 
 [project.optional-dependencies]
 dev = [
@@ -30,16 +30,16 @@ dev = [
 ]
 
 [project.scripts]
-modelviewer = "modelviewer.main:main"
+detectorist = "detectorist.main:main"
 
 [tool.poe.tasks]
-compile-ui = { shell = "for f in modelviewer/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
-run-app = "uv run modelviewer/main.py"
+compile-ui = { shell = "for f in detectorist/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
+run-app = "uv run detectorist/main.py"
 run = ["compile-ui", "run-app"]
 
 
 build-mac = { shell = """
-python -c 'from modelviewer._version import __version__; print(__version__)' | xargs -I % nuitka \
+python -c 'from detectorist._version import __version__; print(__version__)' | xargs -I % nuitka \
     --standalone \
     --macos-create-app-bundle \
     --macos-app-icon=assets/icon.png \
@@ -52,11 +52,11 @@ python -c 'from modelviewer._version import __version__; print(__version__)' | x
     --disable-ccache \
     --output-dir=dist/macos \
     --remove-output \
-    --macos-app-name=ModelViewer \
+    --macos-app-name=Detectorist \
     --macos-app-version=% \
-    --macos-signed-app-name=de.ken.ModelViewer \
-    --output-filename=ModelViewer \
-    ./modelviewer/main.py
+    --macos-signed-app-name=de.ken.detectorist \
+    --output-filename=Detectorist \
+    ./detectorist/main.py
 """ }
 
 download-upx = """
@@ -144,7 +144,7 @@ nuitka_cmd = [
     '--force-stderr-spec={PROGRAM_BASE}.err.txt',
     '--plugin-enable=upx',
     '--assume-yes-for-downloads',
-    'modelviewer/main.py'
+    'detectorist/main.py'
 ]
 
 print(f'Using Nuitka executable: {nuitka_exe}')
@@ -170,7 +170,7 @@ nuitka
     --disable-ccache
     --output-dir=dist
     --remove-output
-    modelviewer/main.py
+    detectorist/main.py
 """
 
 
@@ -179,9 +179,9 @@ build = ["build-mac", "build-windows"]
 clean = { shell = "rm -rf dist/*" }
 
 [tool.setuptools]
-packages = ["modelviewer"]
+packages = ["detectorist"]
 
 [tool.vscode.tasks]
-compile-ui = { shell = "for f in modelviewer/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
-run = "python modelviewer/main.py"
+compile-ui = { shell = "for f in detectorist/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
+run = "python detectorist/main.py"
 build-and-run = ["compile-ui", "run"]

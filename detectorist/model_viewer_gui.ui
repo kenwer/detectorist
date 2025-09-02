@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Fish Model Viewer</string>
+   <string>oCrop</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QHBoxLayout" name="mainLayout" stretch="0">
@@ -411,9 +411,9 @@ Highest confidence	: -</string>
     <string>Ctrl+S</string>
    </property>
   </action>
-  <action name="detectFishAction">
+  <action name="detectObjectAction">
    <property name="text">
-    <string>Detect Fish (AI)</string>
+    <string>Detect Object (AI)</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+D</string>

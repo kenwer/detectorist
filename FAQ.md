@@ -2,7 +2,7 @@
 
 ### Troubleshooting
 
-#### Q1: When starting teh app on macOS, how do I get past the  *fish-model-viewer.app Not Opened* message?
+#### Q1: When starting teh app on macOS, how do I get past the  *Detectorist.app Not Opened* message?
 **A:** macOS prevents unsigned apps, but you still can [open a apps from an unknown developers](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac). Here's how:
 
 1. When you attempt to open the app, a warning like this appears where you have no option to open it anyways, so just select _Done_: 
@@ -14,7 +14,7 @@
     ![Image](https://github.com/user-attachments/assets/620ba84f-0f4f-494c-b141-9a960df521f0)
 
 
-3. From the Finder open the fish-model-viewer.app again, and you'll now see the option to open the application. Select _Open Anyway_:
+3. From the Finder open the Detectorist.app again, and you'll now see the option to open the application. Select _Open Anyway_:
 
     <img src="https://github.com/user-attachments/assets/5acf81b7-1f5c-4ab0-9d37-f68f85ee96b1" width="40%" alt="Image">
 

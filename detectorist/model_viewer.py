@@ -9,9 +9,9 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QProgressD
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import QDir, Qt, QStringListModel, QRect, QTimer
 
-from modelviewer._version import __version__
-from modelviewer.model_viewer_gui import Ui_ModelViewerUI
-from modelviewer.about_dialog import Ui_AboutDialog
+from detectorist._version import __version__
+from detectorist.model_viewer_gui import Ui_ModelViewerUI
+from detectorist.about_dialog import Ui_AboutDialog
 
 from .detector import Detector
 from .image_object import ImageObject
@@ -121,13 +121,13 @@ class ModelViewer(QMainWindow):
         # Set up the UI
         self.ui = Ui_ModelViewerUI()
         self.ui.setupUi(self)
-        self.setWindowTitle(f"Fish Model Viewer {__version__}")
+        self.setWindowTitle(f"Detectorist {__version__}")
 
         # Debounce timer for detection
         self.detection_timer = QTimer(self)
         self.detection_timer.setSingleShot(True)
         self.detection_timer.setInterval(500)  # 500ms delay
-        self.detection_timer.timeout.connect(self.detect_fish)
+        self.detection_timer.timeout.connect(self.detect_objects)
 
         # Replace the imageLabel from the ui file with our custom ImageLabel
         # but keep/re-use the sizePolicy and alignment from the .ui file
@@ -147,7 +147,7 @@ class ModelViewer(QMainWindow):
 
         # Connect signals
         self.ui.openFolderAction.triggered.connect(self.open_folder)
-        self.ui.detectFishAction.triggered.connect(self.detect_fish)
+        self.ui.detectObjectAction.triggered.connect(self.detect_objects)
         self.ui.imageListView.selectionModel().currentChanged.connect(self.on_image_selected)
         self.ui.actionCropSaveImage.triggered.connect(self.crop_save_image)
         self.ui.actionCropSaveAllImages.triggered.connect(self.crop_save_all_images)
@@ -160,10 +160,10 @@ class ModelViewer(QMainWindow):
         self.ui.nmsSpinBox.valueChanged.connect(self.request_detection)
 
         # Immediate trigger 
-        self.ui.confidenceSlider.sliderReleased.connect(self.detect_fish)
-        self.ui.nmsSlider.sliderReleased.connect(self.detect_fish)
-        self.ui.confidenceSpinBox.editingFinished.connect(self.detect_fish)
-        self.ui.nmsSpinBox.editingFinished.connect(self.detect_fish)
+        self.ui.confidenceSlider.sliderReleased.connect(self.detect_objects)
+        self.ui.nmsSlider.sliderReleased.connect(self.detect_objects)
+        self.ui.confidenceSpinBox.editingFinished.connect(self.detect_objects)
+        self.ui.nmsSpinBox.editingFinished.connect(self.detect_objects)
 
 
         # Connect crop controls
@@ -266,7 +266,7 @@ class ModelViewer(QMainWindow):
                 QApplication.processEvents()  # Force UI update to allow the image being shown while the detection is running
                 # A zero-delay timer to schedule a task to run as soon as the main thread is free.
                 # This will ensure the image appears, and then the detection kicks off right away
-                QTimer.singleShot(0, self.detect_fish)
+                QTimer.singleShot(0, self.detect_objects)
 
     def on_model_selected(self, index):
         model_name = self.ui.modelSelectComboBox.itemText(index)
@@ -321,7 +321,7 @@ class ModelViewer(QMainWindow):
         except ValueError:
             self.ui.imageLabel.setText(f"Error: {os.path.basename(file_path)} not found in folder.")
 
-    def detect_fish(self):
+    def detect_objects(self):
         if not self.ui.imageLabel.image:
             return
 
@@ -354,7 +354,7 @@ class ModelViewer(QMainWindow):
             self.last_nms = nms
 
         except Exception as e:
-            self.ui.imageLabel.setText(f"Error detecting fish: {e}")
+            self.ui.imageLabel.setText(f"Error detecting objects: {e}")
 
     def _get_current_crop_settings(self):
         """Gets crop settings from the UI."""

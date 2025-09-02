@@ -32,8 +32,8 @@ class Ui_ModelViewerUI(object):
         self.openFolderAction.setObjectName(u"openFolderAction")
         self.cropAction = QAction(ModelViewerUI)
         self.cropAction.setObjectName(u"cropAction")
-        self.detectFishAction = QAction(ModelViewerUI)
-        self.detectFishAction.setObjectName(u"detectFishAction")
+        self.detectObjectAction = QAction(ModelViewerUI)
+        self.detectObjectAction.setObjectName(u"detectObjectAction")
         self.actionCropSaveImage = QAction(ModelViewerUI)
         self.actionCropSaveImage.setObjectName(u"actionCropSaveImage")
         self.actionCropSaveImage.setEnabled(False)
@@ -292,7 +292,7 @@ class Ui_ModelViewerUI(object):
     # setupUi
 
     def retranslateUi(self, ModelViewerUI):
-        ModelViewerUI.setWindowTitle(QCoreApplication.translate("ModelViewerUI", u"Fish Model Viewer", None))
+        ModelViewerUI.setWindowTitle(QCoreApplication.translate("ModelViewerUI", u"oCrop", None))
         self.openFolderAction.setText(QCoreApplication.translate("ModelViewerUI", u"Open Folder...", None))
 #if QT_CONFIG(shortcut)
         self.openFolderAction.setShortcut(QCoreApplication.translate("ModelViewerUI", u"Ctrl+O", None))
@@ -301,9 +301,9 @@ class Ui_ModelViewerUI(object):
 #if QT_CONFIG(shortcut)
         self.cropAction.setShortcut(QCoreApplication.translate("ModelViewerUI", u"Ctrl+S", None))
 #endif // QT_CONFIG(shortcut)
-        self.detectFishAction.setText(QCoreApplication.translate("ModelViewerUI", u"Detect Fish (AI)", None))
+        self.detectObjectAction.setText(QCoreApplication.translate("ModelViewerUI", u"Detect Object (AI)", None))
 #if QT_CONFIG(shortcut)
-        self.detectFishAction.setShortcut(QCoreApplication.translate("ModelViewerUI", u"Ctrl+D", None))
+        self.detectObjectAction.setShortcut(QCoreApplication.translate("ModelViewerUI", u"Ctrl+D", None))
 #endif // QT_CONFIG(shortcut)
         self.actionCropSaveImage.setText(QCoreApplication.translate("ModelViewerUI", u"Crop && copy image", None))
         self.actionCropSaveAllImages.setText(QCoreApplication.translate("ModelViewerUI", u"Crop && copy all images", None))

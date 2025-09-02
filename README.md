@@ -1,14 +1,14 @@
-# Fish Model Viewer
+# Detectorist
 
-A desktop application for viewing images and running local AI to perform object (fish) detection. This niche application is designed for inspecting image datasets and testing model performance with adjustable parameters like confidence and Non-Maximum Suppression (NMS) thresholds. It features support for various image formats, including Sony RAW (.arw) files, and displays selected EXIF information.
+A desktop application for sorting and cropping photos using machine learning for object detection. The main use case is to save time when cropping similar objects in large number of images. Imagine you're coming back from a diving session with hundreds or thousands of images of fish, and now you want to crop these to better view the fish. Or you want to discard any images that don't contain fish. This niche application allows you to do that with adjustable parameters like confidence, aspect ratio, and padding. Detectorist features support for various image formats, including 10 bit HEIF, and Sony RAW (.arw) files.
 
 ![Main application interface](https://github.com/user-attachments/assets/407526be-5a97-4f85-b89a-3951cc4435c2)
 
 
 ## Key Features
 
-*   **Image Browser:** Load and browse images (ideally showing fish) from a local folder with drag & drop support.
-*   **AI model Inference:** Run object detection using a pre-loaded ONNX model.
+*   **Image Browser:** Load and browse images from a local folder with drag & drop support.
+*   **AI model Inference:** Run object detection using the included ONNX model.
 *   **Adjustable Thresholds:** Interactively change confidence and NMS thresholds to see their effect on detections in real-time.
 *   **Multiple Image Formats:** Supports common image formats like PNG, JPG, BMP, and also 10 bit HEIC/HEIF or Sony RAW (.ARW).
 *   **EXIF Data Viewer:** Displays selected EXIF metadata for the current image.
@@ -16,41 +16,35 @@ A desktop application for viewing images and running local AI to perform object 
 *   Allows to **save cropped copies** that isolates detected objects.
 *   **Configurable aspect ratio for cropping:** with 3:2, 4:4, 16:9, plus support for padding.
 
-## Roadmap/TODOs
-
-*   Implement support for **persistent settings**.
-*   Train and include better models.
-
 ## Usage
 
 ### Download
 
-Download the binary for your operating system from the [release page](https://github.com/kenwer/fish-model-viewer/releases) and start the application.
-* macOS: [fish-model-viewer.app.zip](https://github.com/kenwer/fish-model-viewer/releases/latest/download/fish-model-viewer.app.zip) 
+Download the binary for your operating system from the [release page](https://github.com/kenwer/detectorist/releases) and start the application.
+* macOS: [Detectorist.app.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.app.zip) 
   * Note: The macOS app is not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
-* Windows: [fish-model-viewer.exe.zip](https://github.com/kenwer/fish-model-viewer/releases/latest/download/fish-model-viewer.exe.zip)
+* Windows: [Detectorist.exe.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.exe.zip)
   * Note: The compiled Windows executable is not signed and since it extract additional contents to load it afterwards it's common that Anti Virus/Malware tools like Defender detects the application as malicious.
 
-### Using Fish Model Viewer
+### Using Detectorist
 
 *   Go to `File > Open Folder...` or simply drag a folder containing images onto the application window.
 *   The folder will be scanned for supported images and the first image will load automatically.
 *   The AI model will automatically run, and detection boxes will be drawn on the image.
 *   Click on an item in the list on the left to navigate through the image set.
-*   View image and EXIF information in the panels on the right.
 *   Use the sliders and spin-boxes on the right to adjust the **Confidence** and **NMS** thresholds. Detections will update automatically.
     * The **Confidence** threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
     * The **NMS** (non-maximum suppression) threshold helps to eliminate redundant and overlapping bounding boxes. The lower the threshold, the more strictly bounding boxes are calculated.
 *   Optionally configure the crop & padding settings, and start cropping via the menu actions
     * The cropped images will be placed in a subdirectory of the directory that is currently being viewed.
-    * The name of the output directory encodes the confidence level and the model used (like: `output_conf75_fish-detect-2025-08-01`).
+    * The name of the output directory encodes the confidence level and the model used (like: `detectorist_conf75_fish-detect-2025-08-01`).
 
 ## FAQ
 
 Frequently asked questions can be found at the [FAQ page](FAQ.md).
 
 ## AI Model
-The current fish detection model has been trained for approximately 130 epochs on around 900 images of fish. It's a start...
+The current object detection model has been trained on for approximately 130 epochs on around 900 images of fish. It's a start...
 
 ## Development
 
@@ -58,8 +52,8 @@ To run the application from source code, I recommend to use `Python 3.12+` and `
 
 1.  **Clone the repository:**
     ```shell
-    git clone https://github.com/kenwer/fish_model_viewer.git
-    cd fish_model_viewer
+    git clone https://github.com/kenwer/detectorist.git
+    cd detectorist
     ```
 
 2.  **Create a virtual environment and install dependencies:**
@@ -72,7 +66,7 @@ To run the application from source code, I recommend to use `Python 3.12+` and `
 
 3. **Run from source:**
     ```shell
-    uv run modelviewer
+    uv run detectorist
     ```
 
 
@@ -105,6 +99,15 @@ On Windows:
     poe build-windows
     ```
     This will create a standalone executable inside a folder in the `dist/windows/` directory.
+
+
+## Roadmap/TODOs
+
+*   Implement support for **persistent settings**.
+*   Model support
+    *   Train and include more models
+    *   Add model for detecting bees
+    *   Allow users to bring their own models
 
 
 ## Changelog

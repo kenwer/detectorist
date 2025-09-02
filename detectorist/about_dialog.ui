@@ -11,13 +11,13 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>About Fish Model Viewer</string>
+   <string>About oCrop</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QLabel" name="appNameLabel">
      <property name="text">
-      <string>Fish Model Viewer</string>
+      <string>oCrop</string>
      </property>
      <property name="font">
       <font>
@@ -54,7 +54,7 @@
    <item>
     <widget class="QLabel" name="linkLabel">
      <property name="text">
-      <string>&lt;a href="https://github.com/kenwer/fish-model-viewer"&gt;https://github.com/kenwer/fish-model-viewer&lt;/a&gt;</string>
+      <string>&lt;a href="https://github.com/kenwer/ocrop"&gt;https://github.com/kenwer/ocrop&lt;/a&gt;</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
