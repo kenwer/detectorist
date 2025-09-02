@@ -7,7 +7,7 @@ from .image_object import ImageObject
 
 class Detector:
     """
-    Class to detect fish in an image using a YOLO ONNX model.
+    Class to detect objects in an image using machine learning.
     """
 
     def __init__(self, model_path: str):

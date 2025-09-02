@@ -2,7 +2,7 @@ import sys
 import os
 
 from PySide6.QtWidgets import QApplication
-from modelviewer.model_viewer import ModelViewer
+from detectorist.model_viewer import ModelViewer
 
 def main():
     app = QApplication(sys.argv)

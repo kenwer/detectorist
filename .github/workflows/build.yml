@@ -35,19 +35,19 @@ jobs:
 
     - name: Rename macOS app
       run: |
-        mv dist/macos/main.app dist/macos/fish-model-viewer.app
-        ls -l dist/macos/fish-model-viewer.app/Contents/MacOS/ModelViewer
+        mv dist/macos/main.app dist/macos/detectorist.app
+        ls -l dist/macos/detectorist.app/Contents/MacOS/detectorist
 
     - name: Zip macOS app
       run: |
         cd dist/macos
-        zip -r fish-model-viewer.app.zip fish-model-viewer.app
+        zip -r detectorist.app.zip detectorist.app
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
       with:
-        name: fish-model-viewer.app.zip
-        path: dist/macos/fish-model-viewer.app.zip
+        name: detectorist.app.zip
+        path: dist/macos/detectorist.app.zip
 
   build-windows:
     runs-on: windows-latest
@@ -75,17 +75,17 @@ jobs:
 
     - name: Rename Windows executable
       run: |
-        mv dist/windows/main.exe dist/windows/fish-model-viewer.exe
+        mv dist/windows/main.exe dist/windows/detectorist.exe
 
     - name: Zip Windows executable
       run: |
-        Compress-Archive -Path dist/windows/fish-model-viewer.exe -DestinationPath dist/windows/fish-model-viewer.exe.zip
+        Compress-Archive -Path dist/windows/detectorist.exe -DestinationPath dist/windows/detectorist.exe.zip
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
-        name: fish-model-viewer.exe.zip
-        path: dist/windows/fish-model-viewer.exe.zip
+        name: detectorist.exe.zip
+        path: dist/windows/detectorist.exe.zip
 
   create-release:
     needs: [build-macos, build-windows]
@@ -105,7 +105,7 @@ jobs:
       if: github.ref_type == 'tag'
       with:
         files: |
-          fish-model-viewer.app.zip
-          fish-model-viewer.exe.zip
+          detectorist.app.zip
+          detectorist.exe.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
