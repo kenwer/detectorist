@@ -112,6 +112,11 @@ On Windows:
 
 ## Changelog
 
+### [0.3.0] - 2025-09-02
+
+#### Changed
+- Renamed the project to Detectorist
+
 ### [0.2.1] - 2025-08-30
 #### Added
 - Initial [FAQ](FAQ.md)
