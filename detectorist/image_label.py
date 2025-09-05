@@ -85,8 +85,24 @@ class ImageLabel(QLabel):
 
     def set_detection_boxes(self, detections):
         self._clear_detection_bands()
+
+        if self.image is None or self.image.image_data is None:
+            return
+
+        image_height, image_width, _ = self.image.image_data.shape
+
+        clamped_detections = []
+        for (x, y, w, h), score, class_id in detections:
+            x1, y1 = max(0, x), max(0, y)
+            x2, y2 = min(x + w, image_width), min(y + h, image_height)
+            
+            # Ensure the box has a non-zero area
+            if x2 > x1 and y2 > y1:
+                clamped_w, clamped_h = x2 - x1, y2 - y1
+                clamped_detections.append(((x1, y1, clamped_w, clamped_h), score, class_id))
+
         # Convert detections to QRects and store them to always have a reference to the original bounding box coordinates
-        self.orig_detection_rects = [(QRect(x, y, w, h), score, class_id) for (x, y, w, h), score, class_id in detections]
+        self.orig_detection_rects = [(QRect(x, y, w, h), score, class_id) for (x, y, w, h), score, class_id in clamped_detections]
 
         for rect, score, class_id in self.orig_detection_rects:
             alpha = int(10 + (score * (255-10))) # Scale score (0.0-1.0) to alpha (10-255)
