@@ -112,6 +112,8 @@ On Windows:
 
 ## Changelog
 
+### [0.3.1] - 2025-09-05
+
 #### Fixed
 - Ensure the cropping rectangle always fits the image and maintains aspect ratio.
 - Ensure the object bounding box always stays within the image boundaries.
