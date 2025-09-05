@@ -112,6 +112,9 @@ On Windows:
 
 ## Changelog
 
+#### Fixed
+- Ensure the cropping rectangle always fits the image and maintains aspect ratio.
+
 ### [0.3.0] - 2025-09-02
 
 #### Changed

@@ -87,25 +87,29 @@ class ModelViewer(QMainWindow):
 
         # Ensure the crop rectangle is within the image boundaries
         image_height, image_width, _ = image_shape
-        
-        # Intersection logic
-        img_x, img_y = 0, 0
-        
-        final_x = max(x, img_x)
-        final_y = max(y, img_y)
-        
-        end_x = min(x + w, img_x + image_width)
-        end_y = min(y + h, img_y + image_height)
 
-        final_w = end_x - final_x
-        final_h = end_y - final_y
+        # If the crop rectangle is larger than the image, scale it down
+        scale = 1.0
+        if w > image_width:
+            scale = image_width / w
+        if h > image_height:
+            scale = min(scale, image_height / h)
 
-        if final_w < 0:
-            final_w = 0
-        if final_h < 0:
-            final_h = 0
+        if scale < 1.0:
+            w = int(w * scale)
+            h = int(h * scale)
 
-        return (final_x, final_y, final_w, final_h)
+        # If the crop rectangle is outside the image, move it
+        if x < 0:
+            x = 0
+        if y < 0:
+            y = 0
+        if x + w > image_width:
+            x = image_width - w
+        if y + h > image_height:
+            y = image_height - h
+
+        return (x, y, w, h)
 
     def __init__(self):
         super().__init__()
