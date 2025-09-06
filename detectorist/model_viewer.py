@@ -156,6 +156,7 @@ class ModelViewer(QMainWindow):
         self.ui.actionCropSaveImage.triggered.connect(self.crop_save_image)
         self.ui.actionCropSaveAllImages.triggered.connect(self.crop_save_all_images)
         self.ui.actionAbout.triggered.connect(self.show_about_dialog)
+        self.ui.actionSort_images_by_object_class.triggered.connect(self.sort_images_by_class_into_folders)
 
         # Delayed Sliders and SpinBoxes (because they are emitted very often)
         self.ui.confidenceSlider.valueChanged.connect(self.request_detection)
@@ -229,6 +230,7 @@ class ModelViewer(QMainWindow):
                 self.ui.imageListView.setCurrentIndex(first_index)
                 self.on_image_selected(first_index)
                 self.ui.actionCropSaveAllImages.setEnabled(True)
+                self.ui.actionSort_images_by_object_class.setEnabled(True)
             else:
                 self.ui.actionCropSaveAllImages.setEnabled(False)
                 self.ui.imageLabel.setText("No supported images found in folder.")
@@ -409,20 +411,29 @@ class ModelViewer(QMainWindow):
         self.ui.actionCropSaveImage.setEnabled(True)
         self.ui.actionCropSaveAllImages.setEnabled(True)
 
-    def _create_crop_dirs(self):
+    def _create_output_dir(self):
         """
         Create the output directory for the images, encoding the date and model name.
-        Returns the paths to the output, cropped and not-cropped directories.
+        Returns the paths to the output directory.
         """
+
         #timestamp = time.strftime("%Y%m%d")
         confidence = self.ui.confidenceSlider.value()
         model_name = os.path.splitext(self.ui.modelSelectComboBox.currentText())[0]
         output_dir = os.path.join(self.current_folder_path, f"output_conf{confidence}_{model_name}")
+        os.makedirs(output_dir, exist_ok=True)
+        return output_dir
+
+    def _create_crop_dirs(self, output_dir):
+        """
+        Creates the output directories for the cropped and non-cropped images inside the given directory
+        Returns the paths to the cropped and not-cropped directories.
+        """
         cropped_dir = os.path.join(output_dir, "cropped")
         not_cropped_dir = os.path.join(output_dir, "not-cropped")
         os.makedirs(cropped_dir, exist_ok=True)
         os.makedirs(not_cropped_dir, exist_ok=True)
-        return output_dir, cropped_dir, not_cropped_dir
+        return cropped_dir, not_cropped_dir
 
     def _open_native_file_manager(self, path):
         """Opens a folder in the native (OS specicic) file manager."""
@@ -442,74 +453,120 @@ class ModelViewer(QMainWindow):
         rect = self.ui.imageLabel.last_crop_rect
         crop_tuple = (rect.x(), rect.y(), rect.width(), rect.height())
 
-        output_dir, cropped_dir, _ = self._create_crop_dirs()
+        output_dir = self._create_output_dir()
+        cropped_dir, _ = self._create_crop_dirs(output_dir)
         image_utils.crop_image_file(self.current_image_path, cropped_dir, crop_tuple)
         self._open_native_file_manager(output_dir)
 
-    def crop_save_all_images(self):
-        """Crops and saves all images in the current folder based on detections and crop settings."""
+    def _process_all_images(self, process_name: str, setup_callback: callable, process_callback: callable):
+        """
+        Helper method that encapsulates the loop that goes through all the images.
+        It covers the progress dialog, image loading, and object detection.
+        This helper accepts a setup_callback for any pre-processing steps (like preparing directories) 
+        and a process_callback to execute the specific action (cropping or sorting) for each image.
+        """
         if not self.current_folder_path:
             return
 
-        try:
-            output_dir, cropped_dir, not_cropped_dir = self._create_crop_dirs()
-            image_files = self.model.stringList()
-            total_files = len(image_files)
+        image_files = self.model.stringList()
+        if not image_files:
+            return
 
-            progress_dialog = QProgressDialog("Cropping images...", "Cancel", 0, total_files, self)
+        try:
+            output_dir = self._create_output_dir()
+
+            state = setup_callback(output_dir)
+            if state is None:
+                return
+
+            total_files = len(image_files)
+            progress_dialog = QProgressDialog(f"{process_name}...", "Cancel", 0, total_files, self)
             progress_dialog.setWindowModality(Qt.WindowModal)
             progress_dialog.setAutoClose(True)
 
-            crop_mode, padding_percentage, aspect_ratio = self._get_current_crop_settings()
-            if not crop_mode:
-                self.ui.statusBar.showMessage("No crop mode selected.", 5000)
-                return
-
+            confidence = self.ui.confidenceSlider.value() / 100.0
+            nms = self.ui.nmsSlider.value() / 100.0
+            
+            cancelled = False
             for i, file_name in enumerate(image_files):
                 progress_dialog.setValue(i)
                 progress_dialog.setLabelText(f"Processing {i+1}/{total_files}: {file_name}")
                 QApplication.processEvents()
 
                 if progress_dialog.wasCanceled():
+                    cancelled = True
                     break
 
                 image_path = os.path.join(self.current_folder_path, file_name)
                 image = ImageObject(image_path)
-
-                # Detect
-                confidence = self.ui.confidenceSlider.value() / 100.0
-                nms = self.ui.nmsSlider.value() / 100.0
                 results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=nms)
-
-                # If no detections, copy the image as-is into the not-cropped sub folder
-                if not results:
-                    image.copy_image_file(not_cropped_dir)
-                    continue
-
-                # Get crop rect
-                image_shape = image.image_data.shape
-                crop_tuple = ModelViewer._calculate_crop_rect(results, image_shape, crop_mode, padding_percentage, aspect_ratio)
-
-                # Validate crop rect, if faulty, skip the crop but copy the image as-is into the not-cropped sub folder
-                if not crop_tuple or crop_tuple[2] <= 0 or crop_tuple[3] <= 0:
-                    print(f"Warning {file_name}: invalid crop rectangle, crop_tuple: {crop_tuple}")
-                    image.copy_image_file(not_cropped_dir)
-                    continue
-
-                # Crop and save
-                image_utils.crop_image_file(image_path, cropped_dir, crop_tuple)
-                #image.crop(crop_tuple)
-                #image.save_as(output_path)
-
-            progress_dialog.setValue(total_files)
-            self.ui.statusBar.showMessage("Finished cropping all images.", 5000)
-
-            self._open_native_file_manager(output_dir)
+                
+                process_callback(image, results, output_dir, **state)
+            
+            progress_dialog.setValue(total_files) # Close it anyway
+            if not cancelled:
+                self.ui.statusBar.showMessage(f"Finished {process_name.lower()}.", 5000)
+                self._open_native_file_manager(output_dir)
+            else:
+                self.ui.statusBar.showMessage(f"{process_name} cancelled.", 5000)
 
         except Exception as e:
-            print(f"Error cropping all images: {e}")
-            self.ui.statusBar.showMessage(f"Error cropping all images: {e}", 5000)
+            print(f"Error during {process_name}: {e}")
+            self.ui.statusBar.showMessage(f"Error during {process_name}: {e}", 5000)
+
+    def crop_save_all_images(self):
+        """Crops and saves all images in the current folder based on detections and crop settings."""
+        def setup(output_dir):
+            crop_mode, padding_percentage, aspect_ratio = self._get_current_crop_settings()
+            if not crop_mode:
+                self.ui.statusBar.showMessage("No crop mode selected.", 5000)
+                return None
+            
+            cropped_dir, not_cropped_dir = self._create_crop_dirs(output_dir)
+            return {
+                "crop_mode": crop_mode,
+                "padding_percentage": padding_percentage,
+                "aspect_ratio": aspect_ratio,
+                "cropped_dir": cropped_dir,
+                "not_cropped_dir": not_cropped_dir
+            }
+
+        def processor(image, results, output_dir, **state):
+            if not results:
+                image.copy_image_file(state["not_cropped_dir"])
+                return
+
+            image_shape = image.image_data.shape
+            crop_tuple = ModelViewer._calculate_crop_rect(results, image_shape, state["crop_mode"], state["padding_percentage"], state["aspect_ratio"])
+
+            if not crop_tuple or crop_tuple[2] <= 0 or crop_tuple[3] <= 0:
+                print(f"Warning {os.path.basename(image.image_path)}: invalid crop rectangle, crop_tuple: {crop_tuple}")
+                image.copy_image_file(state["not_cropped_dir"])
+                return
+
+            image_utils.crop_image_file(image.image_path, state["cropped_dir"], crop_tuple)
+
+        self._process_all_images("Cropping images", setup, processor)
         
+    def sort_images_by_class_into_folders(self):
+        """Sorts images into folders based on the detected object class name."""
+        def setup(output_dir):
+            return {} # Return empty dict for state
+
+        def processor(image, results, output_dir, **state):
+            if results:
+                top_detection = max(results, key=lambda d: d[1])
+                class_name = top_detection[2]
+                class_dir = os.path.join(output_dir, class_name)
+                os.makedirs(class_dir, exist_ok=True)
+                image.copy_image_file(class_dir)
+            else:
+                no_detection_dir = os.path.join(output_dir, "no-detection")
+                os.makedirs(no_detection_dir, exist_ok=True)
+                image.copy_image_file(no_detection_dir)
+
+        self._process_all_images("Sorting images", setup, processor)
+
     def closeEvent(self, event):
         # Clean up resources, if any
         print("Closing application...")
