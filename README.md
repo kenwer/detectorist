@@ -116,13 +116,14 @@ On Windows:
 
 ## Changelog
 
+### [0.3.2] - 2025-09-06
+
 #### Added
 - Display the class of the detected object in the tooltip.
 - Support for sorting images into sub folders that are named after the detected object class using the corresponding action in the Tools menu.
 
 #### Fixed
 - Information corrected in the About dialog.
-
 
 ### [0.3.1] - 2025-09-05
 
