@@ -115,6 +115,10 @@ On Windows:
 #### Added
 - Display the class of the detected object in the tooltip.
 
+#### Fixed
+- Information corrected in the About dialog.
+
+
 ### [0.3.1] - 2025-09-05
 
 #### Fixed
