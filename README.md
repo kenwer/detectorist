@@ -35,16 +35,20 @@ Download the binary for your operating system from the [release page](https://gi
 *   Use the sliders and spin-boxes on the right to adjust the **Confidence** and **NMS** thresholds. Detections will update automatically.
     * The **Confidence** threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
     * The **NMS** (non-maximum suppression) threshold helps to eliminate redundant and overlapping bounding boxes. The lower the threshold, the more strictly bounding boxes are calculated.
-*   Optionally configure the crop & padding settings, and start cropping via the menu actions
+*   You can sort the images into sub folders that are named after the detected object class using the corresponding action in the Tools menu. The images are copied, not moved.
+*   Optionally configure the crop & padding settings, and start cropping via the Tools menu actions
     * The cropped images will be placed in a subdirectory of the directory that is currently being viewed.
     * The name of the output directory encodes the confidence level and the model used (like: `detectorist_conf75_fish-detect-2025-08-01`).
+
 
 ## FAQ
 
 Frequently asked questions can be found at the [FAQ page](FAQ.md).
 
+
 ## AI Model
 The current object detection model has been trained on for approximately 130 epochs on around 900 images of fish. It's a start...
+
 
 ## Development
 
@@ -114,6 +118,7 @@ On Windows:
 
 #### Added
 - Display the class of the detected object in the tooltip.
+- Support for sorting images into sub folders that are named after the detected object class using the corresponding action in the Tools menu.
 
 #### Fixed
 - Information corrected in the About dialog.
