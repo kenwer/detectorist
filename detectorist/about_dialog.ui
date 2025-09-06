@@ -11,13 +11,13 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>About oCrop</string>
+   <string>About Detectorist</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QLabel" name="appNameLabel">
      <property name="text">
-      <string>oCrop</string>
+      <string>Detectorist</string>
      </property>
      <property name="font">
       <font>
@@ -54,7 +54,7 @@
    <item>
     <widget class="QLabel" name="linkLabel">
      <property name="text">
-      <string>&lt;a href="https://github.com/kenwer/ocrop"&gt;https://github.com/kenwer/ocrop&lt;/a&gt;</string>
+      <string>&lt;a href="https://github.com/kenwer/detectorist"&gt;https://github.com/kenwer/detectorist&lt;/a&gt;</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>

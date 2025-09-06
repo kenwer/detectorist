@@ -70,10 +70,10 @@ class Ui_AboutDialog(object):
     # setupUi
 
     def retranslateUi(self, AboutDialog):
-        AboutDialog.setWindowTitle(QCoreApplication.translate("AboutDialog", u"About oCrop", None))
-        self.appNameLabel.setText(QCoreApplication.translate("AboutDialog", u"oCrop", None))
+        AboutDialog.setWindowTitle(QCoreApplication.translate("AboutDialog", u"About Detectorist", None))
+        self.appNameLabel.setText(QCoreApplication.translate("AboutDialog", u"Detectorist", None))
         self.versionLabel.setText(QCoreApplication.translate("AboutDialog", u"Version", None))
         self.authorLabel.setText(QCoreApplication.translate("AboutDialog", u"Author: Ken Werner", None))
-        self.linkLabel.setText(QCoreApplication.translate("AboutDialog", u"<a href=\"https://github.com/kenwer/ocrop\">https://github.com/kenwer/ocrop</a>", None))
+        self.linkLabel.setText(QCoreApplication.translate("AboutDialog", u"<a href=\"https://github.com/kenwer/detectorist\">https://github.com/kenwer/detectorist</a>", None))
     # retranslateUi
 
