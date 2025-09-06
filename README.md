@@ -112,6 +112,9 @@ On Windows:
 
 ## Changelog
 
+#### Added
+- Display the class of the detected object in the tooltip.
+
 ### [0.3.1] - 2025-09-05
 
 #### Fixed

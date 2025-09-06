@@ -7,11 +7,12 @@ from .image_object import ImageObject
 
 
 class CustomRubberBand(QRubberBand):
-    def __init__(self, shape, parent=None, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 13), score=None):
+    def __init__(self, shape, parent=None, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 13), score=None, class_name=None):
         super().__init__(shape, parent)
         self.border_color = border_color
         self.fill_color = fill_color
         self.score = score
+        self.class_name = class_name
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -31,7 +32,7 @@ class TooltipEventFilter(QObject):
         if event.type() == QEvent.Type.MouseMove:
             for band in self.parent_label.detection_bands:
                 if band.geometry().contains(event.pos()):
-                    tooltip_text = f"Confidence: {band.score:.2f}"
+                    tooltip_text = f"{band.class_name} {band.score:.2f}"
                     QToolTip.showText(event.globalPos(), tooltip_text, band)
                     return True
             QToolTip.hideText()
@@ -92,22 +93,22 @@ class ImageLabel(QLabel):
         image_height, image_width, _ = self.image.image_data.shape
 
         clamped_detections = []
-        for (x, y, w, h), score, class_id in detections:
+        for (x, y, w, h), score, class_name in detections:
             x1, y1 = max(0, x), max(0, y)
             x2, y2 = min(x + w, image_width), min(y + h, image_height)
             
             # Ensure the box has a non-zero area
             if x2 > x1 and y2 > y1:
                 clamped_w, clamped_h = x2 - x1, y2 - y1
-                clamped_detections.append(((x1, y1, clamped_w, clamped_h), score, class_id))
+                clamped_detections.append(((x1, y1, clamped_w, clamped_h), score, class_name))
 
         # Convert detections to QRects and store them to always have a reference to the original bounding box coordinates
-        self.orig_detection_rects = [(QRect(x, y, w, h), score, class_id) for (x, y, w, h), score, class_id in clamped_detections]
+        self.orig_detection_rects = [(QRect(x, y, w, h), score, class_name) for (x, y, w, h), score, class_name in clamped_detections]
 
-        for rect, score, class_id in self.orig_detection_rects:
+        for rect, score, class_name in self.orig_detection_rects:
             alpha = int(10 + (score * (255-10))) # Scale score (0.0-1.0) to alpha (10-255)
             alpha_fill = int(score * 20) # Scale score (0.0-1.0) to alpha (0-20)
-            band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(0, 255, 0, alpha), fill_color=QColor(0, 255, 0, alpha_fill), score=score)
+            band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(0, 255, 0, alpha), fill_color=QColor(0, 255, 0, alpha_fill), score=score, class_name=class_name)
             widget_rect = self._map_rect_from_image_to_widget(rect)
             band.setGeometry(widget_rect)
             band.show()
@@ -222,7 +223,7 @@ class ImageLabel(QLabel):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         # Update the rubber band geometries based on the new size
-        for i, (rect, score, class_id) in enumerate(self.orig_detection_rects):
+        for i, (rect, score, class_name) in enumerate(self.orig_detection_rects):
             if i < len(self.detection_bands):
                 widget_rect = self._map_rect_from_image_to_widget(rect)
                 self.detection_bands[i].setGeometry(widget_rect)

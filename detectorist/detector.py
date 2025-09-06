@@ -1,3 +1,4 @@
+import re
 import cv2
 import numpy as np
 import onnxruntime as ort
@@ -9,6 +10,33 @@ class Detector:
     """
     Class to detect objects in an image using machine learning.
     """
+
+    @staticmethod
+    def _label_class_names_to_dict(onnx_names_str):
+        """
+        Parses a string of class names (e.g. obtained from an ONNX model) into a dictionary.
+
+        The input string is expected to be in a format like:
+        "{0: 'Fish', 1: 'Bee', 2: 'Cat', ...}"
+
+        Args:
+            names_str (str): The string containing the class names.
+
+        Returns:
+            dict: A dictionary mapping class IDs to class names.
+        """
+        onnx_names_str = onnx_names_str.strip()
+        if onnx_names_str.startswith("{") and onnx_names_str.endswith("}"):
+            onnx_names_str = onnx_names_str[1:-1].strip()
+        if not onnx_names_str:
+            return {}
+        entries = {}
+        for part in re.split(r',\s*(?=\d+\s*:)', onnx_names_str):
+            k, v = part.split(":", 1)
+            key = int(k.strip())
+            val = v.strip().strip("'\" ")
+            entries[key] = val
+        return entries
 
     def __init__(self, model_path: str):
         """
@@ -22,6 +50,9 @@ class Detector:
         """
         try:
             self.session = ort.InferenceSession(model_path)
+            onnx_names_str = self.session.get_modelmeta().custom_metadata_map.get('names')
+            self.class_names = self._label_class_names_to_dict(onnx_names_str)
+
         except Exception as e:
             raise IOError(f"Error loading ONNX model from '{model_path}': {e}") from e
 
@@ -87,6 +118,8 @@ class Detector:
             # Flatten in case of nested list
             indices = indices.flatten()
             for i in indices:
-                final_results.append((boxes_for_nms[i], scores[i], class_ids[i]))
+                class_id = class_ids[i]
+                class_name = self.class_names.get(class_id, f"Class {class_id}")
+                final_results.append((boxes_for_nms[i], scores[i], class_name))
 
         return final_results
