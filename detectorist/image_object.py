@@ -1,18 +1,20 @@
 import os
-import cv2
 import shutil
+
+import cv2
 import numpy as np
 from PIL import Image as PILImage
 
-from .exif_wrapper import ExifWrapper
 from . import image_utils
+from .exif_wrapper import ExifWrapper
 from .image_utils import IMG_EXTENSIONS
+
 
 class ImageObject:
     """
     A class to handle image loading, processing, and saving.
     It can be instantiated with an image path to load an image,
-    and provides methods for various image utility operations. 
+    and provides methods for various image utility operations.
     Think of it as the "Model" in the MVC pattern.
     """
     SUPPORTED_IMG_EXTENSIONS = IMG_EXTENSIONS
@@ -44,7 +46,7 @@ class ImageObject:
             self._is16bit = True
 
         if self._image_data is None:
-            raise IOError(f"Error: Could not read image from '{self.image_path}'")
+            raise OSError(f"Error: Could not read image from '{self.image_path}'")
 
         print(f"image loaded: {self.image_path}")
         print(f"  image_data dtype: {self._image_data.dtype}")

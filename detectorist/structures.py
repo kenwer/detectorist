@@ -1,9 +1,9 @@
-class CaseInsensitiveKey(object):
+class CaseInsensitiveKey:
     """
     A wrapper class for creating case-insensitive keys for dictionary-like operations.
 
-    This class allows keys to be compared and hashed in a case-insensitive manner 
-    by using the casefold() method, which provides a more comprehensive case-folding 
+    This class allows keys to be compared and hashed in a case-insensitive manner
+    by using the casefold() method, which provides a more comprehensive case-folding
     than lower() for international character comparisons.
 
     Attributes:
@@ -53,7 +53,7 @@ class CaseInsensitiveDict(dict):
     """
     A dictionary subclass that allows case-insensitive key operations.
 
-    This dictionary treats keys as case-insensitive, meaning 'Key' and 'key' 
+    This dictionary treats keys as case-insensitive, meaning 'Key' and 'key'
     are considered the same key when setting, getting, or checking for existence.
 
     Inherits all standard dictionary methods with case-insensitive key handling.
@@ -67,7 +67,7 @@ class CaseInsensitiveDict(dict):
             value: The value to associate with the key.
         """
         key = CaseInsensitiveKey(key)
-        super(CaseInsensitiveDict, self).__setitem__(key, value)
+        super().__setitem__(key, value)
 
     def __getitem__(self, key):
         """
@@ -83,7 +83,7 @@ class CaseInsensitiveDict(dict):
             KeyError: If the key is not found.
         """
         key = CaseInsensitiveKey(key)
-        return super(CaseInsensitiveDict, self).__getitem__(key)
+        return super().__getitem__(key)
 
     def __contains__(self, key):
         """
@@ -96,7 +96,7 @@ class CaseInsensitiveDict(dict):
             bool: True if the key exists, False otherwise.
         """
         key = CaseInsensitiveKey(key)
-        return super(CaseInsensitiveDict, self).__contains__(key)
+        return super().__contains__(key)
 
     def get(self, key, default=None):
         """
@@ -110,4 +110,4 @@ class CaseInsensitiveDict(dict):
             The value associated with the key, or the default value if not found.
         """
         key = CaseInsensitiveKey(key)
-        return super(CaseInsensitiveDict, self).get(key, default)
+        return super().get(key, default)

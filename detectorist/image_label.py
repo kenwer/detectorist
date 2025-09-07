@@ -1,13 +1,15 @@
-import os
-from PySide6.QtWidgets import QLabel, QRubberBand, QToolTip
-from PySide6.QtGui import QPixmap, QPainter, QImage, QColor, QBrush, QPen
-from PySide6.QtCore import Qt, QRect, QSize, QPoint, QObject, QEvent
 import numpy as np
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, Qt
+from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import QLabel, QRubberBand, QToolTip
+
 from .image_object import ImageObject
 
+DEFAULT_BORDER_COLOR = QColor(255, 165, 0, 255)
+DEFAULT_FILL_COLOR = QColor(255, 165, 0, 13)
 
 class CustomRubberBand(QRubberBand):
-    def __init__(self, shape, parent=None, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 13), score=None, class_name=None):
+    def __init__(self, shape, parent=None, border_color=DEFAULT_BORDER_COLOR, fill_color=DEFAULT_FILL_COLOR, score=None, class_name=None):
         super().__init__(shape, parent)
         self.border_color = border_color
         self.fill_color = fill_color
@@ -96,7 +98,7 @@ class ImageLabel(QLabel):
         for (x, y, w, h), score, class_name in detections:
             x1, y1 = max(0, x), max(0, y)
             x2, y2 = min(x + w, image_width), min(y + h, image_height)
-            
+
             # Ensure the box has a non-zero area
             if x2 > x1 and y2 > y1:
                 clamped_w, clamped_h = x2 - x1, y2 - y1
@@ -114,7 +116,7 @@ class ImageLabel(QLabel):
             band.show()
             self.detection_bands.append(band)
 
-    
+
 
     def set_crop_box(self, image_rect):
         self.last_crop_rect = image_rect
@@ -142,20 +144,20 @@ class ImageLabel(QLabel):
 
     def _create_qpixmap(self, image):
         rgb_image = image.image_data
-        
+
         # Convert 16-bit to 8-bit if needed
         if rgb_image.dtype == np.uint16:
             rgb_image = (rgb_image / 256).astype(np.uint8)
-        
+
         # Ensure correct format
         if len(rgb_image.shape) != 3 or rgb_image.shape[2] != 3:
             raise ValueError("Invalid image format: must be (height, width, 3)")
-        
+
         height, width, _ = rgb_image.shape
         # Create QImage from the NumPy array
         #qimage = QImage(rgb_image.data, width, height, width * 3, QImage.Format_RGB888)
         qimage = QImage(rgb_image.data, width, height, rgb_image.strides[0], QImage.Format.Format_RGB888)
-        
+
         return QPixmap.fromImage(qimage)
 
     def setPixmap(self, pixmap):
@@ -223,7 +225,7 @@ class ImageLabel(QLabel):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         # Update the rubber band geometries based on the new size
-        for i, (rect, score, class_name) in enumerate(self.orig_detection_rects):
+        for i, (rect, _score, _class_name) in enumerate(self.orig_detection_rects):
             if i < len(self.detection_bands):
                 widget_rect = self._map_rect_from_image_to_widget(rect)
                 self.detection_bands[i].setGeometry(widget_rect)

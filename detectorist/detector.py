@@ -1,4 +1,5 @@
 import re
+
 import cv2
 import numpy as np
 import onnxruntime as ort
@@ -54,7 +55,7 @@ class Detector:
             self.class_names = self._label_class_names_to_dict(onnx_names_str)
 
         except Exception as e:
-            raise IOError(f"Error loading ONNX model from '{model_path}': {e}") from e
+            raise OSError(f"Error loading ONNX model from '{model_path}': {e}") from e
 
         # Get model input details
         self.input_name = self.session.get_inputs()[0].name
