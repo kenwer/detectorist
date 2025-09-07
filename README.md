@@ -116,6 +116,8 @@ On Windows:
 
 ## Changelog
 
+### [0.3.3] - 2025-09-07
+
 #### Changed
 - Name of the output directory changed (example: `detectorist_conf-75_fish-detect-2025-08-01`).
 - [Dev] Migrate from PEP 621-style dependencies to PEP 695 dependency-groups.
