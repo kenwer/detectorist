@@ -425,7 +425,7 @@ class ModelViewer(QMainWindow):
         #timestamp = time.strftime("%Y%m%d")
         confidence = self.ui.confidenceSlider.value()
         model_name = os.path.splitext(self.ui.modelSelectComboBox.currentText())[0]
-        output_dir = os.path.join(self.current_folder_path, f"output_conf{confidence}_{model_name}")
+        output_dir = os.path.join(self.current_folder_path, f"detectorist_conf-{confidence}_{model_name}")
         os.makedirs(output_dir, exist_ok=True)
         return output_dir
 
