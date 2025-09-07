@@ -117,6 +117,7 @@ On Windows:
 ## Changelog
 
 #### Changed
+- Name of the output directory changed (example: `detectorist_conf-75_fish-detect-2025-08-01`).
 - [Dev] Migrate from PEP 621-style dependencies to PEP 695 dependency-groups.
 
 #### Added
@@ -143,17 +144,17 @@ On Windows:
 ### [0.3.0] - 2025-09-02
 
 #### Changed
-- Renamed the project to Detectorist
+- Renamed the project to Detectorist.
 
 ### [0.2.1] - 2025-08-30
 #### Added
-- Initial [FAQ](FAQ.md)
+- Initial [FAQ](FAQ.md) added.
 
 #### Changed
-- Improved the GitHub actions build & release workflow
+- Improved the GitHub actions build & release workflow.
 
 #### Fixed
-- Fixed the macOS app bundle build and binary release
+- Fixed the macOS app bundle build and binary release.
 
 ### [0.2.0] - 2025-08-29
 #### Added
@@ -162,7 +163,7 @@ On Windows:
 - Confidence scores are now shown as tooltips when hovering over bounding boxes.
 - Object detection information is displayed in the UI.
 - The native file explorer is opened to show the cropped images after the crop action is finished.
-- Simple About dialog added with link to the project page
+- Simple About dialog added with link to the project page.
 
 #### Changed
 - The "Crop" actions have been moved into a dedicated "Tools" menu.
@@ -195,7 +196,7 @@ On Windows:
 ### [0.1.0] - 2025-08-01
 #### Added
 - Initial release with MVP functionality.
-- Image browser with navigation
+- Image browser with navigation added.
 - Basic object detection using an ONNX model.
 - Support for PNG, JPG, BMP, HEIC/HEIF, and Sony RAW (.ARW) images.
 
