@@ -121,6 +121,7 @@ On Windows:
 - [Dev] Migrate from PEP 621-style dependencies to PEP 695 dependency-groups.
 
 #### Added
+- When processing multiple images, write a log file to the output directory providing information about the detections.
 - [Dev] Added ruff for linting.
 
 #### Fixed

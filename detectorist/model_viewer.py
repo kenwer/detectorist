@@ -1,3 +1,4 @@
+import csv
 import os
 import subprocess
 import sys
@@ -492,28 +493,35 @@ class ModelViewer(QMainWindow):
             confidence = self.ui.confidenceSlider.value() / 100.0
             nms = self.ui.nmsSlider.value() / 100.0
 
-            cancelled = False
-            for i, file_name in enumerate(image_files):
-                progress_dialog.setValue(i)
-                progress_dialog.setLabelText(f"Processing {i+1}/{total_files}: {file_name}")
-                QApplication.processEvents()
+            log_file_path = os.path.join(output_dir, "detections.csv")
+            with open(log_file_path, "w", newline="") as log_file:
+                csv_writer = csv.writer(log_file)
+                csv_writer.writerow(["Filename", "Highest confidence score", "Class name", "Number of detected objects", "Subdirectory"])
 
-                if progress_dialog.wasCanceled():
-                    cancelled = True
-                    break
+                cancelled = False
+                for i, file_name in enumerate(image_files):
+                    progress_dialog.setValue(i)
+                    progress_dialog.setLabelText(f"Processing {i+1}/{total_files}: {file_name}")
+                    QApplication.processEvents()
 
-                image_path = os.path.join(self.current_folder_path, file_name)
-                image = ImageObject(image_path)
-                results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=nms)
+                    if progress_dialog.wasCanceled():
+                        cancelled = True
+                        break
 
-                process_callback(image, results, output_dir, **state)
+                    image_path = os.path.join(self.current_folder_path, file_name)
+                    image = ImageObject(image_path)
+                    results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=nms)
 
-            progress_dialog.setValue(total_files) # Close it anyway
+                    log_data = process_callback(image, results, output_dir, **state)
+                    if log_data:
+                        csv_writer.writerow(log_data)
+
             if not cancelled:
                 self.ui.statusBar.showMessage(f"Finished {process_name.lower()}.", 5000)
-                self._open_native_file_manager(output_dir)
             else:
                 self.ui.statusBar.showMessage(f"{process_name} cancelled.", 5000)
+
+            self._open_native_file_manager(output_dir)
 
         except Exception as e:
             print(f"Error during {process_name}: {e}")
@@ -539,7 +547,11 @@ class ModelViewer(QMainWindow):
         def processor(image, results, output_dir, **state):
             if not results:
                 image.copy_image_file(state["not_cropped_dir"])
-                return
+                return os.path.basename(image.image_path), 0, "N/A", 0, os.path.basename(state["not_cropped_dir"])
+
+            top_detection = max(results, key=lambda d: d[1])
+            confidence_score = top_detection[1]
+            class_name = top_detection[2]
 
             image_shape = image.image_data.shape
             crop_tuple = ModelViewer._calculate_crop_rect(results, image_shape, state["crop_mode"], state["padding_percentage"], state["aspect_ratio"])
@@ -547,9 +559,10 @@ class ModelViewer(QMainWindow):
             if not crop_tuple or crop_tuple[2] <= 0 or crop_tuple[3] <= 0:
                 print(f"Warning {os.path.basename(image.image_path)}: invalid crop rectangle, crop_tuple: {crop_tuple}")
                 image.copy_image_file(state["not_cropped_dir"])
-                return
+                return os.path.basename(image.image_path), confidence_score, class_name, len(results), os.path.basename(state["not_cropped_dir"])
 
             image_utils.crop_image_file(image.image_path, state["cropped_dir"], crop_tuple)
+            return os.path.basename(image.image_path), confidence_score, class_name, len(results), os.path.basename(state["cropped_dir"])
 
         self._process_all_images("Cropping images", setup, processor)
 
@@ -561,14 +574,17 @@ class ModelViewer(QMainWindow):
         def processor(image, results, output_dir, **state):
             if results:
                 top_detection = max(results, key=lambda d: d[1])
+                confidence_score = top_detection[1]
                 class_name = top_detection[2]
                 class_dir = os.path.join(output_dir, class_name)
                 os.makedirs(class_dir, exist_ok=True)
                 image.copy_image_file(class_dir)
+                return os.path.basename(image.image_path), confidence_score, class_name, len(results), class_name
             else:
                 no_detection_dir = os.path.join(output_dir, "no-detection")
                 os.makedirs(no_detection_dir, exist_ok=True)
                 image.copy_image_file(no_detection_dir)
+                return os.path.basename(image.image_path), 0, "no-detection", 0, "no-detection"
 
         self._process_all_images("Sorting images", setup, processor)
 
