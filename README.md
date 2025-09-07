@@ -116,6 +116,15 @@ On Windows:
 
 ## Changelog
 
+#### Changed
+- [Dev] Migrate from PEP 621-style dependencies to PEP 695 dependency-groups.
+
+#### Added
+- [Dev] Added ruff for linting.
+
+#### Fixed
+- [Dev] Consistent code formatting.
+
 ### [0.3.2] - 2025-09-06
 
 #### Added

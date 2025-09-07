@@ -19,11 +19,9 @@ dependencies = [
     "exifread",
 ]
 
-[tool.setuptools.dynamic]
-version = {attr = "detectorist._version.__version__"}
-
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
+    "ruff",
     "nuitka",
     "imageio",
     "poethepoet",
@@ -31,6 +29,12 @@ dev = [
 
 [project.scripts]
 detectorist = "detectorist.main:main"
+
+[tool.setuptools]
+packages = ["detectorist"]
+
+[tool.setuptools.dynamic]
+version = {attr = "detectorist._version.__version__"}
 
 [tool.poe.tasks]
 compile-ui = { shell = "for f in detectorist/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
@@ -178,10 +182,28 @@ build = ["build-mac", "build-windows"]
 
 clean = { shell = "rm -rf dist/*" }
 
-[tool.setuptools]
-packages = ["detectorist"]
 
 [tool.vscode.tasks]
 compile-ui = { shell = "for f in detectorist/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
 run = "python detectorist/main.py"
 build-and-run = ["compile-ui", "run"]
+
+[tool.ruff]
+# Exclude designer generated files from .ui
+exclude = [
+    "detectorist/model_viewer_gui.py",
+    "detectorist/about_dialog.py",
+]
+[tool.ruff.lint]
+# Never enforce `E501` (line length violations).
+ignore = ["E501"]
+# Select specific error codes to enforce
+select = [
+    "F",    # Pyflakes (basic Python errors)
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "I",    # Import sorting
+    "C4",   # Flake8 Comprehensions
+    "B",    # Flake8 Bugbear (security and design checks)
+    "UP",   # Pyupgrade (modernize Python code)
+]

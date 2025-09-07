@@ -1,32 +1,37 @@
 import os
+import subprocess
 import sys
 import time
-import subprocess
 
 import pillow_heif
-
-from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QProgressDialog, QDialog
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import QDir, Qt, QStringListModel, QRect, QTimer
+from PySide6.QtCore import QDir, QRect, QStringListModel, Qt, QTimer
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QFileDialog,
+    QMainWindow,
+    QProgressDialog,
+)
 
 from detectorist._version import __version__
-from detectorist.model_viewer_gui import Ui_ModelViewerUI
 from detectorist.about_dialog import Ui_AboutDialog
+from detectorist.model_viewer_gui import Ui_ModelViewerUI
 
-from .detector import Detector
-from .image_object import ImageObject
-from .image_label import ImageLabel
-from .utils import get_model_path
 from . import image_utils
+from .detector import Detector
+from .image_label import ImageLabel
+from .image_object import ImageObject
+from .utils import get_model_path
+
 
 class ModelViewer(QMainWindow):
-    
+
 
     @staticmethod
     def _calculate_crop_rect(detections: list, image_shape: tuple, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> tuple[int, int, int, int] | None:
         """
         Calculates a crop rectangle based on detections and parameters.
-        
+
         Args:
             detections: A list of detections, where each detection is a tuple ((x, y, w, h), score, class_id).
             image_shape: The shape of the image (height, width, channels).
@@ -56,7 +61,7 @@ class ModelViewer(QMainWindow):
         # Add padding
         padding_x = int(w * padding_percentage)
         padding_y = int(h * padding_percentage)
-        
+
         x -= padding_x
         y -= padding_y
         w += 2 * padding_x
@@ -68,7 +73,7 @@ class ModelViewer(QMainWindow):
 
         ratio_w, ratio_h = aspect_ratio
         rect_w, rect_h = w, h
-        
+
         current_ratio = rect_w / rect_h
         target_ratio = ratio_w / ratio_h
 
@@ -118,7 +123,7 @@ class ModelViewer(QMainWindow):
         self.current_folder_path = None
         self.last_confidence = None
         self.last_nms = None
-        
+
         # Ensure opener is registered (otherwise the native code will segfault)
         pillow_heif.register_heif_opener()
 
@@ -164,7 +169,7 @@ class ModelViewer(QMainWindow):
         self.ui.confidenceSpinBox.valueChanged.connect(self.request_detection)
         self.ui.nmsSpinBox.valueChanged.connect(self.request_detection)
 
-        # Immediate trigger 
+        # Immediate trigger
         self.ui.confidenceSlider.sliderReleased.connect(self.detect_objects)
         self.ui.nmsSlider.sliderReleased.connect(self.detect_objects)
         self.ui.confidenceSpinBox.editingFinished.connect(self.detect_objects)
@@ -280,7 +285,7 @@ class ModelViewer(QMainWindow):
         try:
             self.detector = Detector(model_path)
             print(f"Loaded model: {model_path}")
-        except IOError as e:
+        except OSError as e:
             self.ui.imageLabel.setText(f"Error loading model: {e}")
 
     def show_about_dialog(self):
@@ -318,7 +323,7 @@ class ModelViewer(QMainWindow):
         image_files = sorted([f for f in os.listdir(folder_path)
                                if f.lower().endswith(ImageObject.SUPPORTED_FORMATS)])
         self.model.setStringList(image_files)
-        
+
         # Select the dropped file in the list view
         try:
             index = image_files.index(os.path.basename(file_path))
@@ -343,7 +348,7 @@ class ModelViewer(QMainWindow):
         try:
             start_time = time.perf_counter()
             results = self.detector.detect(self.ui.imageLabel.image, confidence_threshold=confidence, nms_threshold=nms)
-            end_time = time.perf_counter()            
+            end_time = time.perf_counter()
             detection_time_ms = (end_time - start_time) * 1000
 
             self._update_detection_info(
@@ -462,7 +467,7 @@ class ModelViewer(QMainWindow):
         """
         Helper method that encapsulates the loop that goes through all the images.
         It covers the progress dialog, image loading, and object detection.
-        This helper accepts a setup_callback for any pre-processing steps (like preparing directories) 
+        This helper accepts a setup_callback for any pre-processing steps (like preparing directories)
         and a process_callback to execute the specific action (cropping or sorting) for each image.
         """
         if not self.current_folder_path:
@@ -486,7 +491,7 @@ class ModelViewer(QMainWindow):
 
             confidence = self.ui.confidenceSlider.value() / 100.0
             nms = self.ui.nmsSlider.value() / 100.0
-            
+
             cancelled = False
             for i, file_name in enumerate(image_files):
                 progress_dialog.setValue(i)
@@ -500,9 +505,9 @@ class ModelViewer(QMainWindow):
                 image_path = os.path.join(self.current_folder_path, file_name)
                 image = ImageObject(image_path)
                 results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=nms)
-                
+
                 process_callback(image, results, output_dir, **state)
-            
+
             progress_dialog.setValue(total_files) # Close it anyway
             if not cancelled:
                 self.ui.statusBar.showMessage(f"Finished {process_name.lower()}.", 5000)
@@ -521,7 +526,7 @@ class ModelViewer(QMainWindow):
             if not crop_mode:
                 self.ui.statusBar.showMessage("No crop mode selected.", 5000)
                 return None
-            
+
             cropped_dir, not_cropped_dir = self._create_crop_dirs(output_dir)
             return {
                 "crop_mode": crop_mode,
@@ -547,7 +552,7 @@ class ModelViewer(QMainWindow):
             image_utils.crop_image_file(image.image_path, state["cropped_dir"], crop_tuple)
 
         self._process_all_images("Cropping images", setup, processor)
-        
+
     def sort_images_by_class_into_folders(self):
         """Sorts images into folders based on the detected object class name."""
         def setup(output_dir):

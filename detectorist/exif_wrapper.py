@@ -1,9 +1,10 @@
+import os
+from fractions import Fraction
+from typing import Any
+
 import exifread
 from PIL import Image as PILImage
-from PIL.ExifTags import TAGS, GPSTAGS, IFD
-from fractions import Fraction
-from typing import Any, Union
-import os
+from PIL.ExifTags import GPSTAGS, IFD, TAGS
 
 from .structures import CaseInsensitiveDict
 
@@ -12,7 +13,7 @@ class ExifWrapper:
     """
     A class that represents EXIF data of an image.
     """
-    def __init__(self, image_source: Union[str, PILImage.Image]):
+    def __init__(self, image_source: str | PILImage.Image):
         self._exif_data = CaseInsensitiveDict()
         if isinstance(image_source, str):
             file_extension = os.path.splitext(image_source)[1].lower()
@@ -45,20 +46,20 @@ class ExifWrapper:
     def _parse_fraction(value, round_to=2):
         """
         Convert fractional string to float, handling various edge cases.
-        
+
         Args:
             value (str or numeric): Value to convert
             round_to (int, optional): Number of decimal places to round to. Defaults to 2.
-        
+
         Returns:
             float or original value if conversion fails
         """
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             return round(value, round_to)
-        
+
         if not isinstance(value, str) or '/' not in value:
             return value
-        
+
         try:
             num, denom = map(float, value.split('/'))
             return round(num / denom, round_to) if denom != 0 else value
@@ -70,12 +71,12 @@ class ExifWrapper:
         """
         Converts exposure time to a fraction string representation.
 
-        This function takes an exposure time input and converts it to a fraction 
+        This function takes an exposure time input and converts it to a fraction
         format (numerator/denominator) with a maximum denominator of 8000.
 
         Args:
             exposure_time (str or numeric): The exposure time to be formatted.
-                Can be a string (including existing fraction strings), 
+                Can be a string (including existing fraction strings),
                 integer, or float.
 
         Returns:
@@ -95,16 +96,16 @@ class ExifWrapper:
         # If it's already a string with '/', return as-is
         if isinstance(exposure_time, str) and '/' in exposure_time:
             return exposure_time
-        
+
         # Try to convert to float, if it fails, return the original value *shrug*
         try:
             exposure_float = float(exposure_time)
         except (ValueError, TypeError):
             return exposure_time
-        
+
         # Use Fraction to get a precise rational representation
         frac = Fraction(exposure_float).limit_denominator(8000)
-        
+
         # Convert to string representation
         return f"{frac.numerator}/{frac.denominator}"
 
@@ -112,7 +113,7 @@ class ExifWrapper:
     def get(self, key: str, default: Any = "-") -> Any:
         """
         Returns the value for a specific EXIF key.
-        
+
         Args:
             key (str): The EXIF tag name (e.g., 'Image Model', 'EXIF ExposureTime').
             default (Any): The default value to return if the key doesn't exist.
@@ -152,7 +153,7 @@ class ExifWrapper:
                 for k, v in ifd.items():
                     tag_name = resolve.get(k, k)
                     full_tag_name = f"{ifd_name} {tag_name}"
-                    
+
                     val = v
                     if isinstance(v, bytes):
                         try:
@@ -173,7 +174,7 @@ class ExifWrapper:
                             val = round(float(val), 2)
                         except (ValueError, TypeError):
                             pass
-                    
+
                     exif_data[full_tag_name] = val
 
             except KeyError:
@@ -193,7 +194,7 @@ class ExifWrapper:
                         # Skip thumbnail data
                         if tag in ('JPEGThumbnail', 'TIFFThumbnail'):
                             continue
-                        
+
                         val = value.printable
                         if tag == 'EXIF FNumber':
                             val = self._parse_fraction(val)
@@ -204,7 +205,7 @@ class ExifWrapper:
                                 val = round(float(val), 2)
                             except (ValueError, TypeError):
                                 pass
-                        
+
                         exif_data[tag] = val
         except Exception as e:
             print(f"Could not load EXIF data for {image_path}: {e}")

@@ -1,9 +1,10 @@
 import os
+
 import cv2
-import rawpy
 import numpy as np
-from PIL import Image as PILImage
 import pillow_heif
+import rawpy
+from PIL import Image as PILImage
 
 # Ensure the HEIF Pillow plugin is registered
 pillow_heif.register_heif_opener()
@@ -28,16 +29,16 @@ def load_arw_image(path: str, output_bps=16) -> np.ndarray:
         # Process the raw image to get an RGB image
         # The output is 16-bit if output_bps=16
         rgb_image_data = raw.postprocess(
-            use_camera_wb=True,    
-            no_auto_bright=True, 
+            use_camera_wb=True,
+            no_auto_bright=True,
             output_bps=output_bps, # 16 or 8 bit output
             four_color_rgb=True,
             gamma=(2.222, 4.5),    # power,slope: default is (2.222, 4.5) for rec. BT.709
             bright=2.0,
             #user_wb=[10058.0, 1024.0, 1207.0, 1024.0],
             fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Off,
-            demosaic_algorithm=rawpy.DemosaicAlgorithm.DCB, 
-            dcb_iterations=3, 
+            demosaic_algorithm=rawpy.DemosaicAlgorithm.DCB,
+            dcb_iterations=3,
             dcb_enhance=True
         )
     # Returns the image as a 8 or 16-bit RGB numpy array
@@ -81,7 +82,7 @@ def save_16bit_image(image_16bit: np.ndarray, output_path: str):
     file_format = os.path.splitext(output_path)[1].lower()
     if file_format.lower() not in ('.png', '.tiff'):
         raise ValueError(f"Unknown file format for saving 16-bit image: {file_format}")
-    
+
     # Convert the image from RGB to BGR format for OpenCV by reversing the order of its color channels
     # using a NumPy array slicing operation that reverses the order of the last dimension.
     # The processed_image has shape (height, width, 3), where the last dimension represents RGB channels (Red, Green, Blue)
@@ -111,7 +112,7 @@ def get_exif_orientation(exif):
     """
     if not exif:
         return 1
-    # use Pillow's Exif class to parse the EXIF data (from PIL import Image) 
+    # use Pillow's Exif class to parse the EXIF data (from PIL import Image)
     # note: this is different from our custom Exif class in exif.py
     exif_obj = PILImage.Exif()
     exif_obj.load(exif)
@@ -140,7 +141,7 @@ def get_human_readable_exif_orientation(orientation):
 
 def crop_heif_image(input_path, output_path, rect, quality=80):
     """
-    Crops a HIF image and saves it as a new HIF image. 
+    Crops a HIF image and saves it as a new HIF image.
     The new image will re-use the exif, xmp, and nclx_profile of the original image to keep as much meta data as possible.
 
     Args:
@@ -170,7 +171,7 @@ def crop_heif_image(input_path, output_path, rect, quality=80):
     # The cropping performed on the rotated_np_array before we reverse the pixel data arrangement to the original value so that the crop rectangle matches the users intend.
     x, y, w, h = rect
     cropped_np_array = rotated_np_array[y:y+h, x:x+w]
-    
+
     # Reverse the pixel data arrangement based on the EXIF orientation to get the original pixel data arrangement
     if orientation == 1: # Normal
         unrotated_np = cropped_np_array
@@ -200,9 +201,9 @@ def crop_heif_image(input_path, output_path, rect, quality=80):
     size = (unrotated_np.shape[1], unrotated_np.shape[0])
     data = unrotated_np.tobytes()
 
-    #print(f"Creating new HEIF image with\n\tmode: {mode}, size: {size}, data length: {len(data)}")    
+    #print(f"Creating new HEIF image with\n\tmode: {mode}, size: {size}, data length: {len(data)}")
     new_heif_image = pillow_heif.from_bytes(mode=mode, size=size, data=data)
-    
+
     # Adjust Exif Image Width & Height to the cropped size if Exif data exists
     if exif:
         exif_obj = PILImage.Exif()
@@ -219,7 +220,7 @@ def crop_heif_image(input_path, output_path, rect, quality=80):
 
 def crop_raw_image(input_path, output_path, rect, output_bps=16):
     """
-    Crops a RAW image and saves it as a lossless 16 bit PNG or TIFF image. 
+    Crops a RAW image and saves it as a lossless 16 bit PNG or TIFF image.
 
     Args:
         input_path (str): Path to the input RAW file.
@@ -262,7 +263,7 @@ def crop_image_file(input_path: str, output_dir: str, rect: tuple[int, int, int,
     """
     Crops an image file and saves it to the specified output directory.
     The cropped image will retain the original file name, but for RAW files, the extension will be replaced with .png.
-    
+
     Args:
         input_path (str): Path to the input image file.
         output_dir (str): Directory to save the cropped image file.
