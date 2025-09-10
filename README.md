@@ -116,6 +116,9 @@ On Windows:
 
 ## Changelog
 
+#### Changed
+- [Dev] Simplify build process of the binary distributables.
+
 #### Fixed
 - Fixed instructions to build distributables.
 - [Windows] Ensure the splash screen disappears when the main application window starts.

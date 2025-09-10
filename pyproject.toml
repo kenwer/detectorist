@@ -41,9 +41,10 @@ compile-ui = { shell = "for f in detectorist/*.ui; do pyside6-uic \"$f\" -o \"${
 run-app = "uv run detectorist/main.py"
 run = ["compile-ui", "run-app"]
 
+get_app_version = "python -c 'from detectorist._version import __version__; print(__version__.strip())'"
 
 build-mac = { shell = """
-python -c 'from detectorist._version import __version__; print(__version__)' | xargs -I % nuitka \
+nuitka \
     --standalone \
     --macos-create-app-bundle \
     --macos-app-icon=assets/icon.png \
@@ -56,111 +57,40 @@ python -c 'from detectorist._version import __version__; print(__version__)' | x
     --disable-ccache \
     --output-dir=dist/macos \
     --remove-output \
+    --product-name=Detectorist \
     --macos-app-name=Detectorist \
-    --macos-app-version=% \
+    --macos-app-version=$(poe get_app_version) \
     --macos-signed-app-name=de.ken.detectorist \
     --output-filename=Detectorist \
     ./detectorist/main.py
+mv  dist/macos/main.app \
+    dist/macos/Detectorist.app
 """ }
 
-download-upx = """
-python -c "
-import urllib.request
-import zipfile
-import os
-
-url = 'https://github.com/upx/upx/releases/download/v5.0.2/upx-5.0.2-win64.zip'
-zip_path = 'upx.zip'
-extract_path = 'dist'
-
-urllib.request.urlretrieve(url, zip_path)
-
-with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-    zip_ref.extractall(extract_path)
-
-os.remove(zip_path)
-print(f'UPX downloaded and extracted to {extract_path}')
-"
-"""
-
-
-nuitka-windows = """
-python -c "
-import os
-import sys
-import subprocess
-import urllib.request
-import zipfile
-import shutil
-
-# Find Nuitka executable
-def find_nuitka():
-    # Check common locations
-    possible_paths = [
-        os.path.join(sys.prefix, 'Scripts', 'nuitka.exe'),
-        os.path.join(os.path.expanduser('~'), '.local', 'bin', 'nuitka'),
-        shutil.which('nuitka'),
-        shutil.which('nuitka.exe')
-    ]
-    
-    for path in possible_paths:
-        if path and os.path.exists(path):
-            return path
-    
-    raise FileNotFoundError('Nuitka executable not found')
-
-# Download UPX
-url = 'https://github.com/upx/upx/releases/download/v5.0.2/upx-5.0.2-win64.zip'
-zip_path = 'upx.zip'
-extract_path = 'upx'
-
-# Download and extract UPX
-urllib.request.urlretrieve(url, zip_path)
-with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-    zip_ref.extractall(extract_path)
-os.remove(zip_path)
-
-# Add UPX directory to PATH
-upx_path = os.path.abspath('upx/upx-5.0.2-win64')
-os.environ['PATH'] = f'{upx_path};{os.environ['PATH']}'
-
-# Find Nuitka executable
-nuitka_exe = find_nuitka()
-
-# Run Nuitka command
-nuitka_cmd = [
-    nuitka_exe,
-    '--standalone',
-    '--onefile',
-    '--windows-icon-from-ico=assets/icon.ico',
-    '--enable-plugin=pyside6',
-    '--noinclude-qt-translations',
-    '--noinclude-dlls=*.cpp.o',
-    '--noinclude-dlls=*.qsb',
-    '--include-qt-plugins=platforminputcontexts',
-    '--include-data-dir=models=models',
-    '--disable-ccache',
-    '--output-dir=dist/windows',
-    '--remove-output',
-    '--onefile-windows-splash-screen-image=assets/splash.png',
-    '--windows-console-mode=disable',
-    '--force-stdout-spec={PROGRAM_BASE}.out.txt',
-    '--force-stderr-spec={PROGRAM_BASE}.err.txt',
-    '--plugin-enable=upx',
-    '--assume-yes-for-downloads',
-    'detectorist/main.py'
-]
-
-print(f'Using Nuitka executable: {nuitka_exe}')
-subprocess.run(nuitka_cmd, check=True)
-"
-"""
-
-build-windows = [
-    "download-upx",
-    "nuitka-windows"
-]
-
+build-windows = { shell = """
+nuitka.cmd \
+    --standalone \
+    --onefile \
+    --onefile-tempdir-spec={PROGRAM_DIR}/.runtime/{PID}_{TIME} \
+    --enable-plugin=pyside6 \
+    --windows-icon-from-ico=assets/icon.ico \
+    --onefile-windows-splash-screen-image=assets/splash.png \
+    --noinclude-qt-translations \
+    --noinclude-dlls='*.cpp.o' \
+    --noinclude-dlls='*.qsb' \
+    --include-qt-plugins=platforminputcontexts \
+    --include-data-dir=models=models \
+    --disable-ccache \
+    --output-dir=dist/windows \
+    --remove-output \
+    --windows-product-name=Detectorist \
+    --windows-product-version=$(poe get_app_version) \
+    --windows-file-version=$(poe get_app_version) \
+    --windows-console-mode=attach \
+    --output-filename=Detectorist \
+    --assume-yes-for-downloads \
+    ./detectorist/main.py
+""" }
 
 build-linux = """
 nuitka
@@ -176,9 +106,6 @@ nuitka
     --remove-output
     detectorist/main.py
 """
-
-
-build = ["build-mac", "build-windows"]
 
 clean = { shell = "rm -rf dist/*" }
 

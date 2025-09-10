@@ -33,21 +33,16 @@ jobs:
         source .venv/bin/activate
         poe build-mac
 
-    - name: Rename macOS app
-      run: |
-        mv dist/macos/main.app dist/macos/detectorist.app
-        ls -l dist/macos/detectorist.app/Contents/MacOS/detectorist
-
     - name: Zip macOS app
       run: |
         cd dist/macos
-        zip -r detectorist.app.zip detectorist.app
+        zip -r Detectorist.app.zip Detectorist.app
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
       with:
-        name: detectorist.app.zip
-        path: dist/macos/detectorist.app.zip
+        name: Detectorist.app.zip
+        path: dist/macos/Detectorist.app.zip
 
   build-windows:
     runs-on: windows-latest
@@ -73,19 +68,15 @@ jobs:
         .\.venv\Scripts\activate
         poe build-windows
 
-    - name: Rename Windows executable
-      run: |
-        mv dist/windows/main.exe dist/windows/detectorist.exe
-
     - name: Zip Windows executable
       run: |
-        Compress-Archive -Path dist/windows/detectorist.exe -DestinationPath dist/windows/detectorist.exe.zip
+        Compress-Archive -Path dist/windows/Detectorist.exe -DestinationPath dist/windows/Detectorist.exe.zip
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
-        name: detectorist.exe.zip
-        path: dist/windows/detectorist.exe.zip
+        name: Detectorist.exe.zip
+        path: dist/windows/Detectorist.exe.zip
 
   create-release:
     needs: [build-macos, build-windows]
@@ -105,7 +96,7 @@ jobs:
       if: github.ref_type == 'tag'
       with:
         files: |
-          detectorist.app.zip
-          detectorist.exe.zip
+          Detectorist.app.zip
+          Detectorist.exe.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
