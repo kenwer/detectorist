@@ -116,6 +116,8 @@ On Windows:
 
 ## Changelog
 
+### [0.3.4] - 2025-09-10
+
 #### Changed
 - [Dev] Simplify build process of the binary distributables.
 
