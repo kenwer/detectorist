@@ -118,6 +118,7 @@ On Windows:
 
 #### Fixed
 - Fixed instructions to build distributables.
+- [Windows] Ensure the splash screen disappears when the main application window starts.
 
 ### [0.3.3] - 2025-09-07
 
