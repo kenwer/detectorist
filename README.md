@@ -65,7 +65,7 @@ To run the application from source code, I recommend to use `Python 3.12+` and `
 
     ```shell
     uv venv
-    uv pip install -e '.[dev]'
+    uv sync --group dev
     ```
 
 3. **Run from source:**
@@ -74,7 +74,7 @@ To run the application from source code, I recommend to use `Python 3.12+` and `
     ```
 
 
-## Building Distributables
+## Building distributables
 
 You can build standalone executables for macOS and Windows. The build process uses `poethepoet` to run scripts defined in `pyproject.toml`.
 
@@ -86,7 +86,7 @@ On macOS:
 *   **Set up the build environment and run the build:**
     ```shell
     uv venv -p `which python3` .venv
-    uv pip install -e '.[dev]'
+    uv sync --group dev
     source .venv/bin/activate
     poe build-mac
     ```
@@ -98,7 +98,7 @@ On Windows:
 1.  **Set up the build environment and run the build:**
     ```shell
     uv venv .venv --python 3.12
-    uv pip install -e '.[dev]'
+    uv sync --group dev
     .venv\Scripts\activate
     poe build-windows
     ```
@@ -115,6 +115,9 @@ On Windows:
 
 
 ## Changelog
+
+#### Fixed
+- Fixed instructions to build distributables.
 
 ### [0.3.3] - 2025-09-07
 
