@@ -2,7 +2,7 @@
 
 A desktop application for sorting and cropping photos using machine learning for object detection. The main use case is to save time when cropping similar objects in large number of images. Imagine you're coming back from a diving session with hundreds or thousands of images of fish, and now you want to crop these to better view the fish. Or you want to discard any images that don't contain fish. This niche application allows you to do that with adjustable parameters like confidence, aspect ratio, and padding. Detectorist features support for various image formats, including 10 bit HEIF, and Sony RAW (.arw) files.
 
-![Main application interface](https://github.com/user-attachments/assets/407526be-5a97-4f85-b89a-3951cc4435c2)
+![Main application interface](https://github.com/user-attachments/assets/6d30d59d-a3b3-4026-844d-fc07e159d4bb)
 
 
 ## Key Features
