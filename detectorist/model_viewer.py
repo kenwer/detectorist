@@ -293,7 +293,7 @@ class ModelViewer(QMainWindow):
         about_dialog = QDialog(self)
         about_ui = Ui_AboutDialog()
         about_ui.setupUi(about_dialog)
-        about_ui.versionLabel.setText(f"Version {__version__}")
+        about_ui.versionLabel.setText(f"Version: {__version__}")
         about_dialog.exec()
 
     def dragEnterEvent(self, event):
