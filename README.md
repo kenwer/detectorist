@@ -28,9 +28,9 @@ Download the binary for your operating system from the [release page](https://gi
 
 ## AI model info
 * The `fish-detect-2025-09-11` model has been trained for 150 epochs on 863 images of fish.
-  * Class name mapping: `[0]: 'Bee'` (a single-class detector).
+  * Class name mapping: `[0]: 'Fish'` (single-class detector).
 * The `bee-detect-2025-09-10` model has been trained for 150 epochs on 171 images of bees.
-  * Class name mapping: `[0]: 'Fish'` (a single-class detector).
+  * Class name mapping: `[0]: 'Bee'` (single-class detector).
 * Both models use:
   * an image input image size of 1024px (larger images are downscaled automatically).
   * largest detection stride of 32 (the model’s coarsest feature map is 32× smaller than the input spatial resolution).
