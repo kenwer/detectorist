@@ -115,9 +115,10 @@ ruff = "uv run ruff check"
 
 
 [tool.vscode.tasks]
-compile-ui = { shell = "for f in detectorist/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
-run = "python detectorist/main.py"
-build-and-run = ["compile-ui", "run"]
+compile-ui = "poe compile-ui"
+compile-qrc = "poe compile-qrc"
+run = "poe run-app"
+build-and-run = "poe run"
 
 [tool.ruff]
 # Exclude designer generated files from .ui
