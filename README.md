@@ -16,6 +16,18 @@ A desktop application for sorting and cropping photos using machine learning for
 *   Allows to **save cropped copies** that isolates detected objects.
 *   **Configurable aspect ratio for cropping:** with 3:2, 4:4, 16:9, plus support for padding.
 
+
+## AI model info
+* The `fish-detect-2025-09-11` model has been trained for 150 epochs on 863 images of fish.
+  * Class name mapping: `[0]: 'Bee'` (a single-class detector).
+* The `bee-detect-2025-09-10` model has been trained for 150 epochs on 171 images of bees.
+  * Class name mapping: `[0]: 'Fish'` (a single-class detector).
+* Both models use:
+  * an image input image size of 1024px (larger images are downscaled automatically).
+  * largest detection stride of 32 (the model’s coarsest feature map is 32× smaller than the input spatial resolution).
+  * 3 input channels (RGB).
+
+
 ## Usage
 
 ### Download
@@ -44,10 +56,6 @@ Download the binary for your operating system from the [release page](https://gi
 ## FAQ
 
 Frequently asked questions can be found at the [FAQ page](FAQ.md).
-
-
-## AI Model
-The fish detection model `fish-detect-2025-09-11` has been trained for 150 epochs on 950 images of fish.
 
 
 ## Development
@@ -115,6 +123,9 @@ On Windows:
 
 
 ## Changelog
+
+#### Added
+- Additional model for detecting bees in images.
 
 #### Changed
 - [Dev] Track model files with git lfs.
