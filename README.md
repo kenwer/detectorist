@@ -5,6 +5,15 @@ A desktop application for sorting and cropping photos using machine learning for
 ![Main application interface](https://github.com/user-attachments/assets/6d30d59d-a3b3-4026-844d-fc07e159d4bb)
 
 
+## Download
+
+Download the binary for your operating system from the [release page](https://github.com/kenwer/detectorist/releases) and start the application.
+* macOS: [Detectorist.app.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.app.zip) 
+  * Note: The macOS app is not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
+* Windows: [Detectorist.exe.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.exe.zip)
+  * Note: The compiled Windows executable is not signed and since it extract additional contents to load it afterwards it's common that Anti Virus/Malware tools like Defender detects the application as malicious.
+
+
 ## Key features
 
 *   **Image Browser:** Load and browse images from a local folder using drag & drop.
@@ -28,17 +37,7 @@ A desktop application for sorting and cropping photos using machine learning for
   * 3 input channels (RGB).
 
 
-## Usage
-
-### Download
-
-Download the binary for your operating system from the [release page](https://github.com/kenwer/detectorist/releases) and start the application.
-* macOS: [Detectorist.app.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.app.zip) 
-  * Note: The macOS app is not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
-* Windows: [Detectorist.exe.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.exe.zip)
-  * Note: The compiled Windows executable is not signed and since it extract additional contents to load it afterwards it's common that Anti Virus/Malware tools like Defender detects the application as malicious.
-
-### Using Detectorist
+## Using Detectorist
 
 *   Select the AI model you want to use from the drop down list at the top right.
 *   Go to `File > Open Folder...` or simply drag a folder containing images onto the application window.
@@ -78,8 +77,17 @@ To run the application from source code, I recommend to use `Python 3.12+` and `
     ```
 
 3. **Run from source:**
+
+    Use `poe run` to implicitly compile the .ui and .qrc files:
+    ```shell
+    uv run poe run
+    ```
+
+    To run it directly:
     ```shell
     uv run detectorist
+    # or
+    python3 detectorist/main.py
     ```
 
 
