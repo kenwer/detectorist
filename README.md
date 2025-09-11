@@ -1,21 +1,21 @@
 # Detectorist
 
-A desktop application for sorting and cropping photos using machine learning for object detection. The main use case is to save time when cropping similar objects in large number of images. Imagine you're coming back from a diving session with hundreds or thousands of images of fish, and now you want to crop these to better view the fish. Or you want to discard any images that don't contain fish. This niche application allows you to do that with adjustable parameters like confidence, aspect ratio, and padding. Detectorist features support for various image formats, including 10 bit HEIF, and Sony RAW (.arw) files.
+A desktop application for sorting and cropping photos using machine learning for object detection. The main use case is to save time when cropping similar objects in large number of images. Imagine you're coming back from a diving session with hundreds or thousands of images of fish, and now you want to crop these to better view the fish. Or you're into bees and want to discard any images that don't contain bees. This niche application allows you to do that with adjustable parameters like confidence, aspect ratio, and padding. Detectorist features support for various image formats, including 10 bit HEIF, and Sony RAW (.arw) files.
 
 ![Main application interface](https://github.com/user-attachments/assets/6d30d59d-a3b3-4026-844d-fc07e159d4bb)
 
 
-## Key Features
+## Key features
 
-*   **Image Browser:** Load and browse images from a local folder with drag & drop support.
-*   **AI model Inference:** Run object detection using the included ONNX model.
+*   **Image Browser:** Load and browse images from a local folder using drag & drop.
+*   **Detect and crop objects using AI:** Run model inference using the included ONNX models.
 *   **Adjustable Thresholds:** Interactively change confidence and NMS thresholds to see their effect on detections in real-time.
 *   **Multiple Image Formats:** Supports common image formats like PNG, JPG, BMP, and also 10 bit HEIC/HEIF or Sony RAW (.ARW).
 *   **EXIF Data Viewer:** Displays selected EXIF metadata for the current image.
-*   **Drag & Drop:** Easily open folders or images by dragging them into the application window.
-*   Allows to **save cropped copies** that isolates detected objects.
+*   **Save cropped copies:** Automatically isolate detected objects in all loaded images.
 *   **Configurable aspect ratio for cropping:** with 3:2, 4:4, 16:9, plus support for padding.
-
+*   **Sort into subfolder:** Detect object classes and sort images into corresponding sub folders.
+*   **CSV log when processing multiple images:** Write log file to the output directory providing information about the detections like the 	number of detected objects and the highest confidence score.
 
 ## AI model info
 * The `fish-detect-2025-09-11` model has been trained for 150 epochs on 863 images of fish.
@@ -40,6 +40,7 @@ Download the binary for your operating system from the [release page](https://gi
 
 ### Using Detectorist
 
+*   Select the AI model you want to use from the drop down list at the top right.
 *   Go to `File > Open Folder...` or simply drag a folder containing images onto the application window.
 *   The folder will be scanned for supported images and the first image will load automatically.
 *   The AI model will automatically run, and detection boxes will be drawn on the image.
@@ -50,7 +51,7 @@ Download the binary for your operating system from the [release page](https://gi
 *   You can sort the images into sub folders that are named after the detected object class using the corresponding action in the Tools menu. The images are copied, not moved.
 *   Optionally configure the crop & padding settings, and start cropping via the Tools menu actions
     * The cropped images will be placed in a subdirectory of the directory that is currently being viewed.
-    * The name of the output directory encodes the confidence level and the model used (like: `detectorist_conf75_fish-detect-2025-08-01`).
+    * The name of the output directory encodes the confidence level and the model used (like: `detectorist_conf75_fish-detect-2025-09-11`).
 
 
 ## FAQ
