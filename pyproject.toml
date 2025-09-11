@@ -38,8 +38,10 @@ version = {attr = "detectorist._version.__version__"}
 
 [tool.poe.tasks]
 compile-ui = { shell = "for f in detectorist/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
+compile-qrc = { shell = "for f in detectorist/*.qrc; do pyside6-rcc \"$f\" -o \"${f%.qrc}_rc.py\"; done" }
+
 run-app = "uv run detectorist/main.py"
-run = ["compile-ui", "run-app"]
+run = ["compile-ui", "compile-qrc", "run-app"]
 
 get_app_version = "python -c 'from detectorist._version import __version__; print(__version__.strip())'"
 

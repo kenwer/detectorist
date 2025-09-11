@@ -16,48 +16,77 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
-    QLabel, QSizePolicy, QVBoxLayout, QWidget)
+    QHBoxLayout, QLabel, QSizePolicy, QSpacerItem,
+    QVBoxLayout, QWidget)
+import resources_rc
 
 class Ui_AboutDialog(object):
     def setupUi(self, AboutDialog):
         if not AboutDialog.objectName():
             AboutDialog.setObjectName(u"AboutDialog")
-        AboutDialog.resize(400, 150)
+        AboutDialog.resize(400, 200)
+        AboutDialog.setMinimumSize(QSize(400, 200))
+        AboutDialog.setMaximumSize(QSize(400, 200))
         self.verticalLayout = QVBoxLayout(AboutDialog)
         self.verticalLayout.setObjectName(u"verticalLayout")
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.iconLabel = QLabel(AboutDialog)
+        self.iconLabel.setObjectName(u"iconLabel")
+        self.iconLabel.setMinimumSize(QSize(128, 128))
+        self.iconLabel.setMaximumSize(QSize(128, 128))
+        self.iconLabel.setPixmap(QPixmap(u":/icons/icon.png"))
+        self.iconLabel.setScaledContents(True)
+        self.iconLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.horizontalLayout.addWidget(self.iconLabel)
+
+        self.textLayout = QVBoxLayout()
+        self.textLayout.setObjectName(u"textLayout")
         self.appNameLabel = QLabel(AboutDialog)
         self.appNameLabel.setObjectName(u"appNameLabel")
         font = QFont()
-        font.setPointSize(16)
-        font.setBold(True)
+        font.setPointSize(34)
+        font.setWeight(QFont.ExtraLight)
+        font.setKerning(True)
         self.appNameLabel.setFont(font)
-        self.appNameLabel.setAlignment(Qt.AlignCenter)
+        self.appNameLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.verticalLayout.addWidget(self.appNameLabel)
+        self.textLayout.addWidget(self.appNameLabel)
+
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+
+        self.textLayout.addItem(self.verticalSpacer)
 
         self.versionLabel = QLabel(AboutDialog)
         self.versionLabel.setObjectName(u"versionLabel")
-        self.versionLabel.setAlignment(Qt.AlignCenter)
+        self.versionLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.verticalLayout.addWidget(self.versionLabel)
+        self.textLayout.addWidget(self.versionLabel)
 
         self.authorLabel = QLabel(AboutDialog)
         self.authorLabel.setObjectName(u"authorLabel")
-        self.authorLabel.setAlignment(Qt.AlignCenter)
+        self.authorLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.verticalLayout.addWidget(self.authorLabel)
+        self.textLayout.addWidget(self.authorLabel)
 
         self.linkLabel = QLabel(AboutDialog)
         self.linkLabel.setObjectName(u"linkLabel")
-        self.linkLabel.setAlignment(Qt.AlignCenter)
+        self.linkLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.linkLabel.setOpenExternalLinks(True)
 
-        self.verticalLayout.addWidget(self.linkLabel)
+        self.textLayout.addWidget(self.linkLabel)
+
+
+        self.horizontalLayout.addLayout(self.textLayout)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout)
 
         self.buttonBox = QDialogButtonBox(AboutDialog)
         self.buttonBox.setObjectName(u"buttonBox")
-        self.buttonBox.setOrientation(Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QDialogButtonBox.Ok)
+        self.buttonBox.setOrientation(Qt.Orientation.Horizontal)
+        self.buttonBox.setStandardButtons(QDialogButtonBox.StandardButton.Ok)
 
         self.verticalLayout.addWidget(self.buttonBox)
 
@@ -71,6 +100,7 @@ class Ui_AboutDialog(object):
 
     def retranslateUi(self, AboutDialog):
         AboutDialog.setWindowTitle(QCoreApplication.translate("AboutDialog", u"About Detectorist", None))
+        self.iconLabel.setText("")
         self.appNameLabel.setText(QCoreApplication.translate("AboutDialog", u"Detectorist", None))
         self.versionLabel.setText(QCoreApplication.translate("AboutDialog", u"Version: ", None))
         self.authorLabel.setText(QCoreApplication.translate("AboutDialog", u"Author: Ken Werner", None))
