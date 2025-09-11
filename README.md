@@ -117,8 +117,7 @@ On Windows:
 
 *   Implement support for **persistent settings**.
 *   Model support
-    *   Train and include more models
-    *   Add model for detecting bees
+    *   Train and include more/better models
     *   Allow users to bring their own models
 
 
