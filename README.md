@@ -123,6 +123,8 @@ On Windows:
 
 ## Changelog
 
+### [0.4.0] - 2025-09-11
+
 #### Added
 - Additional model for detecting bees in images.
 - Re-run object detection when the model is changed.
