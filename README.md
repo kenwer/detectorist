@@ -125,6 +125,7 @@ On Windows:
 
 #### Added
 - Additional model for detecting bees in images.
+- Re-run object detection when the model is changed.
 - [Dev] Add poe ruff task.
 
 #### Changed

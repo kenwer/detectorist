@@ -286,6 +286,14 @@ class ModelViewer(QMainWindow):
         try:
             self.detector = Detector(model_path)
             print(f"Loaded model: {model_path}")
+
+            if self.ui.imageLabel.image:
+                self.last_confidence = None
+                self.last_nms = None
+                self._update_detection_info()
+                self.ui.imageLabel.set_detection_boxes([])
+                QTimer.singleShot(0, self.detect_objects)
+
         except OSError as e:
             self.ui.imageLabel.setText(f"Error loading model: {e}")
 
