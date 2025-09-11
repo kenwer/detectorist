@@ -47,7 +47,7 @@ Frequently asked questions can be found at the [FAQ page](FAQ.md).
 
 
 ## AI Model
-The current object detection model has been trained on for approximately 130 epochs on around 900 images of fish. It's a start...
+The fish detection model `fish-detect-2025-09-11` has been trained for 150 epochs on 950 images of fish.
 
 
 ## Development
@@ -118,6 +118,7 @@ On Windows:
 
 #### Changed
 - [Dev] Track model files with git lfs.
+- Update model for fish detection that works better for images with multiple fish.
 
 ### [0.3.4] - 2025-09-10
 
