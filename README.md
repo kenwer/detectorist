@@ -116,6 +116,9 @@ On Windows:
 
 ## Changelog
 
+#### Changed
+- [Dev] Track model files with git lfs.
+
 ### [0.3.4] - 2025-09-10
 
 #### Changed
