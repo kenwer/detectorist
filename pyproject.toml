@@ -107,7 +107,9 @@ nuitka
     detectorist/main.py
 """
 
-clean = { shell = "rm -rf dist/*" }
+clean = "rm -rf ./dist/*"
+
+ruff = "uv run ruff check"
 
 
 [tool.vscode.tasks]

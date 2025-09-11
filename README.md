@@ -126,6 +126,7 @@ On Windows:
 
 #### Added
 - Additional model for detecting bees in images.
+- [Dev] Add poe ruff task.
 
 #### Changed
 - [Dev] Track model files with git lfs.
