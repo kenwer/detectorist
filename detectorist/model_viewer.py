@@ -15,8 +15,8 @@ from PySide6.QtWidgets import (
 )
 
 from detectorist._version import __version__
-from detectorist.about_dialog import Ui_AboutDialog
-from detectorist.model_viewer_gui import Ui_ModelViewerUI
+from .about_dialog import Ui_AboutDialog
+from .model_viewer_gui import Ui_ModelViewerUI
 
 from . import image_utils
 from .detector import Detector
