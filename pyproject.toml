@@ -37,15 +37,20 @@ packages = ["detectorist"]
 version = {attr = "detectorist._version.__version__"}
 
 [tool.poe.tasks]
-compile-ui = { shell = "for f in detectorist/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done" }
-compile-qrc = { shell = "for f in detectorist/*.qrc; do pyside6-rcc \"$f\" -o \"${f%.qrc}_rc.py\"; done" }
+compile-ui = { shell = "for f in detectorist/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done", help = "Compile Qt UI files to Python files" }
+compile-qrc = { shell = "for f in detectorist/*.qrc; do pyside6-rcc \"$f\" -o \"${f%.qrc}_rc.py\"; done", help = "Compile Qt resource files to Python files" }
 
-run-app = "uv run detectorist/main.py"
-run = ["compile-ui", "compile-qrc", "run-app"]
+run-app = { cmd = "uv run detectorist/main.py", help = "Run the application" }
+run = { sequence = ["compile-ui", "compile-qrc", "run-app"], help = "Compile UI and resource files and run the application" }
 
-get_app_version = "python -c 'from detectorist._version import __version__; print(__version__.strip())'"
+get_app_version = { shell = "python -c 'from detectorist._version import __version__; print(__version__.strip())'", help = "Get the application version" }
 
-build-linux = { shell = """
+clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
+
+ruff = { cmd = "uv run ruff check", help = "Run ruff linter" }
+
+[tool.poe.tasks.build-linux]
+shell = """
 nuitka \
     --standalone \
     --onefile \
@@ -61,9 +66,12 @@ nuitka \
     --remove-output \
     --output-filename=Detectorist \
     ./detectorist/main.py
-""" }
+"""
+deps = ["compile-ui", "compile-qrc"]
+help = "Build the application for Linux"
 
-build-mac = { shell = """
+[tool.poe.tasks.build-mac]
+shell = """
 nuitka \
     --standalone \
     --macos-create-app-bundle \
@@ -85,9 +93,13 @@ nuitka \
     ./detectorist/main.py
 mv  dist/macos/main.app \
     dist/macos/Detectorist.app
-""" }
+"""
+deps = ["compile-ui", "compile-qrc"]
+help = "Build the application for macOS"
 
-build-windows = { shell = """
+
+[tool.poe.tasks.build-windows]
+shell = """
 nuitka.cmd \
     --standalone \
     --onefile \
@@ -110,11 +122,9 @@ nuitka.cmd \
     --output-filename=Detectorist \
     --assume-yes-for-downloads \
     ./detectorist/main.py
-""" }
-
-clean = "rm -rf ./dist/*"
-
-ruff = "uv run ruff check"
+"""
+deps = ["compile-ui", "compile-qrc"]
+help = "Build the application for Windows"
 
 
 [tool.vscode.tasks]

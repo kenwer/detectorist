@@ -147,6 +147,9 @@ On Linux:
 #### Added
 - Build ELF binary for Linux x64.
 
+#### Changed
+- [Dev] Poe tasks now depend on building the `.ui` and `.qrc` files.
+
 #### Fixed
 - Handle images with alpha channels - this fixes loading PNGs.
 
