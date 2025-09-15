@@ -45,6 +45,24 @@ run = ["compile-ui", "compile-qrc", "run-app"]
 
 get_app_version = "python -c 'from detectorist._version import __version__; print(__version__.strip())'"
 
+build-linux = { shell = """
+nuitka \
+    --standalone \
+    --onefile \
+    --enable-plugin=pyside6 \
+    --noinclude-qt-translations \
+    --noinclude-dlls='*.cpp.o' \
+    --noinclude-dlls='*.qsb' \
+    --include-qt-plugins=platforminputcontexts \
+    --include-data-dir=models=models \
+    --disable-ccache \
+    --output-dir=dist/linux \
+    --linux-icon=assets/icon.png \
+    --remove-output \
+    --output-filename=Detectorist \
+    ./detectorist/main.py
+""" }
+
 build-mac = { shell = """
 nuitka \
     --standalone \
@@ -93,21 +111,6 @@ nuitka.cmd \
     --assume-yes-for-downloads \
     ./detectorist/main.py
 """ }
-
-build-linux = """
-nuitka
-    --standalone
-    --enable-plugin=pyside6
-    --noinclude-qt-translations
-    --noinclude-dlls='*.cpp.o'
-    --noinclude-dlls='*.qsb'
-    --include-qt-plugins=platforminputcontexts
-    --include-data-dir=models=models
-    --disable-ccache
-    --output-dir=dist
-    --remove-output
-    detectorist/main.py
-"""
 
 clean = "rm -rf ./dist/*"
 

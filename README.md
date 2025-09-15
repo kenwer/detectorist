@@ -8,11 +8,12 @@ A desktop application for sorting and cropping photos using machine learning for
 ## Download
 
 Download the binary for your operating system from the [release page](https://github.com/kenwer/detectorist/releases) and start the application.
-* macOS: [Detectorist.app.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.app.zip) 
+* macOS (Apple Silicon): [Detectorist.app.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.app.zip) 
   * Note: The macOS app is not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
 * Windows: [Detectorist.exe.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.exe.zip)
   * Note: The compiled Windows executable is not signed and since it extract additional contents to load it afterwards it's common that Anti Virus/Malware tools like Defender detects the application as malicious.
-
+* Linux (x64): [Detectorist.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.tar.gz)
+  * Note: on Linux you can also easily run Detectorist from the source as described below.
 
 ## Key features
 
@@ -121,6 +122,17 @@ On Windows:
     ```
     This will create a standalone executable inside a folder in the `dist/windows/` directory.
 
+### Linux Binary
+
+On Linux:
+*   **Set up the build environment and run the build:**
+    ```shell
+    uv venv -p `which python3` .venv
+    uv sync --group dev
+    source .venv/bin/activate
+    poe build-linux
+    ```
+    This will use Nuitka to compile the Python code into a x86 Linux ELF binary in the `dist/linux/` directory.
 
 ## Roadmap/TODOs
 
@@ -131,6 +143,9 @@ On Windows:
 
 
 ## Changelog
+
+#### Added
+- Build ELF binary for Linux x64.
 
 ### [0.4.0] - 2025-09-11
 

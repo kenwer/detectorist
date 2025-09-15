@@ -9,6 +9,43 @@ on:
     types: [published]
 
 jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        lfs: 'true'
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+        
+    - name: Install dependencies
+      run: |
+        uv venv
+        uv sync --group dev
+    
+    - name: Build Linux binary
+      run: |
+        source .venv/bin/activate
+        poe build-linux
+
+    - name: Tar Linux binary
+      run: |
+        cd dist/linux
+        tar cfz Detectorist.tar.gz Detectorist
+
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Detectorist.tar.gz
+        path: dist/linux/Detectorist.tar.gz
+
   build-macos:
     runs-on: macos-latest
     
@@ -83,14 +120,14 @@ jobs:
         path: dist/windows/Detectorist.exe.zip
 
   create-release:
-    needs: [build-macos, build-windows]
+    needs: [build-macos, build-windows, build-linux]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     
     steps:
     - uses: actions/download-artifact@v4
       with:
-        merge-multiple: true # downloaded artifacts directly into the current directory (instead of separate folders)
+        merge-multiple: true # downloads artifacts directly into the current directory (instead of separate folders)
 
     - name: List contents
       run: ls -la
@@ -102,5 +139,6 @@ jobs:
         files: |
           Detectorist.app.zip
           Detectorist.exe.zip
+          Detectorist.tar.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
