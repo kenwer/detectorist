@@ -48,7 +48,7 @@ class ImageObject:
                 # Paste the RGBA image onto the white background
                 background.paste(pil_image, (0, 0), pil_image)
                 pil_image = background
-            
+
             self._image_data = np.array(pil_image)
 
         if self._image_data.dtype == np.uint16:
