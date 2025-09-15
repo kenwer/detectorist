@@ -40,6 +40,15 @@ class ImageObject:
         else: # All other 8 bit image formats are handled by Pillow
             pil_image = PILImage.open(self.image_path)
             self._exif_handler = ExifWrapper(pil_image)
+
+            # If the image has an alpha channel (e.g., RGBA), convert it to RGB
+            if pil_image.mode in ('RGBA', 'LA'):
+                # Create a new white background image
+                background = PILImage.new('RGB', pil_image.size, (255, 255, 255))
+                # Paste the RGBA image onto the white background
+                background.paste(pil_image, (0, 0), pil_image)
+                pil_image = background
+            
             self._image_data = np.array(pil_image)
 
         if self._image_data.dtype == np.uint16:

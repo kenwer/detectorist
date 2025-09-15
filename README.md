@@ -147,6 +147,9 @@ On Linux:
 #### Added
 - Build ELF binary for Linux x64.
 
+#### Fixed
+- Handle images with alpha channels - this fixes loading PNGs.
+
 ### [0.4.0] - 2025-09-11
 
 #### Added
