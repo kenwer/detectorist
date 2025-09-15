@@ -15,13 +15,13 @@ from PySide6.QtWidgets import (
 )
 
 from detectorist._version import __version__
-from .about_dialog import Ui_AboutDialog
-from .model_viewer_gui import Ui_ModelViewerUI
 
 from . import image_utils
+from .about_dialog import Ui_AboutDialog
 from .detector import Detector
 from .image_label import ImageLabel
 from .image_object import ImageObject
+from .model_viewer_gui import Ui_ModelViewerUI
 from .utils import get_model_path
 
 
