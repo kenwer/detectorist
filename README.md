@@ -144,6 +144,8 @@ On Linux:
 
 ## Changelog
 
+### [0.4.1] - 2025-09-15
+
 #### Added
 - Build ELF binary for Linux x64.
 
