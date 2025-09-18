@@ -1,8 +1,6 @@
 ## Frequently Asked Questions (FAQ)
 
-### Troubleshooting
-
-#### Q1: When starting teh app on macOS, how do I get past the  *Detectorist.app Not Opened* message?
+### Q1: When starting the app on macOS, how do I get past the  "*Detectorist.app Not Opened*" message?
 **A:** macOS prevents unsigned apps, but you still can [open a apps from an unknown developers](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac). Here's how:
 
 1. When you attempt to open the app, a warning like this appears where you have no option to open it anyways, so just select _Done_: 
@@ -25,5 +23,10 @@
 
 From now on the application can be started like any other.
 
-
 Background: For this open source application there's no valid Developer ID certificate the app could signed with. Hence you get a warning. Apple requires code signing for macOS apps to verify their integrity and origin. The Apple Developer Program membership, which provides signing certificates, [costs $99 annually](https://developer.apple.com/support/compare-memberships/).
+
+### Q2: When starting the Windows executable, how do I get past the "*Windows protected your PC*" / "*Don't run*" message?
+**A:** The compiled Windows executable is not signed, therefore Microsoft Defender issues a warning. You can still run it, just to click on "More info", then you'll see the option to "Run anyway"
+
+  * <img src="https://github.com/user-attachments/assets/69ac275c-c815-4176-a2f5-8c46faa28901" width="40%" alt="Image">
+    <img src="https://github.com/user-attachments/assets/61048311-4f35-4aad-830c-7506aaaec84c" width="40%" alt="Image">
