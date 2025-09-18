@@ -144,6 +144,7 @@ On Linux:
 ## Changelog
 
 #### Changed
+- Minimum allowed confidence threshold is 1 instead of 0.
 - Remove the NMS slider & spin-box, and use a default of 0.4.
 
 ### [0.4.1] - 2025-09-15

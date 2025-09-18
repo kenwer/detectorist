@@ -96,6 +96,7 @@ class Ui_ModelViewerUI(object):
         sizePolicy2.setVerticalStretch(0)
         sizePolicy2.setHeightForWidth(self.confidenceSlider.sizePolicy().hasHeightForWidth())
         self.confidenceSlider.setSizePolicy(sizePolicy2)
+        self.confidenceSlider.setMinimum(1)
         self.confidenceSlider.setMaximum(100)
         self.confidenceSlider.setSingleStep(10)
         self.confidenceSlider.setSliderPosition(75)
@@ -106,6 +107,7 @@ class Ui_ModelViewerUI(object):
 
         self.confidenceSpinBox = QSpinBox(self.modelGroupBox)
         self.confidenceSpinBox.setObjectName(u"confidenceSpinBox")
+        self.confidenceSpinBox.setMinimum(1)
         self.confidenceSpinBox.setMaximum(100)
         self.confidenceSpinBox.setValue(75)
 
@@ -229,7 +231,7 @@ class Ui_ModelViewerUI(object):
         ModelViewerUI.setCentralWidget(self.centralWidget)
         self.menuBar = QMenuBar(ModelViewerUI)
         self.menuBar.setObjectName(u"menuBar")
-        self.menuBar.setGeometry(QRect(0, 0, 1500, 37))
+        self.menuBar.setGeometry(QRect(0, 0, 1500, 30))
         self.menuFile = QMenu(self.menuBar)
         self.menuFile.setObjectName(u"menuFile")
         self.menuTools = QMenu(self.menuBar)

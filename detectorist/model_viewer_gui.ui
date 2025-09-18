@@ -83,6 +83,9 @@
              <property name="toolTip">
               <string>The confidence threshold for filtering detections</string>
              </property>
+             <property name="minimum">
+              <number>1</number>
+             </property>
              <property name="maximum">
               <number>100</number>
              </property>
@@ -102,6 +105,9 @@
            </item>
            <item row="1" column="2">
             <widget class="QSpinBox" name="confidenceSpinBox">
+             <property name="minimum">
+              <number>1</number>
+             </property>
              <property name="maximum">
               <number>100</number>
              </property>
@@ -308,7 +314,7 @@ Highest confidence	: -</string>
      <x>0</x>
      <y>0</y>
      <width>1500</width>
-     <height>37</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -416,22 +422,6 @@ Highest confidence	: -</string>
    </hints>
   </connection>
   <connection>
-   <sender>nmsSpinBox</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>nmsSlider</receiver>
-   <slot>setValue(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1460</x>
-     <y>169</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1409</x>
-     <y>171</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>confidenceSlider</sender>
    <signal>valueChanged(int)</signal>
    <receiver>confidenceSpinBox</receiver>
@@ -444,22 +434,6 @@ Highest confidence	: -</string>
     <hint type="destinationlabel">
      <x>1460</x>
      <y>138</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>nmsSlider</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>nmsSpinBox</receiver>
-   <slot>setValue(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1409</x>
-     <y>171</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1460</x>
-     <y>169</y>
     </hint>
    </hints>
   </connection>
