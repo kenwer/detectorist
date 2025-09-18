@@ -111,40 +111,6 @@ class Ui_ModelViewerUI(object):
 
         self.gridLayout_2.addWidget(self.confidenceSpinBox, 1, 2, 1, 1)
 
-        self.nmsLabel = QLabel(self.modelGroupBox)
-        self.nmsLabel.setObjectName(u"nmsLabel")
-        sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
-        sizePolicy3.setHorizontalStretch(0)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.nmsLabel.sizePolicy().hasHeightForWidth())
-        self.nmsLabel.setSizePolicy(sizePolicy3)
-
-        self.gridLayout_2.addWidget(self.nmsLabel, 2, 0, 1, 1)
-
-        self.nmsSlider = QSlider(self.modelGroupBox)
-        self.nmsSlider.setObjectName(u"nmsSlider")
-        self.nmsSlider.setEnabled(True)
-        sizePolicy4 = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
-        sizePolicy4.setHorizontalStretch(0)
-        sizePolicy4.setVerticalStretch(0)
-        sizePolicy4.setHeightForWidth(self.nmsSlider.sizePolicy().hasHeightForWidth())
-        self.nmsSlider.setSizePolicy(sizePolicy4)
-        self.nmsSlider.setMaximum(100)
-        self.nmsSlider.setSingleStep(10)
-        self.nmsSlider.setValue(45)
-        self.nmsSlider.setSliderPosition(45)
-        self.nmsSlider.setOrientation(Qt.Orientation.Horizontal)
-        self.nmsSlider.setTickPosition(QSlider.TickPosition.NoTicks)
-
-        self.gridLayout_2.addWidget(self.nmsSlider, 2, 1, 1, 1)
-
-        self.nmsSpinBox = QSpinBox(self.modelGroupBox)
-        self.nmsSpinBox.setObjectName(u"nmsSpinBox")
-        self.nmsSpinBox.setMaximum(100)
-        self.nmsSpinBox.setValue(45)
-
-        self.gridLayout_2.addWidget(self.nmsSpinBox, 2, 2, 1, 1)
-
 
         self.verticalLayout.addWidget(self.modelGroupBox)
 
@@ -287,9 +253,7 @@ class Ui_ModelViewerUI(object):
 
         self.retranslateUi(ModelViewerUI)
         self.confidenceSpinBox.valueChanged.connect(self.confidenceSlider.setValue)
-        self.nmsSpinBox.valueChanged.connect(self.nmsSlider.setValue)
         self.confidenceSlider.valueChanged.connect(self.confidenceSpinBox.setValue)
-        self.nmsSlider.valueChanged.connect(self.nmsSpinBox.setValue)
         self.paddingSlider.valueChanged.connect(self.paddingSpinBox.setValue)
         self.paddingSpinBox.valueChanged.connect(self.paddingSlider.setValue)
 
@@ -329,13 +293,6 @@ class Ui_ModelViewerUI(object):
         self.confidenceLabel.setText(QCoreApplication.translate("ModelViewerUI", u"Confidence", None))
 #if QT_CONFIG(tooltip)
         self.confidenceSlider.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The confidence threshold for filtering detections", None))
-#endif // QT_CONFIG(tooltip)
-#if QT_CONFIG(tooltip)
-        self.nmsLabel.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The Non-Maximum Suppression threshold for the bounding boxes", None))
-#endif // QT_CONFIG(tooltip)
-        self.nmsLabel.setText(QCoreApplication.translate("ModelViewerUI", u"NMS", None))
-#if QT_CONFIG(tooltip)
-        self.nmsSlider.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The Non-Maximum Suppression threshold for the bounding boxes", None))
 #endif // QT_CONFIG(tooltip)
         self.detectionInfoGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Detection", None))
         self.detectionInfoLabel.setText(QCoreApplication.translate("ModelViewerUI", u"Objects			: -\n"

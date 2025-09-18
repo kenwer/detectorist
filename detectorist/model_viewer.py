@@ -24,6 +24,8 @@ from .image_object import ImageObject
 from .model_viewer_gui import Ui_ModelViewerUI
 from .utils import get_model_path
 
+# The Non-Maximum Suppression threshold used for object detection
+NMS_THRESHOLD = 0.4
 
 class ModelViewer(QMainWindow):
 
@@ -123,7 +125,6 @@ class ModelViewer(QMainWindow):
         self.current_image_path = None
         self.current_folder_path = None
         self.last_confidence = None
-        self.last_nms = None
 
         # Ensure opener is registered (otherwise the native code will segfault)
         pillow_heif.register_heif_opener()
@@ -166,15 +167,11 @@ class ModelViewer(QMainWindow):
 
         # Delayed Sliders and SpinBoxes (because they are emitted very often)
         self.ui.confidenceSlider.valueChanged.connect(self.request_detection)
-        self.ui.nmsSlider.valueChanged.connect(self.request_detection)
         self.ui.confidenceSpinBox.valueChanged.connect(self.request_detection)
-        self.ui.nmsSpinBox.valueChanged.connect(self.request_detection)
 
         # Immediate trigger
         self.ui.confidenceSlider.sliderReleased.connect(self.detect_objects)
-        self.ui.nmsSlider.sliderReleased.connect(self.detect_objects)
         self.ui.confidenceSpinBox.editingFinished.connect(self.detect_objects)
-        self.ui.nmsSpinBox.editingFinished.connect(self.detect_objects)
 
 
         # Connect crop controls
@@ -250,7 +247,6 @@ class ModelViewer(QMainWindow):
 
             if self.ui.imageLabel.replace_image(self.current_image_path):
                 self.last_confidence = None  # Reset for new image
-                self.last_nms = None  # Reset for new image
                 self._update_detection_info() # Reset for new detection
 
                 # Add image info to the self.ui.imageInfoLabel
@@ -289,7 +285,6 @@ class ModelViewer(QMainWindow):
 
             if self.ui.imageLabel.image:
                 self.last_confidence = None
-                self.last_nms = None
                 self._update_detection_info()
                 self.ui.imageLabel.set_detection_boxes([])
                 QTimer.singleShot(0, self.detect_objects)
@@ -346,17 +341,16 @@ class ModelViewer(QMainWindow):
             return
 
         confidence = self.ui.confidenceSlider.value() / 100.0
-        nms = self.ui.nmsSlider.value() / 100.0
 
-        # Skip detection if the values haven't changed
-        if confidence == self.last_confidence and nms == self.last_nms:
+        # Skip detection if the value hasn't changed
+        if confidence == self.last_confidence:
             # Still update the crop band, e.g. padding could have changed
             self.update_crop_band()
             return
 
         try:
             start_time = time.perf_counter()
-            results = self.detector.detect(self.ui.imageLabel.image, confidence_threshold=confidence, nms_threshold=nms)
+            results = self.detector.detect(self.ui.imageLabel.image, confidence_threshold=confidence, nms_threshold=NMS_THRESHOLD)
             end_time = time.perf_counter()
             detection_time_ms = (end_time - start_time) * 1000
 
@@ -369,9 +363,8 @@ class ModelViewer(QMainWindow):
             self.ui.imageLabel.set_detection_boxes(results)
             self.update_crop_band()
 
-            # Cache the new values
+            # Cache the new value
             self.last_confidence = confidence
-            self.last_nms = nms
 
         except Exception as e:
             self.ui.imageLabel.setText(f"Error detecting objects: {e}")
@@ -499,7 +492,6 @@ class ModelViewer(QMainWindow):
             progress_dialog.setAutoClose(True)
 
             confidence = self.ui.confidenceSlider.value() / 100.0
-            nms = self.ui.nmsSlider.value() / 100.0
 
             log_file_path = os.path.join(output_dir, "detections.csv")
             with open(log_file_path, "w", newline="") as log_file:
@@ -518,7 +510,7 @@ class ModelViewer(QMainWindow):
 
                     image_path = os.path.join(self.current_folder_path, file_name)
                     image = ImageObject(image_path)
-                    results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=nms)
+                    results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=NMS_THRESHOLD)
 
                     log_data = process_callback(image, results, output_dir, **state)
                     if log_data:

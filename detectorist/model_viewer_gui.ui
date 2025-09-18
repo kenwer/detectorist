@@ -110,66 +110,6 @@
              </property>
             </widget>
            </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="nmsLabel">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>The Non-Maximum Suppression threshold for the bounding boxes</string>
-             </property>
-             <property name="text">
-              <string>NMS</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QSlider" name="nmsSlider">
-             <property name="enabled">
-              <bool>true</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>The Non-Maximum Suppression threshold for the bounding boxes</string>
-             </property>
-             <property name="maximum">
-              <number>100</number>
-             </property>
-             <property name="singleStep">
-              <number>10</number>
-             </property>
-             <property name="value">
-              <number>45</number>
-             </property>
-             <property name="sliderPosition">
-              <number>45</number>
-             </property>
-             <property name="orientation">
-              <enum>Qt::Orientation::Horizontal</enum>
-             </property>
-             <property name="tickPosition">
-              <enum>QSlider::TickPosition::NoTicks</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="2">
-            <widget class="QSpinBox" name="nmsSpinBox">
-             <property name="maximum">
-              <number>100</number>
-             </property>
-             <property name="value">
-              <number>45</number>
-             </property>
-            </widget>
-           </item>
           </layout>
          </widget>
         </item>

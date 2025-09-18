@@ -19,7 +19,7 @@ Download the binary for your operating system from the [release page](https://gi
 
 *   **Image Browser:** Load and browse images from a local folder using drag & drop.
 *   **Detect and crop objects using AI:** Run model inference using the included ONNX models.
-*   **Adjustable Thresholds:** Interactively change confidence and NMS thresholds to see their effect on detections in real-time.
+*   **Adjustable Confidence Threshold:** Interactively change confidence to see the effect on detections in real-time.
 *   **Multiple Image Formats:** Supports common image formats like PNG, JPG, BMP, and also 10 bit HEIC/HEIF or Sony RAW (.ARW).
 *   **EXIF Data Viewer:** Displays selected EXIF metadata for the current image.
 *   **Save cropped copies:** Automatically isolate detected objects in all loaded images.
@@ -45,9 +45,8 @@ Download the binary for your operating system from the [release page](https://gi
 *   The folder will be scanned for supported images and the first image will load automatically.
 *   The AI model will automatically run, and detection boxes will be drawn on the image.
 *   Click on an item in the list on the left to navigate through the image set.
-*   Use the sliders and spin-boxes on the right to adjust the **Confidence** and **NMS** thresholds. Detections will update automatically.
-    * The **Confidence** threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
-    * The **NMS** (non-maximum suppression) threshold helps to eliminate redundant and overlapping bounding boxes. The lower the threshold, the more strictly bounding boxes are calculated.
+*   Use the slider and spin-box on the right to adjust the **Confidence** threshold. Detections will update automatically.
+    * The Confidence threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
 *   You can sort the images into sub folders that are named after the detected object class using the corresponding action in the Tools menu. The images are copied, not moved.
 *   Optionally configure the crop & padding settings, and start cropping via the Tools menu actions
     * The cropped images will be placed in a subdirectory of the directory that is currently being viewed.
@@ -143,6 +142,9 @@ On Linux:
 
 
 ## Changelog
+
+#### Changed
+- Remove the NMS slider & spin-box, and use a default of 0.4.
 
 ### [0.4.1] - 2025-09-15
 
