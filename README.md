@@ -273,4 +273,4 @@ On Linux:
 
 ## License
 
-This project is licensed under the Apache License, Version 2.0. See the LICENSE file for the full text.
+This project is licensed under the AGPL-3.0 license. See the LICENSE file for the full text.
