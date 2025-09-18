@@ -143,6 +143,7 @@ On Linux:
 
 ## Changelog
 
+### [0.4.2] - 2025-09-18
 
 #### Fixed
 - When processing multiple images, ensure that the progress dialog is closed when the action has been completed or canceled.
