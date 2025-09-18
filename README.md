@@ -143,6 +143,10 @@ On Linux:
 
 ## Changelog
 
+
+#### Fixed
+- When processing multiple images, ensure that the progress dialog is closed when the action has been completed or canceled.
+
 #### Changed
 - Minimum allowed confidence threshold is 1 instead of 0.
 - Remove the NMS slider & spin-box, and use a default of 0.4.

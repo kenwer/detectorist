@@ -522,6 +522,7 @@ class ModelViewer(QMainWindow):
                 self.ui.statusBar.showMessage(f"{process_name} cancelled.", 5000)
 
             self._open_native_file_manager(output_dir)
+            progress_dialog.close()
 
         except Exception as e:
             print(f"Error during {process_name}: {e}")
