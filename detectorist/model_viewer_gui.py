@@ -263,7 +263,7 @@ class Ui_ModelViewerUI(object):
     # setupUi
 
     def retranslateUi(self, ModelViewerUI):
-        ModelViewerUI.setWindowTitle(QCoreApplication.translate("ModelViewerUI", u"oCrop", None))
+        ModelViewerUI.setWindowTitle(QCoreApplication.translate("ModelViewerUI", u"Detectorist", None))
         self.openFolderAction.setText(QCoreApplication.translate("ModelViewerUI", u"Open Folder...", None))
 #if QT_CONFIG(shortcut)
         self.openFolderAction.setShortcut(QCoreApplication.translate("ModelViewerUI", u"Ctrl+O", None))
