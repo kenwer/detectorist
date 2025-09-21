@@ -31,9 +31,9 @@ class ModelViewer(QMainWindow):
 
 
     @staticmethod
-    def _calculate_crop_rect(detections: list, image_shape: tuple, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> tuple[int, int, int, int] | None:
+    def _calculate_single_crop_rect(detections: list, image_shape: tuple, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> tuple[int, int, int, int] | None:
         """
-        Calculates a crop rectangle based on detections and parameters.
+        Calculates a single crop rectangle crop rectangle based on detections and parameters.
 
         Args:
             detections: A list of detections, where each detection is a tuple ((x, y, w, h), score, class_id).
@@ -48,17 +48,18 @@ class ModelViewer(QMainWindow):
         if not detections:
             return None
 
+        # The detection boxes are tuples of (x, y, w, h)
         if crop_mode == 'top_confidence':
             top_detection = max(detections, key=lambda d: d[1])
             x, y, w, h = top_detection[0]
         elif crop_mode == 'largest_area':
-            # The detection boxes are tuples of (x, y, w, h)
             left = min(d[0][0] for d in detections)
             top = min(d[0][1] for d in detections)
             right = max(d[0][0] + d[0][2] for d in detections)
             bottom = max(d[0][1] + d[0][3] for d in detections)
             x, y, w, h = left, top, right - left, bottom - top
         else:
+            print(f"Warning {crop_mode}: invalid crop mode for _calculate_single_crop_rect")
             return None
 
         # Add padding
@@ -119,6 +120,37 @@ class ModelViewer(QMainWindow):
 
         return (x, y, w, h)
 
+    @staticmethod
+    def _calculate_crop_rectangles(detections: list, image_shape: tuple, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> list[tuple[int, int, int, int]]:
+        """
+        Calculates crop rectangles based on detections and parameters.
+
+        Args:
+            detections: A list of detections, where each detection is a tuple ((x, y, w, h), score, class_id).
+            image_shape: The shape of the image (height, width, channels).
+            crop_mode: 'top_confidence' or 'largest_area'.
+            padding_percentage: Padding to add around the bounding box, as a float (e.g., 0.1 for 10%).
+            aspect_ratio: A tuple (width, height) for the target aspect ratio.
+
+        Returns:
+            A list of tuples (x, y, w, h) for the crop rectangles.
+        """
+        if not detections:
+            return []
+
+        if crop_mode == 'all_detected_objects': # We might have more than one crop rectangle
+            crop_rects = []
+            # For 'all_detected_objects', we treat each detection individually
+            for detection in detections:
+                # For 'all_detected_objects', we treat each detection individually with 'top_confidence'
+                rect = ModelViewer._calculate_single_crop_rect([detection], image_shape, 'top_confidence', padding_percentage, aspect_ratio)
+                if rect:
+                    crop_rects.append(rect)
+            return crop_rects
+        else: # Just a single crop rectangle
+            rect = ModelViewer._calculate_single_crop_rect(detections, image_shape, crop_mode, padding_percentage, aspect_ratio)
+            return [rect] if rect else []
+
     def __init__(self):
         super().__init__()
 
@@ -175,10 +207,11 @@ class ModelViewer(QMainWindow):
 
 
         # Connect crop controls
-        self.ui.rb_crop_to_top_conf.toggled.connect(self.update_crop_band)
-        self.ui.rb_crop_largest_area.toggled.connect(self.update_crop_band)
-        self.ui.cropRatioComboBox.currentIndexChanged.connect(self.update_crop_band)
-        self.ui.paddingSlider.valueChanged.connect(self.update_crop_band)
+        self.ui.rb_crop_to_top_conf.toggled.connect(self.update_crop_bands)
+        self.ui.rb_crop_largest_area.toggled.connect(self.update_crop_bands)
+        self.ui.rb_crop_all_detected_objects.toggled.connect(self.update_crop_bands)
+        self.ui.cropRatioComboBox.currentIndexChanged.connect(self.update_crop_bands)
+        self.ui.paddingSlider.valueChanged.connect(self.update_crop_bands)
 
         self.models_dir=get_model_path()
         if not os.path.exists(self.models_dir):
@@ -344,8 +377,8 @@ class ModelViewer(QMainWindow):
 
         # Skip detection if the value hasn't changed
         if confidence == self.last_confidence:
-            # Still update the crop band, e.g. padding could have changed
-            self.update_crop_band()
+            # Still update the crop bands, e.g. padding could have changed
+            self.update_crop_bands()
             return
 
         try:
@@ -361,7 +394,7 @@ class ModelViewer(QMainWindow):
             )
 
             self.ui.imageLabel.set_detection_boxes(results)
-            self.update_crop_band()
+            self.update_crop_bands()
 
             # Cache the new value
             self.last_confidence = confidence
@@ -371,11 +404,16 @@ class ModelViewer(QMainWindow):
 
     def _get_current_crop_settings(self):
         """Gets crop settings from the UI."""
-        if self.ui.rb_crop_to_top_conf.isChecked():
+        if self.ui.rb_crop_all_detected_objects.isChecked():
+            crop_mode = 'all_detected_objects'
+        elif self.ui.rb_crop_to_top_conf.isChecked():
             crop_mode = 'top_confidence'
         elif self.ui.rb_crop_largest_area.isChecked():
             crop_mode = 'largest_area'
         else:
+            self.ui.imageLabel.hide_bands()
+            self.ui.actionCropSaveImage.setEnabled(False)
+            self.ui.actionCropSaveAllImages.setEnabled(False)
             crop_mode = None
 
         padding_percentage = self.ui.paddingSlider.value() / 100.0
@@ -385,9 +423,9 @@ class ModelViewer(QMainWindow):
 
         return crop_mode, padding_percentage, aspect_ratio
 
-    def update_crop_band(self):
+    def update_crop_bands(self):
         if not self.ui.imageLabel.image or not self.ui.imageLabel.orig_detection_rects:
-            self.ui.imageLabel.crop_band.hide()
+            self.ui.imageLabel.hide_bands()
             self.ui.actionCropSaveImage.setEnabled(False)
             return
 
@@ -399,22 +437,17 @@ class ModelViewer(QMainWindow):
         ]
 
         crop_mode, padding_percentage, aspect_ratio = self._get_current_crop_settings()
-
-        if not crop_mode:
-            self.ui.imageLabel.crop_band.hide()
-            self.ui.actionCropSaveImage.setEnabled(False)
-            return
-
         image_shape = self.ui.imageLabel.image.image_data.shape
-        crop_tuple = ModelViewer._calculate_crop_rect(detections, image_shape, crop_mode, padding_percentage, aspect_ratio)
+        crop_tuples = ModelViewer._calculate_crop_rectangles(detections, image_shape, crop_mode, padding_percentage, aspect_ratio)
+        crop_rects = [QRect(*crop_tuple) for crop_tuple in crop_tuples if crop_tuple and crop_tuple[2] > 0 and crop_tuple[3] > 0]
 
-        if not crop_tuple or crop_tuple[2] <= 0 or crop_tuple[3] <= 0:
-            self.ui.imageLabel.crop_band.hide()
+        if not crop_rects:
+            self.ui.imageLabel.hide_bands()
             self.ui.actionCropSaveImage.setEnabled(False)
+            self.ui.actionCropSaveAllImages.setEnabled(False)
             return
 
-        crop_rect = QRect(*crop_tuple)
-        self.ui.imageLabel.set_crop_box(crop_rect)
+        self.ui.imageLabel.set_crop_boxes(crop_rects)
         self.ui.actionCropSaveImage.setEnabled(True)
         self.ui.actionCropSaveAllImages.setEnabled(True)
 
@@ -454,18 +487,23 @@ class ModelViewer(QMainWindow):
 
     def crop_save_image(self):
         """Crops and saves the currently displayed image based on the last crop rectangle."""
-        if not self.current_image_path or not self.ui.imageLabel.last_crop_rect:
+        if not self.current_image_path or not self.ui.imageLabel.last_crop_rects:
             return
-
-        rect = self.ui.imageLabel.last_crop_rect
-        crop_tuple = (rect.x(), rect.y(), rect.width(), rect.height())
 
         output_dir = self._create_output_dir()
         cropped_dir, _ = self._create_crop_dirs(output_dir)
-        image_utils.crop_image_file(self.current_image_path, cropped_dir, crop_tuple)
+
+        for i, rect in enumerate(self.ui.imageLabel.last_crop_rects):
+            crop_tuple = (rect.x(), rect.y(), rect.width(), rect.height())
+            if len(self.ui.imageLabel.last_crop_rects) > 1:
+                base, ext = os.path.splitext(os.path.basename(self.current_image_path))
+                file_name = f"{base}_{i}{ext}"
+            else:
+                file_name = os.path.basename(self.current_image_path)
+            image_utils.crop_image_file(self.current_image_path, cropped_dir, crop_tuple, file_name)
         self._open_native_file_manager(output_dir)
 
-    def _process_all_images(self, process_name: str, setup_callback: callable, process_callback: callable):
+    def _process_all_images(self, process_name: str, setup_callback: callable, process_image_callback: callable):
         """
         Helper method that encapsulates the loop that goes through all the images.
         It covers the progress dialog, image loading, and object detection.
@@ -512,7 +550,7 @@ class ModelViewer(QMainWindow):
                     image = ImageObject(image_path)
                     results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=NMS_THRESHOLD)
 
-                    log_data = process_callback(image, results, output_dir, **state)
+                    log_data = process_image_callback(image, results, output_dir, **state)
                     if log_data:
                         csv_writer.writerow(log_data)
 
@@ -532,9 +570,6 @@ class ModelViewer(QMainWindow):
         """Crops and saves all images in the current folder based on detections and crop settings."""
         def setup(output_dir):
             crop_mode, padding_percentage, aspect_ratio = self._get_current_crop_settings()
-            if not crop_mode:
-                self.ui.statusBar.showMessage("No crop mode selected.", 5000)
-                return None
 
             cropped_dir, not_cropped_dir = self._create_crop_dirs(output_dir)
             return {
@@ -545,7 +580,7 @@ class ModelViewer(QMainWindow):
                 "not_cropped_dir": not_cropped_dir
             }
 
-        def processor(image, results, output_dir, **state):
+        def process_image_for_cropping(image, results, output_dir, **state):
             if not results:
                 image.copy_image_file(state["not_cropped_dir"])
                 return os.path.basename(image.image_path), 0, "N/A", 0, os.path.basename(state["not_cropped_dir"])
@@ -555,24 +590,31 @@ class ModelViewer(QMainWindow):
             class_name = top_detection[2]
 
             image_shape = image.image_data.shape
-            crop_tuple = ModelViewer._calculate_crop_rect(results, image_shape, state["crop_mode"], state["padding_percentage"], state["aspect_ratio"])
+            crop_tuples = ModelViewer._calculate_crop_rectangles(results, image_shape, state["crop_mode"], state["padding_percentage"], state["aspect_ratio"])
 
-            if not crop_tuple or crop_tuple[2] <= 0 or crop_tuple[3] <= 0:
-                print(f"Warning {os.path.basename(image.image_path)}: invalid crop rectangle, crop_tuple: {crop_tuple}")
+            if not crop_tuples:
+                print(f"Warning {os.path.basename(image.image_path)}: invalid crop rectangle, crop_tuples: {crop_tuples}")
                 image.copy_image_file(state["not_cropped_dir"])
                 return os.path.basename(image.image_path), confidence_score, class_name, len(results), os.path.basename(state["not_cropped_dir"])
 
-            image_utils.crop_image_file(image.image_path, state["cropped_dir"], crop_tuple)
+            base, ext = os.path.splitext(os.path.basename(image.image_path))
+            for i, crop_tuple in enumerate(crop_tuples):
+                if len(crop_tuples) > 1:
+                    file_name = f"{base}_{i}{ext}"
+                else:
+                    file_name = os.path.basename(image.image_path)
+                image_utils.crop_image_file(image.image_path, state["cropped_dir"], crop_tuple, file_name)
+
             return os.path.basename(image.image_path), confidence_score, class_name, len(results), os.path.basename(state["cropped_dir"])
 
-        self._process_all_images("Cropping images", setup, processor)
+        self._process_all_images("Cropping images", setup, process_image_for_cropping)
 
     def sort_images_by_class_into_folders(self):
         """Sorts images into folders based on the detected object class name."""
         def setup(output_dir):
             return {} # Return empty dict for state
 
-        def processor(image, results, output_dir, **state):
+        def process_image_for_sorting(image, results, output_dir, **state):
             if results:
                 top_detection = max(results, key=lambda d: d[1])
                 confidence_score = top_detection[1]
@@ -587,7 +629,7 @@ class ModelViewer(QMainWindow):
                 image.copy_image_file(no_detection_dir)
                 return os.path.basename(image.image_path), 0, "no-detection", 0, "no-detection"
 
-        self._process_all_images("Sorting images", setup, processor)
+        self._process_all_images("Sorting images", setup, process_image_for_sorting)
 
     def closeEvent(self, event):
         # Clean up resources, if any

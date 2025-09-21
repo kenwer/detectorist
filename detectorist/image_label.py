@@ -47,11 +47,10 @@ class ImageLabel(QLabel):
         self.app_instance = app_instance
         self.detection_bands = []
         self.orig_detection_rects = [] # stores the original detection data—a list of QRect, score and class_id tuples—in the image's original coordinate system
-        self.crop_band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 5))
-        self.crop_band.hide()
+        self.crop_bands = []
         self._pixmap = QPixmap()
         self.image = None
-        self.last_crop_rect = None
+        self.last_crop_rects = None
         self.setMouseTracking(True)
         self._tooltip_filter = TooltipEventFilter(self)
         self.installEventFilter(self._tooltip_filter)
@@ -118,16 +117,30 @@ class ImageLabel(QLabel):
 
 
 
-    def set_crop_box(self, image_rect):
-        self.last_crop_rect = image_rect
-        widget_rect = self._map_rect_from_image_to_widget(image_rect)
-        self.crop_band.setGeometry(widget_rect)
-        self.crop_band.show()
+    def set_crop_boxes(self, image_rects):
+        self.last_crop_rects = image_rects
+        # Clear existing crop bands
+        for band in self.crop_bands:
+            band.hide()
+            band.setParent(None)
+            band.deleteLater()
+        self.crop_bands = []
+
+        for image_rect in image_rects:
+            widget_rect = self._map_rect_from_image_to_widget(image_rect)
+            crop_band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 5))
+            crop_band.setGeometry(widget_rect)
+            crop_band.show()
+            self.crop_bands.append(crop_band)
 
     def hide_bands(self):
         self._clear_detection_bands()
-        self.crop_band.hide()
-        self.last_crop_rect = None
+        for band in self.crop_bands:
+            band.hide()
+            band.setParent(None)
+            band.deleteLater()
+        self.crop_bands = []
+        self.last_crop_rects = None
 
     def replace_image(self, image_path):
         self.hide_bands()
@@ -229,8 +242,8 @@ class ImageLabel(QLabel):
             if i < len(self.detection_bands):
                 widget_rect = self._map_rect_from_image_to_widget(rect)
                 self.detection_bands[i].setGeometry(widget_rect)
-        if self.last_crop_rect and self.crop_band.isVisible():
-            self.set_crop_box(self.last_crop_rect)
+        if self.last_crop_rects and self.crop_bands:
+            self.set_crop_boxes(self.last_crop_rects)
 
     # TODO: the cropping band logic has issues with the confidence tooltips - probably caused by the event filter
     # def mousePressEvent(self, event):

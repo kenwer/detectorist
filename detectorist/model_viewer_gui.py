@@ -132,18 +132,41 @@ class Ui_ModelViewerUI(object):
         self.cropInfoGroupBox.setObjectName(u"cropInfoGroupBox")
         self.grdlyt_crop = QGridLayout(self.cropInfoGroupBox)
         self.grdlyt_crop.setObjectName(u"grdlyt_crop")
+        self.rb_crop_all_detected_objects = QRadioButton(self.cropInfoGroupBox)
+        self.btngroup_crop = QButtonGroup(ModelViewerUI)
+        self.btngroup_crop.setObjectName(u"btngroup_crop")
+        self.btngroup_crop.addButton(self.rb_crop_all_detected_objects)
+        self.rb_crop_all_detected_objects.setObjectName(u"rb_crop_all_detected_objects")
+        self.rb_crop_all_detected_objects.setChecked(True)
+
+        self.grdlyt_crop.addWidget(self.rb_crop_all_detected_objects, 0, 0, 1, 2)
+
+        self.rb_crop_to_top_conf = QRadioButton(self.cropInfoGroupBox)
+        self.btngroup_crop.addButton(self.rb_crop_to_top_conf)
+        self.rb_crop_to_top_conf.setObjectName(u"rb_crop_to_top_conf")
+        self.rb_crop_to_top_conf.setChecked(False)
+
+        self.grdlyt_crop.addWidget(self.rb_crop_to_top_conf, 1, 0, 1, 2)
+
+        self.rb_crop_largest_area = QRadioButton(self.cropInfoGroupBox)
+        self.btngroup_crop.addButton(self.rb_crop_largest_area)
+        self.rb_crop_largest_area.setObjectName(u"rb_crop_largest_area")
+        self.rb_crop_largest_area.setChecked(False)
+
+        self.grdlyt_crop.addWidget(self.rb_crop_largest_area, 2, 0, 1, 2)
+
         self.cropRatioComboBox = QComboBox(self.cropInfoGroupBox)
         self.cropRatioComboBox.addItem("")
         self.cropRatioComboBox.addItem("")
         self.cropRatioComboBox.addItem("")
         self.cropRatioComboBox.setObjectName(u"cropRatioComboBox")
 
-        self.grdlyt_crop.addWidget(self.cropRatioComboBox, 0, 0, 1, 3)
+        self.grdlyt_crop.addWidget(self.cropRatioComboBox, 3, 0, 1, 3)
 
         self.paddingLabel = QLabel(self.cropInfoGroupBox)
         self.paddingLabel.setObjectName(u"paddingLabel")
 
-        self.grdlyt_crop.addWidget(self.paddingLabel, 1, 0, 1, 1)
+        self.grdlyt_crop.addWidget(self.paddingLabel, 4, 0, 1, 1)
 
         self.paddingSlider = QSlider(self.cropInfoGroupBox)
         self.paddingSlider.setObjectName(u"paddingSlider")
@@ -156,30 +179,14 @@ class Ui_ModelViewerUI(object):
         self.paddingSlider.setOrientation(Qt.Orientation.Horizontal)
         self.paddingSlider.setTickPosition(QSlider.TickPosition.NoTicks)
 
-        self.grdlyt_crop.addWidget(self.paddingSlider, 1, 1, 1, 1)
+        self.grdlyt_crop.addWidget(self.paddingSlider, 4, 1, 1, 1)
 
         self.paddingSpinBox = QSpinBox(self.cropInfoGroupBox)
         self.paddingSpinBox.setObjectName(u"paddingSpinBox")
         self.paddingSpinBox.setMaximum(50)
         self.paddingSpinBox.setValue(15)
 
-        self.grdlyt_crop.addWidget(self.paddingSpinBox, 1, 2, 1, 1)
-
-        self.rb_crop_to_top_conf = QRadioButton(self.cropInfoGroupBox)
-        self.btngroup_crop = QButtonGroup(ModelViewerUI)
-        self.btngroup_crop.setObjectName(u"btngroup_crop")
-        self.btngroup_crop.addButton(self.rb_crop_to_top_conf)
-        self.rb_crop_to_top_conf.setObjectName(u"rb_crop_to_top_conf")
-        self.rb_crop_to_top_conf.setChecked(True)
-
-        self.grdlyt_crop.addWidget(self.rb_crop_to_top_conf, 2, 0, 1, 2)
-
-        self.rb_crop_largest_area = QRadioButton(self.cropInfoGroupBox)
-        self.btngroup_crop.addButton(self.rb_crop_largest_area)
-        self.rb_crop_largest_area.setObjectName(u"rb_crop_largest_area")
-        self.rb_crop_largest_area.setChecked(False)
-
-        self.grdlyt_crop.addWidget(self.rb_crop_largest_area, 3, 0, 1, 2)
+        self.grdlyt_crop.addWidget(self.paddingSpinBox, 4, 2, 1, 1)
 
 
         self.verticalLayout.addWidget(self.cropInfoGroupBox)
@@ -205,7 +212,7 @@ class Ui_ModelViewerUI(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents_2 = QWidget()
         self.scrollAreaWidgetContents_2.setObjectName(u"scrollAreaWidgetContents_2")
-        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 254, 72))
+        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 298, 72))
         self.horizontalLayout = QHBoxLayout(self.scrollAreaWidgetContents_2)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.imageExifLabel = QLabel(self.scrollAreaWidgetContents_2)
@@ -231,7 +238,7 @@ class Ui_ModelViewerUI(object):
         ModelViewerUI.setCentralWidget(self.centralWidget)
         self.menuBar = QMenuBar(ModelViewerUI)
         self.menuBar.setObjectName(u"menuBar")
-        self.menuBar.setGeometry(QRect(0, 0, 1500, 30))
+        self.menuBar.setGeometry(QRect(0, 0, 1500, 33))
         self.menuFile = QMenu(self.menuBar)
         self.menuFile.setObjectName(u"menuFile")
         self.menuTools = QMenu(self.menuBar)
@@ -301,6 +308,18 @@ class Ui_ModelViewerUI(object):
 "Detection time		: -\n"
 "Highest confidence	: -", None))
         self.cropInfoGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Crop", None))
+#if QT_CONFIG(tooltip)
+        self.rb_crop_all_detected_objects.setToolTip(QCoreApplication.translate("ModelViewerUI", u"Crops all detected objects into individual images", None))
+#endif // QT_CONFIG(tooltip)
+        self.rb_crop_all_detected_objects.setText(QCoreApplication.translate("ModelViewerUI", u"Crop all detected objects", None))
+#if QT_CONFIG(tooltip)
+        self.rb_crop_to_top_conf.setToolTip(QCoreApplication.translate("ModelViewerUI", u"Crops the object with the highest confidence into a new image", None))
+#endif // QT_CONFIG(tooltip)
+        self.rb_crop_to_top_conf.setText(QCoreApplication.translate("ModelViewerUI", u"Crop to object with highest confidence", None))
+#if QT_CONFIG(tooltip)
+        self.rb_crop_largest_area.setToolTip(QCoreApplication.translate("ModelViewerUI", u"Crops all detected object into a single image", None))
+#endif // QT_CONFIG(tooltip)
+        self.rb_crop_largest_area.setText(QCoreApplication.translate("ModelViewerUI", u"Crop to largest area", None))
         self.cropRatioComboBox.setItemText(0, QCoreApplication.translate("ModelViewerUI", u"3:2", None))
         self.cropRatioComboBox.setItemText(1, QCoreApplication.translate("ModelViewerUI", u"4:3", None))
         self.cropRatioComboBox.setItemText(2, QCoreApplication.translate("ModelViewerUI", u"16:9", None))
@@ -312,8 +331,6 @@ class Ui_ModelViewerUI(object):
 #if QT_CONFIG(tooltip)
         self.paddingSlider.setToolTip(QCoreApplication.translate("ModelViewerUI", u"The padding added to the crop (percent of the image size in percent)", None))
 #endif // QT_CONFIG(tooltip)
-        self.rb_crop_to_top_conf.setText(QCoreApplication.translate("ModelViewerUI", u"Crop to highest confidence box", None))
-        self.rb_crop_largest_area.setText(QCoreApplication.translate("ModelViewerUI", u"Crop to largest area", None))
         self.imageInfoGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Image", None))
         self.imageInfoLabel.setText(QCoreApplication.translate("ModelViewerUI", u"-", None))
         self.imageExifGroupBox.setTitle(QCoreApplication.translate("ModelViewerUI", u"Exif", None))

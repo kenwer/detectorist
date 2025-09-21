@@ -143,6 +143,9 @@ On Linux:
 
 ## Changelog
 
+#### Added
+- Add option to crop all detected objects into new (cropped) images.
+
 ### [0.4.2] - 2025-09-18
 
 #### Fixed

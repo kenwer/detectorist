@@ -259,7 +259,7 @@ def crop_PIL_image(input_path, output_path, rect):
     cropped_image = pil_image.crop((x, y, x + w, y + h))
     cropped_image.save(output_path)
 
-def crop_image_file(input_path: str, output_dir: str, rect: tuple[int, int, int, int]):
+def crop_image_file(input_path: str, output_dir: str, rect: tuple[int, int, int, int], file_name: str = None):
     """
     Crops an image file and saves it to the specified output directory.
     The cropped image will retain the original file name, but for RAW files, the extension will be replaced with .png.
@@ -268,13 +268,17 @@ def crop_image_file(input_path: str, output_dir: str, rect: tuple[int, int, int,
         input_path (str): Path to the input image file.
         output_dir (str): Directory to save the cropped image file.
         rect (tuple): A tuple of (x, y, width, height) for the crop.
+        file_name (str, optional): The name of the output file. If not provided, the original file name is used.
     """
     file_extension = os.path.splitext(input_path)[1].lower()
     # check if the input_path has a file_extension
     if not file_extension:
         raise ValueError(f"Input file has no extension: {input_path}")
 
-    output_path = os.path.join(output_dir, os.path.basename(input_path))
+    if file_name:
+        output_path = os.path.join(output_dir, file_name)
+    else:
+        output_path = os.path.join(output_dir, os.path.basename(input_path))
 
     if file_extension in HEIF_EXTENSIONS:
         print(f"Cropping HEIF image file: {input_path}")
