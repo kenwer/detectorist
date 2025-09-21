@@ -5,11 +5,13 @@ from PySide6.QtWidgets import QLabel, QRubberBand, QToolTip
 
 from .image_object import ImageObject
 
-DEFAULT_BORDER_COLOR = QColor(255, 165, 0, 255)
-DEFAULT_FILL_COLOR = QColor(255, 165, 0, 13)
+DETECTION_BORDER_COLOR_RGB = (0, 255, 0)
+DETECTION_FILL_COLOR_RGB = (0, 255, 0)
+CROP_BORDER_COLOR_RGB = (255, 165, 0)
+CROP_FILL_COLOR_RGBA = (255, 165, 0, 5)
 
 class CustomRubberBand(QRubberBand):
-    def __init__(self, shape, parent=None, border_color=DEFAULT_BORDER_COLOR, fill_color=DEFAULT_FILL_COLOR, score=None, class_name=None):
+    def __init__(self, shape, border_color, fill_color, score=None, class_name=None, parent=None):
         super().__init__(shape, parent)
         self.border_color = border_color
         self.fill_color = fill_color
@@ -109,7 +111,7 @@ class ImageLabel(QLabel):
         for rect, score, class_name in self.orig_detection_rects:
             alpha = int(10 + (score * (255-10))) # Scale score (0.0-1.0) to alpha (10-255)
             alpha_fill = int(score * 20) # Scale score (0.0-1.0) to alpha (0-20)
-            band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(0, 255, 0, alpha), fill_color=QColor(0, 255, 0, alpha_fill), score=score, class_name=class_name)
+            band = CustomRubberBand(QRubberBand.Shape.Rectangle, border_color=QColor(*DETECTION_BORDER_COLOR_RGB, alpha), fill_color=QColor(*DETECTION_FILL_COLOR_RGB, alpha_fill), score=score, class_name=class_name, parent=self)
             widget_rect = self._map_rect_from_image_to_widget(rect)
             band.setGeometry(widget_rect)
             band.show()
@@ -128,7 +130,7 @@ class ImageLabel(QLabel):
 
         for image_rect in image_rects:
             widget_rect = self._map_rect_from_image_to_widget(image_rect)
-            crop_band = CustomRubberBand(QRubberBand.Shape.Rectangle, self, border_color=QColor(255, 165, 0, 255), fill_color=QColor(255, 165, 0, 5))
+            crop_band = CustomRubberBand(QRubberBand.Shape.Rectangle, border_color=QColor(*CROP_BORDER_COLOR_RGB), fill_color=QColor(*CROP_FILL_COLOR_RGBA), parent=self)
             crop_band.setGeometry(widget_rect)
             crop_band.show()
             self.crop_bands.append(crop_band)
@@ -244,21 +246,6 @@ class ImageLabel(QLabel):
                 self.detection_bands[i].setGeometry(widget_rect)
         if self.last_crop_rects and self.crop_bands:
             self.set_crop_boxes(self.last_crop_rects)
-
-    # TODO: the cropping band logic has issues with the confidence tooltips - probably caused by the event filter
-    # def mousePressEvent(self, event):
-    #     if event.button() == Qt.LeftButton:
-    #         self.origin = event.position().toPoint()
-    #         self.crop_band.setGeometry(QRect(self.origin, QSize()))
-    #         self.crop_band.show()
-
-    # def mouseMoveEvent(self, event):
-    #     if self.crop_band.isVisible():
-    #         self.crop_band.setGeometry(QRect(self.origin, event.position().toPoint()).normalized())
-
-    # def mouseReleaseEvent(self, event):
-    #     # The crop_band is left visible for the user to see the result
-    #     pass
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
