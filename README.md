@@ -150,16 +150,14 @@ On Linux:
 - Allow the about dialog to change its size so the content always fits (e.g. when different fonts are used).
 
 ### [0.4.2] - 2025-09-18
-
-#### Fixed
-- When processing multiple images, ensure that the progress dialog is closed when the action has been completed or canceled.
-
 #### Changed
 - Minimum allowed confidence threshold is 1 instead of 0.
 - Remove the NMS slider & spin-box, and use a default of 0.4.
 
-### [0.4.1] - 2025-09-15
+#### Fixed
+- When processing multiple images, ensure that the progress dialog is closed when the action has been completed or canceled.
 
+### [0.4.1] - 2025-09-15
 #### Added
 - Build ELF binary for Linux x64.
 
@@ -170,7 +168,6 @@ On Linux:
 - Handle images with alpha channels - this fixes loading PNGs.
 
 ### [0.4.0] - 2025-09-11
-
 #### Added
 - Additional model for detecting bees in images.
 - Re-run object detection when the model is changed.
@@ -181,7 +178,6 @@ On Linux:
 - Update model for fish detection that works better for images with multiple fish.
 
 ### [0.3.4] - 2025-09-10
-
 #### Changed
 - [Dev] Simplify build process of the binary distributables.
 
@@ -190,20 +186,18 @@ On Linux:
 - [Windows] Ensure the splash screen disappears when the main application window starts.
 
 ### [0.3.3] - 2025-09-07
+#### Added
+- When processing multiple images, write a log file to the output directory providing information about the detections.
+- [Dev] Added ruff for linting.
 
 #### Changed
 - Name of the output directory changed (example: `detectorist_conf-75_fish-detect-2025-08-01`).
 - [Dev] Migrate from PEP 621-style dependencies to PEP 695 dependency-groups.
 
-#### Added
-- When processing multiple images, write a log file to the output directory providing information about the detections.
-- [Dev] Added ruff for linting.
-
 #### Fixed
 - [Dev] Consistent code formatting.
 
 ### [0.3.2] - 2025-09-06
-
 #### Added
 - Display the class of the detected object in the tooltip.
 - Support for sorting images into sub folders that are named after the detected object class using the corresponding action in the Tools menu.
@@ -212,13 +206,11 @@ On Linux:
 - Information corrected in the About dialog.
 
 ### [0.3.1] - 2025-09-05
-
 #### Fixed
 - Ensure the cropping rectangle always fits the image and maintains aspect ratio.
 - Ensure the object bounding box always stays within the image boundaries.
 
 ### [0.3.0] - 2025-09-02
-
 #### Changed
 - Renamed the project to Detectorist.
 
@@ -253,12 +245,12 @@ On Linux:
 - The "Crop & Save All" action now works correctly even if the currently displayed image has no detections.
 
 ### [0.1.3] - 2025-08-15
+#### Changed
+- Migrated GitHub Actions to use `astral-sh/setup-uv@v6` and `actions/upload-artifact@v4`.
+
 #### Fixed
 - Resolved problem with the Windows build process.
 - Fixed the release packaging.
-
-#### Changed
-- Migrated GitHub Actions to use `astral-sh/setup-uv@v6` and `actions/upload-artifact@v4`.
 
 ### [0.1.2] - 2025-08-15
 #### Added
