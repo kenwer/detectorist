@@ -146,6 +146,9 @@ On Linux:
 #### Added
 - Add option to crop all detected objects into new (cropped) images.
 
+#### Fixed
+- Allow the about dialog to change its size so the content always fits (e.g. when different fonts are used).
+
 ### [0.4.2] - 2025-09-18
 
 #### Fixed

@@ -24,9 +24,8 @@ class Ui_AboutDialog(object):
     def setupUi(self, AboutDialog):
         if not AboutDialog.objectName():
             AboutDialog.setObjectName(u"AboutDialog")
-        AboutDialog.resize(400, 200)
-        AboutDialog.setMinimumSize(QSize(400, 200))
-        AboutDialog.setMaximumSize(QSize(400, 200))
+        AboutDialog.resize(450, 200)
+        AboutDialog.setMinimumSize(QSize(450, 200))
         self.verticalLayout = QVBoxLayout(AboutDialog)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.horizontalLayout = QHBoxLayout()
