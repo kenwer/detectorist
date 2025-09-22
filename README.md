@@ -145,6 +145,7 @@ On Linux:
 
 #### Added
 - Add option to crop all detected objects into new (cropped) images.
+- Support for additional crop aspect ratios.
 
 #### Fixed
 - Allow the about dialog to change its size so the content always fits (e.g. when different fonts are used).

@@ -418,8 +418,24 @@ class ModelViewer(QMainWindow):
 
         padding_percentage = self.ui.paddingSlider.value() / 100.0
         ratio_str = self.ui.cropRatioComboBox.currentText()
-        ratio_w, ratio_h = map(int, ratio_str.split(':'))
-        aspect_ratio = (ratio_w, ratio_h)
+
+        if ratio_str == "aspect ratio: same as source image":
+            if self.ui.imageLabel.image:
+                height, width, _ = self.ui.imageLabel.image.image_data.shape
+                aspect_ratio = (width, height)
+            else:
+                # Default to something sensible if no image, though this path is unlikely
+                aspect_ratio = (1, 1)
+        else:
+            # Handle strings like "3:2 (landscape)"
+            ratio_part = ratio_str.split(' ')[0]
+            try:
+                ratio_w, ratio_h = map(int, ratio_part.split(':'))
+                aspect_ratio = (ratio_w, ratio_h)
+            except ValueError:
+                # Fallback for any unexpected format
+                print(f"Warning: Could not parse aspect ratio '{ratio_str}'. Defaulting to 1:1.")
+                aspect_ratio = (1, 1)
 
         return crop_mode, padding_percentage, aspect_ratio
 

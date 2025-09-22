@@ -57,6 +57,9 @@
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
+             <property name="toolTip">
+              <string>Model used for object detection</string>
+             </property>
             </widget>
            </item>
            <item row="1" column="0">
@@ -193,19 +196,67 @@ Highest confidence	: -</string>
            </item>
            <item row="3" column="0" colspan="3">
             <widget class="QComboBox" name="cropRatioComboBox">
+             <property name="toolTip">
+              <string>Aspect ratio for the crop</string>
+             </property>
              <item>
               <property name="text">
-               <string>3:2</string>
+               <string>aspect ratio: same as source image</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>4:3</string>
+               <string>3:2 (landscape)</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>16:9</string>
+               <string>4:3  (landscape)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>5:4 (landscape)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>16:9  (landscape)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>21:9 (landscape)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>1:1</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>2:3 (portrait)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>3:4 (portrait)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>4:5 (portrait)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>9:16 (portrait)</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>9:21 (portrait)</string>
               </property>
              </item>
             </widget>
@@ -336,7 +387,7 @@ Highest confidence	: -</string>
      <x>0</x>
      <y>0</y>
      <width>1500</width>
-     <height>33</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
