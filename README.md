@@ -147,6 +147,9 @@ On Linux:
 - Add option to crop all detected objects into new (cropped) images.
 - Support for additional crop aspect ratios.
 
+#### Changed
+- When the crop rectangle is larger than the image, the center point of is now preserved to prevent the cropping frame from shifting away (in case the padding is increased).
+
 #### Fixed
 - Allow the about dialog to change its size so the content always fits (e.g. when different fonts are used).
 

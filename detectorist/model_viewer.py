@@ -105,8 +105,12 @@ class ModelViewer(QMainWindow):
             scale = min(scale, image_height / h)
 
         if scale < 1.0:
-            w = int(w * scale)
-            h = int(h * scale)
+            new_w = int(w * scale)
+            new_h = int(h * scale)
+            x += (w - new_w) // 2
+            y += (h - new_h) // 2
+            w = new_w
+            h = new_h
 
         # If the crop rectangle is outside the image, move it
         if x < 0:
