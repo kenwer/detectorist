@@ -272,7 +272,12 @@ class ModelViewer(QMainWindow):
                 self.ui.actionCropSaveAllImages.setEnabled(True)
                 self.ui.actionSort_images_by_object_class.setEnabled(True)
             else:
+                self.ui.imageLabel.set_detection_boxes([])
+                self.ui.imageLabel.hide_bands()
+                self._update_detection_info()
+                self.ui.actionCropSaveImage.setEnabled(False)
                 self.ui.actionCropSaveAllImages.setEnabled(False)
+                self.ui.actionSort_images_by_object_class.setEnabled(False)
                 self.ui.imageLabel.setText("No supported images found in folder.")
 
 

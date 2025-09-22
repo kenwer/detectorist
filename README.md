@@ -152,6 +152,7 @@ On Linux:
 
 #### Fixed
 - Allow the about dialog to change its size so the content always fits (e.g. when different fonts are used).
+- In case a new folder is opened that doesn't contain any supported images, any previous detection infos are cleared.
 
 ### [0.4.2] - 2025-09-18
 #### Changed
