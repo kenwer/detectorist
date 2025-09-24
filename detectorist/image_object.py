@@ -41,13 +41,17 @@ class ImageObject:
             pil_image = PILImage.open(self.image_path)
             self._exif_handler = ExifWrapper(pil_image)
 
-            # If the image has an alpha channel (e.g., RGBA), convert it to RGB
-            if pil_image.mode in ('RGBA', 'LA'):
-                # Create a new white background image
-                background = PILImage.new('RGB', pil_image.size, (255, 255, 255))
-                # Paste the RGBA image onto the white background
-                background.paste(pil_image, (0, 0), pil_image)
-                pil_image = background
+            # If the image is not in RGB mode, convert it
+            if pil_image.mode != 'RGB':
+                if pil_image.mode in ('RGBA', 'LA'):
+                    # Create a new white background image
+                    background = PILImage.new('RGB', pil_image.size, (255, 255, 255))
+                    # Paste the RGBA image onto the white background
+                    background.paste(pil_image, (0, 0), pil_image)
+                    pil_image = background
+                else:
+                    # All other types (e.g. 4 channel CMYK JPG, or palette-based GIF images)
+                    pil_image = pil_image.convert('RGB')
 
             self._image_data = np.array(pil_image)
 

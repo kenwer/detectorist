@@ -143,6 +143,9 @@ On Linux:
 
 ## Changelog
 
+#### Added
+- Support loading 4 channel CMYK JPG images.
+
 ### [0.5.0] - 2025-09-22
 #### Added
 - Add option to crop all detected objects into new (cropped) images.
