@@ -113,28 +113,6 @@ class ImageObject:
         model_input_image = np.expand_dims(model_input_image, axis=0)
         return model_input_image
 
-
-    def draw_boxes(self, boxes: list) -> np.ndarray:
-        """Draws bounding boxes on a copy of the loaded image."""
-        output_image = self._image_data.copy()
-
-        if self.is16bit:
-            color = (0, 65535, 0)  # Green for 16-bit images
-        else:
-            color = (0, 255, 0)   # Green for 8-bit images
-
-        for box in boxes:
-            x, y, w, h = box
-            x2 = x + w
-            y2 = y + h
-            cv2.rectangle(output_image, (x, y), (x2, y2), color, 2)
-        return output_image
-
-    def crop(self, rect: tuple[int, int, int, int]):
-        """Crops the image to the given rectangle tuple (x, y, w, h)."""
-        x, y, w, h = rect
-        self._image_data = self._image_data[y:y+h, x:x+w]
-
     def copy_image_file(self, target_dir_path):
         """Copies the original image file to the specified output directory preserving its file name."""
         input_file_name = os.path.basename(self._image_path)
