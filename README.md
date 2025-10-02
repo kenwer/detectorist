@@ -143,8 +143,14 @@ On Linux:
 
 ## Changelog
 
+### [0.5.1] - 2025-10-02
 #### Added
 - Support loading 4 channel CMYK JPG images.
+- [Dev] Add ruff for linting.
+
+#### Changed
+- [Dev] GitHub Actions, pull models using git-lfs for releases only.
+- [Dev] Remove unused code.
 
 ### [0.5.0] - 2025-09-22
 #### Added
