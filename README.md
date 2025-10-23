@@ -143,6 +143,9 @@ On Linux:
 
 ## Changelog
 
+#### Added
+- Display Exposure Compensation for a loaded image from its EXIF data.
+
 ### [0.5.1] - 2025-10-02
 #### Added
 - Support loading 4 channel CMYK JPG images.

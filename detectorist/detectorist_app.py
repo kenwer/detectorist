@@ -307,6 +307,7 @@ class DetectoristApp(QMainWindow):
                     ("ISO\t\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF ISOSpeedRatings')),
                     ("FNumber\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF FNumber')),
                     ("Exposure\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF ExposureTime')),
+                    ("Exposure comp.\t", self.ui.imageLabel.image.exif_wrapper.get('Exif ExposureBiasValue')),
                     ("Focal length\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF FocalLength')),
                     ("Focal length FF\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF FocalLengthIn35mmFilm'))
                 ]

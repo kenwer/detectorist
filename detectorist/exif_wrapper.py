@@ -45,7 +45,11 @@ class ExifWrapper:
     @staticmethod
     def _parse_fraction(value, round_to=2):
         """
-        Convert fractional string to float, handling various edge cases.
+        Convert fractional or float-like string to float, handling various edge cases.
+        It covers three main scenarios:
+            1. Fractional strings ("-3/10")
+            2. Float-like strings ("-0.3")
+            3. Actual numbers (-0.3)
 
         Args:
             value (str or numeric): Value to convert
@@ -57,14 +61,21 @@ class ExifWrapper:
         if isinstance(value, int | float):
             return round(value, round_to)
 
-        if not isinstance(value, str) or '/' not in value:
+        if not isinstance(value, str):
             return value
 
+        if '/' in value:
+            try:
+                num, denom = map(float, value.split('/'))
+                return round(num / denom, round_to) if denom != 0 else value
+            except (ValueError, TypeError):
+                return value  # Failed to parse fraction
+
+        # If not a fraction, try to convert to float directly
         try:
-            num, denom = map(float, value.split('/'))
-            return round(num / denom, round_to) if denom != 0 else value
+            return round(float(value), round_to)
         except (ValueError, TypeError):
-            return value
+            return value  # Failed to convert, return original
 
     @staticmethod
     def _format_exposure_time(exposure_time):
@@ -174,6 +185,8 @@ class ExifWrapper:
                             val = round(float(val), 2)
                         except (ValueError, TypeError):
                             pass
+                    elif full_tag_name == 'Exif ExposureBiasValue':
+                        val = self._parse_fraction(val)
 
                     exif_data[full_tag_name] = val
 
@@ -205,6 +218,8 @@ class ExifWrapper:
                                 val = round(float(val), 2)
                             except (ValueError, TypeError):
                                 pass
+                        elif tag == 'EXIF ExposureBiasValue':
+                            val = self._parse_fraction(val)
 
                         exif_data[tag] = val
         except Exception as e:
