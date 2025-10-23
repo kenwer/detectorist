@@ -173,18 +173,11 @@ class ExifWrapper:
                             val = repr(v)
 
                     if full_tag_name == 'Exif FNumber':
-                        try:
-                            val = float(val)
-                        except (ValueError, TypeError):
-                            pass # Keep original val if cannot convert to float
                         val = self._parse_fraction(val)
                     elif full_tag_name == 'Exif ExposureTime':
                         val = self._format_exposure_time(val)
                     elif full_tag_name == 'Exif FocalLength':
-                        try:
-                            val = round(float(val), 2)
-                        except (ValueError, TypeError):
-                            pass
+                        val = self._parse_fraction(val, 2)
                     elif full_tag_name == 'Exif ExposureBiasValue':
                         val = self._parse_fraction(val)
 
@@ -214,10 +207,7 @@ class ExifWrapper:
                         elif tag == 'EXIF ExposureTime':
                             val = self._format_exposure_time(val)
                         elif tag == 'EXIF FocalLength':
-                            try:
-                                val = round(float(val), 2)
-                            except (ValueError, TypeError):
-                                pass
+                            val = self._parse_fraction(val, 2)
                         elif tag == 'EXIF ExposureBiasValue':
                             val = self._parse_fraction(val)
 
