@@ -4,12 +4,12 @@ import tempfile
 
 from PySide6.QtWidgets import QApplication
 
-from detectorist.model_viewer import ModelViewer
+from detectorist.detectorist_app import DetectoristApp
 
 
 def main():
     app = QApplication(sys.argv)
-    window = ModelViewer()
+    window = DetectoristApp()
 
     # Signal the splash screen removal to nuitka
     if "NUITKA_ONEFILE_PARENT" in os.environ:

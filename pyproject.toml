@@ -136,7 +136,7 @@ build-and-run = "poe run"
 [tool.ruff]
 # Exclude designer generated files from .ui
 exclude = [
-    "detectorist/model_viewer_gui.py",
+    "detectorist/detectorist_app_gui.py",
     "detectorist/about_dialog.py",
 ]
 [tool.ruff.lint]

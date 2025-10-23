@@ -19,15 +19,15 @@ from detectorist._version import __version__
 from . import image_utils
 from .about_dialog import Ui_AboutDialog
 from .detector import Detector
+from .detectorist_app_gui import Ui_DetectoristAppUI
 from .image_label import ImageLabel
 from .image_object import ImageObject
-from .model_viewer_gui import Ui_ModelViewerUI
 from .utils import get_model_path
 
 # The Non-Maximum Suppression threshold used for object detection
 NMS_THRESHOLD = 0.4
 
-class ModelViewer(QMainWindow):
+class DetectoristApp(QMainWindow):
 
 
     @staticmethod
@@ -147,12 +147,12 @@ class ModelViewer(QMainWindow):
             # For 'all_detected_objects', we treat each detection individually
             for detection in detections:
                 # For 'all_detected_objects', we treat each detection individually with 'top_confidence'
-                rect = ModelViewer._calculate_single_crop_rect([detection], image_shape, 'top_confidence', padding_percentage, aspect_ratio)
+                rect = DetectoristApp._calculate_single_crop_rect([detection], image_shape, 'top_confidence', padding_percentage, aspect_ratio)
                 if rect:
                     crop_rects.append(rect)
             return crop_rects
         else: # Just a single crop rectangle
-            rect = ModelViewer._calculate_single_crop_rect(detections, image_shape, crop_mode, padding_percentage, aspect_ratio)
+            rect = DetectoristApp._calculate_single_crop_rect(detections, image_shape, crop_mode, padding_percentage, aspect_ratio)
             return [rect] if rect else []
 
     def __init__(self):
@@ -166,7 +166,7 @@ class ModelViewer(QMainWindow):
         pillow_heif.register_heif_opener()
 
         # Set up the UI
-        self.ui = Ui_ModelViewerUI()
+        self.ui = Ui_DetectoristAppUI()
         self.ui.setupUi(self)
         self.setWindowTitle(f"Detectorist {__version__}")
 
@@ -463,7 +463,7 @@ class ModelViewer(QMainWindow):
 
         crop_mode, padding_percentage, aspect_ratio = self._get_current_crop_settings()
         image_shape = self.ui.imageLabel.image.image_data.shape
-        crop_tuples = ModelViewer._calculate_crop_rectangles(detections, image_shape, crop_mode, padding_percentage, aspect_ratio)
+        crop_tuples = DetectoristApp._calculate_crop_rectangles(detections, image_shape, crop_mode, padding_percentage, aspect_ratio)
         crop_rects = [QRect(*crop_tuple) for crop_tuple in crop_tuples if crop_tuple and crop_tuple[2] > 0 and crop_tuple[3] > 0]
 
         if not crop_rects:
@@ -615,7 +615,7 @@ class ModelViewer(QMainWindow):
             class_name = top_detection[2]
 
             image_shape = image.image_data.shape
-            crop_tuples = ModelViewer._calculate_crop_rectangles(results, image_shape, state["crop_mode"], state["padding_percentage"], state["aspect_ratio"])
+            crop_tuples = DetectoristApp._calculate_crop_rectangles(results, image_shape, state["crop_mode"], state["padding_percentage"], state["aspect_ratio"])
 
             if not crop_tuples:
                 print(f"Warning {os.path.basename(image.image_path)}: invalid crop rectangle, crop_tuples: {crop_tuples}")
