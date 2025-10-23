@@ -100,9 +100,14 @@ Make sure you have a python3 and uv installed.
 ### macOS App Bundle
 
 On macOS:
-*   **Set up the build environment and run the build:**
+1.  **Install the prerequisites on macOS:**
     ```shell
-    uv venv -p `which python3` .venv
+    brew install uv python@3.13
+    ```
+
+2.  **Set up the build environment and run the build:**
+    ```shell
+    uv venv -p "$HOMEBREW_PREFIX/bin/python3.13" .venv
     uv sync --group dev
     source .venv/bin/activate
     poe build-mac
@@ -112,19 +117,25 @@ On macOS:
 ### Windows Executable
 
 On Windows:
-1.  **Set up the build environment and run the build:**
+1.  **Install the prerequisites on Windows:**
     ```shell
-    uv venv .venv --python 3.12
+    winget install astral-sh.uv Python.Python.3.12 --scope user
+    ```
+
+2.  **Set up the build environment and run the build:**
+    ```shell
+    uv venv -p 3.12 .venv
     uv sync --group dev
     .venv\Scripts\activate
     poe build-windows
     ```
-    This will create a standalone executable inside a folder in the `dist/windows/` directory.
+    This will use Nuitka to create a standalone executable inside a folder in the `dist/windows/` directory.
 
 ### Linux Binary
 
 On Linux:
-*   **Set up the build environment and run the build:**
+1.  **Ensure you have python3 and uv installed.**
+2.  **Set up the build environment and run the build:**
     ```shell
     uv venv -p `which python3` .venv
     uv sync --group dev
