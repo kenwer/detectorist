@@ -19,9 +19,8 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QComboBox, QGridLayout,
     QGroupBox, QHBoxLayout, QLabel, QListView,
     QMainWindow, QMenu, QMenuBar, QRadioButton,
-    QScrollArea, QSizePolicy, QSlider, QSpacerItem,
-    QSpinBox, QSplitter, QStatusBar, QVBoxLayout,
-    QWidget)
+    QScrollArea, QSizePolicy, QSlider, QSpinBox,
+    QSplitter, QStatusBar, QVBoxLayout, QWidget)
 
 class Ui_DetectoristAppUI(object):
     def setupUi(self, DetectoristAppUI):
@@ -214,31 +213,27 @@ class Ui_DetectoristAppUI(object):
 
         self.imageExifGroupBox = QGroupBox(self.rightSidewidget)
         self.imageExifGroupBox.setObjectName(u"imageExifGroupBox")
-        self.horizontalLayout_2 = QHBoxLayout(self.imageExifGroupBox)
-        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.horizontalLayout = QHBoxLayout(self.imageExifGroupBox)
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.scrollArea = QScrollArea(self.imageExifGroupBox)
         self.scrollArea.setObjectName(u"scrollArea")
         self.scrollArea.setWidgetResizable(True)
-        self.scrollAreaWidgetContents_2 = QWidget()
-        self.scrollAreaWidgetContents_2.setObjectName(u"scrollAreaWidgetContents_2")
-        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 298, 72))
-        self.horizontalLayout = QHBoxLayout(self.scrollAreaWidgetContents_2)
-        self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.imageExifLabel = QLabel(self.scrollAreaWidgetContents_2)
+        self.scrollAreaWidgetContents = QWidget()
+        self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 298, 161))
+        self.horizontalLayout_2 = QHBoxLayout(self.scrollAreaWidgetContents)
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.imageExifLabel = QLabel(self.scrollAreaWidgetContents)
         self.imageExifLabel.setObjectName(u"imageExifLabel")
 
-        self.horizontalLayout.addWidget(self.imageExifLabel)
+        self.horizontalLayout_2.addWidget(self.imageExifLabel, 0, Qt.AlignmentFlag.AlignTop)
 
-        self.scrollArea.setWidget(self.scrollAreaWidgetContents_2)
+        self.scrollArea.setWidget(self.scrollAreaWidgetContents)
 
-        self.horizontalLayout_2.addWidget(self.scrollArea)
+        self.horizontalLayout.addWidget(self.scrollArea)
 
 
         self.verticalLayout.addWidget(self.imageExifGroupBox)
-
-        self.rightSideVerticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
-
-        self.verticalLayout.addItem(self.rightSideVerticalSpacer)
 
         self.splitter.addWidget(self.rightSidewidget)
 

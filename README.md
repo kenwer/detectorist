@@ -158,6 +158,9 @@ On Linux:
 - Display Exposure Compensation for a loaded image from its EXIF data.
 - Display the Bits Per Channel (color depth) of the loaded image.
 
+#### Changed
+- UI space for EXIF data expands to display more contents (if the app window size is increased vertically).
+
 ### [0.5.1] - 2025-10-02
 #### Added
 - Support loading 4 channel CMYK JPG images.
