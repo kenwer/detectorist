@@ -354,7 +354,7 @@ class DetectoristApp(QMainWindow):
             if os.path.isdir(path):
                 self.open_folder(path)
                 break
-            elif os.path.isfile(path) and path.lower().endswith(ImageObject.SUPPORTED_FORMATS):
+            elif os.path.isfile(path) and path.lower().endswith(ImageObject.SUPPORTED_IMG_EXTENSIONS):
                 self.open_file(path)
                 break
         event.acceptProposedAction()
@@ -367,7 +367,7 @@ class DetectoristApp(QMainWindow):
         self.current_image_path = None
         self.ui.imageLabel.clear()
         image_files = sorted([f for f in os.listdir(folder_path)
-                               if f.lower().endswith(ImageObject.SUPPORTED_FORMATS)])
+                               if f.lower().endswith(ImageObject.SUPPORTED_IMG_EXTENSIONS)])
         self.model.setStringList(image_files)
 
         # Select the dropped file in the list view

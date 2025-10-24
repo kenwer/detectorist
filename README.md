@@ -161,6 +161,9 @@ On Linux:
 #### Changed
 - UI space for EXIF data expands to display more contents (if the app window size is increased vertically).
 
+#### Fixed
+- Drag & drop for images.
+
 ### [0.5.1] - 2025-10-02
 #### Added
 - Support loading 4 channel CMYK JPG images.
