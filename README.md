@@ -156,6 +156,7 @@ On Linux:
 
 #### Added
 - Display Exposure Compensation for a loaded image from its EXIF data.
+- Display the Bits Per Channel (color depth) of the loaded image.
 
 ### [0.5.1] - 2025-10-02
 #### Added

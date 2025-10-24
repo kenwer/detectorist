@@ -293,10 +293,9 @@ class DetectoristApp(QMainWindow):
 
                 # Add image info to the self.ui.imageInfoLabel
                 height, width, _ = self.ui.imageLabel.image.image_data.shape
-                #color_depth = "16-bit" if self.ui.imageLabel.image.is16bit else "8-bit" #TODO: rework color depth logic HIF have BitDepthChroma and BitDepthLuma in EXIF, ARW and JPG have BitsPerSample
+                original_bpc = self.ui.imageLabel.image.original_bpc
                 file_type = self.ui.imageLabel.image.file_extension.upper()[1:]
-                #self.ui.imageInfoLabel.setText(f"Resolution\t: {width}x{height}\nColor depth\t: {color_depth}\nFile type \t: {file_type}")
-                self.ui.imageInfoLabel.setText(f"Resolution\t: {width}x{height}\nFile type \t: {file_type}")
+                self.ui.imageInfoLabel.setText(f"File type \t: {file_type}\nResolution\t: {width}x{height}\nBits per channel\t: {original_bpc}")
 
                 # Add EXIF info to the self.ui.imageExifLabel
                 items = [
