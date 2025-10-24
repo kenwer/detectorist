@@ -44,6 +44,76 @@ def load_arw_image(path: str, output_bps=16) -> np.ndarray:
     # Returns the image as a 8 or 16-bit RGB numpy array
     return rgb_image_data
 
+
+def load_image_data(image_path: str) -> tuple[np.ndarray, int]:
+    """
+    Loads image data from the given path, handling different file types (RAW, HEIF, standard).
+    Returns the image data as a NumPy array and the original bits per channel (bpc).
+    """
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Error: Image file not found at '{image_path}'")
+
+    file_extension = os.path.splitext(image_path)[1].lower()
+    image_data = None # NumPy array for the image data
+    original_bpc = None # The original bits per channel
+
+    # Load the image (depending on the file extension)
+    if file_extension in RAW_EXTENSIONS:
+        print(f"Loading RAW file: {image_path}")
+        image_data = load_arw_image(image_path, output_bps=16)
+        if image_data.dtype == np.uint16:
+            original_bpc = 16
+        else:
+            original_bpc = 8
+    elif file_extension in HEIF_EXTENSIONS:
+        print(f"Loading HEIF file: {image_path}")
+        heif_file = pillow_heif.open_heif(image_path, convert_hdr_to_8bit=False)
+        original_bpc = heif_file.info.get('bits', heif_file.info.get('bit_depth', 8))
+        # pillow-heif appears to rotate the image data based on EXIF orientation automatically.
+        # So we create a numpy array view of the (rotated) image data and also
+        # make a copy to ensure we have our own data (as the underlying buffer may be freed when heif_file is closed).
+        image_data = np.asarray(heif_file[0]).copy()
+    else: # All other (8 bit) image formats are handled by Pillow
+        print(f"Loading standard image file: {image_path}")
+        pil_image = PILImage.open(image_path)
+
+        # If the image is not in RGB mode, convert it
+        if pil_image.mode != 'RGB':
+            if pil_image.mode in ('RGBA', 'LA'):
+                # Create a new white background image
+                background = PILImage.new('RGB', pil_image.size, (255, 255, 255))
+                # Paste the RGBA image onto the white background
+                background.paste(pil_image, (0, 0), pil_image)
+                pil_image = background
+            else:
+                # All other types (e.g. 4 channel CMYK JPG, or palette-based GIF images)
+                pil_image = pil_image.convert('RGB')
+
+        image_data = np.array(pil_image)
+        original_bpc = 8 # Pillow typically loads these as 8-bit after conversion
+
+    if image_data is None:
+        raise OSError(f"Error: Could not read image from '{image_path}'")
+
+    # Debug info about the loaded image
+    # print(f"image loaded: {image_path}")
+    # print(f"  image_data dtype: {image_data.dtype}")
+    # print(f"  image_data shape: {image_data.shape}")
+    # # The actual bit depth of the data in the numpy array
+    # numpy_bits_per_channel = image_data.dtype.itemsize * 8
+    # # If self._image_data.ndim is 3, the number of channels is the 3rd dimension (self._image_data.shape[2]).
+    # # If the dimensions are 2, it's a single-channel (grayscale) image.
+    # num_channels = 1
+    # if image_data.ndim == 3:
+    #     num_channels = image_data.shape[2]
+    # print(f"  number of channels: {num_channels}")
+    # print(f"  original bit depth per channel: {original_bpc}")
+    # print(f"  numpy array bit depth per channel: {numpy_bits_per_channel}")
+    # print(f"  color depth (based on numpy array): {numpy_bits_per_channel * num_channels} bpp")
+    # print(f"  color depth (based on original bit depth): {original_bpc * num_channels} bpp")
+
+    return image_data, original_bpc
+
 def convert_16bit_to_8bit(image_16bit: np.ndarray) -> np.ndarray:
     """
     Converts a 16-bit image (uint16) to an 8-bit image (uint8) by scaling.

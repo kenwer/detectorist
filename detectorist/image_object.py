@@ -21,52 +21,27 @@ class ImageObject:
 
     def __init__(self, image_path: str):
         """
-        Initializes the ImageProcessor by loading an image from the given path.
-        Supports standard image formats and Sony ARW raw files.
+        Initializes the ImageObject by loading an image from the given path.
+        Supports standard 8 bit image formats but also 10/12 bit HEIF/HIF, and 16 bit Sony ARW raw files.
         """
-        if not os.path.exists(image_path):
-            raise FileNotFoundError(f"Error: Image file not found at '{image_path}'")
-
-        self._image_path = image_path
-        self._image_data = None
-        self._is16bit = False
+        self._image_path = image_path # The path to the image file
+        self._image_data = None # The loaded image data as a NumPy array
+        self._original_bpc = 8  # The original bits per channel (10 and 12 bit images will be converted to 16 bit numpy arrays)
         self._file_extension = os.path.splitext(self.image_path)[1].lower()
-        self._exif_handler = None # Initialize to None
+        self._exif_handler = None
 
-        # Load the image (depending on the file extension)
-        if self.file_extension == '.arw': # Load 16-bit RAW image data
-            self._image_data = image_utils.load_arw_image(self.image_path, output_bps=16)
+        self._image_data, self._original_bpc = image_utils.load_image_data(self.image_path)
+
+        # Create ExifWrapper based on file type
+        if self._file_extension in image_utils.RAW_EXTENSIONS or self._file_extension in image_utils.HEIF_EXTENSIONS:
             self._exif_handler = ExifWrapper(self.image_path)
-        else: # All other 8 bit image formats are handled by Pillow
+        else:
+            # For other formats, Pillow is used, so we need to open the image again for ExifWrapper
             pil_image = PILImage.open(self.image_path)
             self._exif_handler = ExifWrapper(pil_image)
 
-            # If the image is not in RGB mode, convert it
-            if pil_image.mode != 'RGB':
-                if pil_image.mode in ('RGBA', 'LA'):
-                    # Create a new white background image
-                    background = PILImage.new('RGB', pil_image.size, (255, 255, 255))
-                    # Paste the RGBA image onto the white background
-                    background.paste(pil_image, (0, 0), pil_image)
-                    pil_image = background
-                else:
-                    # All other types (e.g. 4 channel CMYK JPG, or palette-based GIF images)
-                    pil_image = pil_image.convert('RGB')
-
-            self._image_data = np.array(pil_image)
-
-        if self._image_data.dtype == np.uint16:
-            self._is16bit = True
-
         if self._image_data is None:
             raise OSError(f"Error: Could not read image from '{self.image_path}'")
-
-        print(f"image loaded: {self.image_path}")
-        print(f"  image_data dtype: {self._image_data.dtype}")
-        print(f"  image_data shape: {self._image_data.shape}")
-        # TODO: how do I find out infos about the color depth?
-        # HIF have BitDepthChroma and BitDepthLuma in EXIF, ARW and JPG have BitsPerSample
-        # but I ideally I don't want to rely on EXIF data for this
 
     @property
     def exif_wrapper(self) -> ExifWrapper:
@@ -84,9 +59,10 @@ class ImageObject:
         return self._image_data
 
     @property
-    def is16bit(self) -> bool:
-        """Returns True if the image is 16-bit."""
-        return self._is16bit
+    def original_bpc(self) -> int:
+        """Returns the original bits per channel of the loaded image based on
+        the original bit depth (and not on the bit depth the numpy array that stores the actual image data)."""
+        return self._original_bpc
 
     @property
     def file_extension(self) -> str:
@@ -101,7 +77,7 @@ class ImageObject:
         - Transposes from HWC to CHW format.
         - Adds a batch dimension.
         """
-        if self.is16bit:
+        if self._original_bpc > 8:
             data = image_utils.convert_16bit_to_8bit(self._image_data)
         else:
             data = self._image_data
