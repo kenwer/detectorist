@@ -114,6 +114,109 @@ def load_image_data(image_path: str) -> tuple[np.ndarray, int]:
 
     return image_data, original_bpc
 
+def adjust_exposure(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int = None) -> np.ndarray:
+    """
+    Adjusts the exposure of the image data by the given exposure compensation value. It creates a copy and doesn't modify the given image_data.
+    This function handles 8, 10, 12, and 16-bit image data.
+
+    Args:
+        image_data (np.ndarray): The input image data as a NumPy array.
+        exposure_compensation (float): The exposure compensation value in EV stops (e.g. -0.3).
+        gamma (float, optional): The gamma correction value of the image data. Most image files use a gamma of 2.2.
+                                 For linear data, gamma should be set to 1.0. Defaults to 2.2.
+        bits_per_channel (int, optional): The number of bits per channel for the image data (e.g. 8, 10, 12, 16).
+                                           If not provided, it's inferred from the image data dtype,
+                                           assuming 16 bits for uint16 data. Defaults to None.
+
+    Returns:
+        np.ndarray: The exposure-adjusted image data.
+    """
+    image_data_copy = image_data.copy()
+    adjust_exposure_inplace(image_data_copy, exposure_compensation, gamma, bits_per_channel)
+    return image_data_copy
+
+def adjust_exposure_inplace(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int = None) -> None:
+    """
+    Adjusts the exposure of the image data by the given exposure compensation value. It modifies the given image_data instead of creating a copy.
+    This function handles 8, 10, 12, and 16-bit image data.
+
+    Args:
+        image_data (np.ndarray): The input image data as a NumPy array.
+        exposure_compensation (float): The exposure compensation value in EV stops (e.g. -0.3).
+        gamma (float, optional): The gamma correction value of the image data. Most image files use a gamma of 2.2.
+                                 For linear data, gamma should be set to 1.0. Defaults to 2.2.
+        bits_per_channel (int, optional): The number of bits per channel for the image data (e.g. 8, 10, 12, 16).
+                                           If not provided, it's inferred from the image data dtype,
+                                           assuming 16 bits for uint16 data. Defaults to None.
+    """
+    # The exposure compensation is in stops, so we use 2^ev
+    factor = np.float32(2.0**exposure_compensation)
+
+    # If exposure compensation is zero, do nothing.
+    if factor == 1.0:
+        return
+
+    bpc = bits_per_channel
+    # If bits_per_channel is not provided, infer it from the image data dtype
+    if bpc is None:
+        if image_data.dtype == np.uint8:
+            bpc = 8
+        elif image_data.dtype == np.uint16:
+            bpc = 16  # Assume 16 if not specified for uint16 data (but it could be 10 or 12 - we just don't know)
+        else:
+            print(f"Warning: Cannot determine bits per channel for dtype {image_data.dtype}.\nReturning original image data.")
+            return
+
+    if bpc not in [8, 10, 12, 16]:
+        print(
+            f"Warning: Unsupported bits per channel ({bpc}) for exposure adjustment.\nReturning original image data."
+        )
+        return
+
+    # Note on Gamma (see: https://en.wikipedia.org/wiki/Gamma_correction:
+    #   Gamma encoding is used to optimize the usage of bits when encoding an image, by taking
+    #   advantage of the non-linear manner in which humans perceive light and color. Our human
+    #   vision has greater sensitivity to relative differences between darker tones than between
+    #   lighter tones.
+    #   The pixel values stored in standard image file formats do usually represent the light
+    #   intensity via gamma-compressed values instead of a linear encoding. They are gamma-
+    #   compensated
+    #       - either using one of the standard gamma values such as 2.2 (encoding gamma value
+    #         of 1/2.2) as with sRGB
+    #       - or according to some gamma specified by metadata such as an ICC profile.
+    #   This code assumes an encoding of 1/<gamma> (e.g. of 1/2.2) and therefore applies gamma
+    #   correction using a decoding vaule of <gamma> (e.g. 2.2) back to the image data:
+    #       - encoding: V_out = (V_in)^(1/γ)
+    #       - decoding: V_out = (V_in)^γ
+
+    # Determine the maximum value for the current NumPy array dtype. For >8 bit images,
+    # pillow-heif scales the data to the full range of the dtype (e.g. uint16).
+    max_val_dtype = (2**(image_data.dtype.itemsize * 8)) - 1
+
+    # Use floating point arithmetic to prevent overflow and precision loss
+    image_float = image_data.astype(np.float32)
+
+    # Normalize to [0, 1]
+    image_norm = image_float / max_val_dtype
+
+    # Linearize the image data (remove gamma compression)
+    image_linear = np.power(image_norm, gamma)
+
+    # Apply exposure compensation in linear space as operations on pixel values should be performed in "linear light" (gamma 1).
+    adjusted_linear = image_linear * factor
+
+    # Apply gamma correction back to the image
+    adjusted_gamma = np.power(adjusted_linear, 1.0 / gamma)
+
+    # Denormalize from [0, 1] back to the original range
+    adjusted_image_float = adjusted_gamma * max_val_dtype
+
+    # Clip the values to the valid range of the current NumPy array dtype
+    np.clip(adjusted_image_float, 0, max_val_dtype, out=adjusted_image_float)
+
+    # Convert back to the original dtype (e.g., uint8, uint16) and update in-place
+    image_data[:] = adjusted_image_float.astype(image_data.dtype)
+
 def convert_16bit_to_8bit(image_16bit: np.ndarray) -> np.ndarray:
     """
     Converts a 16-bit image (uint16) to an 8-bit image (uint8) by scaling.
@@ -270,9 +373,18 @@ def crop_heif_image(input_path, output_path, rect, quality=80):
     mode = heif[0].mode
     size = (unrotated_np.shape[1], unrotated_np.shape[0])
     data = unrotated_np.tobytes()
+    #data = adjust_exposure(unrotated_np, -1.7*-1.0, 2.2, bit_depth).tobytes()  # just a hard coded (EV=-1.7, gamma=2.2) test to see if we can adjust exposure on the cropped image
 
-    #print(f"Creating new HEIF image with\n\tmode: {mode}, size: {size}, data length: {len(data)}")
-    new_heif_image = pillow_heif.from_bytes(mode=mode, size=size, data=data)
+    # Construct raw_mode based on original mode and bit_depth
+    raw_mode = mode
+    if bit_depth > 8:
+        raw_mode = f"{mode};{bit_depth}"
+
+    # All HEIF images with a bit depth larger than 8 are stored in 16 bit nd_arrays as pillow-heif scaled up the pixel values when loading to fill the full 16-bit range (0-65535).
+    # For a 10 bit HEIF, with the bit_depth in raw_mode, we tell pillow-heif "Interpret this 16-bit buffer as 10-bit data".
+    # At this point, no data conversion or scaling occurs (at save time, pillow-heif will scale the data down to 10 bit range 0-1023).
+    #print(f"Creating new HEIF image with\n\tmode: {mode}, size: {size}, data length: {len(data)}, raw_mode: {raw_mode}")
+    new_heif_image = pillow_heif.from_bytes(mode=mode, size=size, data=data, raw_mode=raw_mode)
 
     # Adjust Exif Image Width & Height to the cropped size if Exif data exists
     if exif:
@@ -285,6 +397,9 @@ def crop_heif_image(input_path, output_path, rect, quality=80):
         updated_exif = None
 
     # Save the new image, preserving original bit depth and chroma plus meta data for orientation
+    # The bit_depth parameter explicitly instructs the HEIF encoder to save the final file with the specified bit depth (e.g. 10 bit).
+    #  For images with >8 bit, it knows the in-memory data is 16-bit and it knows the desired output is e.g. 10-bit.
+    #  It scales the pixel values back down from the [0, 65535] range to the [0, 1023] range before encoding and saving the file.
     new_heif_image.save(output_path, format="HEIF", quality=quality, bit_depth=bit_depth, chroma=chroma, nclx_profile=nclx_profile, exif=updated_exif, xmp=xmp)
     #print(f"Cropped image to {w}x{h} at ({x},{y}) and saved to {output_path}")
 
