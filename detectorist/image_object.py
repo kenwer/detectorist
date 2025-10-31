@@ -1,6 +1,7 @@
 import os
 import shutil
 from abc import ABC, abstractmethod
+from enum import Enum
 
 import cv2
 import numpy as np
@@ -10,7 +11,7 @@ from PIL import Image as PILImage
 
 from . import image_utils
 from .exif_wrapper import ExifWrapper
-from enum import Enum
+
 
 class ImageMode(Enum):
     """
@@ -359,7 +360,7 @@ class HeifImageObject(ImageObject):
         raw_mode = mode
         if bit_depth > 8:
             raw_mode = f"{mode};{bit_depth}"
-        
+
         # Create a new HeifImage from the cropped numpy array using pillow_heif.from_bytes()
         #print(f"Creating new HEIF image with\n\tmode: {mode}, size: {size}, data length: {len(data)}, raw_mode: {raw_mode}")
         new_heif_image = pillow_heif.from_bytes(mode=mode, size=size, data=data, raw_mode=raw_mode)
@@ -481,35 +482,42 @@ class StandardImageObject(ImageObject):
             raise ValueError(f"Invalid image file extension \"{self._file_extension}\". Expected {STANDARD_IMG_EXTENSIONS}")
 
         print(f"Loading standard image file: {self.image_path}")
+        # This is a bit hacky since OpenCV always loads image as BGR or BGRA while
+        # Pillow doesn't support 16 bit images# https://github.com/python-pillow/Pillow/issues/7723
+        # So we load the image twice
+        #   - once with OpenCV to be able to get the 16 bit data if present
+        #   - once with Pillow to determine the color mode (RGB, RGBA) of the image
+        # Then we convert the OpenCV loaded image data to match the logical color mode determined by Pillow
 
-        image = cv2.imread(self.image_path, cv2.IMREAD_UNCHANGED)
-        if image is None:
+        # Load image with OpenCV to be able to get the 16 bit data if present
+        cv_image = cv2.imread(self.image_path, cv2.IMREAD_UNCHANGED)
+        if cv_image is None:
             raise OSError(f"Error: Could not read image from '{self.image_path}'")
 
-        # Determine original bits per channel based on image mode
-        # PNGs for example can be 8 or 16 bit per channel
-        if image.dtype == np.uint16:
+        # Determine original bits per channel based on image dtype
+        if cv_image.dtype == np.uint16:
             self._original_bpc = 16
         else:
             self._original_bpc = 8
 
-        self._image_data = image
-
-        # Determine the mode based on the number of channels
-        if len(image.shape) == 2:
-            self._mode = ImageMode.GRAY
-        elif len(image.shape) == 3:
-            if image.shape[2] == 3:
-                self._mode = ImageMode.BGR
-            elif image.shape[2] == 4:
-                self._mode = ImageMode.BGRA
-            else:
-                raise ValueError(f"Unsupported standard image with {image.shape[2]} channels.")
-        else:
-            raise ValueError(f"Unsupported standard image with shape {image.shape}.")
-
-        # Keep a PIL image instance for metadata compatibility
+        # Load with Pillow to determine color mode
         pil_image = PILImage.open(self.image_path)
+
+        # Standardize internal _image_data to match the color mode of the input file
+        if pil_image.mode == 'L':
+            self._mode = ImageMode.GRAY
+            self._image_data = cv_image # OpenCV reads grayscale as 2D array
+        elif pil_image.mode == 'RGB':
+            # convert to RGB
+            self._mode = ImageMode.RGB
+            self._image_data = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+        elif pil_image.mode == 'RGBA':
+            self._mode = ImageMode.RGBA
+            # convert to RGBA
+            self._image_data = cv2.cvtColor(cv_image, cv2.COLOR_BGRA2RGBA)
+        else:
+            raise ValueError(f"Unsupported Pillow image mode: {pil_image.mode}")
+
         self._exif_handler = ExifWrapper(pil_image)
 
     @property
@@ -529,7 +537,7 @@ class StandardImageObject(ImageObject):
 
         # Ensure PNG format for images with transparency if not already PNG
         if len(output_image.shape) == 3 and output_image.shape[2] == 4 and self._file_extension.lower() != '.png':
-            print(f"  Saving with transparency, converting to PNG format.")
+            print("  Saving with transparency, converting to PNG format.")
             output_path = os.path.splitext(output_path)[0] + '.png'
 
         cv2.imwrite(output_path, output_image)
