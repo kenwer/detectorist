@@ -154,12 +154,17 @@ On Linux:
 
 ## Changelog
 
+### [0.6.0] - 2025-10-31
+
 #### Added
 - Display Exposure Compensation for a loaded image from its EXIF data.
 - Display the Bits Per Channel (color depth) of the loaded image.
+- Add support for 16 bit standard image files (e.g. 16 bit PNG).
+- [Dev] Switch from Pillow to OpenCV to support 16 bit standard image files.
 
 #### Changed
 - UI space for EXIF data expands to display more contents (if the app window size is increased vertically).
+- [Dev] Refactor image data loading/holding/saving logic to make it more robust and universal.
 
 #### Fixed
 - Drag & drop for images.
