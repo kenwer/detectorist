@@ -70,13 +70,13 @@ class ImageObject (ABC):
     def create(cls, image_path: str) -> 'ImageObject':
         """
         Factory method to create the appropriate ImageObject based on file extension.
-        
+
         Args:
             image_path (str or Path): Path to the image file
-        
+
         Returns:
             ImageObject: Appropriate subclass instance
-        
+
         Raises:
             ValueError: If no matching image type is found
         """
@@ -435,7 +435,7 @@ class RawImageObject(ImageObject):
         """
         Saves a 16-bit numpy array as a 16 bit PNG or TIFF file.
         The file format is inferred from the output_path extension.
-    
+
         Args:
             image_16bit (np.ndarray): The 16-bit image data to save (dtype must be uint16).
             output_path (str): The path where the image will be saved.
