@@ -103,20 +103,42 @@ class ImageObject (ABC):
         """Returns the file extension of this image."""
         return self._file_extension
 
+    @property
+    def image_data_bgr_8bit(self) -> np.ndarray:
+        """Returns image_data in 8-bit BGR format"""
+        # assumes self._image_data is RGB, can be 8 or 16 bit
+        if self._original_bpc > 8:
+            data_8bit = image_utils.convert_16bit_to_8bit(self._image_data)
+        else:
+            data_8bit = self._image_data.astype(np.uint8)
+
+        # If the image has an alpha channel, blend it onto a white background to get RGB
+        if len(data_8bit.shape) == 3 and data_8bit.shape[2] == 4: # RGBA
+            # Blend alpha
+            alpha = data_8bit[:, :, 3].astype(np.float32) / 255.0
+            alpha = np.stack([alpha] * 3, axis=-1)
+            rgb = data_8bit[:, :, :3]
+            white_bg = np.full_like(rgb, 255)
+            rgb_data = (rgb * alpha + white_bg * (1.0 - alpha)).astype(np.uint8)
+        else: # RGB
+            rgb_data = data_8bit
+
+        # Convert from RGB to BGR
+        bgr_data = cv2.cvtColor(rgb_data, cv2.COLOR_RGB2BGR)
+        return bgr_data
+
     def preprocess_for_onnx(self, input_width: int, input_height: int) -> np.ndarray:
         """
         Preprocesses an image for ONNX model inference.
+        - Converts to 8-bit BGR.
         - Resizes to the target dimensions.
         - Converts to float32 and normalizes to [0, 1].
         - Transposes from HWC to CHW format.
         - Adds a batch dimension.
         """
-        if self._original_bpc > 8:
-            data = image_utils.convert_16bit_to_8bit(self._image_data)
-        else:
-            data = self._image_data
+        bgr_data = self.image_data_bgr_8bit
 
-        resized_image = cv2.resize(data, (input_width, input_height))
+        resized_image = cv2.resize(bgr_data, (input_width, input_height))
         model_input_image = resized_image.astype(np.float32)
         model_input_image /= 255.0
         model_input_image = model_input_image.transpose(2, 0, 1)
@@ -411,61 +433,63 @@ class RawImageObject(ImageObject):
 
 
 class StandardImageObject(ImageObject):
-    """ImageObject subclass for standard 8-bit image formats like PNG, JPEG."""
+    """ImageObject subclass for standard 8-bit and 16-bit image formats like PNG, JPEG."""
     def __init__(self, image_path: str):
-        """Initializes the object by loading a standard image file using Pillow."""
+        """Initializes the object by loading a standard image file using OpenCV."""
         super().__init__(image_path)
-        # Validate_file_extension
+        # Validate file extension
         if self._file_extension not in STANDARD_IMG_EXTENSIONS:
             raise ValueError(f"Invalid image file extension \"{self._file_extension}\". Expected {STANDARD_IMG_EXTENSIONS}")
 
         print(f"Loading standard image file: {self.image_path}")
-        self._pil_image = PILImage.open(self.image_path)
+
+        image = cv2.imread(self.image_path, cv2.IMREAD_UNCHANGED)
+        if image is None:
+            raise OSError(f"Error: Could not read image from '{self.image_path}'")
 
         # Determine original bits per channel based on image mode
         # PNGs for example can be 8 or 16 bit per channel
-        if self._image_data.dtype == np.uint16:
+        if image.dtype == np.uint16:
             self._original_bpc = 16
         else:
             self._original_bpc = 8
 
-        # For ExifWrapper
-        self._exif_handler = ExifWrapper(self._pil_image)
+        # Convert color space to RGB/RGBA
+        if len(image.shape) == 2:
+            self._image_data = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        elif image.shape[2] == 3:
+            self._image_data = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        elif image.shape[2] == 4:
+            self._image_data = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)
+        else:
+            self._image_data = image
+
+        # Keep a PIL image instance for metadata compatibility
+        pil_image = PILImage.open(self.image_path)
+        self._exif_handler = ExifWrapper(pil_image)
 
     @property
     def image_data(self) -> np.ndarray:
-        """
-        Returns the image data as a NumPy array, converted to RGB if necessary.
-        The conversion is deferred until the data is first accessed.
-        """
-        if self._image_data is None:
-            pil_image = self._pil_image
-            # If the image is not in RGB mode, convert it
-            if pil_image.mode != 'RGB':
-                if pil_image.mode in ('RGBA', 'LA'):
-                    # Create a new white background image
-                    background = PILImage.new('RGB', pil_image.size, (255, 255, 255))
-                    # Paste the RGBA image onto the white background
-                    background.paste(pil_image, (0, 0), pil_image)
-                    pil_image = background
-                else:
-                    # All other types (e.g. 4 channel CMYK JPG, or palette-based GIF images)
-                    pil_image = pil_image.convert('RGB')
-            self._image_data = np.array(pil_image)
-
-            if self._image_data is None:
-                raise OSError(f"Error: Could not read image from '{self.image_path}'")
+        """Returns the image data as a NumPy array, in RGB or RGBA format."""
         return self._image_data
 
     def save_cropped(self, rect: tuple[int, int, int, int], output_dir: str):
-        """
-        Saves a cropped version of the image using Pillow.
-        This preserves the original file's characteristics (like transparency)
-        by cropping the original PIL image object.
-        """
+        """Saves a cropped version of the image using OpenCV, preserving transparency."""
         output_path = os.path.join(output_dir, os.path.basename(self.image_path))
         print(f"Cropping image file: {self.image_path}")
 
         x, y, w, h = rect
-        cropped_image = self._pil_image.crop((x, y, x + w, y + h))
-        cropped_image.save(output_path)
+        cropped_data = self.image_data[y:y+h, x:x+w]
+
+        # Convert to BGR/BGRA for OpenCV
+        if len(cropped_data.shape) == 3 and cropped_data.shape[2] == 4:
+            output_image = cv2.cvtColor(cropped_data, cv2.COLOR_RGBA2BGRA)
+        else:
+            output_image = cv2.cvtColor(cropped_data, cv2.COLOR_RGB2BGR)
+
+        # Ensure PNG format for images with transparency if not already PNG
+        if len(output_image.shape) == 3 and output_image.shape[2] == 4 and self._file_extension.lower() != '.png':
+            print(f"  Saving with transparency, converting to PNG format.")
+            output_path = os.path.splitext(output_path)[0] + '.png'
+
+        cv2.imwrite(output_path, output_image)
