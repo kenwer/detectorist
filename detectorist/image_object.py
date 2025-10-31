@@ -10,6 +10,18 @@ from PIL import Image as PILImage
 
 from . import image_utils
 from .exif_wrapper import ExifWrapper
+from enum import Enum
+
+class ImageMode(Enum):
+    """
+    Represents the color mode of an image.
+    """
+    RGB = "RGB"
+    RGBA = "RGBA"
+    BGR = "BGR"
+    BGRA = "BGRA"
+    GRAY = "GRAY"
+
 
 # Ensure the HEIF Pillow plugin is registered
 pillow_heif.register_heif_opener()
@@ -49,6 +61,7 @@ class ImageObject (ABC):
         self._image_path = image_path
         self._image_data = None
         self._original_bpc = None
+        self._mode: ImageMode
         self._file_extension = os.path.splitext(self.image_path)[1].lower()
         self._exif_handler = None
 
@@ -104,27 +117,43 @@ class ImageObject (ABC):
         return self._file_extension
 
     @property
+    def mode(self) -> ImageMode:
+        """Returns the color mode of the loaded image (e.g., 'RGB', 'RGBA', 'BGR', 'GRAY')."""
+        return self._mode
+
+    @property
     def image_data_bgr_8bit(self) -> np.ndarray:
         """Returns image_data in 8-bit BGR format"""
-        # assumes self._image_data is RGB, can be 8 or 16 bit
+        # Convert to 8-bit if necessary
         if self._original_bpc > 8:
             data_8bit = image_utils.convert_16bit_to_8bit(self._image_data)
         else:
             data_8bit = self._image_data.astype(np.uint8)
 
-        # If the image has an alpha channel, blend it onto a white background to get RGB
-        if len(data_8bit.shape) == 3 and data_8bit.shape[2] == 4: # RGBA
-            # Blend alpha
+        # Handle RGBA blending if the mode is RGBA
+        if self._mode == ImageMode.RGBA:
             alpha = data_8bit[:, :, 3].astype(np.float32) / 255.0
             alpha = np.stack([alpha] * 3, axis=-1)
             rgb = data_8bit[:, :, :3]
             white_bg = np.full_like(rgb, 255)
-            rgb_data = (rgb * alpha + white_bg * (1.0 - alpha)).astype(np.uint8)
-        else: # RGB
-            rgb_data = data_8bit
+            data_to_convert = (rgb * alpha + white_bg * (1.0 - alpha)).astype(np.uint8)
+            current_mode = ImageMode.RGB # After blending, it's effectively RGB
+        else:
+            data_to_convert = data_8bit
+            current_mode = self._mode
 
-        # Convert from RGB to BGR
-        bgr_data = cv2.cvtColor(rgb_data, cv2.COLOR_RGB2BGR)
+        # Convert to BGR based on the current mode
+        if current_mode == ImageMode.BGR:
+            bgr_data = data_to_convert
+        elif current_mode == ImageMode.BGRA:
+            bgr_data = cv2.cvtColor(data_to_convert, cv2.COLOR_BGRA2BGR)
+        elif current_mode == ImageMode.RGB:
+            bgr_data = cv2.cvtColor(data_to_convert, cv2.COLOR_RGB2BGR)
+        elif current_mode == ImageMode.GRAY:
+            bgr_data = cv2.cvtColor(data_to_convert, cv2.COLOR_GRAY2BGR)
+        else:
+            raise ValueError(f"Unsupported image mode for BGR conversion: {current_mode}")
+
         return bgr_data
 
     def preprocess_for_onnx(self, input_width: int, input_height: int) -> np.ndarray:
@@ -151,6 +180,7 @@ class ImageObject (ABC):
         print(f"image loaded: {self.image_path}")
         print(f"  image_data dtype: {self.image_data.dtype}")
         print(f"  image_data shape: {self.image_data.shape}")
+        print(f"  image_data mode: {self.mode}")
         # The actual bit depth of the data in the numpy array
         numpy_bits_per_channel = self.image_data.dtype.itemsize * 8
         # If self._image_data.ndim is 3, the number of channels is the 3rd dimension (self._image_data.shape[2]).
@@ -204,7 +234,15 @@ class HeifImageObject(ImageObject):
         self._nclx_profile = heif_file.info.get('nclx_profile')
         self._exif = heif_file.info.get('exif')
         self._xmp = heif_file.info.get('xmp')
-        self._mode = heif_file[0].mode
+        # Map pillow_heif modes to our descriptive strings
+        if heif_file[0].mode == 'L':
+            self._mode = ImageMode.GRAY
+        elif heif_file[0].mode == 'RGB':
+            self._mode = ImageMode.RGB
+        elif heif_file[0].mode == 'RGBA':
+            self._mode = ImageMode.RGBA
+        else:
+            raise ValueError(f"Unsupported HEIF image mode: {heif_file[0].mode}")
 
         # pillow-heif appears to rotate the image data based on EXIF orientation automatically.
         # So we create a numpy array view of the (rotated) image data and also
@@ -355,6 +393,7 @@ class RawImageObject(ImageObject):
 
         print(f"Loading RAW file: {self.image_path}")
         self._image_data = self._load_raw_image_data(self.image_path, output_bps=16)
+        self._mode = ImageMode.RGB
         if self._image_data.dtype == np.uint16:
             self._original_bpc = 16
         else:
@@ -454,15 +493,20 @@ class StandardImageObject(ImageObject):
         else:
             self._original_bpc = 8
 
-        # Convert color space to RGB/RGBA
+        self._image_data = image
+
+        # Determine the mode based on the number of channels
         if len(image.shape) == 2:
-            self._image_data = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        elif image.shape[2] == 3:
-            self._image_data = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        elif image.shape[2] == 4:
-            self._image_data = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)
+            self._mode = ImageMode.GRAY
+        elif len(image.shape) == 3:
+            if image.shape[2] == 3:
+                self._mode = ImageMode.BGR
+            elif image.shape[2] == 4:
+                self._mode = ImageMode.BGRA
+            else:
+                raise ValueError(f"Unsupported standard image with {image.shape[2]} channels.")
         else:
-            self._image_data = image
+            raise ValueError(f"Unsupported standard image with shape {image.shape}.")
 
         # Keep a PIL image instance for metadata compatibility
         pil_image = PILImage.open(self.image_path)
@@ -481,11 +525,7 @@ class StandardImageObject(ImageObject):
         x, y, w, h = rect
         cropped_data = self.image_data[y:y+h, x:x+w]
 
-        # Convert to BGR/BGRA for OpenCV
-        if len(cropped_data.shape) == 3 and cropped_data.shape[2] == 4:
-            output_image = cv2.cvtColor(cropped_data, cv2.COLOR_RGBA2BGRA)
-        else:
-            output_image = cv2.cvtColor(cropped_data, cv2.COLOR_RGB2BGR)
+        output_image = cropped_data
 
         # Ensure PNG format for images with transparency if not already PNG
         if len(output_image.shape) == 3 and output_image.shape[2] == 4 and self._file_extension.lower() != '.png':
