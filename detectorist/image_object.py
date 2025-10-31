@@ -131,7 +131,7 @@ class ImageObject (ABC):
         else:
             data_8bit = self._image_data.astype(np.uint8)
 
-        # Handle RGBA blending if the mode is RGBA
+        # Handle alpha channel blending if the mode is RGBA or BGRA
         if self._mode == ImageMode.RGBA:
             alpha = data_8bit[:, :, 3].astype(np.float32) / 255.0
             alpha = np.stack([alpha] * 3, axis=-1)
@@ -139,6 +139,9 @@ class ImageObject (ABC):
             white_bg = np.full_like(rgb, 255)
             data_to_convert = (rgb * alpha + white_bg * (1.0 - alpha)).astype(np.uint8)
             current_mode = ImageMode.RGB # After blending, it's effectively RGB
+        elif self._mode == ImageMode.BGRA:
+            data_to_convert = data_8bit
+            current_mode = ImageMode.BGRA
         else:
             data_to_convert = data_8bit
             current_mode = self._mode
