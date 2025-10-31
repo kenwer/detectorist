@@ -607,7 +607,7 @@ class DetectoristApp(QMainWindow):
 
         def process_image_for_cropping(image, results, output_dir, **state):
             if not results:
-                image.copy_image_file(state["not_cropped_dir"])
+                image.copy_image(state["not_cropped_dir"])
                 return os.path.basename(image.image_path), 0, "N/A", 0, os.path.basename(state["not_cropped_dir"])
 
             top_detection = max(results, key=lambda d: d[1])
@@ -619,7 +619,7 @@ class DetectoristApp(QMainWindow):
 
             if not crop_tuples:
                 print(f"Warning {os.path.basename(image.image_path)}: invalid crop rectangle, crop_tuples: {crop_tuples}")
-                image.copy_image_file(state["not_cropped_dir"])
+                image.copy_image(state["not_cropped_dir"])
                 return os.path.basename(image.image_path), confidence_score, class_name, len(results), os.path.basename(state["not_cropped_dir"])
 
             base, ext = os.path.splitext(os.path.basename(image.image_path))
@@ -646,12 +646,12 @@ class DetectoristApp(QMainWindow):
                 class_name = top_detection[2]
                 class_dir = os.path.join(output_dir, class_name)
                 os.makedirs(class_dir, exist_ok=True)
-                image.copy_image_file(class_dir)
+                image.copy_image(class_dir)
                 return os.path.basename(image.image_path), confidence_score, class_name, len(results), class_name
             else:
                 no_detection_dir = os.path.join(output_dir, "no-detection")
                 os.makedirs(no_detection_dir, exist_ok=True)
-                image.copy_image_file(no_detection_dir)
+                image.copy_image(no_detection_dir)
                 return os.path.basename(image.image_path), 0, "no-detection", 0, "no-detection"
 
         self._process_all_images("Sorting images", setup, process_image_for_sorting)

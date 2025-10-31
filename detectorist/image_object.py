@@ -89,7 +89,7 @@ class ImageObject:
         model_input_image = np.expand_dims(model_input_image, axis=0)
         return model_input_image
 
-    def copy_image_file(self, target_dir_path):
+    def copy_image(self, target_dir_path):
         """Copies the original image file to the specified output directory preserving its file name."""
         input_file_name = os.path.basename(self._image_path)
         output_path = os.path.join(target_dir_path, input_file_name)
