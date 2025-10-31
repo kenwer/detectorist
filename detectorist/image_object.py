@@ -238,9 +238,9 @@ class HeifImageObject(ImageObject):
         # Map pillow_heif modes to our descriptive strings
         if heif_file[0].mode == 'L':
             self._mode = ImageMode.GRAY
-        elif heif_file[0].mode == 'RGB':
+        elif heif_file[0].mode.startswith('RGB'):
             self._mode = ImageMode.RGB
-        elif heif_file[0].mode == 'RGBA':
+        elif heif_file[0].mode.startswith('RGBA'):
             self._mode = ImageMode.RGBA
         else:
             raise ValueError(f"Unsupported HEIF image mode: {heif_file[0].mode}")
@@ -357,13 +357,13 @@ class HeifImageObject(ImageObject):
         # HEIF images with a bit depth larger than 8 are stored in 16 bit nd_arrays as pillow-heif scaled up the pixel values when loading to fill the full 16-bit range (0-65535).
         # For a 10 bit HEIF, with the bit_depth in raw_mode, we tell pillow-heif "Interpret this 16-bit buffer as 10-bit data".
         # At this point, no data conversion or scaling occurs (at save time, pillow-heif will scale the data down to 10 bit range 0-1023).
-        raw_mode = mode
+        raw_mode = mode.value
         if bit_depth > 8:
-            raw_mode = f"{mode};{bit_depth}"
+            raw_mode = f"{mode.value};{bit_depth}"
 
         # Create a new HeifImage from the cropped numpy array using pillow_heif.from_bytes()
         #print(f"Creating new HEIF image with\n\tmode: {mode}, size: {size}, data length: {len(data)}, raw_mode: {raw_mode}")
-        new_heif_image = pillow_heif.from_bytes(mode=mode, size=size, data=data, raw_mode=raw_mode)
+        new_heif_image = pillow_heif.from_bytes(mode=mode.value, size=size, data=data, raw_mode=raw_mode)
 
         # Adjust Exif Image Width & Height to the cropped size if Exif data exists
         if exif:
