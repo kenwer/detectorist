@@ -572,7 +572,7 @@ class DetectoristApp(QMainWindow):
                         break
 
                     image_path = os.path.join(self.current_folder_path, file_name)
-                    image = ImageObject(image_path)
+                    image = ImageObject.create(image_path)
                     results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=NMS_THRESHOLD)
 
                     log_data = process_image_callback(image, results, output_dir, **state)

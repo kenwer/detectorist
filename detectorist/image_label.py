@@ -147,7 +147,7 @@ class ImageLabel(QLabel):
     def replace_image(self, image_path):
         self.hide_bands()
         try:
-            self.image = ImageObject(image_path)
+            self.image = ImageObject.create(image_path)
             pixmap = self._create_qpixmap(self.image)
             self.setPixmap(pixmap)
             return True
