@@ -22,6 +22,7 @@ class ImageMode(Enum):
     BGR = "BGR"
     BGRA = "BGRA"
     GRAY = "GRAY"
+    PALETTE = "P"
 
 
 # Ensure the HEIF Pillow plugin is registered
@@ -123,42 +124,70 @@ class ImageObject (ABC):
         return self._mode
 
     @property
+    def height(self) -> int:
+        """Returns the height of the image."""
+        if self._image_data is not None:
+            return self._image_data.shape[0]
+        return 0
+
+    @property
+    def width(self) -> int:
+        """Returns the width of the image."""
+        if self._image_data is not None:
+            return self._image_data.shape[1]
+        return 0
+
+    @property
     def image_data_bgr_8bit(self) -> np.ndarray:
         """Returns image_data in 8-bit BGR format"""
-        # Convert to 8-bit if necessary
-        if self._original_bpc > 8:
-            data_8bit = image_utils.convert_16bit_to_8bit(self._image_data)
-        else:
-            data_8bit = self._image_data.astype(np.uint8)
+        if self._mode == ImageMode.PALETTE:
+            # Convert paletted image to an RGB/RGBA Pillow image
+            pil_img = PILImage.fromarray(self._image_data, mode='P')
+            pil_img.putpalette(self._palette)
 
-        # Handle alpha channel blending if the mode is RGBA or BGRA
-        if self._mode == ImageMode.RGBA:
-            alpha = data_8bit[:, :, 3].astype(np.float32) / 255.0
-            alpha = np.stack([alpha] * 3, axis=-1)
-            rgb = data_8bit[:, :, :3]
-            white_bg = np.full_like(rgb, 255)
-            data_to_convert = (rgb * alpha + white_bg * (1.0 - alpha)).astype(np.uint8)
-            current_mode = ImageMode.RGB # After blending, it's effectively RGB
-        elif self._mode == ImageMode.BGRA:
-            data_to_convert = data_8bit
-            current_mode = ImageMode.BGRA
+            # Convert to RGBA if transparency is present, otherwise RGB
+            if self._transparency_info is not None:
+                pil_img = pil_img.convert('RGBA')
+            else:
+                pil_img = pil_img.convert('RGB')
+
+            # Now we have a standard Pillow image, convert it to a numpy array
+            # and set the mode so the rest of the function can process it.
+            data_8bit = np.array(pil_img)
+            current_mode = ImageMode.RGBA if pil_img.mode == 'RGBA' else ImageMode.RGB
         else:
-            data_to_convert = data_8bit
+            # Convert to 8-bit if necessary
+            if self._original_bpc > 8:
+                data_8bit = image_utils.convert_16bit_to_8bit(self._image_data)
+            else:
+                data_8bit = self._image_data.astype(np.uint8)
             current_mode = self._mode
 
         # Convert to BGR based on the current mode
         if current_mode == ImageMode.BGR:
-            bgr_data = data_to_convert
+            bgr_data = data_8bit
         elif current_mode == ImageMode.BGRA:
-            bgr_data = cv2.cvtColor(data_to_convert, cv2.COLOR_BGRA2BGR)
+            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_BGRA2BGR)
         elif current_mode == ImageMode.RGB:
-            bgr_data = cv2.cvtColor(data_to_convert, cv2.COLOR_RGB2BGR)
+            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_RGB2BGR)
+        elif current_mode == ImageMode.RGBA:
+            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_RGBA2BGR)
         elif current_mode == ImageMode.GRAY:
-            bgr_data = cv2.cvtColor(data_to_convert, cv2.COLOR_GRAY2BGR)
+            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_GRAY2BGR)
         else:
             raise ValueError(f"Unsupported image mode for BGR conversion: {current_mode}")
 
-        return bgr_data
+        return bgr_data.copy()
+
+    @property
+    def image_data_rgb_8bit(self) -> np.ndarray:
+        """
+        Returns image_data in 8-bit RGB format, suitable for display in UI.
+        This is a convenience wrapper around image_data_bgr_8bit.
+        """
+        bgr_image = self.image_data_bgr_8bit
+        rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+        return rgb_image
 
     def preprocess_for_onnx(self, input_width: int, input_height: int) -> np.ndarray:
         """
@@ -478,8 +507,11 @@ class RawImageObject(ImageObject):
 class StandardImageObject(ImageObject):
     """ImageObject subclass for standard 8-bit and 16-bit image formats like PNG, JPEG."""
     def __init__(self, image_path: str):
-        """Initializes the object by loading a standard image file using OpenCV."""
+        """Initializes the object by loading a standard image file."""
         super().__init__(image_path)
+        self._palette = None
+        self._transparency_info = None
+
         # Validate file extension
         if self._file_extension not in STANDARD_IMG_EXTENSIONS:
             raise ValueError(f"Invalid image file extension \"{self._file_extension}\". Expected {STANDARD_IMG_EXTENSIONS}")
@@ -506,18 +538,25 @@ class StandardImageObject(ImageObject):
         # Load with Pillow to determine color mode
         pil_image = PILImage.open(self.image_path)
 
-        # Standardize internal _image_data to match the color mode of the input file
         if pil_image.mode == 'L':
             self._mode = ImageMode.GRAY
-            self._image_data = cv_image # OpenCV reads grayscale as 2D array
+            self._image_data = cv_image
         elif pil_image.mode == 'RGB':
-            # convert to RGB
-            self._mode = ImageMode.RGB
-            self._image_data = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+            self._mode = ImageMode.BGR
+            self._image_data = cv_image
         elif pil_image.mode == 'RGBA':
-            self._mode = ImageMode.RGBA
-            # convert to RGBA
-            self._image_data = cv2.cvtColor(cv_image, cv2.COLOR_BGRA2RGBA)
+            self._mode = ImageMode.BGRA
+            self._image_data = cv_image
+        elif pil_image.mode == 'P':
+            # OpenCV does not preserve the palette structure of images like GIFs:
+            #   - cv2.imread() would automatically convert it to a standard BGR or BGRA color image
+            #   - we therefore use Pillow to keep the original indexed data and the color palette
+            self._mode = ImageMode.PALETTE
+            self._image_data = np.array(pil_image)
+            self._palette = pil_image.getpalette()
+            self._transparency_info = pil_image.info.get('transparency')
+            self._original_bpc = 8  # Paletted images are 8-bit
+            self._exif_handler = ExifWrapper(pil_image)
         else:
             raise ValueError(f"Unsupported Pillow image mode: {pil_image.mode}")
 
@@ -529,18 +568,26 @@ class StandardImageObject(ImageObject):
         return self._image_data
 
     def save_cropped(self, rect: tuple[int, int, int, int], output_dir: str):
-        """Saves a cropped version of the image using OpenCV, preserving transparency."""
+        """Saves a cropped version of the image, preserving original format."""
         output_path = os.path.join(output_dir, os.path.basename(self.image_path))
         print(f"Cropping image file: {self.image_path}")
 
         x, y, w, h = rect
-        cropped_data = self.image_data[y:y+h, x:x+w]
 
-        output_image = cropped_data
+        if self._mode == ImageMode.PALETTE:
+            cropped_indices = self.image_data[y:y+h, x:x+w]
+            pil_cropped_image = PILImage.fromarray(cropped_indices, mode='P')
+            pil_cropped_image.putpalette(self._palette)
 
-        # Ensure PNG format for images with transparency if not already PNG
-        if len(output_image.shape) == 3 and output_image.shape[2] == 4 and self._file_extension.lower() != '.png':
-            print("  Saving with transparency, converting to PNG format.")
-            output_path = os.path.splitext(output_path)[0] + '.png'
+            save_kwargs = {'format': 'GIF'}
+            if self._transparency_info is not None:
+                save_kwargs['transparency'] = self._transparency_info
 
-        cv2.imwrite(output_path, output_image)
+            pil_cropped_image.save(output_path, **save_kwargs)
+            print(f"  Cropped GIF saved to {output_path}")
+        else:
+            cropped_data = self.image_data[y:y+h, x:x+w]
+            output_image = cropped_data
+
+            cv2.imwrite(output_path, output_image)
+            print(f"  Cropped image saved to {output_path}")

@@ -75,7 +75,7 @@ class Detector:
             A list of bounding boxes for the detected objects.
             Each box is in [x, y, w, h] format.
         """
-        original_height, original_width, _ = image.image_data.shape
+        original_height, original_width = image.height, image.width
 
         # Preprocess the image data so we can use it for the onnx model
         input_image = image.preprocess_for_onnx(self.input_width, self.input_height)

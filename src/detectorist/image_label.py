@@ -93,7 +93,7 @@ class ImageLabel(QLabel):
         if self.image is None or self.image.image_data is None:
             return
 
-        image_height, image_width, _ = self.image.image_data.shape
+        image_height, image_width = self.image.height, self.image.width
 
         clamped_detections = []
         for (x, y, w, h), score, class_name in detections:
@@ -157,21 +157,12 @@ class ImageLabel(QLabel):
             self.image = None
             return False
 
-    def _create_qpixmap(self, image):
-        rgb_image = image.image_data
+    def _create_qpixmap(self, image: ImageObject) -> QPixmap:
+        """Creates a QPixmap from an ImageObject, ready for display."""
+        # image_data_rgb_8bit provides a contiguous 8-bit RGB numpy array.
+        rgb_image = image.image_data_rgb_8bit
 
-        # Convert 16-bit to 8-bit if needed
-        if rgb_image.dtype == np.uint16:
-            rgb_image = (rgb_image / 256).astype(np.uint8)
-
-        # Ensure correct format
-        if len(rgb_image.shape) != 3 or rgb_image.shape[2] != 3:
-            raise ValueError("Invalid image format: must be (height, width, 3)")
-
-        height, width, _ = rgb_image.shape
-        # Create QImage from the NumPy array
-        #qimage = QImage(rgb_image.data, width, height, width * 3, QImage.Format_RGB888)
-        qimage = QImage(rgb_image.data, width, height, rgb_image.strides[0], QImage.Format.Format_RGB888)
+        qimage = QImage(rgb_image.data, image.width, image.height, rgb_image.strides[0], QImage.Format.Format_RGB888)
 
         return QPixmap.fromImage(qimage)
 

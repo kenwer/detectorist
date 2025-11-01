@@ -154,6 +154,9 @@ On Linux:
 
 ## Changelog
 
+#### Added
+- Add support for palette-based images such as GIFs.
+
 #### Changed
 - [Dev] Move the detectorist sources into a `src` directory and:
   - Use relative imports within the package (e.g., from .module import ...).

@@ -31,13 +31,14 @@ class DetectoristApp(QMainWindow):
 
 
     @staticmethod
-    def _calculate_single_crop_rect(detections: list, image_shape: tuple, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> tuple[int, int, int, int] | None:
+    def _calculate_single_crop_rect(detections: list, image_height: int, image_width: int, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> tuple[int, int, int, int] | None:
         """
         Calculates a single crop rectangle crop rectangle based on detections and parameters.
 
         Args:
             detections: A list of detections, where each detection is a tuple ((x, y, w, h), score, class_id).
-            image_shape: The shape of the image (height, width, channels).
+            image_height: The height of the image.
+            image_width: The width of the image.
             crop_mode: 'top_confidence' or 'largest_area'.
             padding_percentage: Padding to add around the bounding box, as a float (e.g., 0.1 for 10%).
             aspect_ratio: A tuple (width, height) for the target aspect ratio.
@@ -95,8 +96,6 @@ class DetectoristApp(QMainWindow):
             w = new_w
 
         # Ensure the crop rectangle is within the image boundaries
-        image_height, image_width, _ = image_shape
-
         # If the crop rectangle is larger than the image, scale it down
         scale = 1.0
         if w > image_width:
@@ -125,13 +124,14 @@ class DetectoristApp(QMainWindow):
         return (x, y, w, h)
 
     @staticmethod
-    def _calculate_crop_rectangles(detections: list, image_shape: tuple, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> list[tuple[int, int, int, int]]:
+    def _calculate_crop_rectangles(detections: list, image_height: int, image_width: int, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> list[tuple[int, int, int, int]]:
         """
         Calculates crop rectangles based on detections and parameters.
 
         Args:
             detections: A list of detections, where each detection is a tuple ((x, y, w, h), score, class_id).
-            image_shape: The shape of the image (height, width, channels).
+            image_height: The height of the image.
+            image_width: The width of the image.
             crop_mode: 'top_confidence' or 'largest_area'.
             padding_percentage: Padding to add around the bounding box, as a float (e.g., 0.1 for 10%).
             aspect_ratio: A tuple (width, height) for the target aspect ratio.
@@ -147,12 +147,12 @@ class DetectoristApp(QMainWindow):
             # For 'all_detected_objects', we treat each detection individually
             for detection in detections:
                 # For 'all_detected_objects', we treat each detection individually with 'top_confidence'
-                rect = DetectoristApp._calculate_single_crop_rect([detection], image_shape, 'top_confidence', padding_percentage, aspect_ratio)
+                rect = DetectoristApp._calculate_single_crop_rect([detection], image_height, image_width, 'top_confidence', padding_percentage, aspect_ratio)
                 if rect:
                     crop_rects.append(rect)
             return crop_rects
         else: # Just a single crop rectangle
-            rect = DetectoristApp._calculate_single_crop_rect(detections, image_shape, crop_mode, padding_percentage, aspect_ratio)
+            rect = DetectoristApp._calculate_single_crop_rect(detections, image_height, image_width, crop_mode, padding_percentage, aspect_ratio)
             return [rect] if rect else []
 
     def __init__(self):
@@ -291,8 +291,7 @@ class DetectoristApp(QMainWindow):
                 self.last_confidence = None  # Reset for new image
                 self._update_detection_info() # Reset for new detection
 
-                # Add image info to the self.ui.imageInfoLabel
-                height, width, _ = self.ui.imageLabel.image.image_data.shape
+                height, width = self.ui.imageLabel.image.height, self.ui.imageLabel.image.width
                 original_bpc = self.ui.imageLabel.image.original_bpc
                 file_type = self.ui.imageLabel.image.file_extension.upper()[1:]
                 self.ui.imageInfoLabel.setText(f"File type \t: {file_type}\nResolution\t: {width}x{height}\nBits per channel\t: {original_bpc}")
@@ -430,7 +429,7 @@ class DetectoristApp(QMainWindow):
 
         if ratio_str == "aspect ratio: same as source image":
             if self.ui.imageLabel.image:
-                height, width, _ = self.ui.imageLabel.image.image_data.shape
+                height, width = self.ui.imageLabel.image.height, self.ui.imageLabel.image.width
                 aspect_ratio = (width, height)
             else:
                 # Default to something sensible if no image, though this path is unlikely
@@ -462,8 +461,7 @@ class DetectoristApp(QMainWindow):
         ]
 
         crop_mode, padding_percentage, aspect_ratio = self._get_current_crop_settings()
-        image_shape = self.ui.imageLabel.image.image_data.shape
-        crop_tuples = DetectoristApp._calculate_crop_rectangles(detections, image_shape, crop_mode, padding_percentage, aspect_ratio)
+        crop_tuples = DetectoristApp._calculate_crop_rectangles(detections, self.ui.imageLabel.image.height, self.ui.imageLabel.image.width, crop_mode, padding_percentage, aspect_ratio)
         crop_rects = [QRect(*crop_tuple) for crop_tuple in crop_tuples if crop_tuple and crop_tuple[2] > 0 and crop_tuple[3] > 0]
 
         if not crop_rects:
@@ -614,8 +612,7 @@ class DetectoristApp(QMainWindow):
             confidence_score = top_detection[1]
             class_name = top_detection[2]
 
-            image_shape = image.image_data.shape
-            crop_tuples = DetectoristApp._calculate_crop_rectangles(results, image_shape, state["crop_mode"], state["padding_percentage"], state["aspect_ratio"])
+            crop_tuples = DetectoristApp._calculate_crop_rectangles(results, image.height, image.width, state["crop_mode"], state["padding_percentage"], state["aspect_ratio"])
 
             if not crop_tuples:
                 print(f"Warning {os.path.basename(image.image_path)}: invalid crop rectangle, crop_tuples: {crop_tuples}")
