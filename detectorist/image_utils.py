@@ -13,7 +13,7 @@ pillow_heif.register_heif_opener()
 HEIF_EXTENSIONS = ('.heic', '.heics', '.heif', '.heifs', '.hif')
 
 # Files with these extensions will be treated as RAW files (using rawpy)
-RAW_EXTENSIONS = ('.arw', '.nef', '.cwr', 'cr2', 'cr3', 'orf', 'pef' )
+RAW_EXTENSIONS = ('.arw', '.nef', '.cwr', '.cr2', '.cr3', '.orf', '.pef' )
 
 # All supported image file extensions
 IMG_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp') + HEIF_EXTENSIONS + RAW_EXTENSIONS
