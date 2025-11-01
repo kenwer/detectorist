@@ -31,16 +31,17 @@ dev = [
 detectorist = "detectorist.main:main"
 
 [tool.setuptools]
+package-dir = {"" = "src"}
 packages = ["detectorist"]
 
 [tool.setuptools.dynamic]
 version = {attr = "detectorist._version.__version__"}
 
 [tool.poe.tasks]
-compile-ui = { shell = "for f in detectorist/*.ui; do pyside6-uic \"$f\" -o \"${f%.ui}.py\"; done", help = "Compile Qt UI files to Python files" }
-compile-qrc = { shell = "for f in detectorist/*.qrc; do pyside6-rcc \"$f\" -o \"${f%.qrc}_rc.py\"; done", help = "Compile Qt resource files to Python files" }
+compile-ui = { shell = "for f in src/detectorist/*.ui; do pyside6-uic --from-imports \"$f\" -o \"${f%.ui}.py\"; done", help = "Compile Qt UI files to Python files with relative imports" }
+compile-qrc = { shell = "for f in src/detectorist/*.qrc; do pyside6-rcc \"$f\" -o \"${f%.qrc}_rc.py\"; done", help = "Compile Qt resource files to Python files" }
 
-run-app = { cmd = "uv run detectorist/main.py", help = "Run the application" }
+run-app = { cmd = "uv run src/detectorist/main.py", help = "Run the application" }
 run = { sequence = ["compile-ui", "compile-qrc", "run-app"], help = "Compile UI and resource files and run the application" }
 
 get_app_version = { shell = "python -c 'from detectorist._version import __version__; print(__version__.strip())'", help = "Get the application version" }
@@ -65,7 +66,7 @@ nuitka \
     --linux-icon=assets/icon.png \
     --remove-output \
     --output-filename=Detectorist \
-    ./detectorist/main.py
+    ./src/detectorist/main.py
 """
 deps = ["compile-ui", "compile-qrc"]
 help = "Build the application for Linux"
@@ -90,7 +91,7 @@ nuitka \
     --macos-app-version=$(poe get_app_version) \
     --macos-signed-app-name=de.ken.detectorist \
     --output-filename=Detectorist \
-    ./detectorist/main.py
+    ./src/detectorist/main.py
 mv  dist/macos/main.app \
     dist/macos/Detectorist.app
 """
@@ -121,7 +122,7 @@ nuitka.cmd \
     --windows-console-mode=attach \
     --output-filename=Detectorist \
     --assume-yes-for-downloads \
-    ./detectorist/main.py
+    ./src/detectorist/main.py
 """
 deps = ["compile-ui", "compile-qrc"]
 help = "Build the application for Windows"
@@ -136,8 +137,8 @@ build-and-run = "poe run"
 [tool.ruff]
 # Exclude designer generated files from .ui
 exclude = [
-    "detectorist/detectorist_app_gui.py",
-    "detectorist/about_dialog.py",
+    "src/detectorist/detectorist_app_gui.py",
+    "src/detectorist/about_dialog.py",
 ]
 [tool.ruff.lint]
 # Never enforce `E501` (line length violations).
@@ -152,3 +153,6 @@ select = [
     "B",    # Flake8 Bugbear (security and design checks)
     "UP",   # Pyupgrade (modernize Python code)
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

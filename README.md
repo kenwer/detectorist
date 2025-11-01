@@ -154,6 +154,11 @@ On Linux:
 
 ## Changelog
 
+#### Changed
+- [Dev] Move the detectorist sources into a `src` directory and:
+  - Use relative imports within the package (e.g., from .module import ...).
+  - Use absolute imports for entry points or scripts (e.g., from detectorist.module import ...).
+
 ### [0.6.0] - 2025-10-31
 
 #### Added
