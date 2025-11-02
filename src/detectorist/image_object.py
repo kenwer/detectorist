@@ -88,7 +88,12 @@ class ImageObject (ABC):
         elif file_extension in RAW_EXTENSIONS:
             return RawImageObject(image_path)
         elif file_extension in STANDARD_IMG_EXTENSIONS:
-            return StandardImageObject(image_path)
+            # For standard extensions, we check the mode to see if it's paletted
+            with PILImage.open(image_path) as pil_image:
+                if pil_image.mode in ('P', 'LA'):
+                    return PalettedImageObject(image_path)
+                else:
+                    return StandardImageObject(image_path)
         else:
             raise ValueError(f"Unsupported image file extension: \"{file_extension}\" with path: {image_path}")
 
@@ -140,28 +145,16 @@ class ImageObject (ABC):
     @property
     def image_data_bgr_8bit(self) -> np.ndarray:
         """Returns image_data in 8-bit BGR format"""
+        # Paletted images are handled by the overridden method in PalettedImageObject
         if self._mode == ImageMode.PALETTE:
-            # Convert paletted image to an RGB/RGBA Pillow image
-            pil_img = PILImage.fromarray(self._image_data, mode='P')
-            pil_img.putpalette(self._palette)
+            raise NotImplementedError("This should be handled by a subclass.")
 
-            # Convert to RGBA if transparency is present, otherwise RGB
-            if self._transparency_info is not None:
-                pil_img = pil_img.convert('RGBA')
-            else:
-                pil_img = pil_img.convert('RGB')
-
-            # Now we have a standard Pillow image, convert it to a numpy array
-            # and set the mode so the rest of the function can process it.
-            data_8bit = np.array(pil_img)
-            current_mode = ImageMode.RGBA if pil_img.mode == 'RGBA' else ImageMode.RGB
+        # Convert to 8-bit if necessary
+        if self._original_bpc > 8:
+            data_8bit = image_utils.convert_16bit_to_8bit(self._image_data)
         else:
-            # Convert to 8-bit if necessary
-            if self._original_bpc > 8:
-                data_8bit = image_utils.convert_16bit_to_8bit(self._image_data)
-            else:
-                data_8bit = self._image_data.astype(np.uint8)
-            current_mode = self._mode
+            data_8bit = self._image_data.astype(np.uint8)
+        current_mode = self._mode
 
         # Convert to BGR based on the current mode
         if current_mode == ImageMode.BGR:
@@ -509,8 +502,6 @@ class StandardImageObject(ImageObject):
     def __init__(self, image_path: str):
         """Initializes the object by loading a standard image file."""
         super().__init__(image_path)
-        self._palette = None
-        self._transparency_info = None
 
         # Validate file extension
         if self._file_extension not in STANDARD_IMG_EXTENSIONS:
@@ -536,36 +527,24 @@ class StandardImageObject(ImageObject):
             self._original_bpc = 8
 
         # Load with Pillow to determine color mode
-        pil_image = PILImage.open(self.image_path)
+        with PILImage.open(self.image_path) as pil_image:
+            # Keep image data in OpenCV's native format (BGR or BGRA)
+            if pil_image.mode == 'L':
+                self._mode = ImageMode.GRAY
+                self._image_data = cv_image # OpenCV reads grayscale as 2D array
+            elif pil_image.mode == 'RGB':
+                self._mode = ImageMode.BGR # OpenCV loads as BGR
+                self._image_data = cv_image
+            elif pil_image.mode == 'RGBA':
+                self._mode = ImageMode.BGRA # OpenCV loads as BGRA
+                self._image_data = cv_image
+            elif pil_image.mode == 'P':
+                # This should not be reached because of the factory logic
+                raise ValueError("Paletted images should be handled by PalettedImageObject.")
+            else:
+                raise ValueError(f"Unsupported Pillow image mode in StandardImageObject: {pil_image.mode}")
 
-        if pil_image.mode == 'L':
-            self._mode = ImageMode.GRAY
-            self._image_data = cv_image
-        elif pil_image.mode == 'RGB':
-            self._mode = ImageMode.BGR
-            self._image_data = cv_image
-        elif pil_image.mode == 'RGBA':
-            self._mode = ImageMode.BGRA
-            self._image_data = cv_image
-        elif pil_image.mode == 'P':
-            # OpenCV does not preserve the palette structure of images like GIFs:
-            #   - cv2.imread() would automatically convert it to a standard BGR or BGRA color image
-            #   - we therefore use Pillow to keep the original indexed data and the color palette
-            self._mode = ImageMode.PALETTE
-            self._image_data = np.array(pil_image)
-            self._palette = pil_image.getpalette()
-            self._transparency_info = pil_image.info.get('transparency')
-            self._original_bpc = 8  # Paletted images are 8-bit
-            self._exif_handler = ExifWrapper(pil_image)
-        else:
-            raise ValueError(f"Unsupported Pillow image mode: {pil_image.mode}")
-
-        self._exif_handler = ExifWrapper(pil_image)
-
-    @property
-    def image_data(self) -> np.ndarray:
-        """Returns the image data as a NumPy array, in RGB or RGBA format."""
-        return self._image_data
+        self._exif_handler = ExifWrapper(self.image_path)
 
     def save_cropped(self, rect: tuple[int, int, int, int], output_dir: str):
         """Saves a cropped version of the image, preserving original format."""
@@ -574,20 +553,94 @@ class StandardImageObject(ImageObject):
 
         x, y, w, h = rect
 
-        if self._mode == ImageMode.PALETTE:
-            cropped_indices = self.image_data[y:y+h, x:x+w]
-            pil_cropped_image = PILImage.fromarray(cropped_indices, mode='P')
+        cropped_data = self.image_data[y:y+h, x:x+w]
+
+        # The data is already in BGR/BGRA format, which cv2.imwrite expects.
+        cv2.imwrite(output_path, cropped_data)
+        print(f"  Cropped image saved to {output_path}")
+
+
+class PalettedImageObject(ImageObject):
+    """ImageObject subclass for paletted images (e.g., GIF) and LA images."""
+    def __init__(self, image_path: str):
+        """Initializes the object by loading a paletted or LA image file using Pillow."""
+        super().__init__(image_path)
+        self._palette = None
+        self._transparency_info = None
+        self._pil_mode = None
+
+        # Validate file extension
+        if self._file_extension not in STANDARD_IMG_EXTENSIONS:
+            raise ValueError(f"Invalid image file extension \"{self._file_extension}\". Expected {STANDARD_IMG_EXTENSIONS}")
+
+        print(f"Loading paletted/LA image file: {self.image_path}")
+        with PILImage.open(self.image_path) as pil_image:
+            if pil_image.mode not in ('P', 'LA'):
+                raise ValueError(f"Image at {image_path} is not a paletted or LA image (mode is {pil_image.mode}).")
+
+            self._pil_mode = pil_image.mode
+            self._image_data = np.array(pil_image)
+            self._original_bpc = self._image_data.dtype.itemsize * 8
+
+            if self._pil_mode == 'P':
+                self._mode = ImageMode.PALETTE
+                self._palette = pil_image.getpalette()
+                self._transparency_info = pil_image.info.get('transparency')
+            elif self._pil_mode == 'LA':
+                self._mode = ImageMode.GRAY  # Treat as Grayscale with Alpha
+
+        self._exif_handler = ExifWrapper(self.image_path)
+
+    @property
+    def image_data_bgr_8bit(self) -> np.ndarray:
+        """Returns image_data in 8-bit BGR format"""
+        if self._pil_mode == 'P':
+            pil_img = PILImage.fromarray(self._image_data, mode='P')
+            pil_img.putpalette(self._palette)
+            pil_img_rgb = pil_img.convert('RGB')
+            data_8bit = np.array(pil_img_rgb)
+            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_RGB2BGR)
+        elif self._pil_mode == 'LA':
+            # Create a PIL image from the LA data
+            la_image = PILImage.fromarray(self._image_data, mode='LA')
+
+            # Create a light gray background
+            bg_color = (240, 240, 240)  # Light gray
+            bg = PILImage.new('RGB', la_image.size, bg_color)
+
+            # Paste the LA image onto the background, using its alpha channel as a mask
+            bg.paste(la_image, mask=la_image.split()[1])
+
+            # Convert to numpy array and then to BGR
+            rgb_data = np.array(bg)
+            bgr_data = cv2.cvtColor(rgb_data, cv2.COLOR_RGB2BGR)
+        else:
+            raise ValueError(f"Unsupported PIL mode in PalettedImageObject: {self._pil_mode}")
+
+        return bgr_data.copy()
+
+    def save_cropped(self, rect: tuple[int, int, int, int], output_dir: str):
+        """Saves a cropped version of the image, preserving original format."""
+        output_path = os.path.join(output_dir, os.path.basename(self.image_path))
+        print(f"Cropping paletted/LA image file: {self.image_path}")
+
+        x, y, w, h = rect
+
+        cropped_data = self.image_data[y:y+h, x:x+w]
+        pil_cropped_image = PILImage.fromarray(cropped_data, mode=self._pil_mode)
+
+        if self._pil_mode == 'P':
             pil_cropped_image.putpalette(self._palette)
 
-            save_kwargs = {'format': 'GIF'}
-            if self._transparency_info is not None:
-                save_kwargs['transparency'] = self._transparency_info
+        # Preserve format (e.g., GIF) and transparency
+        save_kwargs = {}
+        with PILImage.open(self.image_path) as original_image:
+            original_format = original_image.format
+        if original_format:
+            save_kwargs['format'] = original_format
 
-            pil_cropped_image.save(output_path, **save_kwargs)
-            print(f"  Cropped GIF saved to {output_path}")
-        else:
-            cropped_data = self.image_data[y:y+h, x:x+w]
-            output_image = cropped_data
+        if self._pil_mode == 'P' and self._transparency_info is not None:
+            save_kwargs['transparency'] = self._transparency_info
 
-            cv2.imwrite(output_path, output_image)
-            print(f"  Cropped image saved to {output_path}")
+        pil_cropped_image.save(output_path, **save_kwargs)
+        print(f"  Cropped {original_format or 'image'} saved to {output_path}")
