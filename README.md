@@ -162,6 +162,9 @@ On Linux:
   - Use relative imports within the package (e.g., from .module import ...).
   - Use absolute imports for entry points or scripts (e.g., from detectorist.module import ...).
 
+#### Fixed
+- Support for handling 8 bit CMYK images.
+
 ### [0.6.0] - 2025-10-31
 
 #### Added

@@ -90,7 +90,7 @@ class ImageObject (ABC):
         elif file_extension in STANDARD_IMG_EXTENSIONS:
             # For standard extensions, we check the mode to see if it's paletted
             with PILImage.open(image_path) as pil_image:
-                if pil_image.mode in ('P', 'LA'):
+                if pil_image.mode in ('P', 'LA', 'CMYK'):
                     return PillowImageObject(image_path)
                 else:
                     return OpencvImageObject(image_path)
@@ -583,13 +583,14 @@ class PillowImageObject(ImageObject):
     for:
     - Paletted images (mode 'P'), such as GIFs.
     - Grayscale with an alpha channel (mode 'LA').
+    - CMYK images.
 
     It keeps the Pillow image object in memory to simplify operations.
     """
     def __init__(self, image_path: str):
         """
-        Initializes the object by loading a paletted ('P') or grayscale-alpha ('LA')
-        image file using the Pillow library.
+        Initializes the object by loading a paletted ('P'), grayscale-alpha ('LA'),
+        or CMYK image file using the Pillow library.
         """
         super().__init__(image_path)
         self._pil_image = None
@@ -598,13 +599,13 @@ class PillowImageObject(ImageObject):
         if self._file_extension not in STANDARD_IMG_EXTENSIONS:
             raise ValueError(f"Invalid image file extension \"{self._file_extension}\". Expected {STANDARD_IMG_EXTENSIONS}")
 
-        print(f"Loading paletted/LA image file with Pillow: {self.image_path}")
+        print(f"Loading image file with Pillow: {self.image_path}")
 
         self._pil_image = PILImage.open(self.image_path)
 
-        if self._pil_image.mode not in ('P', 'LA'):
+        if self._pil_image.mode not in ('P', 'LA', 'CMYK'):
             self._pil_image.close()
-            raise ValueError(f"Image at {image_path} is not a paletted or LA image (mode is {self._pil_image.mode}).")
+            raise ValueError(f"Image at {image_path} is not a P, LA, or CMYK image (mode is {self._pil_image.mode}).")
 
         self._image_data = np.array(self._pil_image)
         self._original_bpc = self._image_data.dtype.itemsize * 8
@@ -613,6 +614,8 @@ class PillowImageObject(ImageObject):
             self._mode = ImageMode.PALETTE
         elif self._pil_image.mode == 'LA':
             self._mode = ImageMode.GRAY  # Treat as Grayscale with Alpha
+        elif self._pil_image.mode == 'CMYK':
+            self._mode = ImageMode.BGR  # Will be converted to BGR for display
 
         self._exif_handler = ExifWrapper(self.image_path)
 
@@ -639,6 +642,10 @@ class PillowImageObject(ImageObject):
             # Convert to numpy array and then to BGR
             rgb_data = np.array(bg)
             bgr_data = cv2.cvtColor(rgb_data, cv2.COLOR_RGB2BGR)
+        elif self._pil_image.mode == 'CMYK':
+            pil_img_rgb = self._pil_image.convert('RGB')
+            data_8bit = np.array(pil_img_rgb)
+            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_RGB2BGR)
         else:
             raise ValueError(f"Unsupported PIL mode in PillowImageObject: {self._pil_image.mode}")
 
@@ -647,7 +654,7 @@ class PillowImageObject(ImageObject):
     def save_cropped(self, rect: tuple[int, int, int, int], output_dir: str):
         """Saves a cropped version of the image, preserving original format."""
         output_path = os.path.join(output_dir, os.path.basename(self.image_path))
-        print(f"Cropping paletted/LA image file: {self.image_path}")
+        print(f"Cropping image file with Pillow: {self.image_path}")
 
         x, y, w, h = rect
         # PIL crop is (left, upper, right, lower)
