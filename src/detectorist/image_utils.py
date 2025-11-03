@@ -117,7 +117,10 @@ def load_image_data(image_path: str) -> tuple[np.ndarray, int]:
 def adjust_exposure(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int = None) -> np.ndarray:
     """
     Adjusts the exposure of the image data by the given exposure compensation value. It creates a copy and doesn't modify the given image_data.
-    This function handles 8, 10, 12, and 16-bit image data.
+    This function is designed to work with:
+      * Multi-channel (like RGB, BGR, RGBA, RGBA) or single-channel (grayscale) image data.
+        * Also handles alpha channels correctly by not applying exposure adjustments to them.
+      * Data with a bit depth of 8 or 16 bits per channel.
 
     Args:
         image_data (np.ndarray): The input image data as a NumPy array.
@@ -138,7 +141,11 @@ def adjust_exposure(image_data: np.ndarray, exposure_compensation: float, gamma:
 def adjust_exposure_inplace(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int = None) -> None:
     """
     Adjusts the exposure of the image data by the given exposure compensation value. It modifies the given image_data instead of creating a copy.
-    This function handles 8, 10, 12, and 16-bit image data.
+    This function is designed to work with:
+      * Multi-channel (like RGB, BGR, RGBA, RGBA) or single-channel (grayscale) image data.
+        * Also handles alpha channels correctly by not applying exposure adjustments to them.
+      * Data with a bit depth of 8 or 16 bits per channel.
+
 
     Args:
         image_data (np.ndarray): The input image data as a NumPy array.
@@ -189,12 +196,21 @@ def adjust_exposure_inplace(image_data: np.ndarray, exposure_compensation: float
     #       - encoding: V_out = (V_in)^(1/γ)
     #       - decoding: V_out = (V_in)^γ
 
+    # Separate color and alpha channels if alpha exists
+    has_alpha = False
+    if image_data.ndim == 3 and image_data.shape[2] in [2, 4]:
+        has_alpha = True
+        # Assume alpha is the last channel and separate it
+        color_data = image_data[:, :, :-1]
+    else:
+        color_data = image_data
+
     # Determine the maximum value for the current NumPy array dtype. For >8 bit images,
     # pillow-heif scales the data to the full range of the dtype (e.g. uint16).
     max_val_dtype = (2**(image_data.dtype.itemsize * 8)) - 1
 
-    # Use floating point arithmetic to prevent overflow and precision loss
-    image_float = image_data.astype(np.float32)
+    # Use floating point arithmetic to prevent overflow and precision loss (on color data only)
+    image_float = color_data.astype(np.float32)
 
     # Normalize to [0, 1]
     image_norm = image_float / max_val_dtype
@@ -214,8 +230,14 @@ def adjust_exposure_inplace(image_data: np.ndarray, exposure_compensation: float
     # Clip the values to the valid range of the current NumPy array dtype
     np.clip(adjusted_image_float, 0, max_val_dtype, out=adjusted_image_float)
 
-    # Convert back to the original dtype (e.g., uint8, uint16) and update in-place
-    image_data[:] = adjusted_image_float.astype(image_data.dtype)
+    # Convert back to the original dtype (e.g., uint8, uint16)
+    adjusted_color_data = adjusted_image_float.astype(image_data.dtype)
+
+    # Update the original array in-place
+    if has_alpha:
+        image_data[:, :, :-1] = adjusted_color_data
+    else:
+        image_data[:] = adjusted_color_data
 
 def convert_16bit_to_8bit(image_16bit: np.ndarray) -> np.ndarray:
     """
