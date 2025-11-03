@@ -66,6 +66,7 @@ class ImageObject (ABC):
         self._mode: ImageMode
         self._file_extension = os.path.splitext(self.image_path)[1].lower()
         self._exif_handler = None
+        self._exposure_correction = False
 
     @classmethod
     def create(cls, image_path: str) -> 'ImageObject':
@@ -141,6 +142,18 @@ class ImageObject (ABC):
         if self._image_data is not None:
             return self._image_data.shape[1]
         return 0
+
+    @property
+    def exposure_correction(self) -> bool:
+        """Returns whether exposure correction based on EXIF data is enabled."""
+        return self._exposure_correction
+
+    @exposure_correction.setter
+    def exposure_correction(self, value: bool):
+        """Sets whether exposure correction based on EXIF data is enabled.
+        This controls if exposure correction is applied when saving cropped images."""
+        print(f"Setting exposure_correction to {value} for image: {self.image_path}")
+        self._exposure_correction = value
 
     @property
     def image_data_bgr_8bit(self) -> np.ndarray:
@@ -227,7 +240,7 @@ class ImageObject (ABC):
         shutil.copy2(self._image_path, output_path)
 
     @abstractmethod
-    def save_cropped(self, rect: tuple[int, int, int, int], output_dir: str):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
         """
         Saves a cropped version of the image to the specified output directory.
         The cropped image retains the original file format and file extension except
@@ -235,7 +248,7 @@ class ImageObject (ABC):
 
         Args:
             rect (tuple): A tuple of (x, y, width, height) for the crop.
-            output_dir (str): Directory to save the cropped image file.
+            output_path (str): The full path to save the cropped image file.
         """
         pass
 
@@ -260,15 +273,16 @@ class HeifImageObject(ImageObject):
         self._nclx_profile = heif_file.info.get('nclx_profile')
         self._exif = heif_file.info.get('exif')
         self._xmp = heif_file.info.get('xmp')
+        self._heif_mode = heif_file[0].mode
         # Map pillow_heif modes to our descriptive strings
-        if heif_file[0].mode == 'L':
+        if self._heif_mode == 'L':
             self._mode = ImageMode.GRAY
-        elif heif_file[0].mode.startswith('RGB'):
+        elif self._heif_mode.startswith('RGB'):
             self._mode = ImageMode.RGB
-        elif heif_file[0].mode.startswith('RGBA'):
+        elif self._heif_mode.startswith('RGBA'):
             self._mode = ImageMode.RGBA
         else:
-            raise ValueError(f"Unsupported HEIF image mode: {heif_file[0].mode}")
+            raise ValueError(f"Unsupported HEIF image mode: {self._heif_mode}")
 
         # pillow-heif appears to rotate the image data based on EXIF orientation automatically.
         # So we create a numpy array view of the (rotated) image data and also
@@ -324,12 +338,11 @@ class HeifImageObject(ImageObject):
         }
         return orientation_map.get(orientation, "Unknown")
 
-    def save_cropped(self, rect: tuple[int, int, int, int], output_dir: str, quality=80):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str, quality=80):
         """
         Saves a cropped version of the HEIF image, preserving its original
         bit depth, metadata, and HEIF format.
         """
-        output_path = os.path.join(output_dir, os.path.basename(self.image_path))
         print(f"Cropping HEIF image file: {self.image_path}")
 
         # Use stored metadata
@@ -338,12 +351,12 @@ class HeifImageObject(ImageObject):
         nclx_profile = self._nclx_profile
         exif = self._exif
         xmp = self._xmp
-        mode = self._mode
 
         orientation = self._get_exif_orientation(exif)
         orientation_text = self._get_human_readable_exif_orientation(orientation)
         print(f"  EXIF orientation: {orientation} ({orientation_text})")
 
+        # The image data in self._image_data is already rotated based on EXIF orientation by pillow-heif
         rotated_np_array = self._image_data
 
         # Crop the array using numpy slicing
@@ -376,19 +389,24 @@ class HeifImageObject(ImageObject):
             unrotated_np = cropped_np_array
 
         size = (unrotated_np.shape[1], unrotated_np.shape[0])
+
+        # Apply exposure correction based on EXIF data if requested
+        if self._exposure_correction:
+            ev_comp = self.exif_wrapper.get('Exif ExposureBiasValue')
+            if ev_comp is not None and ev_comp != 0.0:
+                ev_comp = -ev_comp
+                print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
+                unrotated_np = image_utils.adjust_exposure(unrotated_np, ev_comp, 2.2, bit_depth)
+
         data = unrotated_np.tobytes()
-        #data = adjust_exposure(unrotated_np, -1.7*-1.0, 2.2, bit_depth).tobytes()  # just a hard coded (EV=-1.7, gamma=2.2) test to see if we can adjust exposure on the cropped image
 
-        # HEIF images with a bit depth larger than 8 are stored in 16 bit nd_arrays as pillow-heif scaled up the pixel values when loading to fill the full 16-bit range (0-65535).
-        # For a 10 bit HEIF, with the bit_depth in raw_mode, we tell pillow-heif "Interpret this 16-bit buffer as 10-bit data".
-        # At this point, no data conversion or scaling occurs (at save time, pillow-heif will scale the data down to 10 bit range 0-1023).
-        raw_mode = mode.value
-        if bit_depth > 8:
-            raw_mode = f"{mode.value};{bit_depth}"
-
-        # Create a new HeifImage from the cropped numpy array using pillow_heif.from_bytes()
-        #print(f"Creating new HEIF image with\n\tmode: {mode}, size: {size}, data length: {len(data)}, raw_mode: {raw_mode}")
-        new_heif_image = pillow_heif.from_bytes(mode=mode.value, size=size, data=data, raw_mode=raw_mode)
+        # HEIF images with a bit depth larger than 8 are stored in 16 bit nd_arrays as pillow-heif
+        # scaled up the pixel values when loading to fill the full 16-bit range (0-65535). When
+        # creating a new HEIF image from the cropped numpy array using pillow_heif.from_bytes() and
+        # the original mode because the `mode` string  for `from_bytes` must match the numpy
+        # array's structure, including bit depth information (e.g., 'RGB;10').
+        # We use the original mode string stored from the original image we loaded using pillow-heif.
+        new_heif_image = pillow_heif.from_bytes(mode=self._heif_mode, size=size, data=data)
 
         # Adjust Exif Image Width & Height to the cropped size if Exif data exists
         if exif:
@@ -485,14 +503,21 @@ class RawImageObject(ImageObject):
         else:  # PNG
             cv2.imwrite(output_path, bgr_image)
 
-    def save_cropped(self, rect: tuple[int, int, int, int], output_dir: str):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
         """Saves a cropped version of the RAW image as a 16-bit PNG file."""
-        output_path = os.path.join(output_dir, os.path.basename(self.image_path))
         output_path = os.path.splitext(output_path)[0] + '.png'
         print(f"Cropping RAW image file: {self.image_path}")
 
         x, y, w, h = rect
         cropped_np_array = self._image_data[y:y+h, x:x+w]
+
+        # Apply exposure correction based on EXIF data if requested
+        if self._exposure_correction:
+            ev_comp = self.exif_wrapper.get('Exif ExposureBiasValue')
+            if ev_comp is not None and ev_comp != 0.0:
+                ev_comp = -ev_comp
+                print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
+                cropped_np_array = image_utils.adjust_exposure(cropped_np_array, ev_comp, 2.2, self._original_bpc)
 
         self._save_16bit_image(cropped_np_array, output_path)
 
@@ -560,14 +585,21 @@ class OpencvImageObject(ImageObject):
 
         self._exif_handler = ExifWrapper(self.image_path)
 
-    def save_cropped(self, rect: tuple[int, int, int, int], output_dir: str):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
         """Saves a cropped version of the image, preserving original format."""
-        output_path = os.path.join(output_dir, os.path.basename(self.image_path))
         print(f"Cropping image file: {self.image_path}")
 
         x, y, w, h = rect
 
         cropped_data = self.image_data[y:y+h, x:x+w]
+
+        # Apply exposure correction based on EXIF data if requested
+        if self._exposure_correction:
+            ev_comp = self.exif_wrapper.get('Exif ExposureBiasValue')
+            if ev_comp is not None and ev_comp != 0.0:
+                ev_comp = -ev_comp
+                print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
+                cropped_data = image_utils.adjust_exposure(cropped_data, ev_comp, 2.2, self._original_bpc)
 
         # The data is already in BGR/BGRA format, which cv2.imwrite expects.
         cv2.imwrite(output_path, cropped_data)
@@ -651,14 +683,41 @@ class PillowImageObject(ImageObject):
 
         return bgr_data.copy()
 
-    def save_cropped(self, rect: tuple[int, int, int, int], output_dir: str):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
         """Saves a cropped version of the image, preserving original format."""
-        output_path = os.path.join(output_dir, os.path.basename(self.image_path))
         print(f"Cropping image file with Pillow: {self.image_path}")
 
         x, y, w, h = rect
         # PIL crop is (left, upper, right, lower)
         pil_cropped_image = self._pil_image.crop((x, y, x + w, y + h))
+
+        # Apply exposure correction based on EXIF data if requested
+        if self._exposure_correction:
+            ev_comp = self.exif_wrapper.get('Exif ExposureBiasValue')
+            if ev_comp is not None and ev_comp != 0.0:
+                ev_comp = -ev_comp
+                print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
+
+                original_mode = pil_cropped_image.mode
+
+                # Determine if we need to handle an alpha channel
+                has_alpha = original_mode == 'LA' or (original_mode == 'P' and 'transparency' in pil_cropped_image.info)
+                adjust_mode = 'RGBA' if has_alpha else 'RGB'
+
+                # Convert to the appropriate adjustment mode (RGB or RGBA)
+                image_for_adjustment = pil_cropped_image.convert(adjust_mode)
+
+                # Perform exposure adjustment on the numpy array
+                adjusted_np = np.array(image_for_adjustment)
+                adjusted_np = image_utils.adjust_exposure(adjusted_np, ev_comp, 2.2, 8)
+                adjusted_pil = PILImage.fromarray(adjusted_np)
+
+                # Convert back to the original mode
+                if original_mode == 'P':
+                    # Quantize back to a palette.
+                    pil_cropped_image = adjusted_pil.quantize()
+                else:  # 'LA' or 'CMYK'
+                    pil_cropped_image = adjusted_pil.convert(original_mode)
 
         # Preserve format (e.g., GIF) and transparency
         save_kwargs = {}

@@ -16,11 +16,12 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QButtonGroup, QComboBox, QGridLayout,
-    QGroupBox, QHBoxLayout, QLabel, QListView,
-    QMainWindow, QMenu, QMenuBar, QRadioButton,
-    QScrollArea, QSizePolicy, QSlider, QSpinBox,
-    QSplitter, QStatusBar, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
+    QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+    QListView, QMainWindow, QMenu, QMenuBar,
+    QRadioButton, QScrollArea, QSizePolicy, QSlider,
+    QSpinBox, QSplitter, QStatusBar, QVBoxLayout,
+    QWidget)
 
 class Ui_DetectoristAppUI(object):
     def setupUi(self, DetectoristAppUI):
@@ -196,6 +197,11 @@ class Ui_DetectoristAppUI(object):
 
         self.grdlyt_crop.addWidget(self.paddingSpinBox, 4, 2, 1, 1)
 
+        self.cb_comp_cam_exposure = QCheckBox(self.cropInfoGroupBox)
+        self.cb_comp_cam_exposure.setObjectName(u"cb_comp_cam_exposure")
+
+        self.grdlyt_crop.addWidget(self.cb_comp_cam_exposure, 5, 0, 1, 1)
+
 
         self.verticalLayout.addWidget(self.cropInfoGroupBox)
 
@@ -349,6 +355,10 @@ class Ui_DetectoristAppUI(object):
         self.paddingLabel.setText(QCoreApplication.translate("DetectoristAppUI", u"Padding", None))
 #if QT_CONFIG(tooltip)
         self.paddingSlider.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"The padding added to the crop (percent of the image size in percent)", None))
+#endif // QT_CONFIG(tooltip)
+        self.cb_comp_cam_exposure.setText(QCoreApplication.translate("DetectoristAppUI", u"Auto correct camera exposure bias", None))
+#if QT_CONFIG(tooltip)
+        self.cb_comp_cam_exposure.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Adjust the EV to correct for any exposure bias based on EXIF data", None))
 #endif // QT_CONFIG(tooltip)
         self.imageInfoGroupBox.setTitle(QCoreApplication.translate("DetectoristAppUI", u"Image", None))
         self.imageInfoLabel.setText(QCoreApplication.translate("DetectoristAppUI", u"-", None))

@@ -155,6 +155,7 @@ On Linux:
 ## Changelog
 
 #### Added
+- Support to automatically adjust the exposure when cropping images to correct for any exposure bias present in the EXIF data.
 - Add support for palette-based images such as GIFs.
 
 #### Changed

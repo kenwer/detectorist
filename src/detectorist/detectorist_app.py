@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
 
 from detectorist._version import __version__
 
-from . import image_utils
 from .about_dialog import Ui_AboutDialog
 from .detector import Detector
 from .detectorist_app_gui import Ui_DetectoristAppUI
@@ -217,6 +216,8 @@ class DetectoristApp(QMainWindow):
         self.ui.cropRatioComboBox.currentIndexChanged.connect(self.update_crop_bands)
         self.ui.paddingSlider.valueChanged.connect(self.update_crop_bands)
 
+        self.ui.cb_comp_cam_exposure.toggled.connect(self.on_exposure_compensation_toggled)
+
         self.models_dir=get_model_path()
         if not os.path.exists(self.models_dir):
             print(f"Error: models directory does not exist at {self.models_dir}")
@@ -291,6 +292,9 @@ class DetectoristApp(QMainWindow):
                 self.last_confidence = None  # Reset for new image
                 self._update_detection_info() # Reset for new detection
 
+                if self.ui.imageLabel.image:
+                    self.ui.imageLabel.image.exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
+
                 height, width = self.ui.imageLabel.image.height, self.ui.imageLabel.image.width
                 original_bpc = self.ui.imageLabel.image.original_bpc
                 file_type = self.ui.imageLabel.image.file_extension.upper()[1:]
@@ -332,6 +336,10 @@ class DetectoristApp(QMainWindow):
 
         except OSError as e:
             self.ui.imageLabel.setText(f"Error loading model: {e}")
+
+    def on_exposure_compensation_toggled(self, checked: bool):
+        if self.ui.imageLabel.image:
+            self.ui.imageLabel.image.exposure_correction = checked
 
     def show_about_dialog(self):
         about_dialog = QDialog(self)
@@ -510,7 +518,7 @@ class DetectoristApp(QMainWindow):
 
     def crop_save_image(self):
         """Crops and saves the currently displayed image based on the last crop rectangle."""
-        if not self.current_image_path or not self.ui.imageLabel.last_crop_rects:
+        if not self.ui.imageLabel.image or not self.ui.imageLabel.last_crop_rects:
             return
 
         output_dir = self._create_output_dir()
@@ -523,7 +531,8 @@ class DetectoristApp(QMainWindow):
                 file_name = f"{base}_{i}{ext}"
             else:
                 file_name = os.path.basename(self.current_image_path)
-            image_utils.crop_image_file(self.current_image_path, cropped_dir, crop_tuple, file_name)
+            output_path = os.path.join(cropped_dir, file_name)
+            self.ui.imageLabel.image.save_cropped(crop_tuple, output_path)
         self._open_native_file_manager(output_dir)
 
     def _process_all_images(self, process_name: str, setup_callback: callable, process_image_callback: callable):
@@ -571,6 +580,7 @@ class DetectoristApp(QMainWindow):
 
                     image_path = os.path.join(self.current_folder_path, file_name)
                     image = ImageObject.create(image_path)
+                    image.exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
                     results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=NMS_THRESHOLD)
 
                     log_data = process_image_callback(image, results, output_dir, **state)
@@ -625,7 +635,8 @@ class DetectoristApp(QMainWindow):
                     file_name = f"{base}_{i}{ext}"
                 else:
                     file_name = os.path.basename(image.image_path)
-                image_utils.crop_image_file(image.image_path, state["cropped_dir"], crop_tuple, file_name)
+                output_path = os.path.join(state["cropped_dir"], file_name)
+                image.save_cropped(crop_tuple, output_path)
 
             return os.path.basename(image.image_path), confidence_score, class_name, len(results), os.path.basename(state["cropped_dir"])
 
