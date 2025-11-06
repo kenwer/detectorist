@@ -252,8 +252,8 @@ class Ui_DetectoristAppUI(object):
         self.menuBar.setGeometry(QRect(0, 0, 1500, 30))
         self.menuFile = QMenu(self.menuBar)
         self.menuFile.setObjectName(u"menuFile")
-        self.menuTools = QMenu(self.menuBar)
-        self.menuTools.setObjectName(u"menuTools")
+        self.menuActions = QMenu(self.menuBar)
+        self.menuActions.setObjectName(u"menuActions")
         self.menuHelp = QMenu(self.menuBar)
         self.menuHelp.setObjectName(u"menuHelp")
         DetectoristAppUI.setMenuBar(self.menuBar)
@@ -262,13 +262,13 @@ class Ui_DetectoristAppUI(object):
         DetectoristAppUI.setStatusBar(self.statusBar)
 
         self.menuBar.addAction(self.menuFile.menuAction())
-        self.menuBar.addAction(self.menuTools.menuAction())
+        self.menuBar.addAction(self.menuActions.menuAction())
         self.menuBar.addAction(self.menuHelp.menuAction())
         self.menuFile.addAction(self.openFolderAction)
-        self.menuTools.addAction(self.actionSort_images_by_object_class)
-        self.menuTools.addSeparator()
-        self.menuTools.addAction(self.actionCropSaveImage)
-        self.menuTools.addAction(self.actionCropSaveAllImages)
+        self.menuActions.addAction(self.actionSort_images_by_object_class)
+        self.menuActions.addSeparator()
+        self.menuActions.addAction(self.actionCropSaveImage)
+        self.menuActions.addAction(self.actionCropSaveAllImages)
         self.menuHelp.addAction(self.actionAbout)
 
         self.retranslateUi(DetectoristAppUI)
@@ -365,7 +365,7 @@ class Ui_DetectoristAppUI(object):
         self.imageInfoLabel.setText(QCoreApplication.translate("DetectoristAppUI", u"-", None))
         self.imageExifGroupBox.setTitle(QCoreApplication.translate("DetectoristAppUI", u"Exif", None))
         self.menuFile.setTitle(QCoreApplication.translate("DetectoristAppUI", u"File", None))
-        self.menuTools.setTitle(QCoreApplication.translate("DetectoristAppUI", u"Tools", None))
+        self.menuActions.setTitle(QCoreApplication.translate("DetectoristAppUI", u"Actions", None))
         self.menuHelp.setTitle(QCoreApplication.translate("DetectoristAppUI", u"Help", None))
     # retranslateUi
 

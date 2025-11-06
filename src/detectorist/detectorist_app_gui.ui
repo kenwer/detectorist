@@ -396,9 +396,9 @@ Highest confidence	: -</string>
     </property>
     <addaction name="openFolderAction"/>
    </widget>
-   <widget class="QMenu" name="menuTools">
+   <widget class="QMenu" name="menuActions">
     <property name="title">
-     <string>Tools</string>
+     <string>Actions</string>
     </property>
     <addaction name="actionSort_images_by_object_class"/>
     <addaction name="separator"/>
@@ -412,7 +412,7 @@ Highest confidence	: -</string>
     <addaction name="actionAbout"/>
    </widget>
    <addaction name="menuFile"/>
-   <addaction name="menuTools"/>
+   <addaction name="menuActions"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>

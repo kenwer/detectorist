@@ -47,8 +47,8 @@ Download the binary for your operating system from the [release page](https://gi
 *   Click on an item in the list on the left to navigate through the image set.
 *   Use the slider and spin-box on the right to adjust the **Confidence** threshold. Detections will update automatically.
     * The Confidence threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
-*   You can sort the images into sub folders that are named after the detected object class using the corresponding action in the Tools menu. The images are copied, not moved.
-*   Optionally configure the crop & padding settings, and start cropping via the Tools menu actions
+*   You can sort the images into sub folders that are named after the detected object class using the corresponding item in the Actions menu. The images are copied, not moved.
+*   Optionally configure the crop & padding settings, and start cropping via the Actions menu.
     * The cropped images will be placed in a subdirectory of the directory that is currently being viewed.
     * The name of the output directory encodes the confidence level and the model used (like: `detectorist_conf75_fish-detect-2025-09-11`).
 
@@ -155,6 +155,7 @@ On Linux:
 ## Changelog
 
 #### Changed
+- The `Tools` menu is now called `Actions` to make it clearer that its entries trigger immediate actions.
 - Enable the auto correct camera exposure bios functionality by default.
 - Add '_crop' to the name of the resulting file when cropping images.
 - [Dev] Clarify bith depth handling for HEIF images.
