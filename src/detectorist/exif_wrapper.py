@@ -22,8 +22,8 @@ class ExifWrapper:
             else:
                 # For non-ARW files, open with PIL and then load EXIF
                 try:
-                    pil_image = PILImage.open(image_source)
-                    self._exif_data = self._load_exif_data_pil(pil_image)
+                    with PILImage.open(image_source) as pil_image:
+                        self._exif_data = self._load_exif_data_pil(pil_image)
                 except Exception as e:
                     print(f"Could not open image {image_source} with PIL: {e}")
                     self._exif_data = CaseInsensitiveDict() # Ensure it's initialized even on error

@@ -156,6 +156,7 @@ On Linux:
 
 #### Changed
 - [Dev] Clarify bith depth handling for HEIF images.
+- [Dev] Use context manager when loading EXIF data from PIL images.
 
 ### [0.6.1] - 2025-11-03
 
