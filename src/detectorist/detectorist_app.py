@@ -526,11 +526,11 @@ class DetectoristApp(QMainWindow):
 
         for i, rect in enumerate(self.ui.imageLabel.last_crop_rects):
             crop_tuple = (rect.x(), rect.y(), rect.width(), rect.height())
+            base, ext = os.path.splitext(os.path.basename(self.current_image_path))
             if len(self.ui.imageLabel.last_crop_rects) > 1:
-                base, ext = os.path.splitext(os.path.basename(self.current_image_path))
-                file_name = f"{base}_{i}{ext}"
+                file_name = f"{base}_crop_{i}{ext}"
             else:
-                file_name = os.path.basename(self.current_image_path)
+                file_name = f"{base}_crop{ext}"
             output_path = os.path.join(cropped_dir, file_name)
             self.ui.imageLabel.image.save_cropped(crop_tuple, output_path)
         self._open_native_file_manager(output_dir)
@@ -632,9 +632,9 @@ class DetectoristApp(QMainWindow):
             base, ext = os.path.splitext(os.path.basename(image.image_path))
             for i, crop_tuple in enumerate(crop_tuples):
                 if len(crop_tuples) > 1:
-                    file_name = f"{base}_{i}{ext}"
+                    file_name = f"{base}_crop_{i}{ext}"
                 else:
-                    file_name = os.path.basename(image.image_path)
+                    file_name = f"{base}_crop{ext}"
                 output_path = os.path.join(state["cropped_dir"], file_name)
                 image.save_cropped(crop_tuple, output_path)
 
