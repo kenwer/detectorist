@@ -154,11 +154,12 @@ On Linux:
 
 ## Changelog
 
+### [0.6.2] - 2025-11-06
 #### Changed
 - The `Tools` menu is now called `Actions` to make it clearer that its entries trigger immediate actions.
 - Enable the auto correct camera exposure bios functionality by default.
 - Add '_crop' to the name of the resulting file when cropping images.
-- [Dev] Clarify bith depth handling for HEIF images.
+- [Dev] Clarify bit depth handling for HEIF images.
 - [Dev] Use context manager when loading EXIF data from PIL images.
 - [Dev] Update dependencies.
 
@@ -168,7 +169,6 @@ On Linux:
 - Ignore exposure compensation requests for images that don't have the ExposureBiasValue data present in their EXIF.
 
 ### [0.6.1] - 2025-11-03
-
 #### Added
 - Support to automatically adjust the exposure when cropping images to correct for any exposure bias present in the EXIF data.
 - Add support for palette-based images such as GIFs.
@@ -182,7 +182,6 @@ On Linux:
 - Support for handling 8 bit CMYK images.
 
 ### [0.6.0] - 2025-10-31
-
 #### Added
 - Display Exposure Compensation for a loaded image from its EXIF data.
 - Display the Bits Per Channel (color depth) of the loaded image.
