@@ -268,7 +268,6 @@ class HeifImageObject(ImageObject):
 
         # Store metadata
         self._original_bpc = heif_file.info.get('bits', heif_file.info.get('bit_depth', 8))
-        self._bit_depth = heif_file.info.get('bit_depth', 8)
         self._chroma = heif_file.info.get('chroma', '420')
         self._nclx_profile = heif_file.info.get('nclx_profile')
         self._exif = heif_file.info.get('exif')
@@ -346,7 +345,7 @@ class HeifImageObject(ImageObject):
         print(f"Cropping HEIF image file: {self.image_path}")
 
         # Use stored metadata
-        bit_depth = self._bit_depth
+        bit_depth = self._original_bpc
         chroma = self._chroma
         nclx_profile = self._nclx_profile
         exif = self._exif
@@ -400,13 +399,17 @@ class HeifImageObject(ImageObject):
 
         data = unrotated_np.tobytes()
 
-        # HEIF images with a bit depth larger than 8 are stored in 16 bit nd_arrays as pillow-heif
-        # scaled up the pixel values when loading to fill the full 16-bit range (0-65535). When
-        # creating a new HEIF image from the cropped numpy array using pillow_heif.from_bytes() and
-        # the original mode because the `mode` string  for `from_bytes` must match the numpy
-        # array's structure, including bit depth information (e.g., 'RGB;10').
-        # We use the original mode string stored from the original image we loaded using pillow-heif.
-        new_heif_image = pillow_heif.from_bytes(mode=self._heif_mode, size=size, data=data)
+        # HEIF images with a bit depth larger than 8 (e.g. 10 or 12 bit) are stored in 16 bit
+        # nd_arrays as pillow-heif scaled up the pixel values when loading to fill the full
+        # 16-bit range (0-65535). In those cases the self._heif_mode also indicates 16 bit
+        # ("RGB;16") while self._original_bpc shows the original (non scaled) bit depth (e.g. 10
+        # or 12).
+        # When creating a new HEIF image from the scaled and cropped numpy array using
+        # pillow_heif.from_bytes() we need to submit a raw_mode that matches the actual numpy array
+        # structure (e.g. 16-bit for images with a original bit depth of 10 bit).
+        # For images with bit depth > 8, pillow-heif expects a 'raw_mode' parameter to correctly
+        # interpret the 16-bit data buffer.
+        new_heif_image = pillow_heif.from_bytes(mode=self._heif_mode, size=size, data=data, raw_mode=self._heif_mode)
 
         # Adjust Exif Image Width & Height to the cropped size if Exif data exists
         if exif:

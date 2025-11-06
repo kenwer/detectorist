@@ -154,6 +154,9 @@ On Linux:
 
 ## Changelog
 
+#### Changed
+- [Dev] Clarify bith depth handling for HEIF images.
+
 ### [0.6.1] - 2025-11-03
 
 #### Added
