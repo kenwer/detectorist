@@ -155,6 +155,7 @@ On Linux:
 ## Changelog
 
 #### Changed
+- Enable the auto correct camera exposure bios functionality by default.
 - Add '_crop' to the name of the resulting file when cropping images.
 - [Dev] Clarify bith depth handling for HEIF images.
 - [Dev] Use context manager when loading EXIF data from PIL images.

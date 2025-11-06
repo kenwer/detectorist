@@ -320,6 +320,9 @@ Highest confidence	: -</string>
              <property name="toolTip">
               <string>Adjust the EV to correct for any exposure bias based on EXIF data</string>
              </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
             </widget>
            </item>
           </layout>
