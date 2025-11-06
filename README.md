@@ -157,6 +157,11 @@ On Linux:
 #### Changed
 - [Dev] Clarify bith depth handling for HEIF images.
 - [Dev] Use context manager when loading EXIF data from PIL images.
+- [Dev] Update dependencies.
+
+#### Fixed
+- Memory leak when cropping HEIF images (fixed with upgrading pillow-heif).
+- Progress bar visibility when cropping multiple images (fixed with pyside6 upgrade).
 
 ### [0.6.1] - 2025-11-03
 
