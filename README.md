@@ -163,6 +163,7 @@ On Linux:
 #### Fixed
 - Memory leak when cropping HEIF images (fixed with upgrading pillow-heif).
 - Progress bar visibility when cropping multiple images (fixed with pyside6 upgrade).
+- Ignore exposure compensation requests for images that don't have the ExposureBiasValue data present in their EXIF.
 
 ### [0.6.1] - 2025-11-03
 

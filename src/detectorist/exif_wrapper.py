@@ -134,6 +134,23 @@ class ExifWrapper:
         """
         return self._exif_data.get(key, default)
 
+    def get_exposure_compensation(self) -> float:
+        """
+        Returns the exposure compensation value based on 'Exif ExposureBiasValue' as a float.
+        """
+        ev_comp = self.get('Exif ExposureBiasValue')
+        try:
+            return float(ev_comp)
+        except (ValueError, TypeError):
+            if isinstance(ev_comp, str) and '/' in ev_comp:
+                try:
+                    num, den = ev_comp.split('/')
+                    if float(den) != 0:
+                        return float(num) / float(den)
+                except (ValueError, ZeroDivisionError):
+                    return 0.0
+            return 0.0
+
     def _load_exif_data_pil(self, img: PILImage) -> CaseInsensitiveDict:
         """
         Loads EXIF data from a (non-RAW) image file using Pillow.

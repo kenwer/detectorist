@@ -391,11 +391,9 @@ class HeifImageObject(ImageObject):
 
         # Apply exposure correction based on EXIF data if requested
         if self._exposure_correction:
-            ev_comp = self.exif_wrapper.get('Exif ExposureBiasValue')
-            if ev_comp is not None and ev_comp != 0.0:
-                ev_comp = -ev_comp
-                print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
-                unrotated_np = image_utils.adjust_exposure(unrotated_np, ev_comp, 2.2, bit_depth)
+            ev_comp = -self.exif_wrapper.get_exposure_compensation()
+            print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
+            unrotated_np = image_utils.adjust_exposure(unrotated_np, ev_comp, 2.2, bit_depth)
 
         data = unrotated_np.tobytes()
 
@@ -516,11 +514,9 @@ class RawImageObject(ImageObject):
 
         # Apply exposure correction based on EXIF data if requested
         if self._exposure_correction:
-            ev_comp = self.exif_wrapper.get('Exif ExposureBiasValue')
-            if ev_comp is not None and ev_comp != 0.0:
-                ev_comp = -ev_comp
-                print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
-                cropped_np_array = image_utils.adjust_exposure(cropped_np_array, ev_comp, 2.2, self._original_bpc)
+            ev_comp = -self.exif_wrapper.get_exposure_compensation()
+            print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
+            cropped_np_array = image_utils.adjust_exposure(cropped_np_array, ev_comp, 2.2, self._original_bpc)
 
         self._save_16bit_image(cropped_np_array, output_path)
 
@@ -598,11 +594,9 @@ class OpencvImageObject(ImageObject):
 
         # Apply exposure correction based on EXIF data if requested
         if self._exposure_correction:
-            ev_comp = self.exif_wrapper.get('Exif ExposureBiasValue')
-            if ev_comp is not None and ev_comp != 0.0:
-                ev_comp = -ev_comp
-                print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
-                cropped_data = image_utils.adjust_exposure(cropped_data, ev_comp, 2.2, self._original_bpc)
+            ev_comp = -self.exif_wrapper.get_exposure_compensation()
+            print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
+            cropped_data = image_utils.adjust_exposure(cropped_data, ev_comp, 2.2, self._original_bpc)
 
         # The data is already in BGR/BGRA format, which cv2.imwrite expects.
         cv2.imwrite(output_path, cropped_data)
@@ -696,31 +690,29 @@ class PillowImageObject(ImageObject):
 
         # Apply exposure correction based on EXIF data if requested
         if self._exposure_correction:
-            ev_comp = self.exif_wrapper.get('Exif ExposureBiasValue')
-            if ev_comp is not None and ev_comp != 0.0:
-                ev_comp = -ev_comp
-                print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
+            ev_comp = -self.exif_wrapper.get_exposure_compensation()
+            print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
 
-                original_mode = pil_cropped_image.mode
+            original_mode = pil_cropped_image.mode
 
-                # Determine if we need to handle an alpha channel
-                has_alpha = original_mode == 'LA' or (original_mode == 'P' and 'transparency' in pil_cropped_image.info)
-                adjust_mode = 'RGBA' if has_alpha else 'RGB'
+            # Determine if we need to handle an alpha channel
+            has_alpha = original_mode == 'LA' or (original_mode == 'P' and 'transparency' in pil_cropped_image.info)
+            adjust_mode = 'RGBA' if has_alpha else 'RGB'
 
-                # Convert to the appropriate adjustment mode (RGB or RGBA)
-                image_for_adjustment = pil_cropped_image.convert(adjust_mode)
+            # Convert to the appropriate adjustment mode (RGB or RGBA)
+            image_for_adjustment = pil_cropped_image.convert(adjust_mode)
 
-                # Perform exposure adjustment on the numpy array
-                adjusted_np = np.array(image_for_adjustment)
-                adjusted_np = image_utils.adjust_exposure(adjusted_np, ev_comp, 2.2, 8)
-                adjusted_pil = PILImage.fromarray(adjusted_np)
+            # Perform exposure adjustment on the numpy array
+            adjusted_np = np.array(image_for_adjustment)
+            adjusted_np = image_utils.adjust_exposure(adjusted_np, ev_comp, 2.2, 8)
+            adjusted_pil = PILImage.fromarray(adjusted_np)
 
-                # Convert back to the original mode
-                if original_mode == 'P':
-                    # Quantize back to a palette.
-                    pil_cropped_image = adjusted_pil.quantize()
-                else:  # 'LA' or 'CMYK'
-                    pil_cropped_image = adjusted_pil.convert(original_mode)
+            # Convert back to the original mode
+            if original_mode == 'P':
+                # Quantize back to a palette.
+                pil_cropped_image = adjusted_pil.quantize()
+            else:  # 'LA' or 'CMYK'
+                pil_cropped_image = adjusted_pil.convert(original_mode)
 
         # Preserve format (e.g., GIF) and transparency
         save_kwargs = {}

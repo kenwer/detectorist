@@ -33,6 +33,8 @@ def adjust_exposure(image_data: np.ndarray, exposure_compensation: float, gamma:
     Returns:
         np.ndarray: The exposure-adjusted image data.
     """
+    if exposure_compensation == 0.0:
+        return image_data
     image_data_copy = image_data.copy()
     adjust_exposure_inplace(image_data_copy, exposure_compensation, gamma, bits_per_channel)
     return image_data_copy
@@ -55,10 +57,13 @@ def adjust_exposure_inplace(image_data: np.ndarray, exposure_compensation: float
                                            If not provided, it's inferred from the image data dtype,
                                            assuming 16 bits for uint16 data. Defaults to None.
     """
+    if exposure_compensation == 0.0:
+        return
+
     # The exposure compensation is in stops, so we use 2^ev
     factor = np.float32(2.0**exposure_compensation)
 
-    # If exposure compensation is zero, do nothing.
+    # If the resulting compensation factor is 1.0, do nothing.
     if factor == 1.0:
         return
 
