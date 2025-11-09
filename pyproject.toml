@@ -17,6 +17,7 @@ dependencies = [
     "rawpy",
     "numpy",
     "exifread",
+    "piexif",
 ]
 
 [dependency-groups]

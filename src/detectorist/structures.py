@@ -1,3 +1,18 @@
+from enum import Enum
+
+
+class ImageMode(Enum):
+    """
+    Represents the color mode of an image.
+    """
+    RGB = "RGB"
+    RGBA = "RGBA"
+    BGR = "BGR"
+    BGRA = "BGRA"
+    GRAY = "GRAY"
+    PALETTE = "P"
+
+
 class CaseInsensitiveKey:
     """
     A wrapper class for creating case-insensitive keys for dictionary-like operations.

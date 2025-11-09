@@ -263,7 +263,7 @@ class DetectoristApp(QMainWindow):
 
             # Filter the selected directory for supported files
             image_files = sorted([f for f in os.listdir(folder_path)
-                           if f.lower().endswith(ImageObject.SUPPORTED_IMG_EXTENSIONS)])
+                           if f.lower().endswith(ImageObject.get_supported_extensions())])
 
             if image_files:
                 self.model.setStringList(image_files)
@@ -302,16 +302,16 @@ class DetectoristApp(QMainWindow):
 
                 # Add EXIF info to the self.ui.imageExifLabel
                 items = [
-                    ("Camera\t\t", f"{self.ui.imageLabel.image.exif_wrapper.get('Image Make')} {self.ui.imageLabel.image.exif_wrapper.get('Image Model')}"),
-                    ("Software\t\t", self.ui.imageLabel.image.exif_wrapper.get('Image Software')),
-                    ("Lens model\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF LensModel')),
-                    ("Date\t\t", self.ui.imageLabel.image.exif_wrapper.get('Image DateTime')),
-                    ("ISO\t\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF ISOSpeedRatings')),
-                    ("FNumber\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF FNumber')),
-                    ("Exposure\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF ExposureTime')),
-                    ("Exposure comp.\t", self.ui.imageLabel.image.exif_wrapper.get('Exif ExposureBiasValue')),
-                    ("Focal length\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF FocalLength')),
-                    ("Focal length FF\t", self.ui.imageLabel.image.exif_wrapper.get('EXIF FocalLengthIn35mmFilm'))
+                    ("Camera\t\t", f"{self.ui.imageLabel.image.get('Image Make')} {self.ui.imageLabel.image.get('Image Model')}"),
+                    ("Software\t\t", self.ui.imageLabel.image.get('Image Software')),
+                    ("Lens model\t", self.ui.imageLabel.image.get('EXIF LensModel')),
+                    ("Date\t\t", self.ui.imageLabel.image.get('Image DateTime')),
+                    ("ISO\t\t", self.ui.imageLabel.image.get('EXIF ISOSpeedRatings')),
+                    ("FNumber\t", self.ui.imageLabel.image.get('EXIF FNumber')),
+                    ("Exposure\t", self.ui.imageLabel.image.get('EXIF ExposureTime')),
+                    ("Exposure comp.\t", self.ui.imageLabel.image.get('Exif ExposureBiasValue')),
+                    ("Focal length\t", self.ui.imageLabel.image.get('EXIF FocalLength')),
+                    ("Focal length FF\t", self.ui.imageLabel.image.get('EXIF FocalLengthIn35mmFilm'))
                 ]
                 exif_info = "\n".join(f"{k}: {v}" for k, v in items if v)
                 self.ui.imageExifLabel.setText(exif_info)
@@ -361,7 +361,7 @@ class DetectoristApp(QMainWindow):
             if os.path.isdir(path):
                 self.open_folder(path)
                 break
-            elif os.path.isfile(path) and path.lower().endswith(ImageObject.SUPPORTED_IMG_EXTENSIONS):
+            elif os.path.isfile(path) and path.lower().endswith(ImageObject.get_supported_extensions()):
                 self.open_file(path)
                 break
         event.acceptProposedAction()
@@ -374,7 +374,7 @@ class DetectoristApp(QMainWindow):
         self.current_image_path = None
         self.ui.imageLabel.clear()
         image_files = sorted([f for f in os.listdir(folder_path)
-                               if f.lower().endswith(ImageObject.SUPPORTED_IMG_EXTENSIONS)])
+                               if f.lower().endswith(ImageObject.get_supported_extensions())])
         self.model.setStringList(image_files)
 
         # Select the dropped file in the list view

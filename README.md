@@ -154,6 +154,8 @@ On Linux:
 
 ## Changelog
 
+- [Dev] Refactor ImageObject subclasses into dedicated files and let them handle EXIF individually.
+
 ### [0.6.2] - 2025-11-06
 #### Changed
 - The `Tools` menu is now called `Actions` to make it clearer that its entries trigger immediate actions.
