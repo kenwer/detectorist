@@ -95,16 +95,16 @@ class OpencvImageObject(ImageObject):
         print(f"  Cropped image saved to {output_path}")
 
         # Handle EXIF data using piexif
-        if self.exif_dict and os.path.splitext(output_path)[1].lower() in ('.jpg', '.jpeg'):
+        if self._exif_dict and os.path.splitext(output_path)[1].lower() in ('.jpg', '.jpeg'):
             try:
                 # Update image width and height
-                self.exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = w
-                self.exif_dict['Exif'][piexif.ExifIFD.PixelYDimension] = h
+                self._exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = w
+                self._exif_dict['Exif'][piexif.ExifIFD.PixelYDimension] = h
                 # Some cameras store dimensions in the 0th IFD too
-                self.exif_dict['0th'][piexif.ImageIFD.ImageWidth] = w
-                self.exif_dict['0th'][piexif.ImageIFD.ImageLength] = h
+                self._exif_dict['0th'][piexif.ImageIFD.ImageWidth] = w
+                self._exif_dict['0th'][piexif.ImageIFD.ImageLength] = h
 
-                exif_bytes = piexif.dump(self.exif_dict)
+                exif_bytes = piexif.dump(self._exif_dict)
                 piexif.insert(exif_bytes, output_path)
                 print(f"  Updated EXIF data for {output_path}")
             except Exception as e:
