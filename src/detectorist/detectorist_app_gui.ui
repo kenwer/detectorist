@@ -20,7 +20,11 @@
       <property name="orientation">
        <enum>Qt::Orientation::Horizontal</enum>
       </property>
-      <widget class="QListView" name="imageListView"/>
+      <widget class="QListView" name="imageListView">
+       <property name="selectionMode">
+        <enum>QAbstractItemView::SelectionMode::ExtendedSelection</enum>
+       </property>
+      </widget>
       <widget class="QLabel" name="imageLabel">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -407,6 +411,7 @@ Highest confidence	: -</string>
     <addaction name="actionSort_images_by_object_class"/>
     <addaction name="separator"/>
     <addaction name="actionCropSaveImage"/>
+    <addaction name="actionCropSaveSelectedImages"/>
     <addaction name="actionCropSaveAllImages"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
@@ -449,7 +454,15 @@ Highest confidence	: -</string>
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Crop &amp;&amp; copy image</string>
+    <string>Crop &amp;&amp; copy current image</string>
+   </property>
+  </action>
+  <action name="actionCropSaveSelectedImages">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Crop &amp;&amp; copy selected images</string>
    </property>
   </action>
   <action name="actionCropSaveAllImages">

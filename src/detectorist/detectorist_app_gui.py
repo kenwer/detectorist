@@ -16,12 +16,12 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
-    QGridLayout, QGroupBox, QHBoxLayout, QLabel,
-    QListView, QMainWindow, QMenu, QMenuBar,
-    QRadioButton, QScrollArea, QSizePolicy, QSlider,
-    QSpinBox, QSplitter, QStatusBar, QVBoxLayout,
-    QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup, QCheckBox,
+    QComboBox, QGridLayout, QGroupBox, QHBoxLayout,
+    QLabel, QListView, QMainWindow, QMenu,
+    QMenuBar, QRadioButton, QScrollArea, QSizePolicy,
+    QSlider, QSpinBox, QSplitter, QStatusBar,
+    QVBoxLayout, QWidget)
 
 class Ui_DetectoristAppUI(object):
     def setupUi(self, DetectoristAppUI):
@@ -37,6 +37,9 @@ class Ui_DetectoristAppUI(object):
         self.actionCropSaveImage = QAction(DetectoristAppUI)
         self.actionCropSaveImage.setObjectName(u"actionCropSaveImage")
         self.actionCropSaveImage.setEnabled(False)
+        self.actionCropSaveSelectedImages = QAction(DetectoristAppUI)
+        self.actionCropSaveSelectedImages.setObjectName(u"actionCropSaveSelectedImages")
+        self.actionCropSaveSelectedImages.setEnabled(False)
         self.actionCropSaveAllImages = QAction(DetectoristAppUI)
         self.actionCropSaveAllImages.setObjectName(u"actionCropSaveAllImages")
         self.actionCropSaveAllImages.setEnabled(False)
@@ -54,6 +57,7 @@ class Ui_DetectoristAppUI(object):
         self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.imageListView = QListView(self.splitter)
         self.imageListView.setObjectName(u"imageListView")
+        self.imageListView.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.splitter.addWidget(self.imageListView)
         self.imageLabel = QLabel(self.splitter)
         self.imageLabel.setObjectName(u"imageLabel")
@@ -269,6 +273,7 @@ class Ui_DetectoristAppUI(object):
         self.menuActions.addAction(self.actionSort_images_by_object_class)
         self.menuActions.addSeparator()
         self.menuActions.addAction(self.actionCropSaveImage)
+        self.menuActions.addAction(self.actionCropSaveSelectedImages)
         self.menuActions.addAction(self.actionCropSaveAllImages)
         self.menuHelp.addAction(self.actionAbout)
 
@@ -295,7 +300,8 @@ class Ui_DetectoristAppUI(object):
 #if QT_CONFIG(shortcut)
         self.detectObjectAction.setShortcut(QCoreApplication.translate("DetectoristAppUI", u"Ctrl+D", None))
 #endif // QT_CONFIG(shortcut)
-        self.actionCropSaveImage.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop && copy image", None))
+        self.actionCropSaveImage.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop && copy current image", None))
+        self.actionCropSaveSelectedImages.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop && copy selected images", None))
         self.actionCropSaveAllImages.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop && copy all images", None))
 #if QT_CONFIG(shortcut)
         self.actionCropSaveAllImages.setShortcut(QCoreApplication.translate("DetectoristAppUI", u"Ctrl+K", None))

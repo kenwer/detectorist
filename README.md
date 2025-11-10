@@ -155,6 +155,7 @@ On Linux:
 ## Changelog
 
 #### Added
+- Allow selecting a subset of the loaded images to be cropped & saved.
 - Display the GPS coordinates if available in EXIF.
 - Allow text selection in the EXIF info widget to be able to copy text.
 
