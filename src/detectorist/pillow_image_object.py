@@ -1,6 +1,7 @@
 
 import cv2
 import numpy as np
+import piexif
 from PIL import Image as PILImage
 
 from . import image_utils
@@ -56,7 +57,7 @@ class PillowImageObject(ImageObject):
             self._mode = ImageMode.BGR  # Will be converted to BGR for display
 
         self._exif = self._pil_image.info.get('exif')
-        self._exif_data = self._load_exif_data_pil(self._pil_image)
+        self._exif_dict = self._load_exif_data()
 
     def __del__(self):
         """Closes the Pillow image file handle."""
@@ -136,11 +137,21 @@ class PillowImageObject(ImageObject):
         # Handle EXIF data
         if self._exif:
             try:
-                exif_obj = PILImage.Exif()
-                exif_obj.load(self._exif)
-                exif_obj[0xa002] = w  # Exif Image Width
-                exif_obj[0xa003] = h  # Exif Image Height
-                save_kwargs['exif'] = exif_obj.tobytes()
+                exif_dict = piexif.load(self._exif)
+                # Update image dimensions
+                if 'Exif' in exif_dict:
+                    exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = w
+                    exif_dict['Exif'][piexif.ExifIFD.PixelYDimension] = h
+                if '0th' in exif_dict:
+                    exif_dict['0th'][piexif.ImageIFD.ImageWidth] = w
+                    exif_dict['0th'][piexif.ImageIFD.ImageLength] = h
+
+                if self._exposure_correction:
+                    if 'Exif' not in exif_dict:
+                        exif_dict['Exif'] = {}
+                    exif_dict['Exif'][piexif.ExifIFD.ExposureBiasValue] = (0, 1)
+
+                save_kwargs['exif'] = piexif.dump(exif_dict)
             except Exception as e:
                 print(f"Warning: Could not update EXIF data: {e}")
                 save_kwargs['exif'] = self._exif

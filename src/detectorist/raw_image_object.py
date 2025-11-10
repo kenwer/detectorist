@@ -1,49 +1,18 @@
 import os
 
 import cv2
-import exifread
 import numpy as np
 import rawpy
 
 from . import image_utils
 from .image_object import ImageObject
-from .structures import CaseInsensitiveDict, ImageMode
+from .structures import ImageMode
 
 RAW_EXTENSIONS = ('.arw', '.nef', '.cwr', 'cr2', 'cr3', 'orf', 'pef' )
 
 
 class RawImageObject(ImageObject):
     """ImageObject subclass for RAW image formats (e.g., .arw, .nef)."""
-
-    @staticmethod
-    def _load_exif_data_raw(image_path: str) -> CaseInsensitiveDict:
-        """
-        Loads EXIF data from the image file using the exifread library into self._exif_data.
-        """
-        exif_data = CaseInsensitiveDict()
-        try:
-            with open(image_path, 'rb') as f:
-                tags = exifread.process_file(f, details=False)
-                if tags:
-                    for tag, value in tags.items():
-                        # Skip thumbnail data
-                        if tag in ('JPEGThumbnail', 'TIFFThumbnail'):
-                            continue
-
-                        val = value.printable
-                        if tag == 'EXIF FNumber':
-                            val = ImageObject._parse_fraction(val)
-                        elif tag == 'EXIF ExposureTime':
-                            val = ImageObject._format_exposure_time(val)
-                        elif tag == 'EXIF FocalLength':
-                            val = ImageObject._parse_fraction(val, 2)
-                        elif tag == 'EXIF ExposureBiasValue':
-                            val = ImageObject._parse_fraction(val)
-
-                        exif_data[tag] = val
-        except Exception as e:
-            print(f"Could not load EXIF data for {image_path}: {e}")
-        return exif_data
 
     def __init__(self, image_path: str):
         """Initializes the object by loading a RAW image file using rawpy."""
@@ -60,10 +29,10 @@ class RawImageObject(ImageObject):
         else:
             self._original_bpc = 8
 
-        self._exif_data = self._load_exif_data_raw(self.image_path)
-
         if self._image_data is None:
             raise OSError(f"Error: Could not read image from '{self.image_path}'")
+
+        self._exif_dict = self._load_exif_data()
 
     def _load_raw_image_data(self, path: str, output_bps=16) -> np.ndarray:
         """

@@ -154,7 +154,12 @@ On Linux:
 
 ## Changelog
 
+#### Changed
 - [Dev] Refactor ImageObject subclasses into dedicated files and let them handle EXIF individually.
+- [Dev] Adopt piexif to handle EXIF and remove the now unused exifread dependency.
+
+#### Fixed
+- When auto correcting the exposure for a cropped image, also reset the ExposureBiasValue in the EXIF.
 
 ### [0.6.2] - 2025-11-06
 #### Changed

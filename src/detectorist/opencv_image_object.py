@@ -32,7 +32,6 @@ class OpencvImageObject(ImageObject):
             accurately determine the color mode, as OpenCV can be ambiguous.
         """
         super().__init__(image_path)
-        self._exif = None
 
         # Validate file extension
         if self._file_extension not in STANDARD_IMG_EXTENSIONS:
@@ -75,8 +74,7 @@ class OpencvImageObject(ImageObject):
             else:
                 raise ValueError(f"Unsupported Pillow image mode in StandardImageObject: {pil_image.mode}")
 
-            self._exif = pil_image.info.get('exif')
-            self._exif_data = self._load_exif_data_pil(pil_image)
+        self._exif_dict = self._load_exif_data()
 
     def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
         """Saves a cropped version of the image, preserving original format and EXIF data."""
@@ -97,17 +95,16 @@ class OpencvImageObject(ImageObject):
         print(f"  Cropped image saved to {output_path}")
 
         # Handle EXIF data using piexif
-        if self._exif and os.path.splitext(output_path)[1].lower() in ('.jpg', '.jpeg'):
+        if self.exif_dict and os.path.splitext(output_path)[1].lower() in ('.jpg', '.jpeg'):
             try:
-                exif_dict = piexif.load(self._exif)
                 # Update image width and height
-                exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = w
-                exif_dict['Exif'][piexif.ExifIFD.PixelYDimension] = h
+                self.exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = w
+                self.exif_dict['Exif'][piexif.ExifIFD.PixelYDimension] = h
                 # Some cameras store dimensions in the 0th IFD too
-                exif_dict['0th'][piexif.ImageIFD.ImageWidth] = w
-                exif_dict['0th'][piexif.ImageIFD.ImageLength] = h
+                self.exif_dict['0th'][piexif.ImageIFD.ImageWidth] = w
+                self.exif_dict['0th'][piexif.ImageIFD.ImageLength] = h
 
-                exif_bytes = piexif.dump(exif_dict)
+                exif_bytes = piexif.dump(self.exif_dict)
                 piexif.insert(exif_bytes, output_path)
                 print(f"  Updated EXIF data for {output_path}")
             except Exception as e:

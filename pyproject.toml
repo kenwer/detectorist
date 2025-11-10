@@ -16,7 +16,6 @@ dependencies = [
     "pyside6",
     "rawpy",
     "numpy",
-    "exifread",
     "piexif",
 ]
 

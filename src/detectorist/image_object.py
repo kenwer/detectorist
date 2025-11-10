@@ -2,15 +2,14 @@ import os
 import shutil
 from abc import ABC, abstractmethod
 from fractions import Fraction
-from typing import Any
 
 import cv2
 import numpy as np
+import piexif
 from PIL import Image as PILImage
-from PIL.ExifTags import GPSTAGS, IFD, TAGS
 
 from . import image_utils
-from .structures import CaseInsensitiveDict, ImageMode
+from .structures import ImageMode
 
 
 class ImageObject (ABC):
@@ -53,7 +52,8 @@ class ImageObject (ABC):
         self._original_bpc = None
         self._mode: ImageMode
         self._file_extension = os.path.splitext(self.image_path)[1].lower()
-        self._exif_data = CaseInsensitiveDict()
+        self._exif_dict = None
+
         self._exposure_correction = False
 
     @staticmethod
@@ -134,59 +134,38 @@ class ImageObject (ABC):
         # Convert to string representation
         return f"{frac.numerator}/{frac.denominator}"
 
-    @staticmethod
-    def _load_exif_data_pil(img: PILImage) -> CaseInsensitiveDict:
+    def _load_exif_data(self):
         """
-        Loads EXIF data from a (non-RAW) image file using Pillow.
+        Loads EXIF data from the image file using piexif.
         """
-        exif_data = CaseInsensitiveDict()
-        exif = img.getexif()
+        try:
+            return piexif.load(self._image_path)
+        except piexif.InvalidImageDataError:
+            print(f"No EXIF data found in {self._image_path}.")
+            return {}
+        except Exception as e:
+            print(f"Error loading EXIF data for {self._image_path}: {e}")
+            return {}
 
-        # Extract base tags
-        for k, v in exif.items():
-            tag_name = TAGS.get(k, k)
-            if isinstance(v, bytes):
-                try:
-                    exif_data[f"Image {tag_name}"] = v.decode(errors='strict').strip()
-                except UnicodeDecodeError:
-                    exif_data[f"Image {tag_name}"] = repr(v)
-            else:
-                exif_data[f"Image {tag_name}"] = v
-
-        # Extract IFD tags
-        for ifd_id in IFD:
-            try:
-                ifd = exif.get_ifd(ifd_id)
-                ifd_name = ifd_id.name
-
-                # Choose appropriate tag resolver
-                resolve = GPSTAGS if ifd_id == IFD.GPSInfo else TAGS
-
-                for k, v in ifd.items():
-                    tag_name = resolve.get(k, k)
-                    full_tag_name = f"{ifd_name} {tag_name}"
-
-                    val = v
-                    if isinstance(v, bytes):
-                        try:
-                            val = v.decode(errors='strict').strip()
-                        except UnicodeDecodeError:
-                            val = repr(v)
-
-                    if full_tag_name == 'Exif FNumber':
-                        val = ImageObject._parse_fraction(val)
-                    elif full_tag_name == 'Exif ExposureTime':
-                        val = ImageObject._format_exposure_time(val)
-                    elif full_tag_name == 'Exif FocalLength':
-                        val = ImageObject._parse_fraction(val, 2)
-                    elif full_tag_name == 'Exif ExposureBiasValue':
-                        val = ImageObject._parse_fraction(val)
-
-                    exif_data[full_tag_name] = val
-
-            except KeyError:
-                continue
-        return exif_data
+    def _print_exif_data(self, exif_dict: dict):
+        """
+        Utility function to print out EXIF data of the given exif_dict.
+        """
+        if exif_dict:
+            #print(f"exif_dict.keys: {exif_dict.keys()}")
+            # Print all tags in exif_dict['Exif']
+            print("EXIF tags found:")
+            for ifd_name in exif_dict:
+                print(f"    {ifd_name}:")
+                if isinstance(exif_dict[ifd_name], dict):
+                    for tag in exif_dict[ifd_name]:
+                        tag_name = piexif.TAGS[ifd_name][tag]["name"]
+                        if tag_name == "MakerNote": # filter out MakerNote to avoid binary data dump
+                            print(f"      {tag_name} ({tag}): <binary data>")
+                        else:
+                            print(f"      {tag_name} ({tag}): {exif_dict[ifd_name][tag]}")
+                else:
+                    print(f"      Note: {ifd_name} contains non-dictionary data: {exif_dict[ifd_name]}")
 
     @classmethod
     def create(cls, image_path: str) -> 'ImageObject':
@@ -224,39 +203,9 @@ class ImageObject (ABC):
             raise ValueError(f"Unsupported image file extension: \"{file_extension}\" with path: {image_path}")
 
     @property
-    def exif_data(self) -> CaseInsensitiveDict:
-        """Returns Exif handler object for this image."""
-        return self._exif_data
-
-    def get(self, key: str, default: Any = "-") -> Any:
-        """
-        Returns the value for a specific EXIF key.
-
-        Args:
-            key (str): The EXIF tag name (e.g., 'Image Model', 'EXIF ExposureTime').
-            default (Any): The default value to return if the key doesn't exist.
-
-        Returns:
-            The value of the tag, or the default value if the key doesn't exist.
-        """
-        return self._exif_data.get(key, default)
-
-    def get_exposure_compensation(self) -> float:
-        """
-        Returns the exposure compensation value based on 'Exif ExposureBiasValue' as a float.
-        """
-        ev_comp = self.get('Exif ExposureBiasValue')
-        try:
-            return float(ev_comp)
-        except (ValueError, TypeError):
-            if isinstance(ev_comp, str) and '/' in ev_comp:
-                try:
-                    num, den = ev_comp.split('/')
-                    if float(den) != 0:
-                        return float(num) / float(den)
-                except (ValueError, ZeroDivisionError):
-                    return 0.0
-            return 0.0
+    def exif_data(self) -> dict:
+        """Returns Exif dict object for this image."""
+        return self._exif_dict
 
     @property
     def image_path(self) -> str:
@@ -347,6 +296,32 @@ class ImageObject (ABC):
         bgr_image = self.image_data_bgr_8bit
         rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
         return rgb_image
+
+    def get_exposure_compensation(self) -> float:
+        """
+        Returns the exposure compensation value based on 'Exif ExposureBiasValue' if available.
+        If not available or invalid, returns 0.0.
+        """
+        exif_ifd = self.exif_data.get('Exif', None)
+        if exif_ifd is None:
+            return 0.0
+        ev_comp = exif_ifd.get(piexif.ExifIFD.ExposureBiasValue, None)
+        # Handle rational numbers (tuples) first
+        if isinstance(ev_comp, tuple) and len(ev_comp) == 2 and ev_comp[1] != 0:
+            return ev_comp[0] / ev_comp[1]
+
+        # Now try to convert to float, handling string fractions in the except block
+        try:
+            return float(ev_comp)
+        except (ValueError, TypeError):
+            if isinstance(ev_comp, str) and '/' in ev_comp:
+                try:
+                    num, den = map(float, ev_comp.split('/'))
+                    if den != 0:
+                        return num / den
+                except (ValueError, ZeroDivisionError):
+                    pass # Fall through to return 0.0
+            return 0.0 # Default return if conversion fails
 
     def preprocess_for_onnx(self, input_width: int, input_height: int) -> np.ndarray:
         """

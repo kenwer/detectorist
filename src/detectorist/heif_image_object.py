@@ -1,5 +1,5 @@
-
 import numpy as np
+import piexif
 import pillow_heif
 from PIL import Image as PILImage
 
@@ -7,6 +7,7 @@ from . import image_utils
 from .image_object import ImageMode, ImageObject
 
 HEIF_EXTENSIONS = ('.heic', '.heics', '.heif', '.heifs', '.hif')
+
 
 # Ensure the HEIF Pillow plugin is registered
 pillow_heif.register_heif_opener()
@@ -20,17 +21,24 @@ class HeifImageObject(ImageObject):
         if self._file_extension not in HEIF_EXTENSIONS:
             raise ValueError(f"Invalid HEIF file extension \"{self._file_extension}\". Expected {HEIF_EXTENSIONS}")
 
-        print(f"Loading HEIF file: {self.image_path}")
+        print(f"Loading HEIF file: {image_path}")
         heif_file = pillow_heif.open_heif(self.image_path, convert_hdr_to_8bit=False)
-        print(f"  Image\n\tmode: {heif_file[0].mode}, size: {heif_file[0].size}, stride: {heif_file[0].stride}, data length: {len(heif_file[0].data)}")
 
-        # Store metadata
+        if heif_file is None or len(heif_file) == 0:
+            raise OSError(f"Error: Could not load HEIF image from '{image_path}' or it contains no images.")
+
+        if heif_file[0] is None:
+            raise OSError(f"Error: First image in HEIF file '{image_path}' is None.")
+
+        # Store metadata extracted from the HEIF file
         self._original_bpc = heif_file.info.get('bits', heif_file.info.get('bit_depth', 8))
         self._chroma = heif_file.info.get('chroma', '420')
         self._nclx_profile = heif_file.info.get('nclx_profile')
         self._exif = heif_file.info.get('exif')
         self._xmp = heif_file.info.get('xmp')
         self._heif_mode = heif_file[0].mode
+        print(f"  Image\n\tmode: {self._heif_mode}, size: {heif_file[0].size}, stride: {heif_file[0].stride}, data length: {len(heif_file[0].data)}, bits per channel: {self._original_bpc}, chroma: {self._chroma}")
+
         # Map pillow_heif modes to our descriptive strings
         if self._heif_mode == 'L':
             self._mode = ImageMode.GRAY
@@ -41,21 +49,32 @@ class HeifImageObject(ImageObject):
         else:
             raise ValueError(f"Unsupported HEIF image mode: {self._heif_mode}")
 
-        # pillow-heif appears to rotate the image data based on EXIF orientation automatically.
-        # So we create a numpy array view of the (rotated) image data and also
-        # make a copy to ensure we have our own data (as the underlying buffer may be freed when heif_file is closed).
+        # Initialize the image data by copying the pixel data from the heif file. A HEIF container could
+        # hold multiple images, but we only load the first. We make a copy to ensure we have our own data
+        # as the underlying buffer may be freed when heif_file is closed.
+        # Note: pillow-heif appears to rotate the image data based on EXIF orientation automatically. It
+        # helps when displaying the image, but we need to be aware of this when cropping and saving later.
         self._image_data = np.asarray(heif_file[0]).copy()
-
-        if self._exif:
-            # Create a dummy PIL Image to extract EXIF data using _load_exif_data_pil
-            # This is a workaround as _load_exif_data_pil expects a PIL Image object
-            # and pillow_heif's exif is raw bytes.
-            dummy_pil_image = PILImage.new('RGB', heif_file[0].size)
-            dummy_pil_image.info['exif'] = self._exif
-            self._exif_data = self._load_exif_data_pil(dummy_pil_image)
 
         if self._image_data is None:
             raise OSError(f"Error: Could not read image from '{self.image_path}'")
+
+        # Initialize EXIF data dictionary using the overwritten _load_exif_data() method
+        self._exif_dict = self._load_exif_data()
+        #self._print_exif_data(self._exif_dict)
+
+        heif_file = None # Allow the Python GC to free resources
+
+
+    def _load_exif_data(self) -> dict:
+        """
+        Loads EXIF dict from the raw EXIF that we extracted from the HEIF image file using
+        pillow_heif. Returns a `dict` or `None` if no EXIF data is found.
+        """
+        if self._exif: # self._exif holds the raw EXIF bytes we've got from pillow_heif
+            exif_dict = piexif.load(self._exif)
+            return exif_dict
+        return None
 
     def _get_exif_orientation(self, exif):
         """
@@ -153,11 +172,13 @@ class HeifImageObject(ImageObject):
 
         size = (unrotated_np.shape[1], unrotated_np.shape[0])
 
+        exposure_corrected = False
         # Apply exposure correction based on EXIF data if requested
         if self._exposure_correction:
             ev_comp = -self.get_exposure_compensation()
             print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
             unrotated_np = image_utils.adjust_exposure(unrotated_np, ev_comp, 2.2, bit_depth)
+            exposure_corrected = True
 
         data = unrotated_np.tobytes()
 
@@ -175,11 +196,27 @@ class HeifImageObject(ImageObject):
 
         # Adjust Exif Image Width & Height to the cropped size if Exif data exists
         if exif:
-            exif_obj = PILImage.Exif()
-            exif_obj.load(exif)
-            exif_obj[0xa002] = size[0]  # Exif Image Width
-            exif_obj[0xa003] = size[1]  # Exif Image Height
-            updated_exif = exif_obj.tobytes()
+            try:
+                exif_dict = piexif.load(exif)
+                # Update image dimensions in Exif IFD
+                if 'Exif' in exif_dict:
+                    exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = size[0]
+                    exif_dict['Exif'][piexif.ExifIFD.PixelYDimension] = size[1]
+                # Update image dimensions in 0th IFD
+                if '0th' in exif_dict:
+                    exif_dict['0th'][piexif.ImageIFD.ImageWidth] = size[0]
+                    exif_dict['0th'][piexif.ImageIFD.ImageLength] = size[1]
+
+                if exposure_corrected:
+                    if 'Exif' not in exif_dict:
+                        exif_dict['Exif'] = {}
+                    # ExposureBiasValue is SRATIONAL, so it's a tuple of (numerator, denominator)
+                    exif_dict['Exif'][piexif.ExifIFD.ExposureBiasValue] = (0, 1)
+
+                updated_exif = piexif.dump(exif_dict)
+            except Exception as e:
+                print(f"  Could not update EXIF data: {e}")
+                updated_exif = exif # fallback to original exif
         else:
             updated_exif = None
 

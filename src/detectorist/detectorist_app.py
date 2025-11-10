@@ -4,6 +4,7 @@ import subprocess
 import sys
 import time
 
+import piexif
 import pillow_heif
 from PySide6.QtCore import QDir, QRect, QStringListModel, Qt, QTimer
 from PySide6.QtWidgets import (
@@ -300,21 +301,88 @@ class DetectoristApp(QMainWindow):
                 file_type = self.ui.imageLabel.image.file_extension.upper()[1:]
                 self.ui.imageInfoLabel.setText(f"File type \t: {file_type}\nResolution\t: {width}x{height}\nBits per channel\t: {original_bpc}")
 
-                # Add EXIF info to the self.ui.imageExifLabel
-                items = [
-                    ("Camera\t\t", f"{self.ui.imageLabel.image.get('Image Make')} {self.ui.imageLabel.image.get('Image Model')}"),
-                    ("Software\t\t", self.ui.imageLabel.image.get('Image Software')),
-                    ("Lens model\t", self.ui.imageLabel.image.get('EXIF LensModel')),
-                    ("Date\t\t", self.ui.imageLabel.image.get('Image DateTime')),
-                    ("ISO\t\t", self.ui.imageLabel.image.get('EXIF ISOSpeedRatings')),
-                    ("FNumber\t", self.ui.imageLabel.image.get('EXIF FNumber')),
-                    ("Exposure\t", self.ui.imageLabel.image.get('EXIF ExposureTime')),
-                    ("Exposure comp.\t", self.ui.imageLabel.image.get('Exif ExposureBiasValue')),
-                    ("Focal length\t", self.ui.imageLabel.image.get('EXIF FocalLength')),
-                    ("Focal length FF\t", self.ui.imageLabel.image.get('EXIF FocalLengthIn35mmFilm'))
-                ]
-                exif_info = "\n".join(f"{k}: {v}" for k, v in items if v)
-                self.ui.imageExifLabel.setText(exif_info)
+                self.ui.imageExifLabel.setText("") # Clear previous EXIF info
+                # Extract EXIF data and show it if available
+                if self.ui.imageLabel.image.exif_data:
+                    # Camera Make
+                    camera_make = self.ui.imageLabel.image.exif_data['0th'].get(piexif.ImageIFD.Make, b'').decode('utf-8', errors='ignore').strip()
+
+                    # Camera Model
+                    camera_model = self.ui.imageLabel.image.exif_data['0th'].get(piexif.ImageIFD.Model, b'').decode('utf-8', errors='ignore').strip()
+
+                    # Combine Make and Model to form Camera info
+                    camera_info = f"{camera_make} {camera_model}".strip()
+
+                    # Software
+                    software = self.ui.imageLabel.image.exif_data['0th'].get(piexif.ImageIFD.Software, b'').decode('utf-8', errors='ignore').strip()
+
+                    # Lens Model
+                    lens_model = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.LensModel, b'').decode('utf-8', errors='ignore').strip()
+
+                    # Date and Time
+                    date_time = self.ui.imageLabel.image.exif_data['0th'].get(piexif.ImageIFD.DateTime, b'').decode('utf-8', errors='ignore').strip()
+
+                    # ISO
+                    iso = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.ISOSpeedRatings, None)
+                    iso = None
+
+                    # F-Number
+                    fnumber = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.FNumber, None)
+                    if fnumber:
+                        # Convert from rational number to float
+                        fnumber = fnumber[0] / fnumber[1]
+
+                    # Exposure Time
+                    exposure_time = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.ExposureTime, None)
+                    if exposure_time:
+                        # Convert from rational number to readable fraction
+                        exposure_time = f"1/{int(1/exposure_time[0])}" if exposure_time[0] != 0 else None
+
+                    # Exposure Compensation
+                    exposure_comp = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.ExposureBiasValue, None)
+                    if exposure_comp:
+                        # Convert from rational number to float
+                        exposure_comp = exposure_comp[0] / exposure_comp[1]
+
+                    # Focal Length
+                    focal_length = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.FocalLength, None)
+                    if focal_length:
+                        # Convert from rational number to float
+                        focal_length = focal_length[0] / focal_length[1]
+
+                    # Focal Length FF (Full Frame Equivalent)
+                    focal_length_ff = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.FocalLengthIn35mmFilm, None)
+                    if focal_length_ff:
+                        # Convert from rational number to float, or use directly if it's an int
+                        if isinstance(focal_length_ff, tuple):
+                            focal_length_ff = focal_length_ff[0] / focal_length_ff[1]
+
+                    # print(f"  Camera: {camera_info}")
+                    # print(f"  Software: {software}")
+                    # print(f"  Lens Model: {lens_model}")
+                    # print(f"  Date: {date_time}")
+                    # print(f"  ISO: {iso}")
+                    # print(f"  FNumber: {fnumber}")
+                    # print(f"  Exposure: {exposure_time}")
+                    # print(f"  Exposure Comp: {exposure_comp}")
+                    # print(f"  Focal Length: {focal_length}")
+                    # print(f"  Focal Length FF: {focal_length_ff}")
+
+                    # Add EXIF info to the self.ui.imageExifLabel
+                    items = [
+                        ("Camera\t\t", camera_info),
+                        ("Software\t\t", software),
+                        ("Lens model\t", lens_model),
+                        ("Date\t\t", date_time),
+                        ("ISO\t\t", iso),
+                        ("FNumber\t", fnumber),
+                        ("Exposure\t", exposure_time),
+                        ("Exposure comp.\t", exposure_comp),
+                        ("Focal length\t", focal_length),
+                        ("Focal length FF\t", focal_length_ff)
+                    ]
+                    exif_info = "\n".join(f"{k}: {v}" for k, v in items if v)
+                    self.ui.imageExifLabel.setText(exif_info)
 
                 QApplication.processEvents()  # Force UI update to allow the image being shown while the detection is running
                 # A zero-delay timer to schedule a task to run as soon as the main thread is free.
