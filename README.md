@@ -160,6 +160,7 @@ On Linux:
 
 #### Fixed
 - When auto correcting the exposure for a cropped image, also reset the ExposureBiasValue in the EXIF.
+- Fix UI layout for the crop settings.
 
 ### [0.6.2] - 2025-11-06
 #### Changed

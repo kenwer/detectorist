@@ -312,7 +312,7 @@ Highest confidence	: -</string>
              </property>
             </widget>
            </item>
-           <item row="5" column="0">
+           <item row="5" column="0" colspan="3">
             <widget class="QCheckBox" name="cb_comp_cam_exposure">
              <property name="text">
               <string>Auto correct camera exposure bias</string>

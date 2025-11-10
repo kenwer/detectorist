@@ -201,7 +201,7 @@ class Ui_DetectoristAppUI(object):
         self.cb_comp_cam_exposure.setObjectName(u"cb_comp_cam_exposure")
         self.cb_comp_cam_exposure.setChecked(True)
 
-        self.grdlyt_crop.addWidget(self.cb_comp_cam_exposure, 5, 0, 1, 1)
+        self.grdlyt_crop.addWidget(self.cb_comp_cam_exposure, 5, 0, 1, 3)
 
 
         self.verticalLayout.addWidget(self.cropInfoGroupBox)
