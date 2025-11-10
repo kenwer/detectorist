@@ -156,6 +156,7 @@ On Linux:
 
 #### Added
 - Display the GPS coordinates if available in EXIF.
+- Allow text selection in the EXIF info widget to be able to copy text.
 
 #### Changed
 - [Dev] Refactor ImageObject subclasses into dedicated files and let them handle EXIF individually.

@@ -374,17 +374,17 @@ class DetectoristApp(QMainWindow):
 
                     # Add EXIF info to the self.ui.imageExifLabel
                     items = [
-                        ("Camera\t\t", camera_info),
-                        ("Software\t\t", software),
+                        ("Camera\t", camera_info),
+                        ("Software\t", software),
                         ("Lens model\t", lens_model),
-                        ("Date\t\t", date_time),
-                        ("GPS coordinates\t", gps_coordinates),
-                        ("ISO\t\t", iso),
+                        ("Date\t", date_time),
+                        ("GPS coords\t", gps_coordinates),
+                        ("ISO\t", iso),
                         ("FNumber\t", fnumber),
                         ("Exposure\t", exposure_time),
-                        ("Exposure comp.\t", exposure_comp),
+                        ("Exp. comp.\t", exposure_comp),
                         ("Focal length\t", focal_length),
-                        ("Focal length FF\t", focal_length_ff)
+                        ("Focal len. FF\t", focal_length_ff)
                     ]
                     exif_info = "\n".join(f"{k}: {v}" for k, v in items if v)
                     self.ui.imageExifLabel.setText(exif_info)

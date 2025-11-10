@@ -314,11 +314,11 @@ Highest confidence	: -</string>
            </item>
            <item row="5" column="0" colspan="3">
             <widget class="QCheckBox" name="cb_comp_cam_exposure">
-             <property name="text">
-              <string>Auto correct camera exposure bias</string>
-             </property>
              <property name="toolTip">
               <string>Adjust the EV to correct for any exposure bias based on EXIF data</string>
+             </property>
+             <property name="text">
+              <string>Auto correct camera exposure bias</string>
              </property>
              <property name="checked">
               <bool>true</bool>
@@ -361,12 +361,16 @@ Highest confidence	: -</string>
                 <x>0</x>
                 <y>0</y>
                 <width>298</width>
-                <height>161</height>
+                <height>138</height>
                </rect>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout_2">
                <item alignment="Qt::AlignmentFlag::AlignTop">
-                <widget class="QLabel" name="imageExifLabel"/>
+                <widget class="QLabel" name="imageExifLabel">
+                 <property name="textInteractionFlags">
+                  <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByMouse</set>
+                 </property>
+                </widget>
                </item>
               </layout>
              </widget>
