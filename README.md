@@ -154,6 +154,9 @@ On Linux:
 
 ## Changelog
 
+#### Added
+- Display the GPS coordinates if available in EXIF.
+
 #### Changed
 - [Dev] Refactor ImageObject subclasses into dedicated files and let them handle EXIF individually.
 - [Dev] Adopt piexif to handle EXIF and remove the now unused exifread dependency.

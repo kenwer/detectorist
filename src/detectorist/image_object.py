@@ -167,6 +167,49 @@ class ImageObject (ABC):
                 else:
                     print(f"      Note: {ifd_name} contains non-dictionary data: {exif_dict[ifd_name]}")
 
+    def get_gps_coordinates_from_exif(self) -> str:
+        """
+        Utility function to extract GPS coordinates from the EXIF data of the image.
+        Returns:
+            A string representation of the GPS coordinates in decimal degrees
+            or an empty string if no GPS data is found.
+        """
+        if not self._exif_dict:
+            return ""
+        gps_info = self._exif_dict.get('GPS', {})
+        # Extract coordinate tuples and references
+        latitude = gps_info.get(piexif.GPSIFD.GPSLatitude)
+        latitude_ref = gps_info.get(piexif.GPSIFD.GPSLatitudeRef)
+        longitude = gps_info.get(piexif.GPSIFD.GPSLongitude)
+        longitude_ref = gps_info.get(piexif.GPSIFD.GPSLongitudeRef)
+
+        if not (latitude and longitude):
+            return ""
+
+        # Unpack the coordinate tuples
+        lat_degrees = latitude[0][0] / latitude[0][1]
+        lat_minutes = latitude[1][0] / latitude[1][1]
+        lat_seconds = latitude[2][0] / latitude[2][1]
+        lon_degrees = longitude[0][0] / longitude[0][1]
+        lon_minutes = longitude[1][0] / longitude[1][1]
+        lon_seconds = longitude[2][0] / longitude[2][1]
+
+        # Calculate decimal degrees
+        lat_decimal_degrees = lat_degrees + (lat_minutes / 60) + (lat_seconds / 3600)
+        lon_decimal_degrees = lon_degrees + (lon_minutes / 60) + (lon_seconds / 3600)
+
+        # Determine cardinal directions for display, defaulting to 'N' and 'E' if refs are missing
+        lat_direction_char = latitude_ref.decode('utf-8') if latitude_ref else 'N'
+        lon_direction_char = longitude_ref.decode('utf-8') if longitude_ref else 'E'
+
+        # Apply sign based on determined direction
+        if lat_direction_char == 'S':
+            lat_decimal_degrees = -lat_decimal_degrees
+        if lon_direction_char == 'W':
+            lon_decimal_degrees = -lon_decimal_degrees
+
+        return f"{abs(lat_decimal_degrees):.6f}° {lat_direction_char}, {abs(lon_decimal_degrees):.6f}° {lon_direction_char}"
+
     @classmethod
     def create(cls, image_path: str) -> 'ImageObject':
         """

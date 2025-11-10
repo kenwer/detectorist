@@ -322,6 +322,9 @@ class DetectoristApp(QMainWindow):
                     # Date and Time
                     date_time = self.ui.imageLabel.image.exif_data['0th'].get(piexif.ImageIFD.DateTime, b'').decode('utf-8', errors='ignore').strip()
 
+                    # GPS coordinates
+                    gps_coordinates = self.ui.imageLabel.image.get_gps_coordinates_from_exif()
+
                     # ISO
                     iso = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.ISOSpeedRatings, None)
                     iso = None
@@ -361,6 +364,7 @@ class DetectoristApp(QMainWindow):
                     # print(f"  Software: {software}")
                     # print(f"  Lens Model: {lens_model}")
                     # print(f"  Date: {date_time}")
+                    # print(f"  GPS Info: {gps_coordinates}")
                     # print(f"  ISO: {iso}")
                     # print(f"  FNumber: {fnumber}")
                     # print(f"  Exposure: {exposure_time}")
@@ -374,6 +378,7 @@ class DetectoristApp(QMainWindow):
                         ("Software\t\t", software),
                         ("Lens model\t", lens_model),
                         ("Date\t\t", date_time),
+                        ("GPS coordinates\t", gps_coordinates),
                         ("ISO\t\t", iso),
                         ("FNumber\t", fnumber),
                         ("Exposure\t", exposure_time),
