@@ -331,7 +331,7 @@ class DetectoristApp(QMainWindow):
     def trigger_processing_immediately(self):
         """Triggers processing immediately and cancels any pending debounced trigger."""
         self.processing_timer.stop() # cancel any pending debounced processing requests
-        self.trigger_processing()    # and start processing right away 
+        self.trigger_processing()    # and start processing right away
 
     def trigger_processing(self):
         """Emits a signal to the worker to start processing the current image."""
