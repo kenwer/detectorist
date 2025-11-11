@@ -144,18 +144,13 @@ class ImageLabel(QLabel):
         self.crop_bands = []
         self.last_crop_rects = None
 
-    def replace_image(self, image_path):
+    def replace_image(self, image_object: ImageObject):
+        """Replaces the image to be shown from the given ImageObject."""
         self.hide_bands()
-        try:
-            self.image = ImageObject.create(image_path)
-            pixmap = self._create_qpixmap(self.image)
-            self.setPixmap(pixmap)
-            return True
-        except Exception as e:
-            self.setText(f"Error loading image: {e}")
-            print(f"Error loading image: {e}")
-            self.image = None
-            return False
+        self.image = image_object
+        pixmap = self._create_qpixmap(image_object) # TODO: move the QPixmap creation into the ImageObject class and create the QPixmap during image loading and just use it here
+        self.setPixmap(pixmap)
+        self.set_detection_boxes([])
 
     def _create_qpixmap(self, image: ImageObject) -> QPixmap:
         """Creates a QPixmap from an ImageObject, ready for display."""

@@ -2,11 +2,20 @@ import csv
 import os
 import subprocess
 import sys
-import time
 
 import piexif
 import pillow_heif
-from PySide6.QtCore import QDir, QRect, QStringListModel, Qt, QTimer
+from PySide6.QtCore import (
+    Q_ARG,
+    QDir,
+    QMetaObject,
+    QRect,
+    QStringListModel,
+    Qt,
+    QThread,
+    QTimer,
+    Signal,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -23,12 +32,14 @@ from .detectorist_app_gui import Ui_DetectoristAppUI
 from .image_label import ImageLabel
 from .image_object import ImageObject
 from .utils import get_model_path
+from .worker import DetectionWorker
 
 # The Non-Maximum Suppression threshold used for object detection
 NMS_THRESHOLD = 0.4
 
 class DetectoristApp(QMainWindow):
-
+    # Signal to request processing in the worker thread
+    request_processing = Signal(str, float, float, bool)
 
     @staticmethod
     def _calculate_single_crop_rect(detections: list, image_height: int, image_width: int, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> tuple[int, int, int, int] | None:
@@ -160,7 +171,6 @@ class DetectoristApp(QMainWindow):
 
         self.current_image_path = None
         self.current_folder_path = None
-        self.last_confidence = None
 
         # Ensure opener is registered (otherwise the native code will segfault)
         pillow_heif.register_heif_opener()
@@ -170,11 +180,11 @@ class DetectoristApp(QMainWindow):
         self.ui.setupUi(self)
         self.setWindowTitle(f"Detectorist {__version__}")
 
-        # Debounce timer for detection
-        self.detection_timer = QTimer(self)
-        self.detection_timer.setSingleShot(True)
-        self.detection_timer.setInterval(500)  # 500ms delay
-        self.detection_timer.timeout.connect(self.detect_objects)
+        # Debounce timer for processing
+        self.processing_timer = QTimer(self)
+        self.processing_timer.setSingleShot(True)
+        self.processing_timer.setInterval(200)  # 200ms delay
+        self.processing_timer.timeout.connect(self.trigger_processing)
 
         # Replace the imageLabel from the ui file with our custom ImageLabel
         # but keep/re-use the sizePolicy and alignment from the .ui file
@@ -194,7 +204,6 @@ class DetectoristApp(QMainWindow):
 
         # Connect signals
         self.ui.openFolderAction.triggered.connect(self.open_folder)
-        self.ui.detectObjectAction.triggered.connect(self.detect_objects)
         self.ui.imageListView.selectionModel().currentChanged.connect(self.on_image_selected)
         self.ui.actionCropSaveImage.triggered.connect(self.crop_save_image)
         self.ui.actionCropSaveAllImages.triggered.connect(self.crop_save_all_images)
@@ -203,14 +212,13 @@ class DetectoristApp(QMainWindow):
         self.ui.actionAbout.triggered.connect(self.show_about_dialog)
         self.ui.actionSort_images_by_object_class.triggered.connect(self.sort_images_by_class_into_folders)
 
-        # Delayed Sliders and SpinBoxes (because they are emitted very often)
-        self.ui.confidenceSlider.valueChanged.connect(self.request_detection)
-        self.ui.confidenceSpinBox.valueChanged.connect(self.request_detection)
+        # Delayed/debounced Slider and SpinBoxe (because they are emitted very often as they both change)
+        self.ui.confidenceSlider.valueChanged.connect(self.debounce_processing_trigger)
+        self.ui.confidenceSpinBox.valueChanged.connect(self.debounce_processing_trigger)
 
         # Immediate trigger
-        self.ui.confidenceSlider.sliderReleased.connect(self.detect_objects)
-        self.ui.confidenceSpinBox.editingFinished.connect(self.detect_objects)
-
+        self.ui.confidenceSlider.sliderReleased.connect(self.trigger_processing_immediately)
+        self.ui.confidenceSpinBox.editingFinished.connect(self.trigger_processing_immediately)
 
         # Connect crop controls
         self.ui.rb_crop_to_top_conf.toggled.connect(self.update_crop_bands)
@@ -231,8 +239,22 @@ class DetectoristApp(QMainWindow):
         self.onnx_models = [f for f in os.listdir(self.models_dir) if f.endswith(".onnx")]
         print(f"Found ONNX models: {self.onnx_models}")
         self.ui.modelSelectComboBox.addItems(self.onnx_models)
+
+        # Setup worker thread, to offload image loading and detection, so the GUI remains responsive.
+        self.thread = QThread()
+        self.worker = DetectionWorker()
+        self.worker.moveToThread(self.thread)
+
+        # Connect signals/slots for worker
+        self.request_processing.connect(self.worker.process_image)
+        self.worker.model_loaded.connect(self.handle_model_loaded)
+        self.worker.image_loaded.connect(self.handle_image_loaded)
+        self.worker.detection_complete.connect(self.handle_detection_complete)
+        self.worker.error.connect(self.handle_worker_error)
         self.ui.modelSelectComboBox.currentIndexChanged.connect(self.on_model_selected)
 
+        # Start the thread and load initial model
+        self.thread.start()
         # Load AI model
         self.on_model_selected(0)
 
@@ -245,11 +267,6 @@ class DetectoristApp(QMainWindow):
         ]
         detection_info = "\n".join(f"{k}: {v}" for k, v in detection_info_items)
         self.ui.detectionInfoLabel.setText(detection_info)
-
-
-    def request_detection(self):
-        self.detection_timer.start()
-
 
     def open_folder(self, folder_path=None):
         if not folder_path:
@@ -290,129 +307,183 @@ class DetectoristApp(QMainWindow):
     def on_image_selected(self, index):
         file_name = self.model.stringList()[index.row()]
         if self.current_folder_path:
-            self.current_image_path = os.path.join(self.current_folder_path, file_name)
-            self.ui.statusBar.showMessage(file_name)
+            new_image_path = os.path.join(self.current_folder_path, file_name)
+            if new_image_path == self.current_image_path:
+                return  # No need to reload the same image
 
-            if self.ui.imageLabel.replace_image(self.current_image_path):
-                self.last_confidence = None  # Reset for new image
-                self._update_detection_info() # Reset for new detection
+            self.current_image_path = new_image_path
+            self.ui.statusBar.showMessage(f"Loading {file_name}...")
 
-                if self.ui.imageLabel.image:
-                    self.ui.imageLabel.image.exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
+            # Clear previous results and show loading state
+            self.ui.imageLabel.setText("Loading image...") #{os.path.basename(self.current_image_path)}
+            self.ui.imageLabel.hide_bands()
+            self._update_detection_info()
+            self.ui.imageExifLabel.setText("")
+            QApplication.processEvents()
 
-                height, width = self.ui.imageLabel.image.height, self.ui.imageLabel.image.width
-                original_bpc = self.ui.imageLabel.image.original_bpc
-                file_type = self.ui.imageLabel.image.file_extension.upper()[1:]
-                self.ui.imageInfoLabel.setText(f"File type \t: {file_type}\nResolution\t: {width}x{height}\nBits per channel\t: {original_bpc}")
+            # Request the worker to load and process the image
+            self.trigger_processing_immediately()
 
-                self.ui.imageExifLabel.setText("") # Clear previous EXIF info
-                # Extract EXIF data and show it if available
-                if self.ui.imageLabel.image.exif_data:
-                    # Camera Make
-                    camera_make = self.ui.imageLabel.image.exif_data['0th'].get(piexif.ImageIFD.Make, b'').decode('utf-8', errors='ignore').strip()
+    def debounce_processing_trigger(self):
+        """Starts or restarts the debounce timer."""
+        self.processing_timer.start()
 
-                    # Camera Model
-                    camera_model = self.ui.imageLabel.image.exif_data['0th'].get(piexif.ImageIFD.Model, b'').decode('utf-8', errors='ignore').strip()
+    def trigger_processing_immediately(self):
+        """Triggers processing immediately and cancels any pending debounced trigger."""
+        self.processing_timer.stop() # cancel any pending debounced processing requests
+        self.trigger_processing()    # and start processing right away 
 
-                    # Combine Make and Model to form Camera info
-                    camera_info = f"{camera_make} {camera_model}".strip()
+    def trigger_processing(self):
+        """Emits a signal to the worker to start processing the current image."""
+        if not self.current_image_path:
+            return
 
-                    # Software
-                    software = self.ui.imageLabel.image.exif_data['0th'].get(piexif.ImageIFD.Software, b'').decode('utf-8', errors='ignore').strip()
+        confidence = self.ui.confidenceSlider.value() / 100.0
+        exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
 
-                    # Lens Model
-                    lens_model = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.LensModel, b'').decode('utf-8', errors='ignore').strip()
+        self.request_processing.emit(self.current_image_path, confidence, NMS_THRESHOLD, exposure_correction)
 
-                    # Date and Time
-                    date_time = self.ui.imageLabel.image.exif_data['0th'].get(piexif.ImageIFD.DateTime, b'').decode('utf-8', errors='ignore').strip()
+    def handle_model_loaded(self, success: bool, message: str):
+        """Handles the result of loading a model in the worker."""
+        if success:
+            print(message)
+            # If an image is currently displayed, trigger a new detection with the new model.
+            if self.current_image_path:
+                self.trigger_processing()
+        else:
+            self.ui.imageLabel.setText(message)
+            print(message)
 
-                    # GPS coordinates
-                    gps_coordinates = self.ui.imageLabel.image.get_gps_coordinates_from_exif()
+    def handle_image_loaded(self, image_path: str, image_object: ImageObject):
+        """Handles the image_loaded signal from the worker."""
+        if image_path != self.current_image_path:
+            return  # Stale result for a different image
 
-                    # ISO
-                    iso = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.ISOSpeedRatings, None)
-                    iso = None
+        if not image_object:
+            self.ui.imageLabel.clear()
+            self.ui.imageLabel.setText(f"Could not load image:\n{image_path}")
+            return
 
-                    # F-Number
-                    fnumber = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.FNumber, None)
-                    if fnumber:
-                        # Convert from rational number to float
-                        fnumber = fnumber[0] / fnumber[1]
+        self.ui.imageLabel.replace_image(image_object)
+        self.ui.statusBar.showMessage(os.path.basename(image_path))
 
-                    # Exposure Time
-                    exposure_time = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.ExposureTime, None)
-                    if exposure_time:
-                        # Convert from rational number to readable fraction
-                        exposure_time = f"1/{int(1/exposure_time[0])}" if exposure_time[0] != 0 else None
+        # Update the Image info label
+        height, width = image_object.height, image_object.width
+        original_bpc = image_object.original_bpc
+        file_type = image_object.file_extension.upper()[1:]
+        self.ui.imageInfoLabel.setText(f"File type \t: {file_type}\nResolution\t: {width}x{height}\nBits per channel\t: {original_bpc}")
 
-                    # Exposure Compensation
-                    exposure_comp = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.ExposureBiasValue, None)
-                    if exposure_comp:
-                        # Convert from rational number to float
-                        exposure_comp = exposure_comp[0] / exposure_comp[1]
+        # Update the EXIF info label
+        # Camera Make
+        camera_make = image_object.exif_data['0th'].get(piexif.ImageIFD.Make, b'').decode('utf-8', errors='ignore').strip()
+        # Camera Model
+        camera_model = image_object.exif_data['0th'].get(piexif.ImageIFD.Model, b'').decode('utf-8', errors='ignore').strip()
+        # Combine Make and Model to form Camera info
+        camera_info = f"{camera_make} {camera_model}".strip()
+        # Software
+        software = image_object.exif_data['0th'].get(piexif.ImageIFD.Software, b'').decode('utf-8', errors='ignore').strip()
+        # Lens Model
+        lens_model = image_object.exif_data['Exif'].get(piexif.ExifIFD.LensModel, b'').decode('utf-8', errors='ignore').strip()
 
-                    # Focal Length
-                    focal_length = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.FocalLength, None)
-                    if focal_length:
-                        # Convert from rational number to float
-                        focal_length = focal_length[0] / focal_length[1]
+        # Date and Time
+        date_time = image_object.exif_data['0th'].get(piexif.ImageIFD.DateTime, b'').decode('utf-8', errors='ignore').strip()
 
-                    # Focal Length FF (Full Frame Equivalent)
-                    focal_length_ff = self.ui.imageLabel.image.exif_data['Exif'].get(piexif.ExifIFD.FocalLengthIn35mmFilm, None)
-                    if focal_length_ff:
-                        # Convert from rational number to float, or use directly if it's an int
-                        if isinstance(focal_length_ff, tuple):
-                            focal_length_ff = focal_length_ff[0] / focal_length_ff[1]
+        # GPS coordinates
+        gps_coordinates = image_object.get_gps_coordinates_from_exif()
 
-                    # print(f"  Camera: {camera_info}")
-                    # print(f"  Software: {software}")
-                    # print(f"  Lens Model: {lens_model}")
-                    # print(f"  Date: {date_time}")
-                    # print(f"  GPS Info: {gps_coordinates}")
-                    # print(f"  ISO: {iso}")
-                    # print(f"  FNumber: {fnumber}")
-                    # print(f"  Exposure: {exposure_time}")
-                    # print(f"  Exposure Comp: {exposure_comp}")
-                    # print(f"  Focal Length: {focal_length}")
-                    # print(f"  Focal Length FF: {focal_length_ff}")
+        # ISO
+        iso = image_object.exif_data['Exif'].get(piexif.ExifIFD.ISOSpeedRatings, None)
 
-                    # Add EXIF info to the self.ui.imageExifLabel
-                    items = [
-                        ("Camera\t", camera_info),
-                        ("Software\t", software),
-                        ("Lens model\t", lens_model),
-                        ("Date\t", date_time),
-                        ("GPS coords\t", gps_coordinates),
-                        ("ISO\t", iso),
-                        ("FNumber\t", fnumber),
-                        ("Exposure\t", exposure_time),
-                        ("Exp. comp.\t", exposure_comp),
-                        ("Focal length\t", focal_length),
-                        ("Focal len. FF\t", focal_length_ff)
-                    ]
-                    exif_info = "\n".join(f"{k}: {v}" for k, v in items if v)
-                    self.ui.imageExifLabel.setText(exif_info)
+        # F-Number
+        fnumber = image_object.exif_data['Exif'].get(piexif.ExifIFD.FNumber, None)
+        if fnumber:
+            # Convert from rational number to float
+            fnumber = fnumber[0] / fnumber[1]
 
-                QApplication.processEvents()  # Force UI update to allow the image being shown while the detection is running
-                # A zero-delay timer to schedule a task to run as soon as the main thread is free.
-                # This will ensure the image appears, and then the detection kicks off right away
-                QTimer.singleShot(0, self.detect_objects)
+        # Exposure Time
+        exposure_time = image_object.exif_data['Exif'].get(piexif.ExifIFD.ExposureTime, None)
+        if exposure_time:
+            # Convert from rational number to readable fraction
+            exposure_time = f"1/{int(1/exposure_time[0])}" if exposure_time[0] != 0 else None
+
+        # Exposure Compensation
+        exposure_comp = image_object.exif_data['Exif'].get(piexif.ExifIFD.ExposureBiasValue, None)
+        if exposure_comp:
+            # Convert from rational number to float
+            exposure_comp = exposure_comp[0] / exposure_comp[1]
+
+
+        # Focal Length
+        focal_length = image_object.exif_data['Exif'].get(piexif.ExifIFD.FocalLength, None)
+        if focal_length:
+            # Convert from rational number to float
+            focal_length = focal_length[0] / focal_length[1]
+
+        # Focal Length FF  (Full Frame Equivalent)
+        focal_length_ff = image_object.exif_data['Exif'].get(piexif.ExifIFD.FocalLengthIn35mmFilm, None)
+        if focal_length_ff:
+            # Convert from rational number to float, or use directly if it's an int
+            if isinstance(focal_length_ff, tuple):
+                focal_length_ff = focal_length_ff[0] / focal_length_ff[1]
+
+        # print(f"  Camera: {camera_info}")
+        # print(f"  Software: {software}")
+        # print(f"  Lens Model: {lens_model}")
+        # print(f"  Date: {date_time}")
+        # print(f"  GPS Info: {gps_coordinates}")
+        # print(f"  ISO: {iso}")
+        # print(f"  FNumber: {fnumber}")
+        # print(f"  Exposure: {exposure_time}")
+        # print(f"  Exposure Comp: {exposure_comp}")
+        # print(f"  Focal Length: {focal_length}")
+        # print(f"  Focal Length FF: {focal_length_ff}")
+
+        # Add EXIF info to the self.ui.imageExifLabel
+        items = [
+            ("Camera\t", camera_info),
+            ("Software\t", software),
+            ("Lens model\t", lens_model),
+            ("Date\t", date_time),
+            ("GPS coords\t", gps_coordinates),
+            ("ISO\t", iso),
+            ("FNumber\t", fnumber),
+            ("Exposure\t", exposure_time),
+            ("Exp. comp.\t", exposure_comp),
+            ("Focal length\t", focal_length),
+            ("Focal len. FF\t", focal_length_ff)
+        ]
+        exif_info = "\n".join(f"{k}: {v}" for k, v in items if v)
+        self.ui.imageExifLabel.setText(exif_info)
+
+
+    def handle_detection_complete(self, image_path: str, results: list, detection_time_ms: float):
+        """Handles the detection_complete signal from the worker."""
+        if image_path != self.current_image_path:
+            return  # Stale result (this can happen if user quickly switches images)
+
+        self._update_detection_info(
+            objects=len(results),
+            confidence=f"{max((det[1] for det in results), default=0):.4f}",
+            time=f"{detection_time_ms:.2f} ms"
+        )
+
+        self.ui.imageLabel.set_detection_boxes(results)
+        self.update_crop_bands()
+
+    def handle_worker_error(self, image_path: str, message: str):
+        """Handles an error signal from the worker."""
+        if image_path != self.current_image_path:
+            return  # Stale error for a different image (ignored)
+
+        print(f"Worker error for {image_path}: {message}")
+        self.ui.imageLabel.setText(f"Error: {message}")
+        self._update_detection_info()
 
     def on_model_selected(self, index):
         model_name = self.ui.modelSelectComboBox.itemText(index)
         model_path = os.path.join(self.models_dir, model_name)
-        try:
-            self.detector = Detector(model_path)
-            print(f"Loaded model: {model_path}")
-
-            if self.ui.imageLabel.image:
-                self.last_confidence = None
-                self._update_detection_info()
-                self.ui.imageLabel.set_detection_boxes([])
-                QTimer.singleShot(0, self.detect_objects)
-
-        except OSError as e:
-            self.ui.imageLabel.setText(f"Error loading model: {e}")
+        # The worker lives in another thread, so we must use invokeMethod to call it safely.
+        QMetaObject.invokeMethod(self.worker, "load_model", Qt.QueuedConnection, Q_ARG(str, model_path))
 
     def on_exposure_compensation_toggled(self, checked: bool):
         if self.ui.imageLabel.image:
@@ -461,39 +532,6 @@ class DetectoristApp(QMainWindow):
             self.on_image_selected(self.model.index(index))
         except ValueError:
             self.ui.imageLabel.setText(f"Error: {os.path.basename(file_path)} not found in folder.")
-
-    def detect_objects(self):
-        if not self.ui.imageLabel.image:
-            return
-
-        confidence = self.ui.confidenceSlider.value() / 100.0
-
-        # Skip detection if the value hasn't changed
-        if confidence == self.last_confidence:
-            # Still update the crop bands, e.g. padding could have changed
-            self.update_crop_bands()
-            return
-
-        try:
-            start_time = time.perf_counter()
-            results = self.detector.detect(self.ui.imageLabel.image, confidence_threshold=confidence, nms_threshold=NMS_THRESHOLD)
-            end_time = time.perf_counter()
-            detection_time_ms = (end_time - start_time) * 1000
-
-            self._update_detection_info(
-                objects=len(results),
-                confidence=f"{max((det[1] for det in results), default=0):.4f}",
-                time=f"{detection_time_ms:.2f} ms"
-            )
-
-            self.ui.imageLabel.set_detection_boxes(results)
-            self.update_crop_bands()
-
-            # Cache the new value
-            self.last_confidence = confidence
-
-        except Exception as e:
-            self.ui.imageLabel.setText(f"Error detecting objects: {e}")
 
     def _get_current_crop_settings(self):
         """Gets crop settings from the UI."""
@@ -629,6 +667,11 @@ class DetectoristApp(QMainWindow):
         try:
             output_dir = self._create_output_dir()
 
+            # The detector lives in the worker thread. We can't access it directly.
+            # For batch processing, we need a separate detector instance.
+            model_path = os.path.join(self.models_dir, self.ui.modelSelectComboBox.currentText())
+            batch_detector = Detector(model_path)
+
             state = setup_callback(output_dir)
             if state is None:
                 return
@@ -658,7 +701,7 @@ class DetectoristApp(QMainWindow):
                     image_path = os.path.join(self.current_folder_path, file_name)
                     image = ImageObject.create(image_path)
                     image.exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
-                    results = self.detector.detect(image, confidence_threshold=confidence, nms_threshold=NMS_THRESHOLD)
+                    results = batch_detector.detect(image, confidence_threshold=confidence, nms_threshold=NMS_THRESHOLD)
 
                     log_data = process_image_callback(image, results, output_dir, **state)
                     if log_data:
@@ -765,4 +808,6 @@ class DetectoristApp(QMainWindow):
     def closeEvent(self, event):
         # Clean up resources, if any
         print("Closing application...")
+        self.thread.quit()
+        self.thread.wait()
         super().closeEvent(event)

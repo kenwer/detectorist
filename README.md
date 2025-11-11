@@ -160,6 +160,7 @@ On Linux:
 - Allow text selection in the EXIF info widget to be able to copy text.
 
 #### Changed
+- Enhanced UI responsiveness by offloading image loading and object detection to a dedicated `DetectionWorker` thread for asynchronous processing.
 - [Dev] Refactor ImageObject subclasses into dedicated files and let them handle EXIF individually.
 - [Dev] Adopt piexif to handle EXIF and remove the now unused exifread dependency.
 
