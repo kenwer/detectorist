@@ -161,6 +161,7 @@ On Linux:
 
 #### Changed
 - Enhanced UI responsiveness by offloading image loading and object detection to a dedicated `DetectionWorker` thread for asynchronous processing.
+- Remember the last opened directory for the current session (not persistent).
 - [Dev] Refactor ImageObject subclasses into dedicated files and let them handle EXIF individually.
 - [Dev] Adopt piexif to handle EXIF and remove the now unused exifread dependency.
 

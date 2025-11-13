@@ -171,6 +171,7 @@ class DetectoristApp(QMainWindow):
 
         self.current_image_path = None
         self.current_folder_path = None
+        self.last_opened_directory = QDir.homePath()
 
         # Ensure opener is registered (otherwise the native code will segfault)
         pillow_heif.register_heif_opener()
@@ -270,9 +271,10 @@ class DetectoristApp(QMainWindow):
 
     def open_folder(self, folder_path=None):
         if not folder_path:
-            folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", QDir.homePath())
+            folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", self.last_opened_directory)
         if folder_path:
             self.current_folder_path = folder_path
+            self.last_opened_directory = folder_path
             # Clear existing list and main image
             self.model.setStringList([])
             self.current_image_path = None
