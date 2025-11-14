@@ -155,11 +155,13 @@ On Linux:
 ## Changelog
 
 #### Added
+- New "Open Image(s)..." action at the File menu to open and load selected files only (also works for dropping slected files).
 - Allow selecting a subset of the loaded images to be cropped & saved.
 - Display the GPS coordinates if available in EXIF.
 - Allow text selection in the EXIF info widget to be able to copy text.
 
 #### Changed
+- Shortcut to open/load folders now is Ctrl+Shift+O, since Ctrl+O is for opening images within folders.
 - Enhanced UI responsiveness by offloading image loading and object detection to a dedicated `DetectionWorker` thread for asynchronous processing.
 - Remember the last opened directory for the current session (not persistent).
 - [Dev] Refactor ImageObject subclasses into dedicated files and let them handle EXIF individually.

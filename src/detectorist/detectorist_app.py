@@ -10,7 +10,6 @@ from PySide6.QtCore import (
     QDir,
     QMetaObject,
     QRect,
-    QStringListModel,
     Qt,
     QThread,
     QTimer,
@@ -30,6 +29,7 @@ from .about_dialog import Ui_AboutDialog
 from .detector import Detector
 from .detectorist_app_gui import Ui_DetectoristAppUI
 from .image_label import ImageLabel
+from .image_list_model import ImageListModel
 from .image_object import ImageObject
 from .utils import get_model_path
 from .worker import DetectionWorker
@@ -170,7 +170,6 @@ class DetectoristApp(QMainWindow):
         super().__init__()
 
         self.current_image_path = None
-        self._loaded_image_full_paths = []
         self.last_opened_directory = QDir.homePath()
 
         # Ensure opener is registered (otherwise the native code will segfault)
@@ -198,7 +197,7 @@ class DetectoristApp(QMainWindow):
         self.ui.imageLabel.setText("Drop a folder with images")
         self.ui.imageLabel.setAcceptDrops(True) # Enable drag and drop for imageLabel
 
-        self.model = QStringListModel()
+        self.model = ImageListModel()
         self.ui.imageListView.setModel(self.model)
         self.ui.imageListView.setAcceptDrops(True) # Enable drag and drop for imageListView
         self.setAcceptDrops(True) # Enable drag and drop for the main window
@@ -283,30 +282,27 @@ class DetectoristApp(QMainWindow):
             self.ui.actionCropSaveAllImages.setEnabled(False)
             self.ui.actionSort_images_by_object_class.setEnabled(False)
             self.ui.imageLabel.setText("No supported images found or selected.")
-            self._loaded_image_full_paths = []
-            self.model.setStringList([])
+            self.model.clear()
             return
 
         # Clear existing list and main image
-        self.model.setStringList([])
+        self.model.clear()
         self.current_image_path = None
         self.ui.imageLabel.clear()
 
         self.ui.imageLabel.setText("Loading Images...")
-        QApplication.processEvents()
-
-        self._loaded_image_full_paths = supported_files # Store full paths
-        basenames = [os.path.basename(f) for f in supported_files]
-        self.model.setStringList(basenames)
+        self.model.setImagePaths(supported_files)
+        QApplication.processEvents() # Ensure UI updates
 
         # Select the first image in the list view
-        first_file_basename = os.path.basename(supported_files[0])
+        first_file_path = supported_files[0]
         try:
-            index = basenames.index(first_file_basename)
+            index = supported_files.index(first_file_path)
             self.ui.imageListView.setCurrentIndex(self.model.index(index))
             self.on_image_selected(self.model.index(index))
         except ValueError:
-            self.ui.imageLabel.setText(f"Error: Could not find {first_file_basename} in the list.")
+            print(f"Error: Could not find {first_file_path} in the list.")
+            self.ui.imageLabel.setText(f"Error: Could not find {os.path.basename(first_file_path)} in the list.")
 
         self.ui.actionCropSaveImage.setEnabled(True)
         self.ui.actionCropSaveAllImages.setEnabled(True)
@@ -332,12 +328,12 @@ class DetectoristApp(QMainWindow):
             self._load_images_from_paths(full_paths)
 
     def on_image_selected(self, index):
-        if not self._loaded_image_full_paths: # Check if any images are loaded
+        if self.model.rowCount() == 0: # Check if any images are loaded
             return
 
         # Get the full path of the selected image from our internal list
-        # The index.row() corresponds to the position in the model, which corresponds to _loaded_image_full_paths
-        new_image_path = self._loaded_image_full_paths[index.row()]
+        # The index.row() corresponds to the position in the model
+        new_image_path = self.model.data(index, ImageListModel.FullPathRole)
 
         if new_image_path == self.current_image_path:
             return  # No need to reload the same image
@@ -695,13 +691,13 @@ class DetectoristApp(QMainWindow):
         This helper accepts a setup_callback for any pre-processing steps (like preparing directories)
         and a process_callback to execute the specific action (cropping or sorting) for each image.
         """
-        if not self._loaded_image_full_paths:
+        if self.model.rowCount() == 0:
             return # No images loaded at all
         # Use the directory of the first loaded image as the base for output
-        output_base_dir = os.path.dirname(self._loaded_image_full_paths[0])
+        output_base_dir = os.path.dirname(self.model.imagePaths()[0])
 
 
-        image_full_paths = image_files_to_process if image_files_to_process is not None else self._loaded_image_full_paths
+        image_full_paths = image_files_to_process if image_files_to_process is not None else self.model.imagePaths()
         if not image_full_paths:
             return
 
@@ -838,7 +834,7 @@ class DetectoristApp(QMainWindow):
         if not selected_indexes:
             return
 
-        selected_image_files = [self.model.data(index) for index in selected_indexes]
+        selected_image_files = [self.model.data(index, ImageListModel.FullPathRole) for index in selected_indexes]
         self._crop_and_save_images_with_progress("Cropping selected images", selected_image_files)
 
     def _update_crop_save_selected_images_action_state(self):
