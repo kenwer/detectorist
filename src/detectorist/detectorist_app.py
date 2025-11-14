@@ -3,7 +3,6 @@ import os
 import subprocess
 import sys
 
-import piexif
 import pillow_heif
 from PySide6.QtCore import (
     Q_ARG,
@@ -402,89 +401,7 @@ class DetectoristApp(QMainWindow):
         self.ui.imageInfoLabel.setText(f"File type \t: {file_type}\nResolution\t: {width}x{height}\nBits per channel\t: {original_bpc}")
 
         # Update the EXIF info label
-        exif_0th_ifd = image_object.exif_data.get('0th', {})
-
-        # Camera Make
-        camera_make = exif_0th_ifd.get(piexif.ImageIFD.Make, b'').decode('utf-8', errors='ignore').strip()
-        # Camera Model
-        camera_model = exif_0th_ifd.get(piexif.ImageIFD.Model, b'').decode('utf-8', errors='ignore').strip()
-        # Combine Make and Model to form Camera info
-        camera_info = f"{camera_make} {camera_model}".strip()
-        # Software
-        software = exif_0th_ifd.get(piexif.ImageIFD.Software, b'').decode('utf-8', errors='ignore').strip()
-        # Lens Model
-        exif_ifd = image_object.exif_data.get('Exif', {})
-        lens_model = exif_ifd.get(piexif.ExifIFD.LensModel, b'').decode('utf-8', errors='ignore').strip()
-
-        # Date and Time
-        date_time = exif_0th_ifd.get(piexif.ImageIFD.DateTime, b'').decode('utf-8', errors='ignore').strip()
-
-        # GPS coordinates
-        gps_coordinates = image_object.get_gps_coordinates_from_exif()
-
-        # ISO
-        iso = exif_ifd.get(piexif.ExifIFD.ISOSpeedRatings, None)
-
-        # F-Number
-        fnumber = exif_ifd.get(piexif.ExifIFD.FNumber, None)
-        if fnumber:
-            # Convert from rational number to float
-            fnumber = fnumber[0] / fnumber[1]
-
-        # Exposure Time
-        exposure_time = exif_ifd.get(piexif.ExifIFD.ExposureTime, None)
-        if exposure_time:
-            # Convert from rational number to readable fraction
-            exposure_time = f"1/{int(1/exposure_time[0])}" if exposure_time[0] != 0 else None
-
-        # Exposure Compensation
-        exposure_comp = exif_ifd.get(piexif.ExifIFD.ExposureBiasValue, None)
-        if exposure_comp:
-            # Convert from rational number to float
-            exposure_comp = exposure_comp[0] / exposure_comp[1]
-
-
-        # Focal Length
-        focal_length = exif_ifd.get(piexif.ExifIFD.FocalLength, None)
-        if focal_length:
-            # Convert from rational number to float
-            focal_length = focal_length[0] / focal_length[1]
-
-        # Focal Length FF  (Full Frame Equivalent)
-        focal_length_ff = exif_ifd.get(piexif.ExifIFD.FocalLengthIn35mmFilm, None)
-        if focal_length_ff:
-            # Convert from rational number to float, or use directly if it's an int
-            if isinstance(focal_length_ff, tuple):
-                focal_length_ff = focal_length_ff[0] / focal_length_ff[1]
-
-        # print(f"  Camera: {camera_info}")
-        # print(f"  Software: {software}")
-        # print(f"  Lens Model: {lens_model}")
-        # print(f"  Date: {date_time}")
-        # print(f"  GPS Info: {gps_coordinates}")
-        # print(f"  ISO: {iso}")
-        # print(f"  FNumber: {fnumber}")
-        # print(f"  Exposure: {exposure_time}")
-        # print(f"  Exposure Comp: {exposure_comp}")
-        # print(f"  Focal Length: {focal_length}")
-        # print(f"  Focal Length FF: {focal_length_ff}")
-
-        # Add EXIF info to the self.ui.imageExifLabel
-        items = [
-            ("Camera\t", camera_info),
-            ("Software\t", software),
-            ("Lens model\t", lens_model),
-            ("Date\t", date_time),
-            ("GPS coords\t", gps_coordinates),
-            ("ISO\t", iso),
-            ("FNumber\t", fnumber),
-            ("Exposure\t", exposure_time),
-            ("Exp. comp.\t", exposure_comp),
-            ("Focal length\t", focal_length),
-            ("Focal len. FF\t", focal_length_ff)
-        ]
-        exif_info = "\n".join(f"{k}: {v}" for k, v in items if v)
-        self.ui.imageExifLabel.setText(exif_info)
+        self.ui.imageExifLabel.setText(image_object.get_exif_summary())
 
 
     def handle_detection_complete(self, image_path: str, results: list, detection_time_ms: float):

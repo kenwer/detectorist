@@ -210,6 +210,80 @@ class ImageObject (ABC):
 
         return f"{abs(lat_decimal_degrees):.6f}° {lat_direction_char}, {abs(lon_decimal_degrees):.6f}° {lon_direction_char}"
 
+    def get_exif_summary(self) -> str:
+        """
+        Parses the loaded EXIF data and returns a formatted summary string.
+        """
+        if not self.exif_data:
+            return ""
+
+        exif_0th_ifd = self.exif_data.get('0th', {})
+        exif_ifd = self.exif_data.get('Exif', {})
+
+        # Helper to decode bytes to string
+        def decode(value):
+            return value.decode('utf-8', errors='ignore').strip() if isinstance(value, bytes) else value
+
+        # Helper to convert rational (num, den) to float
+        def rational_to_float(rational):
+            if not rational or not isinstance(rational, tuple) or len(rational) != 2 or rational[1] == 0:
+                return None
+            return rational[0] / rational[1]
+
+        # Camera Make and Model
+        camera_make = decode(exif_0th_ifd.get(piexif.ImageIFD.Make, b''))
+        camera_model = decode(exif_0th_ifd.get(piexif.ImageIFD.Model, b''))
+        camera_info = f"{camera_make} {camera_model}".strip()
+
+        # Software
+        software = decode(exif_0th_ifd.get(piexif.ImageIFD.Software, b''))
+        # Lens Model
+        lens_model = decode(exif_ifd.get(piexif.ExifIFD.LensModel, b''))
+        # Date and Time
+        date_time = decode(exif_0th_ifd.get(piexif.ImageIFD.DateTime, b''))
+        # GPS coordinates
+        gps_coordinates = self.get_gps_coordinates_from_exif()
+        # ISO
+        iso = exif_ifd.get(piexif.ExifIFD.ISOSpeedRatings, None)
+
+        # F-Number
+        fnumber = rational_to_float(exif_ifd.get(piexif.ExifIFD.FNumber))
+
+        # Exposure Time
+        exposure_time_rational = exif_ifd.get(piexif.ExifIFD.ExposureTime)
+        exposure_time = None
+        if exposure_time_rational:
+            exposure_float = rational_to_float(exposure_time_rational)
+            if exposure_float:
+                exposure_time = self._format_exposure_time(exposure_float)
+
+        # Exposure Compensation
+        exposure_comp = rational_to_float(exif_ifd.get(piexif.ExifIFD.ExposureBiasValue))
+
+        # Focal Length
+        focal_length = rational_to_float(exif_ifd.get(piexif.ExifIFD.FocalLength))
+
+        # Focal Length FF (Full Frame Equivalent)
+        focal_length_ff_raw = exif_ifd.get(piexif.ExifIFD.FocalLengthIn35mmFilm)
+        focal_length_ff = focal_length_ff_raw
+        if isinstance(focal_length_ff_raw, tuple):
+             focal_length_ff = rational_to_float(focal_length_ff_raw)
+
+        items = [
+            ("Camera\t", camera_info),
+            ("Software\t", software),
+            ("Lens model\t", lens_model),
+            ("Date\t", date_time),
+            ("GPS coords\t", gps_coordinates),
+            ("ISO\t", iso),
+            ("FNumber\t", fnumber),
+            ("Exposure\t", exposure_time),
+            ("Exp. comp.\t", exposure_comp),
+            ("Focal length\t", focal_length),
+            ("Focal len. FF\t", focal_length_ff)
+        ]
+        return "\n".join(f"{k}: {v}" for k, v in items if v)
+
     @classmethod
     def create(cls, image_path: str) -> 'ImageObject':
         """
