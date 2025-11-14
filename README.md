@@ -154,6 +154,7 @@ On Linux:
 
 ## Changelog
 
+### [0.7.0] - 2025-11-14
 #### Added
 - New "Open Image(s)..." action at the File menu to open and load selected files only (also works for dropping slected files).
 - Allow selecting a subset of the loaded images to be cropped & saved.
