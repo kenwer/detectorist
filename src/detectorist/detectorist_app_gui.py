@@ -28,6 +28,8 @@ class Ui_DetectoristAppUI(object):
         if not DetectoristAppUI.objectName():
             DetectoristAppUI.setObjectName(u"DetectoristAppUI")
         DetectoristAppUI.resize(1500, 750)
+        self.openImagesAction = QAction(DetectoristAppUI)
+        self.openImagesAction.setObjectName(u"openImagesAction")
         self.openFolderAction = QAction(DetectoristAppUI)
         self.openFolderAction.setObjectName(u"openFolderAction")
         self.cropAction = QAction(DetectoristAppUI)
@@ -269,6 +271,7 @@ class Ui_DetectoristAppUI(object):
         self.menuBar.addAction(self.menuFile.menuAction())
         self.menuBar.addAction(self.menuActions.menuAction())
         self.menuBar.addAction(self.menuHelp.menuAction())
+        self.menuFile.addAction(self.openImagesAction)
         self.menuFile.addAction(self.openFolderAction)
         self.menuActions.addAction(self.actionSort_images_by_object_class)
         self.menuActions.addSeparator()
@@ -288,9 +291,13 @@ class Ui_DetectoristAppUI(object):
 
     def retranslateUi(self, DetectoristAppUI):
         DetectoristAppUI.setWindowTitle(QCoreApplication.translate("DetectoristAppUI", u"Detectorist", None))
+        self.openImagesAction.setText(QCoreApplication.translate("DetectoristAppUI", u"Open Image(s)...", None))
+#if QT_CONFIG(shortcut)
+        self.openImagesAction.setShortcut(QCoreApplication.translate("DetectoristAppUI", u"Ctrl+O", None))
+#endif // QT_CONFIG(shortcut)
         self.openFolderAction.setText(QCoreApplication.translate("DetectoristAppUI", u"Open Folder...", None))
 #if QT_CONFIG(shortcut)
-        self.openFolderAction.setShortcut(QCoreApplication.translate("DetectoristAppUI", u"Ctrl+O", None))
+        self.openFolderAction.setShortcut(QCoreApplication.translate("DetectoristAppUI", u"Ctrl+Shift+O", None))
 #endif // QT_CONFIG(shortcut)
         self.cropAction.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop to Selection", None))
 #if QT_CONFIG(shortcut)

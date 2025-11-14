@@ -171,6 +171,7 @@ class DetectoristApp(QMainWindow):
 
         self.current_image_path = None
         self.current_folder_path = None
+        self._loaded_image_full_paths = []
 
         # Ensure opener is registered (otherwise the native code will segfault)
         pillow_heif.register_heif_opener()
@@ -203,6 +204,7 @@ class DetectoristApp(QMainWindow):
         self.setAcceptDrops(True) # Enable drag and drop for the main window
 
         # Connect signals
+        self.ui.openImagesAction.triggered.connect(self.open_images)
         self.ui.openFolderAction.triggered.connect(self.open_folder)
         self.ui.imageListView.selectionModel().currentChanged.connect(self.on_image_selected)
         self.ui.actionCropSaveImage.triggered.connect(self.crop_save_image)
@@ -268,61 +270,95 @@ class DetectoristApp(QMainWindow):
         detection_info = "\n".join(f"{k}: {v}" for k, v in detection_info_items)
         self.ui.detectionInfoLabel.setText(detection_info)
 
-    def open_folder(self, folder_path=None):
-        if not folder_path:
-            folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", QDir.homePath())
-        if folder_path:
-            self.current_folder_path = folder_path
-            # Clear existing list and main image
-            self.model.setStringList([])
-            self.current_image_path = None
-            self.ui.imageLabel.clear()
+    def _load_images_from_paths(self, file_paths: list[str]):
+        supported_files = sorted({f for f in file_paths if f.lower().endswith(ImageObject.get_supported_extensions())})
 
-            self.ui.imageLabel.setText("Loading Images...")
-            QApplication.processEvents()  # Update the UI to show the message
-
-            # Filter the selected directory for supported files
-            image_files = sorted([f for f in os.listdir(folder_path)
-                           if f.lower().endswith(ImageObject.get_supported_extensions())])
-
-            if image_files:
-                self.model.setStringList(image_files)
-                first_index = self.model.index(0) # Select the first image in the list view
-                self.ui.imageListView.setCurrentIndex(first_index)
-                self.on_image_selected(first_index)
-                self.ui.actionCropSaveAllImages.setEnabled(True)
-                self.ui.actionCropSaveSelectedImages.setEnabled(True)
-                self.ui.actionSort_images_by_object_class.setEnabled(True)
-            else:
-                self.ui.imageLabel.set_detection_boxes([])
-                self.ui.imageLabel.hide_bands()
-                self._update_detection_info()
-                self.ui.actionCropSaveImage.setEnabled(False)
-                self.ui.actionCropSaveSelectedImages.setEnabled(False)
-                self.ui.actionCropSaveAllImages.setEnabled(False)
-                self.ui.actionSort_images_by_object_class.setEnabled(False)
-                self.ui.imageLabel.setText("No supported images found in folder.")
-
-
-    def on_image_selected(self, index):
-        file_name = self.model.stringList()[index.row()]
-        if self.current_folder_path:
-            new_image_path = os.path.join(self.current_folder_path, file_name)
-            if new_image_path == self.current_image_path:
-                return  # No need to reload the same image
-
-            self.current_image_path = new_image_path
-            self.ui.statusBar.showMessage(f"Loading {file_name}...")
-
-            # Clear previous results and show loading state
-            self.ui.imageLabel.setText("Loading image...") #{os.path.basename(self.current_image_path)}
+        if not supported_files:
+            # Handle UI state for no images
+            self.ui.imageLabel.set_detection_boxes([])
             self.ui.imageLabel.hide_bands()
             self._update_detection_info()
-            self.ui.imageExifLabel.setText("")
-            QApplication.processEvents()
+            self.ui.actionCropSaveImage.setEnabled(False)
+            self.ui.actionCropSaveSelectedImages.setEnabled(False)
+            self.ui.actionCropSaveAllImages.setEnabled(False)
+            self.ui.actionSort_images_by_object_class.setEnabled(False)
+            self.ui.imageLabel.setText("No supported images found or selected.")
+            self._loaded_image_full_paths = []
+            self.model.setStringList([])
+            return
 
-            # Request the worker to load and process the image
-            self.trigger_processing_immediately()
+        # Set the current folder path to the directory of the first file.
+        # This provides a base context for saving operations.
+        self.current_folder_path = os.path.dirname(supported_files[0])
+
+        # Clear existing list and main image
+        self.model.setStringList([])
+        self.current_image_path = None
+        self.ui.imageLabel.clear()
+
+        self.ui.imageLabel.setText("Loading Images...")
+        QApplication.processEvents()
+
+        self._loaded_image_full_paths = supported_files # Store full paths
+        basenames = [os.path.basename(f) for f in supported_files]
+        self.model.setStringList(basenames)
+
+        # Select the first image in the list view
+        first_file_basename = os.path.basename(supported_files[0])
+        try:
+            index = basenames.index(first_file_basename)
+            self.ui.imageListView.setCurrentIndex(self.model.index(index))
+            self.on_image_selected(self.model.index(index))
+        except ValueError:
+            self.ui.imageLabel.setText(f"Error: Could not find {first_file_basename} in the list.")
+
+        self.ui.actionCropSaveImage.setEnabled(True)
+        self.ui.actionCropSaveAllImages.setEnabled(True)
+        self.ui.actionCropSaveSelectedImages.setEnabled(True)
+        self.ui.actionSort_images_by_object_class.setEnabled(True)
+
+    def open_images(self):
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Open Image(s)",
+            QDir.homePath(),
+            f"Images ({' '.join(['*' + ext for ext in ImageObject.get_supported_extensions()])})"
+        )
+        if file_paths:
+            self._load_images_from_paths(file_paths)
+
+    def open_folder(self):
+        folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", QDir.homePath())
+        if folder_path:
+            image_files_basenames = sorted([f for f in os.listdir(folder_path)
+                           if f.lower().endswith(ImageObject.get_supported_extensions())])
+            full_paths = [os.path.join(folder_path, f) for f in image_files_basenames]
+            self._load_images_from_paths(full_paths)
+
+    def on_image_selected(self, index):
+        if not self._loaded_image_full_paths: # Check if any images are loaded
+            return
+
+        # Get the full path of the selected image from our internal list
+        # The index.row() corresponds to the position in the model, which corresponds to _loaded_image_full_paths
+        new_image_path = self._loaded_image_full_paths[index.row()]
+
+        if new_image_path == self.current_image_path:
+            return  # No need to reload the same image
+
+        self.current_image_path = new_image_path
+        file_name = os.path.basename(new_image_path) # Get basename for display purposes
+        self.ui.statusBar.showMessage(f"Loading {file_name}...")
+
+        # Clear previous results and show loading state
+        self.ui.imageLabel.setText("Loading image...")
+        self.ui.imageLabel.hide_bands()
+        self._update_detection_info()
+        self.ui.imageExifLabel.setText("")
+        QApplication.processEvents()
+
+        # Request the worker to load and process the image
+        self.trigger_processing_immediately()
 
     def debounce_processing_trigger(self):
         """Starts or restarts the debounce timer."""
@@ -506,35 +542,42 @@ class DetectoristApp(QMainWindow):
     def dragMoveEvent(self, event):
         event.acceptProposedAction()
 
+
+
+
+
     def dropEvent(self, event):
-        for url in event.mimeData().urls():
+        urls = event.mimeData().urls()
+        if not urls:
+            return
+
+        files_to_load = set()
+        folders_to_scan = []
+
+        for url in urls:
             path = url.toLocalFile()
+            if not url.isLocalFile():
+                continue
+
             if os.path.isdir(path):
-                self.open_folder(path)
-                break
-            elif os.path.isfile(path) and path.lower().endswith(ImageObject.get_supported_extensions()):
-                self.open_file(path)
-                break
+                folders_to_scan.append(path)
+            elif os.path.isfile(path):
+                files_to_load.add(path)
+
+        if folders_to_scan:
+            # Scan the first folder for images
+            first_folder = folders_to_scan[0]
+            folder_images = {
+                os.path.join(first_folder, f)
+                for f in os.listdir(first_folder)
+                if f.lower().endswith(ImageObject.get_supported_extensions())
+            }
+            files_to_load.update(folder_images)
+
+        if files_to_load:
+            self._load_images_from_paths(list(files_to_load))
+
         event.acceptProposedAction()
-
-    def open_file(self, file_path):
-        folder_path = os.path.dirname(file_path)
-        self.current_folder_path = folder_path
-        # Clear existing list and main image
-        self.model.setStringList([])
-        self.current_image_path = None
-        self.ui.imageLabel.clear()
-        image_files = sorted([f for f in os.listdir(folder_path)
-                               if f.lower().endswith(ImageObject.get_supported_extensions())])
-        self.model.setStringList(image_files)
-
-        # Select the dropped file in the list view
-        try:
-            index = image_files.index(os.path.basename(file_path))
-            self.ui.imageListView.setCurrentIndex(self.model.index(index))
-            self.on_image_selected(self.model.index(index))
-        except ValueError:
-            self.ui.imageLabel.setText(f"Error: {os.path.basename(file_path)} not found in folder.")
 
     def _get_current_crop_settings(self):
         """Gets crop settings from the UI."""
@@ -600,7 +643,7 @@ class DetectoristApp(QMainWindow):
         self.ui.actionCropSaveImage.setEnabled(True)
         self.ui.actionCropSaveAllImages.setEnabled(True)
 
-    def _create_output_dir(self):
+    def _create_output_dir(self, base_dir: str):
         """
         Create the output directory for the images, encoding the date and model name.
         Returns the paths to the output directory.
@@ -609,7 +652,7 @@ class DetectoristApp(QMainWindow):
         #timestamp = time.strftime("%Y%m%d")
         confidence = self.ui.confidenceSlider.value()
         model_name = os.path.splitext(self.ui.modelSelectComboBox.currentText())[0]
-        output_dir = os.path.join(self.current_folder_path, f"detectorist_conf-{confidence}_{model_name}")
+        output_dir = os.path.join(base_dir, f"detectorist_conf-{confidence}_{model_name}")
         os.makedirs(output_dir, exist_ok=True)
         return output_dir
 
@@ -661,14 +704,22 @@ class DetectoristApp(QMainWindow):
         and a process_callback to execute the specific action (cropping or sorting) for each image.
         """
         if not self.current_folder_path:
-            return
+            # If no current_folder_path is set, it means no folder was opened, but files might have been opened.
+            # In this case, we should use the directory of the first image in _loaded_image_full_paths as a fallback
+            if not self._loaded_image_full_paths:
+                return # No images loaded at all
+            # Use the directory of the first loaded image as the base for output
+            output_base_dir = os.path.dirname(self._loaded_image_full_paths[0])
+        else:
+            output_base_dir = self.current_folder_path
 
-        image_files = image_files_to_process if image_files_to_process is not None else self.model.stringList()
-        if not image_files:
+
+        image_full_paths = image_files_to_process if image_files_to_process is not None else self._loaded_image_full_paths
+        if not image_full_paths:
             return
 
         try:
-            output_dir = self._create_output_dir()
+            output_dir = self._create_output_dir(output_base_dir)
 
             # The detector lives in the worker thread. We can't access it directly.
             # For batch processing, we need a separate detector instance.
@@ -679,7 +730,7 @@ class DetectoristApp(QMainWindow):
             if state is None:
                 return
 
-            total_files = len(image_files)
+            total_files = len(image_full_paths)
             progress_dialog = QProgressDialog(f"{process_name}...", "Cancel", 0, total_files, self)
             progress_dialog.setWindowModality(Qt.WindowModal)
             progress_dialog.setAutoClose(True)
@@ -692,16 +743,17 @@ class DetectoristApp(QMainWindow):
                 csv_writer.writerow(["Filename", "Highest confidence score", "Class name", "Number of detected objects", "Subdirectory"])
 
                 cancelled = False
-                for i, file_name in enumerate(image_files):
+                for i, image_path in enumerate(image_full_paths): # Iterate over full paths
+                    file_name_display = os.path.basename(image_path) # Use basename for display
                     progress_dialog.setValue(i)
-                    progress_dialog.setLabelText(f"Processing {i+1}/{total_files}: {file_name}")
+                    progress_dialog.setLabelText(f"Processing {i+1}/{total_files}: {file_name_display}")
                     QApplication.processEvents()
 
                     if progress_dialog.wasCanceled():
                         cancelled = True
                         break
 
-                    image_path = os.path.join(self.current_folder_path, file_name)
+                    # image_path is already the full path
                     image = ImageObject.create(image_path)
                     image.exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
                     results = batch_detector.detect(image, confidence_threshold=confidence, nms_threshold=NMS_THRESHOLD)
