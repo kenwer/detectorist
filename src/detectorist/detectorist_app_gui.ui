@@ -405,6 +405,7 @@ Highest confidence	: -</string>
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="openImagesAction"/>
     <addaction name="openFolderAction"/>
    </widget>
    <widget class="QMenu" name="menuActions">
@@ -428,12 +429,20 @@ Highest confidence	: -</string>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
+  <action name="openImagesAction">
+   <property name="text">
+    <string>Open Image(s)...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
+  </action>
   <action name="openFolderAction">
    <property name="text">
     <string>Open Folder...</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+O</string>
+    <string>Ctrl+Shift+O</string>
    </property>
   </action>
   <action name="cropAction">
