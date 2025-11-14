@@ -21,6 +21,9 @@
        <enum>Qt::Orientation::Horizontal</enum>
       </property>
       <widget class="QListView" name="imageListView">
+       <property name="editTriggers">
+        <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+       </property>
        <property name="selectionMode">
         <enum>QAbstractItemView::SelectionMode::ExtendedSelection</enum>
        </property>

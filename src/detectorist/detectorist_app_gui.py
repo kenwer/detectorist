@@ -57,6 +57,7 @@ class Ui_DetectoristAppUI(object):
         self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.imageListView = QListView(self.splitter)
         self.imageListView.setObjectName(u"imageListView")
+        self.imageListView.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.imageListView.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.splitter.addWidget(self.imageListView)
         self.imageLabel = QLabel(self.splitter)
