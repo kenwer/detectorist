@@ -407,6 +407,8 @@ Highest confidence	: -</string>
     </property>
     <addaction name="openImagesAction"/>
     <addaction name="openFolderAction"/>
+    <addaction name="separator"/>
+    <addaction name="clear_image_list_action"/>
    </widget>
    <widget class="QMenu" name="menuActions">
     <property name="title">
@@ -486,6 +488,17 @@ Highest confidence	: -</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="clear_image_list_action">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Clear Image List</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Backspace</string>
    </property>
   </action>
  </widget>

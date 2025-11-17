@@ -209,6 +209,7 @@ class DetectoristApp(QMainWindow):
         # Connect signals
         self.ui.openImagesAction.triggered.connect(self.open_images)
         self.ui.openFolderAction.triggered.connect(self.open_folder)
+        self.ui.clear_image_list_action.triggered.connect(self.clear_image_list)
         self.ui.imageListView.selectionModel().currentChanged.connect(self.on_image_selected)
         self.ui.actionCropSaveImage.triggered.connect(self.crop_save_image)
         self.ui.actionCropSaveAllImages.triggered.connect(self.crop_save_all_images)
@@ -285,6 +286,7 @@ class DetectoristApp(QMainWindow):
             self.ui.actionCropSaveSelectedImages.setEnabled(False)
             self.ui.actionCropSaveAllImages.setEnabled(False)
             self.ui.actionSort_images_by_object_class.setEnabled(False)
+            self.ui.clear_image_list_action.setEnabled(False)
             self.ui.imageLabel.setText("No supported images found or selected.")
             self.model.clear()
             return
@@ -312,6 +314,7 @@ class DetectoristApp(QMainWindow):
         self.ui.actionCropSaveAllImages.setEnabled(True)
         self.ui.actionCropSaveSelectedImages.setEnabled(True)
         self.ui.actionSort_images_by_object_class.setEnabled(True)
+        self.ui.clear_image_list_action.setEnabled(True)
 
     def open_images(self):
         file_paths, _ = QFileDialog.getOpenFileNames(
@@ -330,6 +333,30 @@ class DetectoristApp(QMainWindow):
                            if f.lower().endswith(ImageObject.get_supported_extensions())])
             full_paths = [os.path.join(folder_path, f) for f in image_files_basenames]
             self._load_images_from_paths(full_paths)
+
+    def clear_image_list(self):
+        """Clears the image list and resets the application to its initial state."""
+        self.model.clear()
+        self.current_image_path = None
+
+        # Clear the main image view and reset text
+        self.ui.imageLabel.clear()
+        self.ui.imageLabel.setText("Drop a folder with images")
+        self.ui.imageLabel.set_detection_boxes([])
+        self.ui.imageLabel.hide_bands()
+
+        # Reset UI elements
+        self._update_detection_info()
+        self.ui.imageInfoLabel.setText("")
+        self.ui.imageExifLabel.setText("")
+        self.ui.statusBar.clearMessage()
+
+        # Disable actions that depend on images being loaded
+        self.ui.actionCropSaveImage.setEnabled(False)
+        self.ui.actionCropSaveAllImages.setEnabled(False)
+        self.ui.actionCropSaveSelectedImages.setEnabled(False)
+        self.ui.actionSort_images_by_object_class.setEnabled(False)
+        self.ui.clear_image_list_action.setEnabled(False)
 
     def on_image_selected(self, index):
         if self.model.rowCount() == 0: # Check if any images are loaded
