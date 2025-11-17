@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QMainWindow,
+    QMenu,
     QProgressDialog,
 )
 
@@ -200,6 +201,10 @@ class DetectoristApp(QMainWindow):
         self.ui.imageListView.setModel(self.model)
         self.ui.imageListView.setAcceptDrops(True) # Enable drag and drop for imageListView
         self.setAcceptDrops(True) # Enable drag and drop for the main window
+
+        # Add context menu for the image list view
+        self.ui.imageListView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.ui.imageListView.customContextMenuRequested.connect(self.show_image_list_view_context_menu)
 
         # Connect signals
         self.ui.openImagesAction.triggered.connect(self.open_images)
@@ -573,14 +578,21 @@ class DetectoristApp(QMainWindow):
         return cropped_dir, not_cropped_dir
 
     def _open_native_file_manager(self, path):
-        """Opens a folder in the native (OS specicic) file manager."""
+        """Opens a folder in the native (OS specific) file manager, revealing the file if a file path is provided."""
         path = os.path.normpath(path)
-        if sys.platform == 'win32': # Windows
-            os.startfile(path)
-        elif sys.platform == 'darwin': # macOS
-            subprocess.Popen(['open', path])
-        elif os.name == 'posix': # Linux
-            subprocess.Popen(['xdg-open', path])
+        if sys.platform == 'win32':  # Windows
+            if os.path.isfile(path):
+                subprocess.Popen(['explorer', '/select,', path])
+            else:
+                subprocess.Popen(['explorer', path])
+        elif sys.platform == 'darwin':  # macOS
+            if os.path.isfile(path):
+                subprocess.Popen(['open', '-R', path])
+            else:
+                subprocess.Popen(['open', path])
+        elif os.name == 'posix':  # Linux
+            dir_path = os.path.dirname(path) if os.path.isfile(path) else path
+            subprocess.Popen(['xdg-open', dir_path])
 
     def crop_save_image(self):
         """Crops and saves the currently displayed image based on the last crop rectangle."""
@@ -758,6 +770,37 @@ class DetectoristApp(QMainWindow):
         """Enables/disables actionCropSaveSelectedImages based on imageListView selection."""
         selected_indexes = self.ui.imageListView.selectionModel().selectedIndexes()
         self.ui.actionCropSaveSelectedImages.setEnabled(len(selected_indexes) > 0)
+
+    def show_image_list_view_context_menu(self, position):
+        index = self.ui.imageListView.indexAt(position)
+        if not index.isValid():
+            return
+
+        menu = QMenu()
+        reveal_action = menu.addAction("Reveal Image in File Manager")
+        copy_filename_action = menu.addAction("Copy Filename to Clipboard")
+
+        action = menu.exec(self.ui.imageListView.mapToGlobal(position))
+
+        if action == copy_filename_action:
+            self._copy_image_filename_to_clipboard(index)
+        elif action == reveal_action:
+            self._reveal_in_file_manager(index)
+
+    def _reveal_in_file_manager(self, index):
+        if not index.isValid():
+            return
+
+        file_path = self.model.data(index, ImageListModel.FullPathRole)
+        self._open_native_file_manager(file_path)
+
+    def _copy_image_filename_to_clipboard(self, index):
+        if not index.isValid():
+            return
+
+        file_name = self.model.data(index)
+        clipboard = QApplication.clipboard()
+        clipboard.setText(file_name)
 
     def closeEvent(self, event):
         # Clean up resources, if any

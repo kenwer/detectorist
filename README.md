@@ -154,6 +154,12 @@ On Linux:
 
 ## Changelog
 
+### [unreleased]
+#### Added
+- New context menu for the image list view with the following image specific actions:
+  - "Reveal Image in File Manager" to easily locate an image in your native file manager (Finder, Explorer, etc), and
+  - "Copy Filename to Clipboard" that copies the file name string of the selected image to your clipboard.
+
 ### [0.7.0] - 2025-11-14
 #### Added
 - New "Open Image(s)..." action at the File menu to open and load selected files only (also works for dropping slected files).
