@@ -23,7 +23,7 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
-      <widget class="QLabel" name="iconLabel">
+      <widget class="QLabel" name="icon_label">
        <property name="minimumSize">
         <size>
          <width>128</width>
@@ -53,7 +53,7 @@
      <item>
       <layout class="QVBoxLayout" name="textLayout">
        <item>
-        <widget class="QLabel" name="appNameLabel">
+        <widget class="QLabel" name="app_name_label">
          <property name="font">
           <font>
            <pointsize>34</pointsize>
@@ -83,7 +83,7 @@
         </spacer>
        </item>
        <item>
-        <widget class="QLabel" name="versionLabel">
+        <widget class="QLabel" name="version_label">
          <property name="text">
           <string>Version: </string>
          </property>
@@ -93,7 +93,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QLabel" name="authorLabel">
+        <widget class="QLabel" name="author_label">
          <property name="text">
           <string>Author: Ken Werner</string>
          </property>
@@ -103,7 +103,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QLabel" name="linkLabel">
+        <widget class="QLabel" name="link_label">
          <property name="text">
           <string>&lt;a href=&quot;https://github.com/kenwer/detectorist&quot;&gt;https://github.com/kenwer/detectorist&lt;/a&gt;</string>
          </property>
@@ -120,7 +120,7 @@
     </layout>
    </item>
    <item>
-    <widget class="QDialogButtonBox" name="buttonBox">
+    <widget class="QDialogButtonBox" name="button_box">
      <property name="orientation">
       <enum>Qt::Orientation::Horizontal</enum>
      </property>
@@ -136,7 +136,7 @@
  </resources>
  <connections>
   <connection>
-   <sender>buttonBox</sender>
+   <sender>button_box</sender>
    <signal>accepted()</signal>
    <receiver>AboutDialog</receiver>
    <slot>accept()</slot>
@@ -152,7 +152,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>buttonBox</sender>
+   <sender>button_box</sender>
    <signal>rejected()</signal>
    <receiver>AboutDialog</receiver>
    <slot>reject()</slot>

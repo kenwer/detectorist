@@ -13,14 +13,14 @@
   <property name="windowTitle">
    <string>Detectorist</string>
   </property>
-  <widget class="QWidget" name="centralWidget">
-   <layout class="QHBoxLayout" name="mainLayout" stretch="0">
+  <widget class="QWidget" name="central_widget">
+   <layout class="QHBoxLayout" name="main_layout" stretch="0">
     <item>
      <widget class="QSplitter" name="splitter">
       <property name="orientation">
        <enum>Qt::Orientation::Horizontal</enum>
       </property>
-      <widget class="QListView" name="imageListView">
+      <widget class="QListView" name="image_list_view">
        <property name="editTriggers">
         <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
        </property>
@@ -28,7 +28,7 @@
         <enum>QAbstractItemView::SelectionMode::ExtendedSelection</enum>
        </property>
       </widget>
-      <widget class="QLabel" name="imageLabel">
+      <widget class="QLabel" name="image_label">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>2</horstretch>
@@ -45,10 +45,10 @@
         <set>Qt::AlignmentFlag::AlignCenter</set>
        </property>
       </widget>
-      <widget class="QWidget" name="rightSidewidget" native="true">
+      <widget class="QWidget" name="right_side_widget" native="true">
        <layout class="QVBoxLayout" name="verticalLayout">
         <item>
-         <widget class="QGroupBox" name="modelGroupBox">
+         <widget class="QGroupBox" name="model_group_box">
           <property name="enabled">
            <bool>true</bool>
           </property>
@@ -57,7 +57,7 @@
           </property>
           <layout class="QGridLayout" name="gridLayout_2">
            <item row="0" column="0" colspan="3">
-            <widget class="QComboBox" name="modelSelectComboBox">
+            <widget class="QComboBox" name="model_select_combo_box">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                <horstretch>0</horstretch>
@@ -70,7 +70,7 @@
             </widget>
            </item>
            <item row="1" column="0">
-            <widget class="QLabel" name="confidenceLabel">
+            <widget class="QLabel" name="confidence_label">
              <property name="toolTip">
               <string>The confidence threshold for filtering detections</string>
              </property>
@@ -80,7 +80,7 @@
             </widget>
            </item>
            <item row="1" column="1">
-            <widget class="QSlider" name="confidenceSlider">
+            <widget class="QSlider" name="confidence_slider">
              <property name="enabled">
               <bool>true</bool>
              </property>
@@ -114,7 +114,7 @@
             </widget>
            </item>
            <item row="1" column="2">
-            <widget class="QSpinBox" name="confidenceSpinBox">
+            <widget class="QSpinBox" name="confidence_spin_box">
              <property name="minimum">
               <number>1</number>
              </property>
@@ -130,13 +130,13 @@
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="detectionInfoGroupBox">
+         <widget class="QGroupBox" name="detection_info_group_box">
           <property name="title">
            <string>Detection</string>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_4">
            <item>
-            <widget class="QLabel" name="detectionInfoLabel">
+            <widget class="QLabel" name="detection_info_label">
              <property name="text">
               <string>Objects			: -
 Detection time		: -
@@ -148,7 +148,7 @@ Highest confidence	: -</string>
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="cropInfoGroupBox">
+         <widget class="QGroupBox" name="crop_info_group_box">
           <property name="title">
            <string>Crop</string>
           </property>
@@ -202,7 +202,7 @@ Highest confidence	: -</string>
             </widget>
            </item>
            <item row="3" column="0" colspan="3">
-            <widget class="QComboBox" name="cropRatioComboBox">
+            <widget class="QComboBox" name="crop_ratio_combo_box">
              <property name="toolTip">
               <string>Aspect ratio for the crop</string>
              </property>
@@ -269,7 +269,7 @@ Highest confidence	: -</string>
             </widget>
            </item>
            <item row="4" column="0">
-            <widget class="QLabel" name="paddingLabel">
+            <widget class="QLabel" name="padding_label">
              <property name="toolTip">
               <string>The padding added to the crop (percent of the image size in percent)</string>
              </property>
@@ -279,7 +279,7 @@ Highest confidence	: -</string>
             </widget>
            </item>
            <item row="4" column="1">
-            <widget class="QSlider" name="paddingSlider">
+            <widget class="QSlider" name="padding_slider">
              <property name="enabled">
               <bool>true</bool>
              </property>
@@ -310,7 +310,7 @@ Highest confidence	: -</string>
             </widget>
            </item>
            <item row="4" column="2">
-            <widget class="QSpinBox" name="paddingSpinBox">
+            <widget class="QSpinBox" name="padding_spin_box">
              <property name="maximum">
               <number>50</number>
              </property>
@@ -336,13 +336,13 @@ Highest confidence	: -</string>
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="imageInfoGroupBox">
+         <widget class="QGroupBox" name="image_info_group_box">
           <property name="title">
            <string>Image</string>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_3">
            <item>
-            <widget class="QLabel" name="imageInfoLabel">
+            <widget class="QLabel" name="image_info_label">
              <property name="text">
               <string>-</string>
              </property>
@@ -352,7 +352,7 @@ Highest confidence	: -</string>
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="imageExifGroupBox">
+         <widget class="QGroupBox" name="image_exif_group_box">
           <property name="title">
            <string>Exif</string>
           </property>
@@ -373,7 +373,7 @@ Highest confidence	: -</string>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout_2">
                <item alignment="Qt::AlignmentFlag::AlignTop">
-                <widget class="QLabel" name="imageExifLabel">
+                <widget class="QLabel" name="image_exif_label">
                  <property name="textInteractionFlags">
                   <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByMouse</set>
                  </property>
@@ -392,7 +392,7 @@ Highest confidence	: -</string>
     </item>
    </layout>
   </widget>
-  <widget class="QMenuBar" name="menuBar">
+  <widget class="QMenuBar" name="menu_bar">
    <property name="geometry">
     <rect>
      <x>0</x>
@@ -401,37 +401,37 @@ Highest confidence	: -</string>
      <height>30</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuFile">
+   <widget class="QMenu" name="menu_file">
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="openImagesAction"/>
-    <addaction name="openFolderAction"/>
+    <addaction name="open_images_action"/>
+    <addaction name="open_folder_action"/>
     <addaction name="separator"/>
     <addaction name="clear_image_list_action"/>
    </widget>
-   <widget class="QMenu" name="menuActions">
+   <widget class="QMenu" name="menu_actions">
     <property name="title">
      <string>Actions</string>
     </property>
-    <addaction name="actionSort_images_by_object_class"/>
+    <addaction name="sort_images_by_object_class_action"/>
     <addaction name="separator"/>
-    <addaction name="actionCropSaveImage"/>
-    <addaction name="actionCropSaveSelectedImages"/>
-    <addaction name="actionCropSaveAllImages"/>
+    <addaction name="crop_save_image_action"/>
+    <addaction name="crop_save_selected_images_action"/>
+    <addaction name="crop_save_all_images_action"/>
    </widget>
-   <widget class="QMenu" name="menuHelp">
+   <widget class="QMenu" name="menu_help">
     <property name="title">
      <string>Help</string>
     </property>
-    <addaction name="actionAbout"/>
+    <addaction name="about_action"/>
    </widget>
-   <addaction name="menuFile"/>
-   <addaction name="menuActions"/>
-   <addaction name="menuHelp"/>
+   <addaction name="menu_file"/>
+   <addaction name="menu_actions"/>
+   <addaction name="menu_help"/>
   </widget>
-  <widget class="QStatusBar" name="statusBar"/>
-  <action name="openImagesAction">
+  <widget class="QStatusBar" name="status_bar"/>
+  <action name="open_images_action">
    <property name="text">
     <string>Open Image(s)...</string>
    </property>
@@ -439,7 +439,7 @@ Highest confidence	: -</string>
     <string>Ctrl+O</string>
    </property>
   </action>
-  <action name="openFolderAction">
+  <action name="open_folder_action">
    <property name="text">
     <string>Open Folder...</string>
    </property>
@@ -447,7 +447,7 @@ Highest confidence	: -</string>
     <string>Ctrl+Shift+O</string>
    </property>
   </action>
-  <action name="actionCropSaveImage">
+  <action name="crop_save_image_action">
    <property name="enabled">
     <bool>false</bool>
    </property>
@@ -455,7 +455,7 @@ Highest confidence	: -</string>
     <string>Crop &amp;&amp; copy current image</string>
    </property>
   </action>
-  <action name="actionCropSaveSelectedImages">
+  <action name="crop_save_selected_images_action">
    <property name="enabled">
     <bool>false</bool>
    </property>
@@ -463,7 +463,7 @@ Highest confidence	: -</string>
     <string>Crop &amp;&amp; copy selected images</string>
    </property>
   </action>
-  <action name="actionCropSaveAllImages">
+  <action name="crop_save_all_images_action">
    <property name="enabled">
     <bool>false</bool>
    </property>
@@ -474,12 +474,12 @@ Highest confidence	: -</string>
     <string>Ctrl+K</string>
    </property>
   </action>
-  <action name="actionAbout">
+  <action name="about_action">
    <property name="text">
     <string>About</string>
    </property>
   </action>
-  <action name="actionSort_images_by_object_class">
+  <action name="sort_images_by_object_class_action">
    <property name="enabled">
     <bool>false</bool>
    </property>
@@ -505,9 +505,9 @@ Highest confidence	: -</string>
  <resources/>
  <connections>
   <connection>
-   <sender>confidenceSpinBox</sender>
+   <sender>confidence_spin_box</sender>
    <signal>valueChanged(int)</signal>
-   <receiver>confidenceSlider</receiver>
+   <receiver>confidence_slider</receiver>
    <slot>setValue(int)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -521,9 +521,9 @@ Highest confidence	: -</string>
    </hints>
   </connection>
   <connection>
-   <sender>confidenceSlider</sender>
+   <sender>confidence_slider</sender>
    <signal>valueChanged(int)</signal>
-   <receiver>confidenceSpinBox</receiver>
+   <receiver>confidence_spin_box</receiver>
    <slot>setValue(int)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -537,9 +537,9 @@ Highest confidence	: -</string>
    </hints>
   </connection>
   <connection>
-   <sender>paddingSlider</sender>
+   <sender>padding_slider</sender>
    <signal>valueChanged(int)</signal>
-   <receiver>paddingSpinBox</receiver>
+   <receiver>padding_spin_box</receiver>
    <slot>setValue(int)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -553,9 +553,9 @@ Highest confidence	: -</string>
    </hints>
   </connection>
   <connection>
-   <sender>paddingSpinBox</sender>
+   <sender>padding_spin_box</sender>
    <signal>valueChanged(int)</signal>
-   <receiver>paddingSlider</receiver>
+   <receiver>padding_slider</receiver>
    <slot>setValue(int)</slot>
    <hints>
     <hint type="sourcelabel">

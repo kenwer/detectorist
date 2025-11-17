@@ -186,52 +186,52 @@ class DetectoristApp(QMainWindow):
         self.processing_timer.setInterval(200)  # 200ms delay
         self.processing_timer.timeout.connect(self.trigger_processing)
 
-        # Replace the imageLabel from the ui file with our custom ImageLabel
+        # Replace the image_label from the ui file with our custom ImageLabel
         # but keep/re-use the sizePolicy and alignment from the .ui file
-        sizePolicy = self.ui.imageLabel.sizePolicy()
-        alignment = self.ui.imageLabel.alignment()
-        self.ui.imageLabel = ImageLabel(self, self.ui.centralWidget)
-        self.ui.imageLabel.setSizePolicy(sizePolicy)
-        self.ui.imageLabel.setAlignment(alignment)
-        self.ui.splitter.replaceWidget(1, self.ui.imageLabel)
-        self.ui.imageLabel.setText("Drop a folder with images")
-        self.ui.imageLabel.setAcceptDrops(True) # Enable drag and drop for imageLabel
+        sizePolicy = self.ui.image_label.sizePolicy()
+        alignment = self.ui.image_label.alignment()
+        self.ui.image_label = ImageLabel(self, self.ui.central_widget)
+        self.ui.image_label.setSizePolicy(sizePolicy)
+        self.ui.image_label.setAlignment(alignment)
+        self.ui.splitter.replaceWidget(1, self.ui.image_label)
+        self.ui.image_label.setText("Drop a folder with images")
+        self.ui.image_label.setAcceptDrops(True) # Enable drag and drop for image_label
 
         self.model = ImageListModel()
-        self.ui.imageListView.setModel(self.model)
-        self.ui.imageListView.setAcceptDrops(True) # Enable drag and drop for imageListView
+        self.ui.image_list_view.setModel(self.model)
+        self.ui.image_list_view.setAcceptDrops(True) # Enable drag and drop for imageListView
         self.setAcceptDrops(True) # Enable drag and drop for the main window
 
         # Add context menu for the image list view
-        self.ui.imageListView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.ui.imageListView.customContextMenuRequested.connect(self.show_image_list_view_context_menu)
+        self.ui.image_list_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.ui.image_list_view.customContextMenuRequested.connect(self.show_image_list_view_context_menu)
 
         # Connect signals
-        self.ui.openImagesAction.triggered.connect(self.open_images)
-        self.ui.openFolderAction.triggered.connect(self.open_folder)
+        self.ui.open_images_action.triggered.connect(self.open_images)
+        self.ui.open_folder_action.triggered.connect(self.open_folder)
         self.ui.clear_image_list_action.triggered.connect(self.clear_image_list)
-        self.ui.imageListView.selectionModel().currentChanged.connect(self.on_image_selected)
-        self.ui.actionCropSaveImage.triggered.connect(self.crop_save_image)
-        self.ui.actionCropSaveAllImages.triggered.connect(self.crop_save_all_images)
-        self.ui.actionCropSaveSelectedImages.triggered.connect(self.crop_save_selected_images)
-        self.ui.imageListView.selectionModel().selectionChanged.connect(self._update_crop_save_selected_images_action_state)
-        self.ui.actionAbout.triggered.connect(self.show_about_dialog)
-        self.ui.actionSort_images_by_object_class.triggered.connect(self.sort_images_by_class_into_folders)
+        self.ui.image_list_view.selectionModel().currentChanged.connect(self.on_image_selected)
+        self.ui.crop_save_image_action.triggered.connect(self.crop_save_image)
+        self.ui.crop_save_all_images_action.triggered.connect(self.crop_save_all_images)
+        self.ui.crop_save_selected_images_action.triggered.connect(self.crop_save_selected_images)
+        self.ui.image_list_view.selectionModel().selectionChanged.connect(self._update_crop_save_selected_images_action_state)
+        self.ui.about_action.triggered.connect(self.show_about_dialog)
+        self.ui.sort_images_by_object_class_action.triggered.connect(self.sort_images_by_class_into_folders)
 
         # Delayed/debounced Slider and SpinBoxe (because they are emitted very often as they both change)
-        self.ui.confidenceSlider.valueChanged.connect(self.debounce_processing_trigger)
-        self.ui.confidenceSpinBox.valueChanged.connect(self.debounce_processing_trigger)
+        self.ui.confidence_slider.valueChanged.connect(self.debounce_processing_trigger)
+        self.ui.confidence_spin_box.valueChanged.connect(self.debounce_processing_trigger)
 
         # Immediate trigger
-        self.ui.confidenceSlider.sliderReleased.connect(self.trigger_processing_immediately)
-        self.ui.confidenceSpinBox.editingFinished.connect(self.trigger_processing_immediately)
+        self.ui.confidence_slider.sliderReleased.connect(self.trigger_processing_immediately)
+        self.ui.confidence_spin_box.editingFinished.connect(self.trigger_processing_immediately)
 
         # Connect crop controls
         self.ui.rb_crop_to_top_conf.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_largest_area.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_all_detected_objects.toggled.connect(self.update_crop_bands)
-        self.ui.cropRatioComboBox.currentIndexChanged.connect(self.update_crop_bands)
-        self.ui.paddingSlider.valueChanged.connect(self.update_crop_bands)
+        self.ui.crop_ratio_combo_box.currentIndexChanged.connect(self.update_crop_bands)
+        self.ui.padding_slider.valueChanged.connect(self.update_crop_bands)
 
         self.ui.cb_comp_cam_exposure.toggled.connect(self.on_exposure_compensation_toggled)
 
@@ -244,7 +244,7 @@ class DetectoristApp(QMainWindow):
         # Find and populate models
         self.onnx_models = [f for f in os.listdir(self.models_dir) if f.endswith(".onnx")]
         print(f"Found ONNX models: {self.onnx_models}")
-        self.ui.modelSelectComboBox.addItems(self.onnx_models)
+        self.ui.model_select_combo_box.addItems(self.onnx_models)
 
         # Setup worker thread, to offload image loading and detection, so the GUI remains responsive.
         self.thread = QThread()
@@ -257,7 +257,7 @@ class DetectoristApp(QMainWindow):
         self.worker.image_loaded.connect(self.handle_image_loaded)
         self.worker.detection_complete.connect(self.handle_detection_complete)
         self.worker.error.connect(self.handle_worker_error)
-        self.ui.modelSelectComboBox.currentIndexChanged.connect(self.on_model_selected)
+        self.ui.model_select_combo_box.currentIndexChanged.connect(self.on_model_selected)
 
         # Start the thread and load initial model
         self.thread.start()
@@ -272,31 +272,31 @@ class DetectoristApp(QMainWindow):
             ("Detection time\t\t", time)
         ]
         detection_info = "\n".join(f"{k}: {v}" for k, v in detection_info_items)
-        self.ui.detectionInfoLabel.setText(detection_info)
+        self.ui.detection_info_label.setText(detection_info)
 
     def _load_images_from_paths(self, file_paths: list[str]):
         supported_files = sorted({f for f in file_paths if f.lower().endswith(ImageObject.get_supported_extensions())})
 
         if not supported_files:
             # Handle UI state for no images
-            self.ui.imageLabel.set_detection_boxes([])
-            self.ui.imageLabel.hide_bands()
+            self.ui.image_label.set_detection_boxes([])
+            self.ui.image_label.hide_bands()
             self._update_detection_info()
-            self.ui.actionCropSaveImage.setEnabled(False)
-            self.ui.actionCropSaveSelectedImages.setEnabled(False)
-            self.ui.actionCropSaveAllImages.setEnabled(False)
-            self.ui.actionSort_images_by_object_class.setEnabled(False)
+            self.ui.crop_save_image_action.setEnabled(False)
+            self.ui.crop_save_selected_images_action.setEnabled(False)
+            self.ui.crop_save_all_images_action.setEnabled(False)
+            self.ui.sort_images_by_object_class_action.setEnabled(False)
             self.ui.clear_image_list_action.setEnabled(False)
-            self.ui.imageLabel.setText("No supported images found or selected.")
+            self.ui.image_label.setText("No supported images found or selected.")
             self.model.clear()
             return
 
         # Clear existing list and main image
         self.model.clear()
         self.current_image_path = None
-        self.ui.imageLabel.clear()
+        self.ui.image_label.clear()
 
-        self.ui.imageLabel.setText("Loading Images...")
+        self.ui.image_label.setText("Loading Images...")
         self.model.setImagePaths(supported_files)
         QApplication.processEvents() # Ensure UI updates
 
@@ -304,16 +304,16 @@ class DetectoristApp(QMainWindow):
         first_file_path = supported_files[0]
         try:
             index = supported_files.index(first_file_path)
-            self.ui.imageListView.setCurrentIndex(self.model.index(index))
+            self.ui.image_list_view.setCurrentIndex(self.model.index(index))
             self.on_image_selected(self.model.index(index))
         except ValueError:
             print(f"Error: Could not find {first_file_path} in the list.")
-            self.ui.imageLabel.setText(f"Error: Could not find {os.path.basename(first_file_path)} in the list.")
+            self.ui.image_label.setText(f"Error: Could not find {os.path.basename(first_file_path)} in the list.")
 
-        self.ui.actionCropSaveImage.setEnabled(True)
-        self.ui.actionCropSaveAllImages.setEnabled(True)
-        self.ui.actionCropSaveSelectedImages.setEnabled(True)
-        self.ui.actionSort_images_by_object_class.setEnabled(True)
+        self.ui.crop_save_image_action.setEnabled(True)
+        self.ui.crop_save_all_images_action.setEnabled(True)
+        self.ui.crop_save_selected_images_action.setEnabled(True)
+        self.ui.sort_images_by_object_class_action.setEnabled(True)
         self.ui.clear_image_list_action.setEnabled(True)
 
     def open_images(self):
@@ -340,22 +340,22 @@ class DetectoristApp(QMainWindow):
         self.current_image_path = None
 
         # Clear the main image view and reset text
-        self.ui.imageLabel.clear()
-        self.ui.imageLabel.setText("Drop a folder with images")
-        self.ui.imageLabel.set_detection_boxes([])
-        self.ui.imageLabel.hide_bands()
+        self.ui.image_label.clear()
+        self.ui.image_label.setText("Drop a folder with images")
+        self.ui.image_label.set_detection_boxes([])
+        self.ui.image_label.hide_bands()
 
         # Reset UI elements
         self._update_detection_info()
-        self.ui.imageInfoLabel.setText("")
-        self.ui.imageExifLabel.setText("")
-        self.ui.statusBar.clearMessage()
+        self.ui.image_info_label.setText("")
+        self.ui.image_exif_label.setText("")
+        self.ui.status_bar.clearMessage()
 
         # Disable actions that depend on images being loaded
-        self.ui.actionCropSaveImage.setEnabled(False)
-        self.ui.actionCropSaveAllImages.setEnabled(False)
-        self.ui.actionCropSaveSelectedImages.setEnabled(False)
-        self.ui.actionSort_images_by_object_class.setEnabled(False)
+        self.ui.crop_save_image_action.setEnabled(False)
+        self.ui.crop_save_all_images_action.setEnabled(False)
+        self.ui.crop_save_selected_images_action.setEnabled(False)
+        self.ui.sort_images_by_object_class_action.setEnabled(False)
         self.ui.clear_image_list_action.setEnabled(False)
 
     def on_image_selected(self, index):
@@ -371,13 +371,13 @@ class DetectoristApp(QMainWindow):
 
         self.current_image_path = new_image_path
         file_name = os.path.basename(new_image_path) # Get basename for display purposes
-        self.ui.statusBar.showMessage(f"Loading {file_name}...")
+        self.ui.status_bar.showMessage(f"Loading {file_name}...")
 
         # Clear previous results and show loading state
-        self.ui.imageLabel.setText("Loading image...")
-        self.ui.imageLabel.hide_bands()
+        self.ui.image_label.setText("Loading image...")
+        self.ui.image_label.hide_bands()
         self._update_detection_info()
-        self.ui.imageExifLabel.setText("")
+        self.ui.image_exif_label.setText("")
         QApplication.processEvents()
 
         # Request the worker to load and process the image
@@ -397,7 +397,7 @@ class DetectoristApp(QMainWindow):
         if not self.current_image_path:
             return
 
-        confidence = self.ui.confidenceSlider.value() / 100.0
+        confidence = self.ui.confidence_slider.value() / 100.0
         exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
 
         self.request_processing.emit(self.current_image_path, confidence, NMS_THRESHOLD, exposure_correction)
@@ -410,7 +410,7 @@ class DetectoristApp(QMainWindow):
             if self.current_image_path:
                 self.trigger_processing()
         else:
-            self.ui.imageLabel.setText(message)
+            self.ui.image_label.setText(message)
             print(message)
 
     def handle_image_loaded(self, image_path: str, image_object: ImageObject):
@@ -419,21 +419,21 @@ class DetectoristApp(QMainWindow):
             return  # Stale result for a different image
 
         if not image_object:
-            self.ui.imageLabel.clear()
-            self.ui.imageLabel.setText(f"Could not load image:\n{image_path}")
+            self.ui.image_label.clear()
+            self.ui.image_label.setText(f"Could not load image:\n{image_path}")
             return
 
-        self.ui.imageLabel.replace_image(image_object)
-        self.ui.statusBar.showMessage(os.path.basename(image_path))
+        self.ui.image_label.replace_image(image_object)
+        self.ui.status_bar.showMessage(os.path.basename(image_path))
 
         # Update the Image info label
         height, width = image_object.height, image_object.width
         original_bpc = image_object.original_bpc
         file_type = image_object.file_extension.upper()[1:]
-        self.ui.imageInfoLabel.setText(f"File type \t: {file_type}\nResolution\t: {width}x{height}\nBits per channel\t: {original_bpc}")
+        self.ui.image_info_label.setText(f"File type \t: {file_type}\nResolution\t: {width}x{height}\nBits per channel\t: {original_bpc}")
 
         # Update the EXIF info label
-        self.ui.imageExifLabel.setText(image_object.get_exif_summary())
+        self.ui.image_exif_label.setText(image_object.get_exif_summary())
 
 
     def handle_detection_complete(self, image_path: str, results: list, detection_time_ms: float):
@@ -447,7 +447,7 @@ class DetectoristApp(QMainWindow):
             time=f"{detection_time_ms:.2f} ms"
         )
 
-        self.ui.imageLabel.set_detection_boxes(results)
+        self.ui.image_label.set_detection_boxes(results)
         self.update_crop_bands()
 
     def handle_worker_error(self, image_path: str, message: str):
@@ -456,24 +456,24 @@ class DetectoristApp(QMainWindow):
             return  # Stale error for a different image (ignored)
 
         print(f"Worker error for {image_path}: {message}")
-        self.ui.imageLabel.setText(f"Error: {message}")
+        self.ui.image_label.setText(f"Error: {message}")
         self._update_detection_info()
 
     def on_model_selected(self, index):
-        model_name = self.ui.modelSelectComboBox.itemText(index)
+        model_name = self.ui.model_select_combo_box.itemText(index)
         model_path = os.path.join(self.models_dir, model_name)
         # The worker lives in another thread, so we must use invokeMethod to call it safely.
         QMetaObject.invokeMethod(self.worker, "load_model", Qt.QueuedConnection, Q_ARG(str, model_path))
 
     def on_exposure_compensation_toggled(self, checked: bool):
-        if self.ui.imageLabel.image:
-            self.ui.imageLabel.image.exposure_correction = checked
+        if self.ui.image_label.image:
+            self.ui.image_label.image.exposure_correction = checked
 
     def show_about_dialog(self):
         about_dialog = QDialog(self)
         about_ui = Ui_AboutDialog()
         about_ui.setupUi(about_dialog)
-        about_ui.versionLabel.setText(f"Version: {__version__}")
+        about_ui.version_label.setText(f"Version: {__version__}")
         about_dialog.exec()
 
     def dragEnterEvent(self, event):
@@ -525,17 +525,17 @@ class DetectoristApp(QMainWindow):
         elif self.ui.rb_crop_largest_area.isChecked():
             crop_mode = 'largest_area'
         else:
-            self.ui.imageLabel.hide_bands()
-            self.ui.actionCropSaveImage.setEnabled(False)
-            self.ui.actionCropSaveAllImages.setEnabled(False)
+            self.ui.image_label.hide_bands()
+            self.ui.crop_save_image_action.setEnabled(False)
+            self.ui.crop_save_all_images_action.setEnabled(False)
             crop_mode = None
 
-        padding_percentage = self.ui.paddingSlider.value() / 100.0
-        ratio_str = self.ui.cropRatioComboBox.currentText()
+        padding_percentage = self.ui.padding_slider.value() / 100.0
+        ratio_str = self.ui.crop_ratio_combo_box.currentText()
 
         if ratio_str == "aspect ratio: same as source image":
-            if self.ui.imageLabel.image:
-                height, width = self.ui.imageLabel.image.height, self.ui.imageLabel.image.width
+            if self.ui.image_label.image:
+                height, width = self.ui.image_label.image.height, self.ui.image_label.image.width
                 aspect_ratio = (width, height)
             else:
                 # Default to something sensible if no image, though this path is unlikely
@@ -554,31 +554,31 @@ class DetectoristApp(QMainWindow):
         return crop_mode, padding_percentage, aspect_ratio
 
     def update_crop_bands(self):
-        if not self.ui.imageLabel.image or not self.ui.imageLabel.orig_detection_rects:
-            self.ui.imageLabel.hide_bands()
-            self.ui.actionCropSaveImage.setEnabled(False)
+        if not self.ui.image_label.image or not self.ui.image_label.orig_detection_rects:
+            self.ui.image_label.hide_bands()
+            self.ui.crop_save_image_action.setEnabled(False)
             return
 
-        # The detections in imageLabel are (QRect, score, class_id)
+        # The detections in image_label are (QRect, score, class_id)
         # convert them to ((x,y,w,h), score, class_id) for calculate_crop_rect
         detections = [
             ((d[0].x(), d[0].y(), d[0].width(), d[0].height()), d[1], d[2])
-            for d in self.ui.imageLabel.orig_detection_rects
+            for d in self.ui.image_label.orig_detection_rects
         ]
 
         crop_mode, padding_percentage, aspect_ratio = self._get_current_crop_settings()
-        crop_tuples = DetectoristApp._calculate_crop_rectangles(detections, self.ui.imageLabel.image.height, self.ui.imageLabel.image.width, crop_mode, padding_percentage, aspect_ratio)
+        crop_tuples = DetectoristApp._calculate_crop_rectangles(detections, self.ui.image_label.image.height, self.ui.image_label.image.width, crop_mode, padding_percentage, aspect_ratio)
         crop_rects = [QRect(*crop_tuple) for crop_tuple in crop_tuples if crop_tuple and crop_tuple[2] > 0 and crop_tuple[3] > 0]
 
         if not crop_rects:
-            self.ui.imageLabel.hide_bands()
-            self.ui.actionCropSaveImage.setEnabled(False)
-            self.ui.actionCropSaveAllImages.setEnabled(False)
+            self.ui.image_label.hide_bands()
+            self.ui.crop_save_image_action.setEnabled(False)
+            self.ui.crop_save_all_images_action.setEnabled(False)
             return
 
-        self.ui.imageLabel.set_crop_boxes(crop_rects)
-        self.ui.actionCropSaveImage.setEnabled(True)
-        self.ui.actionCropSaveAllImages.setEnabled(True)
+        self.ui.image_label.set_crop_boxes(crop_rects)
+        self.ui.crop_save_image_action.setEnabled(True)
+        self.ui.crop_save_all_images_action.setEnabled(True)
 
     def _create_output_dir(self, base_dir: str):
         """
@@ -587,8 +587,8 @@ class DetectoristApp(QMainWindow):
         """
 
         #timestamp = time.strftime("%Y%m%d")
-        confidence = self.ui.confidenceSlider.value()
-        model_name = os.path.splitext(self.ui.modelSelectComboBox.currentText())[0]
+        confidence = self.ui.confidence_slider.value()
+        model_name = os.path.splitext(self.ui.model_select_combo_box.currentText())[0]
         output_dir = os.path.join(base_dir, f"detectorist_conf-{confidence}_{model_name}")
         os.makedirs(output_dir, exist_ok=True)
         return output_dir
@@ -623,21 +623,21 @@ class DetectoristApp(QMainWindow):
 
     def crop_save_image(self):
         """Crops and saves the currently displayed image based on the last crop rectangle."""
-        if not self.ui.imageLabel.image or not self.ui.imageLabel.last_crop_rects:
+        if not self.ui.image_label.image or not self.ui.image_label.last_crop_rects:
             return
 
         output_dir = self._create_output_dir()
         cropped_dir, _ = self._create_crop_dirs(output_dir)
 
-        for i, rect in enumerate(self.ui.imageLabel.last_crop_rects):
+        for i, rect in enumerate(self.ui.image_label.last_crop_rects):
             crop_tuple = (rect.x(), rect.y(), rect.width(), rect.height())
             base, ext = os.path.splitext(os.path.basename(self.current_image_path))
-            if len(self.ui.imageLabel.last_crop_rects) > 1:
+            if len(self.ui.image_label.last_crop_rects) > 1:
                 file_name = f"{base}_crop_{i}{ext}"
             else:
                 file_name = f"{base}_crop{ext}"
             output_path = os.path.join(cropped_dir, file_name)
-            self.ui.imageLabel.image.save_cropped(crop_tuple, output_path)
+            self.ui.image_label.image.save_cropped(crop_tuple, output_path)
         self._open_native_file_manager(output_dir)
 
     def _process_all_images(self, process_name: str, setup_callback: callable, process_image_callback: callable, image_files_to_process: list[str] = None):
@@ -662,7 +662,7 @@ class DetectoristApp(QMainWindow):
 
             # The detector lives in the worker thread. We can't access it directly.
             # For batch processing, we need a separate detector instance.
-            model_path = os.path.join(self.models_dir, self.ui.modelSelectComboBox.currentText())
+            model_path = os.path.join(self.models_dir, self.ui.model_select_combo_box.currentText())
             batch_detector = Detector(model_path)
 
             state = setup_callback(output_dir)
@@ -674,7 +674,7 @@ class DetectoristApp(QMainWindow):
             progress_dialog.setWindowModality(Qt.WindowModal)
             progress_dialog.setAutoClose(True)
 
-            confidence = self.ui.confidenceSlider.value() / 100.0
+            confidence = self.ui.confidence_slider.value() / 100.0
 
             log_file_path = os.path.join(output_dir, "detections.csv")
             with open(log_file_path, "w", newline="") as log_file:
@@ -701,16 +701,16 @@ class DetectoristApp(QMainWindow):
                         csv_writer.writerow(log_data)
 
             if not cancelled:
-                self.ui.statusBar.showMessage(f"Finished {process_name.lower()}.", 5000)
+                self.ui.status_bar.showMessage(f"Finished {process_name.lower()}.", 5000)
             else:
-                self.ui.statusBar.showMessage(f"{process_name} cancelled.", 5000)
+                self.ui.status_bar.showMessage(f"{process_name} cancelled.", 5000)
 
             self._open_native_file_manager(output_dir)
             progress_dialog.close()
 
         except Exception as e:
             print(f"Error during {process_name}: {e}")
-            self.ui.statusBar.showMessage(f"Error during {process_name}: {e}", 5000)
+            self.ui.status_bar.showMessage(f"Error during {process_name}: {e}", 5000)
 
     def _crop_and_save_images_with_progress(self, process_name: str, image_files_to_process: list[str] = None):
         """
@@ -786,7 +786,7 @@ class DetectoristApp(QMainWindow):
 
     def crop_save_selected_images(self):
         """Crops and saves selected images in the current folder based on detections and crop settings."""
-        selected_indexes = self.ui.imageListView.selectionModel().selectedIndexes()
+        selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
         if not selected_indexes:
             return
 
@@ -795,11 +795,11 @@ class DetectoristApp(QMainWindow):
 
     def _update_crop_save_selected_images_action_state(self):
         """Enables/disables actionCropSaveSelectedImages based on imageListView selection."""
-        selected_indexes = self.ui.imageListView.selectionModel().selectedIndexes()
-        self.ui.actionCropSaveSelectedImages.setEnabled(len(selected_indexes) > 0)
+        selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
+        self.ui.crop_save_selected_images_action.setEnabled(len(selected_indexes) > 0)
 
     def show_image_list_view_context_menu(self, position):
-        index = self.ui.imageListView.indexAt(position)
+        index = self.ui.image_list_view.indexAt(position)
         if not index.isValid():
             return
 
@@ -807,7 +807,7 @@ class DetectoristApp(QMainWindow):
         reveal_action = menu.addAction("Reveal Image in File Manager")
         copy_filename_action = menu.addAction("Copy Filename to Clipboard")
 
-        action = menu.exec(self.ui.imageListView.mapToGlobal(position))
+        action = menu.exec(self.ui.image_list_view.mapToGlobal(position))
 
         if action == copy_filename_action:
             self._copy_image_filename_to_clipboard(index)
