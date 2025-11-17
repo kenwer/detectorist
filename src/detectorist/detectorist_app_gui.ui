@@ -445,22 +445,6 @@ Highest confidence	: -</string>
     <string>Ctrl+Shift+O</string>
    </property>
   </action>
-  <action name="cropAction">
-   <property name="text">
-    <string>Crop to Selection</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+S</string>
-   </property>
-  </action>
-  <action name="detectObjectAction">
-   <property name="text">
-    <string>Detect Object (AI)</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+D</string>
-   </property>
-  </action>
   <action name="actionCropSaveImage">
    <property name="enabled">
     <bool>false</bool>
