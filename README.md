@@ -160,6 +160,16 @@ On Linux:
   - "Reveal Image in File Manager" to easily locate an image in your native file manager (Finder, Explorer, etc), and
   - "Copy Filename to Clipboard" that copies the file name string of the selected image to your clipboard.
 - File menu item to clear the image list.
+#### Changed
+- Remove `Crop & copy current image` because we now have the `Crop & export selected images`action.
+- Rename `Sort images into folders` action to `Group images into folders` because it groups images by the detected object class.
+- Rename `save` actions to `export` actions to clarify that the original images are not overwritten.
+- Adjust keybord shortcuts:
+    | Action  | Shortcut Windows/Linux | Shortcut macOS |
+    | --- | --- | --- |
+    | Group images into folder | Shift+Ctrl+G   | ⇧⌘G |
+    | Crop & Export selected Images | Ctrl+E | ⌘E |
+    | Crop & Export all Images | Shift+Ctrl+E | ⇧⌘E |
 
 ### [0.7.0] - 2025-11-14
 #### Added

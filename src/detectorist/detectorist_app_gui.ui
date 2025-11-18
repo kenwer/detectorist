@@ -172,7 +172,7 @@ Highest confidence	: -</string>
            <item row="1" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_to_top_conf">
              <property name="toolTip">
-              <string>Crops the object with the highest confidence into a new image</string>
+              <string>Crops the object with the highest confidence only into a new image</string>
              </property>
              <property name="text">
               <string>Crop to object with highest confidence</string>
@@ -188,7 +188,7 @@ Highest confidence	: -</string>
            <item row="2" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_largest_area">
              <property name="toolTip">
-              <string>Crops all detected object into a single image</string>
+              <string>Crops all detected objects into a single image</string>
              </property>
              <property name="text">
               <string>Crop to largest area</string>
@@ -414,11 +414,10 @@ Highest confidence	: -</string>
     <property name="title">
      <string>Actions</string>
     </property>
-    <addaction name="sort_images_by_object_class_action"/>
+    <addaction name="group_images_by_object_class_action"/>
     <addaction name="separator"/>
-    <addaction name="crop_save_image_action"/>
-    <addaction name="crop_save_selected_images_action"/>
-    <addaction name="crop_save_all_images_action"/>
+    <addaction name="crop_and_export_selected_images_action"/>
+    <addaction name="crop_and_export_all_images_action"/>
    </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
@@ -447,31 +446,26 @@ Highest confidence	: -</string>
     <string>Ctrl+Shift+O</string>
    </property>
   </action>
-  <action name="crop_save_image_action">
+  <action name="crop_and_export_selected_images_action">
    <property name="enabled">
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Crop &amp;&amp; copy current image</string>
-   </property>
-  </action>
-  <action name="crop_save_selected_images_action">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>Crop &amp;&amp; copy selected images</string>
-   </property>
-  </action>
-  <action name="crop_save_all_images_action">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>Crop &amp;&amp; copy all images</string>
+    <string>Crop &amp;&amp; Export Selected Images</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+K</string>
+    <string>Ctrl+E</string>
+   </property>
+  </action>
+  <action name="crop_and_export_all_images_action">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Crop &amp;&amp; Export all Images</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+E</string>
    </property>
   </action>
   <action name="about_action">
@@ -479,15 +473,15 @@ Highest confidence	: -</string>
     <string>About</string>
    </property>
   </action>
-  <action name="sort_images_by_object_class_action">
+  <action name="group_images_by_object_class_action">
    <property name="enabled">
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Sort images into folders (by deteced object class)</string>
+    <string>Group Images into Folders (by Object Class)</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Shift+S</string>
+    <string>Ctrl+Shift+G</string>
    </property>
   </action>
   <action name="clear_image_list_action">

@@ -211,12 +211,11 @@ class DetectoristApp(QMainWindow):
         self.ui.open_folder_action.triggered.connect(self.open_folder)
         self.ui.clear_image_list_action.triggered.connect(self.clear_image_list)
         self.ui.image_list_view.selectionModel().currentChanged.connect(self.on_image_selected)
-        self.ui.crop_save_image_action.triggered.connect(self.crop_save_image)
-        self.ui.crop_save_all_images_action.triggered.connect(self.crop_save_all_images)
-        self.ui.crop_save_selected_images_action.triggered.connect(self.crop_save_selected_images)
-        self.ui.image_list_view.selectionModel().selectionChanged.connect(self._update_crop_save_selected_images_action_state)
+        self.ui.crop_and_export_all_images_action.triggered.connect(self.crop_and_export_all_images)
+        self.ui.crop_and_export_selected_images_action.triggered.connect(self.crop_and_export_selected_images)
+        self.ui.image_list_view.selectionModel().selectionChanged.connect(self._update_crop_and_export_selected_images_action_state)
         self.ui.about_action.triggered.connect(self.show_about_dialog)
-        self.ui.sort_images_by_object_class_action.triggered.connect(self.sort_images_by_class_into_folders)
+        self.ui.group_images_by_object_class_action.triggered.connect(self.sort_images_by_class_into_folders)
 
         # Delayed/debounced Slider and SpinBoxe (because they are emitted very often as they both change)
         self.ui.confidence_slider.valueChanged.connect(self.debounce_processing_trigger)
@@ -282,9 +281,8 @@ class DetectoristApp(QMainWindow):
             self.ui.image_label.set_detection_boxes([])
             self.ui.image_label.hide_bands()
             self._update_detection_info()
-            self.ui.crop_save_image_action.setEnabled(False)
-            self.ui.crop_save_selected_images_action.setEnabled(False)
-            self.ui.crop_save_all_images_action.setEnabled(False)
+            self.ui.crop_and_export_selected_images_action.setEnabled(False)
+            self.ui.crop_and_export_all_images_action.setEnabled(False)
             self.ui.sort_images_by_object_class_action.setEnabled(False)
             self.ui.clear_image_list_action.setEnabled(False)
             self.ui.image_label.setText("No supported images found or selected.")
@@ -310,12 +308,10 @@ class DetectoristApp(QMainWindow):
             print(f"Error: Could not find {first_file_path} in the list.")
             self.ui.image_label.setText(f"Error: Could not find {os.path.basename(first_file_path)} in the list.")
 
-        self.ui.crop_save_image_action.setEnabled(True)
-        self.ui.crop_save_all_images_action.setEnabled(True)
-        self.ui.crop_save_selected_images_action.setEnabled(True)
-        self.ui.sort_images_by_object_class_action.setEnabled(True)
-        self.ui.clear_image_list_action.setEnabled(True)
-
+            self.ui.crop_and_export_all_images_action.setEnabled(True)
+            self.ui.crop_and_export_selected_images_action.setEnabled(True)
+            self.ui.group_images_by_object_class_action.setEnabled(True)
+            self.ui.clear_image_list_action.setEnabled(True)
     def open_images(self):
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
@@ -353,9 +349,9 @@ class DetectoristApp(QMainWindow):
 
         # Disable actions that depend on images being loaded
         self.ui.crop_save_image_action.setEnabled(False)
-        self.ui.crop_save_all_images_action.setEnabled(False)
-        self.ui.crop_save_selected_images_action.setEnabled(False)
-        self.ui.sort_images_by_object_class_action.setEnabled(False)
+        self.ui.crop_and_export_all_images_action.setEnabled(False)
+        self.ui.crop_and_export_selected_images_action.setEnabled(False)
+        self.ui.group_images_by_object_class_action.setEnabled(False)
         self.ui.clear_image_list_action.setEnabled(False)
 
     def on_image_selected(self, index):
@@ -526,7 +522,6 @@ class DetectoristApp(QMainWindow):
             crop_mode = 'largest_area'
         else:
             self.ui.image_label.hide_bands()
-            self.ui.crop_save_image_action.setEnabled(False)
             self.ui.crop_save_all_images_action.setEnabled(False)
             crop_mode = None
 
@@ -556,7 +551,6 @@ class DetectoristApp(QMainWindow):
     def update_crop_bands(self):
         if not self.ui.image_label.image or not self.ui.image_label.orig_detection_rects:
             self.ui.image_label.hide_bands()
-            self.ui.crop_save_image_action.setEnabled(False)
             return
 
         # The detections in image_label are (QRect, score, class_id)
@@ -572,13 +566,11 @@ class DetectoristApp(QMainWindow):
 
         if not crop_rects:
             self.ui.image_label.hide_bands()
-            self.ui.crop_save_image_action.setEnabled(False)
-            self.ui.crop_save_all_images_action.setEnabled(False)
+            self.ui.crop_and_export_all_images_action.setEnabled(False)
             return
 
         self.ui.image_label.set_crop_boxes(crop_rects)
-        self.ui.crop_save_image_action.setEnabled(True)
-        self.ui.crop_save_all_images_action.setEnabled(True)
+        self.ui.crop_and_export_all_images_action.setEnabled(True)
 
     def _create_output_dir(self, base_dir: str):
         """
@@ -621,24 +613,6 @@ class DetectoristApp(QMainWindow):
             dir_path = os.path.dirname(path) if os.path.isfile(path) else path
             subprocess.Popen(['xdg-open', dir_path])
 
-    def crop_save_image(self):
-        """Crops and saves the currently displayed image based on the last crop rectangle."""
-        if not self.ui.image_label.image or not self.ui.image_label.last_crop_rects:
-            return
-
-        output_dir = self._create_output_dir()
-        cropped_dir, _ = self._create_crop_dirs(output_dir)
-
-        for i, rect in enumerate(self.ui.image_label.last_crop_rects):
-            crop_tuple = (rect.x(), rect.y(), rect.width(), rect.height())
-            base, ext = os.path.splitext(os.path.basename(self.current_image_path))
-            if len(self.ui.image_label.last_crop_rects) > 1:
-                file_name = f"{base}_crop_{i}{ext}"
-            else:
-                file_name = f"{base}_crop{ext}"
-            output_path = os.path.join(cropped_dir, file_name)
-            self.ui.image_label.image.save_cropped(crop_tuple, output_path)
-        self._open_native_file_manager(output_dir)
 
     def _process_all_images(self, process_name: str, setup_callback: callable, process_image_callback: callable, image_files_to_process: list[str] = None):
         """
@@ -712,7 +686,7 @@ class DetectoristApp(QMainWindow):
             print(f"Error during {process_name}: {e}")
             self.ui.status_bar.showMessage(f"Error during {process_name}: {e}", 5000)
 
-    def _crop_and_save_images_with_progress(self, process_name: str, image_files_to_process: list[str] = None):
+    def _crop_and_export_images_with_progress(self, process_name: str, image_files_to_process: list[str] = None):
         """
         Helper method that encapsulates the loop that goes through all the images for cropping.
         It covers the progress dialog, image loading, and object detection.
@@ -758,9 +732,18 @@ class DetectoristApp(QMainWindow):
 
         self._process_all_images(process_name, setup, process_image_for_cropping, image_files_to_process)
 
-    def crop_save_all_images(self):
-        """Crops and saves all images in the current folder based on detections and crop settings."""
-        self._crop_and_save_images_with_progress("Cropping images")
+    def crop_and_export_selected_images(self):
+        """Crop and export the currently selected images."""
+        selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
+        if not selected_indexes:
+            return
+
+        selected_image_files = [self.model.data(index, ImageListModel.FullPathRole) for index in selected_indexes]
+        self._crop_and_export_images_with_progress("Cropping selected images", selected_image_files)
+
+    def crop_and_export_all_images(self):
+        """Crop and export all images."""
+        self._crop_and_export_images_with_progress("Cropping images")
 
     def sort_images_by_class_into_folders(self):
         """Sorts images into folders based on the detected object class name."""
@@ -784,19 +767,10 @@ class DetectoristApp(QMainWindow):
 
         self._process_all_images("Sorting images", setup, process_image_for_sorting)
 
-    def crop_save_selected_images(self):
-        """Crops and saves selected images in the current folder based on detections and crop settings."""
-        selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
-        if not selected_indexes:
-            return
-
-        selected_image_files = [self.model.data(index, ImageListModel.FullPathRole) for index in selected_indexes]
-        self._crop_and_save_images_with_progress("Cropping selected images", selected_image_files)
-
-    def _update_crop_save_selected_images_action_state(self):
+    def _update_crop_and_export_selected_images_action_state(self):
         """Enables/disables actionCropSaveSelectedImages based on imageListView selection."""
         selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
-        self.ui.crop_save_selected_images_action.setEnabled(len(selected_indexes) > 0)
+        self.ui.crop_and_export_selected_images_action.setEnabled(len(selected_indexes) > 0)
 
     def show_image_list_view_context_menu(self, position):
         index = self.ui.image_list_view.indexAt(position)
