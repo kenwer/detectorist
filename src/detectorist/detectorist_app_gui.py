@@ -151,12 +151,19 @@ class Ui_DetectoristAppUI(object):
 
         self.grdlyt_crop.addWidget(self.rb_crop_to_top_conf, 1, 0, 1, 2)
 
+        self.rb_crop_centered_obj = QRadioButton(self.crop_info_group_box)
+        self.btngroup_crop.addButton(self.rb_crop_centered_obj)
+        self.rb_crop_centered_obj.setObjectName(u"rb_crop_centered_obj")
+        self.rb_crop_centered_obj.setChecked(False)
+
+        self.grdlyt_crop.addWidget(self.rb_crop_centered_obj, 2, 0, 1, 2)
+
         self.rb_crop_largest_area = QRadioButton(self.crop_info_group_box)
         self.btngroup_crop.addButton(self.rb_crop_largest_area)
         self.rb_crop_largest_area.setObjectName(u"rb_crop_largest_area")
         self.rb_crop_largest_area.setChecked(False)
 
-        self.grdlyt_crop.addWidget(self.rb_crop_largest_area, 2, 0, 1, 2)
+        self.grdlyt_crop.addWidget(self.rb_crop_largest_area, 3, 0, 1, 2)
 
         self.crop_ratio_combo_box = QComboBox(self.crop_info_group_box)
         self.crop_ratio_combo_box.addItem("")
@@ -173,12 +180,12 @@ class Ui_DetectoristAppUI(object):
         self.crop_ratio_combo_box.addItem("")
         self.crop_ratio_combo_box.setObjectName(u"crop_ratio_combo_box")
 
-        self.grdlyt_crop.addWidget(self.crop_ratio_combo_box, 3, 0, 1, 3)
+        self.grdlyt_crop.addWidget(self.crop_ratio_combo_box, 4, 0, 1, 3)
 
         self.padding_label = QLabel(self.crop_info_group_box)
         self.padding_label.setObjectName(u"padding_label")
 
-        self.grdlyt_crop.addWidget(self.padding_label, 4, 0, 1, 1)
+        self.grdlyt_crop.addWidget(self.padding_label, 5, 0, 1, 1)
 
         self.padding_slider = QSlider(self.crop_info_group_box)
         self.padding_slider.setObjectName(u"padding_slider")
@@ -191,20 +198,20 @@ class Ui_DetectoristAppUI(object):
         self.padding_slider.setOrientation(Qt.Orientation.Horizontal)
         self.padding_slider.setTickPosition(QSlider.TickPosition.NoTicks)
 
-        self.grdlyt_crop.addWidget(self.padding_slider, 4, 1, 1, 1)
+        self.grdlyt_crop.addWidget(self.padding_slider, 5, 1, 1, 1)
 
         self.padding_spin_box = QSpinBox(self.crop_info_group_box)
         self.padding_spin_box.setObjectName(u"padding_spin_box")
         self.padding_spin_box.setMaximum(50)
         self.padding_spin_box.setValue(15)
 
-        self.grdlyt_crop.addWidget(self.padding_spin_box, 4, 2, 1, 1)
+        self.grdlyt_crop.addWidget(self.padding_spin_box, 5, 2, 1, 1)
 
         self.cb_comp_cam_exposure = QCheckBox(self.crop_info_group_box)
         self.cb_comp_cam_exposure.setObjectName(u"cb_comp_cam_exposure")
         self.cb_comp_cam_exposure.setChecked(True)
 
-        self.grdlyt_crop.addWidget(self.cb_comp_cam_exposure, 5, 0, 1, 3)
+        self.grdlyt_crop.addWidget(self.cb_comp_cam_exposure, 6, 0, 1, 3)
 
 
         self.verticalLayout.addWidget(self.crop_info_group_box)
@@ -230,7 +237,7 @@ class Ui_DetectoristAppUI(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 298, 138))
+        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 298, 114))
         self.horizontalLayout_2 = QHBoxLayout(self.scrollAreaWidgetContents)
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.image_exif_label = QLabel(self.scrollAreaWidgetContents)
@@ -335,11 +342,15 @@ class Ui_DetectoristAppUI(object):
 #if QT_CONFIG(tooltip)
         self.rb_crop_all_detected_objects.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Crops all detected objects into individual images", None))
 #endif // QT_CONFIG(tooltip)
-        self.rb_crop_all_detected_objects.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop all detected objects", None))
+        self.rb_crop_all_detected_objects.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop all detected objects individually", None))
 #if QT_CONFIG(tooltip)
-        self.rb_crop_to_top_conf.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Crops the object with the highest confidence only into a new image", None))
+        self.rb_crop_to_top_conf.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Crops to the object with the highest confidence only into a new image", None))
 #endif // QT_CONFIG(tooltip)
         self.rb_crop_to_top_conf.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop to object with highest confidence", None))
+#if QT_CONFIG(tooltip)
+        self.rb_crop_centered_obj.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Crops to the most centrally located of all detected objects only into a new image", None))
+#endif // QT_CONFIG(tooltip)
+        self.rb_crop_centered_obj.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop to object closest to center", None))
 #if QT_CONFIG(tooltip)
         self.rb_crop_largest_area.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Crops all detected objects into a single image", None))
 #endif // QT_CONFIG(tooltip)
@@ -361,11 +372,11 @@ class Ui_DetectoristAppUI(object):
         self.crop_ratio_combo_box.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Aspect ratio for the crop", None))
 #endif // QT_CONFIG(tooltip)
 #if QT_CONFIG(tooltip)
-        self.padding_label.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"The padding added to the crop (percent of the image size in percent)", None))
+        self.padding_label.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Adjusts the padding around detected objects as a percentage of the detection bounding box's width/height", None))
 #endif // QT_CONFIG(tooltip)
         self.padding_label.setText(QCoreApplication.translate("DetectoristAppUI", u"Padding", None))
 #if QT_CONFIG(tooltip)
-        self.padding_slider.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"The padding added to the crop (percent of the image size in percent)", None))
+        self.padding_slider.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Adjusts the padding around detected objects as a percentage of the detection bounding box's width/height", None))
 #endif // QT_CONFIG(tooltip)
 #if QT_CONFIG(tooltip)
         self.cb_comp_cam_exposure.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Adjust the EV to correct for any exposure bias based on EXIF data", None))

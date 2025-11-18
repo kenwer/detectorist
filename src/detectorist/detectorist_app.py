@@ -50,7 +50,7 @@ class DetectoristApp(QMainWindow):
             detections: A list of detections, where each detection is a tuple ((x, y, w, h), score, class_id).
             image_height: The height of the image.
             image_width: The width of the image.
-            crop_mode: 'top_confidence' or 'largest_area'.
+            crop_mode: 'top_confidence', 'largest_area', or 'most_centered'.
             padding_percentage: Padding to add around the bounding box, as a float (e.g., 0.1 for 10%).
             aspect_ratio: A tuple (width, height) for the target aspect ratio.
 
@@ -70,17 +70,49 @@ class DetectoristApp(QMainWindow):
             right = max(d[0][0] + d[0][2] for d in detections)
             bottom = max(d[0][1] + d[0][3] for d in detections)
             x, y, w, h = left, top, right - left, bottom - top
+        elif crop_mode == 'most_centered':
+            image_center_x = image_width / 2
+            image_center_y = image_height / 2
+
+            min_distance = float('inf')
+            most_centered_detection = None
+
+            # Iterate through each detected object to find the one closest to the image center
+            for detection in detections:
+                # Bounding box coordinates and dimensions for the current detection
+                det_x, det_y, det_w, det_h = detection[0]
+                # Calculate the center coordinates of the current detection's bounding box
+                det_center_x = det_x + det_w / 2
+                det_center_y = det_y + det_h / 2
+
+                # Euclidean distance between the detection's center and the image's center
+                distance = ((det_center_x - image_center_x)**2 + (det_center_y - image_center_y)**2)**0.5
+
+                # If this detection is closer to the image center than previous ones, update
+                if distance < min_distance:
+                    min_distance = distance
+                    most_centered_detection = detection
+
+            # If a most centered detection was found, use its bounding box for cropping
+            if most_centered_detection:
+                x, y, w, h = most_centered_detection[0]
+            else:
+                return None # No centered detection found
         else:
             print(f"Warning {crop_mode}: invalid crop mode for _calculate_single_crop_rect")
             return None
 
-        # Add padding
+        # Calculate the horizontal/vertical padding based on the width/height of the bounding box and the padding percentage
         padding_x = int(w * padding_percentage)
         padding_y = int(h * padding_percentage)
 
+        # Extend the bounding box's x-coordinate to the left by `padding_x`
         x -= padding_x
+        # Extend the bounding box's y-coordinate upwards by `padding_y`
         y -= padding_y
+        # Increase the width of the bounding box by `2 * padding_x` (left and right)
         w += 2 * padding_x
+        # Increase the height of the bounding box by `2 * padding_y` (top and bottom)
         h += 2 * padding_y
 
         # Adjust for aspect ratio
@@ -143,7 +175,7 @@ class DetectoristApp(QMainWindow):
             detections: A list of detections, where each detection is a tuple ((x, y, w, h), score, class_id).
             image_height: The height of the image.
             image_width: The width of the image.
-            crop_mode: 'top_confidence' or 'largest_area'.
+            crop_mode: 'top_confidence', 'largest_area', or 'most_centered'.
             padding_percentage: Padding to add around the bounding box, as a float (e.g., 0.1 for 10%).
             aspect_ratio: A tuple (width, height) for the target aspect ratio.
 
@@ -229,6 +261,7 @@ class DetectoristApp(QMainWindow):
         self.ui.rb_crop_to_top_conf.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_largest_area.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_all_detected_objects.toggled.connect(self.update_crop_bands)
+        self.ui.rb_crop_centered_obj.toggled.connect(self.update_crop_bands)
         self.ui.crop_ratio_combo_box.currentIndexChanged.connect(self.update_crop_bands)
         self.ui.padding_slider.valueChanged.connect(self.update_crop_bands)
 
@@ -520,6 +553,8 @@ class DetectoristApp(QMainWindow):
             crop_mode = 'top_confidence'
         elif self.ui.rb_crop_largest_area.isChecked():
             crop_mode = 'largest_area'
+        elif self.ui.rb_crop_centered_obj.isChecked():
+            crop_mode = 'most_centered'
         else:
             self.ui.image_label.hide_bands()
             self.ui.crop_save_all_images_action.setEnabled(False)
