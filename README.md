@@ -154,7 +154,7 @@ On Linux:
 
 ## Changelog
 
-### [unreleased]
+### [0.7.1] - 2025-11-20
 #### Added
 - Add option to crop to the most centrally located of all detected objects.
 - Add option to set the aspect ratio of the crop to the aspect ratio of the detect frame ("aspect ratio: same as detection frame").
