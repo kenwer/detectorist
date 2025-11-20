@@ -42,7 +42,7 @@ class DetectoristApp(QMainWindow):
     request_processing = Signal(str, float, float, bool)
 
     @staticmethod
-    def _calculate_single_crop_rect(detections: list, image_height: int, image_width: int, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> tuple[int, int, int, int] | None:
+    def _calculate_single_crop_rect(detections: list, image_height: int, image_width: int, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int] | str) -> tuple[int, int, int, int] | None:
         """
         Calculates a single crop rectangle crop rectangle based on detections and parameters.
 
@@ -52,7 +52,7 @@ class DetectoristApp(QMainWindow):
             image_width: The width of the image.
             crop_mode: 'top_confidence', 'largest_area', or 'most_centered'.
             padding_percentage: Padding to add around the bounding box, as a float (e.g., 0.1 for 10%).
-            aspect_ratio: A tuple (width, height) for the target aspect ratio.
+            aspect_ratio: A tuple (width, height) for the target aspect ratio, or the string "detection_frame".
 
         Returns:
             A tuple (x, y, w, h) for the crop rectangle, or None if no rectangle could be calculated.
@@ -102,9 +102,11 @@ class DetectoristApp(QMainWindow):
             print(f"Warning {crop_mode}: invalid crop mode for _calculate_single_crop_rect")
             return None
 
+        detection_w, detection_h = w, h
+
         # Calculate the horizontal/vertical padding based on the width/height of the bounding box and the padding percentage
-        padding_x = int(w * padding_percentage)
-        padding_y = int(h * padding_percentage)
+        padding_x = int(detection_w * padding_percentage)
+        padding_y = int(detection_h * padding_percentage)
 
         # Extend the bounding box's x-coordinate to the left by `padding_x`
         x -= padding_x
@@ -115,11 +117,15 @@ class DetectoristApp(QMainWindow):
         # Increase the height of the bounding box by `2 * padding_y` (top and bottom)
         h += 2 * padding_y
 
-        # Adjust for aspect ratio
-        if h <= 0 or aspect_ratio[1] <= 0:
-            return None # Avoid division by zero
+        # Handle aspect ratio for "detection_frame"
+        final_aspect_ratio = aspect_ratio
+        if aspect_ratio == 'detection_frame':
+            if detection_w > 0 and detection_h > 0:
+                final_aspect_ratio = (detection_w, detection_h)
+            else:
+                final_aspect_ratio = (1, 1) # Fallback to square if detection has zero area
 
-        ratio_w, ratio_h = aspect_ratio
+        ratio_w, ratio_h = final_aspect_ratio
         rect_w, rect_h = w, h
 
         current_ratio = rect_w / rect_h
@@ -167,7 +173,7 @@ class DetectoristApp(QMainWindow):
         return (x, y, w, h)
 
     @staticmethod
-    def _calculate_crop_rectangles(detections: list, image_height: int, image_width: int, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int]) -> list[tuple[int, int, int, int]]:
+    def _calculate_crop_rectangles(detections: list, image_height: int, image_width: int, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int] | str) -> list[tuple[int, int, int, int]]:
         """
         Calculates crop rectangles based on detections and parameters.
 
@@ -177,7 +183,7 @@ class DetectoristApp(QMainWindow):
             image_width: The width of the image.
             crop_mode: 'top_confidence', 'largest_area', or 'most_centered'.
             padding_percentage: Padding to add around the bounding box, as a float (e.g., 0.1 for 10%).
-            aspect_ratio: A tuple (width, height) for the target aspect ratio.
+            aspect_ratio: A tuple (width, height) for the target aspect ratio, or the string "detection_frame".
 
         Returns:
             A list of tuples (x, y, w, h) for the crop rectangles.
@@ -573,6 +579,8 @@ class DetectoristApp(QMainWindow):
             else:
                 # Default to something sensible if no image, though this path is unlikely
                 aspect_ratio = (1, 1)
+        elif ratio_str == "aspect ratio: same as detection frame":
+            aspect_ratio = 'detection_frame'
         else:
             # Handle strings like "3:2 (landscape)"
             ratio_part = ratio_str.split(' ')[0]

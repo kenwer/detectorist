@@ -229,6 +229,11 @@ Highest confidence	: -</string>
              </item>
              <item>
               <property name="text">
+               <string>aspect ratio: same as detection frame</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
                <string>3:2 (landscape)</string>
               </property>
              </item>
