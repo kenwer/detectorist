@@ -388,12 +388,16 @@ class DetectoristApp(QMainWindow):
         self.ui.clear_image_list_action.setEnabled(False)
 
     def on_image_selected(self, index):
-        if self.model.rowCount() == 0: # Check if any images are loaded
+        if not index.isValid():
             return
 
         # Get the full path of the selected image from our internal list
         # The index.row() corresponds to the position in the model
         new_image_path = self.model.data(index, ImageListModel.FullPathRole)
+
+        if new_image_path is None:
+            # This can happen if the model is cleared and the view hasn't updated yet
+            return
 
         if new_image_path == self.current_image_path:
             return  # No need to reload the same image
@@ -837,6 +841,44 @@ class DetectoristApp(QMainWindow):
         file_name = self.model.data(index)
         clipboard = QApplication.clipboard()
         clipboard.setText(file_name)
+
+    def keyPressEvent(self, event):
+        """Handles key press events for navigating the image list."""
+        key = event.key()
+        modifiers = event.modifiers()
+
+        if self.model.rowCount() == 0: # No images loaded, ignore key events
+            super().keyPressEvent(event) # Pass other key events to the base class
+            return
+
+        # Ctrl + Up/Down or Ctrl + Left/Right to jump to the first/last image
+        if modifiers & Qt.KeyboardModifier.ControlModifier: # Cmd key on macOS
+            if key == Qt.Key_Up or key == Qt.Key_Left:
+                self.ui.image_list_view.selectionModel().clear()
+                self.ui.image_list_view.setCurrentIndex(self.model.index(0, 0))
+                event.accept()
+                return
+            elif key == Qt.Key_Down or key == Qt.Key_Right:
+                self.ui.image_list_view.selectionModel().clear()
+                self.ui.image_list_view.setCurrentIndex(self.model.index(self.model.rowCount() - 1, 0))
+                event.accept()
+                return
+        # Navigation through the image list using Left/Right keys, stop at the ends
+        else:
+            current_row = self.ui.image_list_view.currentIndex().row()
+            next_row = -1 # Initialize with an invalid value
+            if key == Qt.Key_Left:
+                next_row = max(0, current_row - 1)
+            elif key == Qt.Key_Right:
+                next_row = min(self.model.rowCount() - 1, current_row + 1)
+
+            if next_row != -1 and next_row != current_row: # Only update if a valid new row is calculated and it's different from the current one
+                next_index = self.model.index(next_row, 0)
+                self.ui.image_list_view.setCurrentIndex(next_index)
+                event.accept()
+                return
+
+        super().keyPressEvent(event) # Pass other key events to the base class
 
     def closeEvent(self, event):
         # Clean up resources, if any
