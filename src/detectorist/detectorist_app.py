@@ -267,6 +267,9 @@ class DetectoristApp(QMainWindow):
 
         self.ui.cb_comp_cam_exposure.toggled.connect(self.on_exposure_compensation_toggled)
 
+        # Connect model signals
+        self.model.modelReset.connect(self._update_clear_image_list_action_state)
+
         self.models_dir=get_model_path()
         if not os.path.exists(self.models_dir):
             print(f"Error: models directory does not exist at {self.models_dir}")
@@ -317,7 +320,6 @@ class DetectoristApp(QMainWindow):
             self.ui.crop_and_export_selected_images_action.setEnabled(False)
             self.ui.crop_and_export_all_images_action.setEnabled(False)
             self.ui.sort_images_by_object_class_action.setEnabled(False)
-            self.ui.clear_image_list_action.setEnabled(False)
             self.ui.image_label.setText("No supported images found or selected.")
             self.model.clear()
             return
@@ -344,7 +346,6 @@ class DetectoristApp(QMainWindow):
             self.ui.crop_and_export_all_images_action.setEnabled(True)
             self.ui.crop_and_export_selected_images_action.setEnabled(True)
             self.ui.group_images_by_object_class_action.setEnabled(True)
-            self.ui.clear_image_list_action.setEnabled(True)
     def open_images(self):
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
@@ -381,11 +382,9 @@ class DetectoristApp(QMainWindow):
         self.ui.status_bar.clearMessage()
 
         # Disable actions that depend on images being loaded
-        self.ui.crop_save_image_action.setEnabled(False)
         self.ui.crop_and_export_all_images_action.setEnabled(False)
         self.ui.crop_and_export_selected_images_action.setEnabled(False)
         self.ui.group_images_by_object_class_action.setEnabled(False)
-        self.ui.clear_image_list_action.setEnabled(False)
 
     def on_image_selected(self, index):
         if not index.isValid():
@@ -810,6 +809,10 @@ class DetectoristApp(QMainWindow):
         """Enables/disables actionCropSaveSelectedImages based on imageListView selection."""
         selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
         self.ui.crop_and_export_selected_images_action.setEnabled(len(selected_indexes) > 0)
+
+    def _update_clear_image_list_action_state(self):
+        """Enables/disables clear_image_list_action based on whether the model has images."""
+        self.ui.clear_image_list_action.setEnabled(self.model.rowCount() > 0)
 
     def show_image_list_view_context_menu(self, position):
         index = self.ui.image_list_view.indexAt(position)
