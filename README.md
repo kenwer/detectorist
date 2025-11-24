@@ -157,7 +157,11 @@ On Linux:
 ### [unreleased]
 #### Added
 - Selected images can now be removed from the list view via the context menu or using the backspace keyboard shortcut.
-  - Note: The images are just removed from the list view in the UI, the images on the filesystem are untouched.
+  - Note: The images are just removed from the list view in the UI, the images on the filesystem are untouched. 
+
+#### Changed
+- The `Copy Filename to Clipboard` is now called `Copy Filenames to Clipboard` because it allows to copy all of the selected filenames into the clipboard.
+- [Dev] Move action definitions into the .ui file.
 
 ### [0.7.1] - 2025-11-20
 #### Added

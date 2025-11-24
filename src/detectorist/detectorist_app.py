@@ -258,6 +258,8 @@ class DetectoristApp(QMainWindow):
         self.ui.image_list_view.selectionModel().selectionChanged.connect(self._update_selection_dependent_actions_state)
         self.ui.about_action.triggered.connect(self.show_about_dialog)
         self.ui.group_images_by_object_class_action.triggered.connect(self.sort_images_by_class_into_folders)
+        self.ui.reveal_image_in_filemanager_action.triggered.connect(self._reveal_selected_image_in_file_manager)
+        self.ui.copy_filenames_to_clipboard_action.triggered.connect(self._copy_selected_filenames_to_clipboard)
         self.ui.remove_selected_images_from_list_action.triggered.connect(self._remove_selected_images_from_list)
 
         # Delayed/debounced Slider and SpinBoxe (because they are emitted very often as they both change)
@@ -822,6 +824,8 @@ class DetectoristApp(QMainWindow):
         """Enables/disables actions based on the current selection in the image list view."""
         has_selection = len(self.ui.image_list_view.selectionModel().selectedIndexes()) > 0
         self.ui.crop_and_export_selected_images_action.setEnabled(has_selection)
+        self.ui.reveal_image_in_filemanager_action.setEnabled(has_selection)
+        self.ui.copy_filenames_to_clipboard_action.setEnabled(has_selection)
         self.ui.remove_selected_images_from_list_action.setEnabled(has_selection)
 
     def _update_clear_image_list_action_state(self):
@@ -833,35 +837,31 @@ class DetectoristApp(QMainWindow):
         if not index.isValid():
             return
 
-        menu = QMenu()
-        reveal_action = menu.addAction("Reveal Image in File Manager")
-        copy_filename_action = menu.addAction("Copy Filename to Clipboard")
-
         if self.ui.image_list_view.selectionModel().hasSelection():
+            menu = QMenu()
+            menu.addAction(self.ui.reveal_image_in_filemanager_action)
+            menu.addAction(self.ui.copy_filenames_to_clipboard_action)
             menu.addSeparator()
             menu.addAction(self.ui.remove_selected_images_from_list_action)
+            menu.exec(self.ui.image_list_view.mapToGlobal(position))
 
-        action = menu.exec(self.ui.image_list_view.mapToGlobal(position))
-
-        if action == copy_filename_action:
-            self._copy_image_filename_to_clipboard(index)
-        elif action == reveal_action:
-            self._reveal_in_file_manager(index)
-
-    def _reveal_in_file_manager(self, index):
+    def _reveal_selected_image_in_file_manager(self):
+        index = self.ui.image_list_view.currentIndex()
         if not index.isValid():
             return
 
         file_path = self.model.data(index, ImageListModel.FullPathRole)
         self._open_native_file_manager(file_path)
 
-    def _copy_image_filename_to_clipboard(self, index):
-        if not index.isValid():
+    def _copy_selected_filenames_to_clipboard(self):
+        selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
+        if not selected_indexes:
             return
 
-        file_name = self.model.data(index)
+        filenames = [self.model.data(index) for index in selected_indexes if index.isValid()]
+        clipboard_text = "\n".join(filenames)
         clipboard = QApplication.clipboard()
-        clipboard.setText(file_name)
+        clipboard.setText(clipboard_text)
 
     def _remove_selected_images_from_list(self):
         """Removes the currently selected images filenames from the list."""

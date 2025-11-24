@@ -533,6 +533,34 @@ Highest confidence	: -</string>
     <bool>true</bool>
    </property>
   </action>
+  <action name="reveal_image_in_filemanager_action">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Reveal Image in File Manager</string>
+   </property>
+   <property name="toolTip">
+    <string>Reveal Image in File Manager</string>
+   </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
+   </property>
+  </action>
+  <action name="copy_filenames_to_clipboard_action">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Copy Filenames to Clipboard</string>
+   </property>
+   <property name="toolTip">
+    <string>Copy Filenames to Clipboard</string>
+   </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections>
