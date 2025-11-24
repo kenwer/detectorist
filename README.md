@@ -154,6 +154,11 @@ On Linux:
 
 ## Changelog
 
+### [unreleased]
+#### Added
+- Selected images can now be removed from the list view via the context menu or using the backspace keyboard shortcut.
+  - Note: The images are just removed from the list view in the UI, the images on the filesystem are untouched.
+
 ### [0.7.1] - 2025-11-20
 #### Added
 - Add option to crop to the most centrally located of all detected objects.

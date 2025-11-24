@@ -244,6 +244,10 @@ class DetectoristApp(QMainWindow):
         self.ui.image_list_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.ui.image_list_view.customContextMenuRequested.connect(self.show_image_list_view_context_menu)
 
+        # Add actions (of the context menu) to the QListView (for its shortcut to be active)
+        # Since we add it to the QListView, it's only active if it has focus, aligning with Cmd+A Ctrl+A behavior
+        self.ui.image_list_view.addAction(self.ui.remove_selected_images_from_list_action)
+
         # Connect signals
         self.ui.open_images_action.triggered.connect(self.open_images)
         self.ui.open_folder_action.triggered.connect(self.open_folder)
@@ -251,9 +255,10 @@ class DetectoristApp(QMainWindow):
         self.ui.image_list_view.selectionModel().currentChanged.connect(self.on_image_selected)
         self.ui.crop_and_export_all_images_action.triggered.connect(self.crop_and_export_all_images)
         self.ui.crop_and_export_selected_images_action.triggered.connect(self.crop_and_export_selected_images)
-        self.ui.image_list_view.selectionModel().selectionChanged.connect(self._update_crop_and_export_selected_images_action_state)
+        self.ui.image_list_view.selectionModel().selectionChanged.connect(self._update_selection_dependent_actions_state)
         self.ui.about_action.triggered.connect(self.show_about_dialog)
         self.ui.group_images_by_object_class_action.triggered.connect(self.sort_images_by_class_into_folders)
+        self.ui.remove_selected_images_from_list_action.triggered.connect(self._remove_selected_images_from_list)
 
         # Delayed/debounced Slider and SpinBoxe (because they are emitted very often as they both change)
         self.ui.confidence_slider.valueChanged.connect(self.debounce_processing_trigger)
@@ -813,10 +818,11 @@ class DetectoristApp(QMainWindow):
 
         self._process_all_images("Sorting images", setup, process_image_for_sorting)
 
-    def _update_crop_and_export_selected_images_action_state(self):
-        """Enables/disables actionCropSaveSelectedImages based on imageListView selection."""
-        selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
-        self.ui.crop_and_export_selected_images_action.setEnabled(len(selected_indexes) > 0)
+    def _update_selection_dependent_actions_state(self):
+        """Enables/disables actions based on the current selection in the image list view."""
+        has_selection = len(self.ui.image_list_view.selectionModel().selectedIndexes()) > 0
+        self.ui.crop_and_export_selected_images_action.setEnabled(has_selection)
+        self.ui.remove_selected_images_from_list_action.setEnabled(has_selection)
 
     def _update_clear_image_list_action_state(self):
         """Enables/disables clear_image_list_action based on whether the model has images."""
@@ -830,6 +836,10 @@ class DetectoristApp(QMainWindow):
         menu = QMenu()
         reveal_action = menu.addAction("Reveal Image in File Manager")
         copy_filename_action = menu.addAction("Copy Filename to Clipboard")
+
+        if self.ui.image_list_view.selectionModel().hasSelection():
+            menu.addSeparator()
+            menu.addAction(self.ui.remove_selected_images_from_list_action)
 
         action = menu.exec(self.ui.image_list_view.mapToGlobal(position))
 
@@ -852,6 +862,27 @@ class DetectoristApp(QMainWindow):
         file_name = self.model.data(index)
         clipboard = QApplication.clipboard()
         clipboard.setText(file_name)
+
+    def _remove_selected_images_from_list(self):
+        """Removes the currently selected images filenames from the list."""
+        selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
+        rows_to_remove = sorted({idx.row() for idx in selected_indexes if idx.isValid()})
+        if not rows_to_remove:
+            return
+
+        self.model.removeImagePaths(rows_to_remove)
+
+        # Handle selection after removal
+        if self.model.rowCount() == 0:
+            self.clear_image_list()
+        else:
+            # Calculate next selection row, ensuring it's within model bounds
+            next_selection_row = min(rows_to_remove[-1] - len(rows_to_remove) + 1,
+                                     self.model.rowCount() - 1)
+            # If we'd want to select the item that now occupies the position of the first removed item:
+            #next_selection_row = rows_to_remove[0]
+            next_index = self.model.index(next_selection_row, 0)
+            self.ui.image_list_view.setCurrentIndex(next_index)
 
     def keyPressEvent(self, event):
         """Handles key press events for navigating the image list."""

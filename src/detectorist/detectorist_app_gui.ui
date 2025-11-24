@@ -516,6 +516,23 @@ Highest confidence	: -</string>
     <string>Ctrl+Backspace</string>
    </property>
   </action>
+  <action name="remove_selected_images_from_list_action">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Remove selected Images from List</string>
+   </property>
+   <property name="toolTip">
+    <string>Removes the selected Image(s) from the List. The images are not deleted, just removed from the view</string>
+   </property>
+   <property name="shortcut">
+    <string>Backspace</string>
+   </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections>
