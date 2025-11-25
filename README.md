@@ -127,6 +127,10 @@ The changelog can be found at the [CHANGELOG page](CHANGELOG.md).
 
 Frequently asked questions can be found at the [FAQ page](FAQ.md).
 
+<!-- FAQ_TOC_START -->
+- [Q1: When starting the app on macOS, how do I get past the  "*Detectorist.app Not Opened*" message?](FAQ.md#q1-when-starting-the-app-on-macos-how-do-i-get-past-the--detectoristapp-not-opened-message)
+- [Q2: When starting the Windows executable, how do I get past the "*Windows protected your PC*" / "*Don't run*" message?](FAQ.md#q2-when-starting-the-windows-executable-how-do-i-get-past-the-windows-protected-your-pc--dont-run-message)
+<!-- FAQ_TOC_END -->
 
 ## Development
 
