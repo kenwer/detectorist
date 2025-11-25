@@ -1,6 +1,6 @@
 # Changelog
 
-### [unreleased]
+### [0.7.2] - 2025-11-25
 #### Added
 - Add `Crop & Export & Remove selected Images` action that allows to start a batch process that crops and exports the selected image(s) into a subfolder and also removes the image(s) from the list once it completed.
 - Selected images can now be removed from the list view via the context menu or using the backspace keyboard shortcut.
