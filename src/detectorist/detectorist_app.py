@@ -863,7 +863,6 @@ class DetectoristApp(QMainWindow):
             menu.addSeparator()
             menu.addAction(self.ui.crop_and_export_selected_images_action)
             menu.addAction(self.ui.copy_export_remove_action)
-            menu.addSeparator()
             menu.addAction(self.ui.remove_selected_images_from_list_action)
             menu.addSeparator()
             menu.addAction(self.ui.copy_filenames_to_clipboard_action)
