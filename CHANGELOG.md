@@ -8,6 +8,7 @@
 
 #### Changed
 - The `Copy Filename to Clipboard` is now called `Copy Filenames to Clipboard` because it allows to copy all of the selected filenames into the clipboard.
+- Rename the `Reveal Image in File Manager` action to `Locate Image in Filemanager`.
 - [Dev] Move action definitions into the .ui file.
 
 ### [0.7.1] - 2025-11-20

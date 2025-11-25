@@ -560,10 +560,10 @@ Highest confidence	: -</string>
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Locate Image in File Manager</string>
+    <string>Locate Image in Filemanager</string>
    </property>
    <property name="toolTip">
-    <string>Locate Image in File Manager</string>
+    <string>Locate Image in Filemanager</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+L</string>
