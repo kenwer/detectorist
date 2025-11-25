@@ -247,6 +247,9 @@ class DetectoristApp(QMainWindow):
         # Add actions (of the context menu) to the QListView (for its shortcut to be active)
         # Since we add it to the QListView, it's only active if it has focus, aligning with Cmd+A Ctrl+A behavior
         self.ui.image_list_view.addAction(self.ui.remove_selected_images_from_list_action)
+        self.ui.image_list_view.addAction(self.ui.locate_image_in_filemanager_action)
+        self.ui.image_list_view.addAction(self.ui.copy_filenames_to_clipboard_action)
+        self.ui.image_list_view.addAction(self.ui.copy_export_remove_action)
 
         # Connect signals
         self.ui.open_images_action.triggered.connect(self.open_images)
@@ -258,9 +261,10 @@ class DetectoristApp(QMainWindow):
         self.ui.image_list_view.selectionModel().selectionChanged.connect(self._update_selection_dependent_actions_state)
         self.ui.about_action.triggered.connect(self.show_about_dialog)
         self.ui.group_images_by_object_class_action.triggered.connect(self.sort_images_by_class_into_folders)
-        self.ui.reveal_image_in_filemanager_action.triggered.connect(self._reveal_selected_image_in_file_manager)
+        self.ui.locate_image_in_filemanager_action.triggered.connect(self._locate_selected_image_in_file_manager)
         self.ui.copy_filenames_to_clipboard_action.triggered.connect(self._copy_selected_filenames_to_clipboard)
         self.ui.remove_selected_images_from_list_action.triggered.connect(self._remove_selected_images_from_list)
+        self.ui.copy_export_remove_action.triggered.connect(self._copy_export_remove_selected_images)
 
         # Delayed/debounced Slider and SpinBoxe (because they are emitted very often as they both change)
         self.ui.confidence_slider.valueChanged.connect(self.debounce_processing_trigger)
@@ -332,7 +336,7 @@ class DetectoristApp(QMainWindow):
             self._update_detection_info()
             self.ui.crop_and_export_selected_images_action.setEnabled(False)
             self.ui.crop_and_export_all_images_action.setEnabled(False)
-            self.ui.sort_images_by_object_class_action.setEnabled(False)
+            self.ui.group_images_by_object_class_action.setEnabled(False)
             self.ui.image_label.setText("No supported images found or selected.")
             self.model.clear()
             return
@@ -667,22 +671,25 @@ class DetectoristApp(QMainWindow):
             subprocess.Popen(['xdg-open', dir_path])
 
 
-    def _process_all_images(self, process_name: str, setup_callback: callable, process_image_callback: callable, image_files_to_process: list[str] = None):
+    def _process_all_images(self, process_name: str, setup_callback: callable, process_image_callback: callable, image_files_to_process: list[str] = None) -> bool:
         """
         Helper method that encapsulates the loop that goes through all the images.
         It covers the progress dialog, image loading, and object detection.
         This helper accepts a setup_callback for any pre-processing steps (like preparing directories)
         and a process_callback to execute the specific action (cropping or sorting) for each image.
+
+        Returns:
+            bool: True if the process completed, False if it was cancelled or an error occurred.
         """
         if self.model.rowCount() == 0:
-            return # No images loaded at all
+            return False # No images loaded at all
         # Use the directory of the first loaded image as the base for output
         output_base_dir = os.path.dirname(self.model.imagePaths()[0])
 
 
         image_full_paths = image_files_to_process if image_files_to_process is not None else self.model.imagePaths()
         if not image_full_paths:
-            return
+            return False
 
         try:
             output_dir = self._create_output_dir(output_base_dir)
@@ -694,7 +701,7 @@ class DetectoristApp(QMainWindow):
 
             state = setup_callback(output_dir)
             if state is None:
-                return
+                return False
 
             total_files = len(image_full_paths)
             progress_dialog = QProgressDialog(f"{process_name}...", "Cancel", 0, total_files, self)
@@ -734,10 +741,12 @@ class DetectoristApp(QMainWindow):
 
             self._open_native_file_manager(output_dir)
             progress_dialog.close()
+            return not cancelled
 
         except Exception as e:
             print(f"Error during {process_name}: {e}")
             self.ui.status_bar.showMessage(f"Error during {process_name}: {e}", 5000)
+            return False
 
     def _crop_and_export_images_with_progress(self, process_name: str, image_files_to_process: list[str] = None):
         """
@@ -783,20 +792,20 @@ class DetectoristApp(QMainWindow):
 
             return os.path.basename(image.image_path), confidence_score, class_name, len(results), os.path.basename(state["cropped_dir"])
 
-        self._process_all_images(process_name, setup, process_image_for_cropping, image_files_to_process)
+        return self._process_all_images(process_name, setup, process_image_for_cropping, image_files_to_process)
 
     def crop_and_export_selected_images(self):
         """Crop and export the currently selected images."""
         selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
         if not selected_indexes:
-            return
+            return False
 
         selected_image_files = [self.model.data(index, ImageListModel.FullPathRole) for index in selected_indexes]
-        self._crop_and_export_images_with_progress("Cropping selected images", selected_image_files)
+        return self._crop_and_export_images_with_progress("Cropping selected images", selected_image_files)
 
     def crop_and_export_all_images(self):
         """Crop and export all images."""
-        self._crop_and_export_images_with_progress("Cropping images")
+        return self._crop_and_export_images_with_progress("Cropping images")
 
     def sort_images_by_class_into_folders(self):
         """Sorts images into folders based on the detected object class name."""
@@ -818,15 +827,26 @@ class DetectoristApp(QMainWindow):
                 image.copy_image(no_detection_dir)
                 return os.path.basename(image.image_path), 0, "no-detection", 0, "no-detection"
 
-        self._process_all_images("Sorting images", setup, process_image_for_sorting)
+        return self._process_all_images("Sorting images", setup, process_image_for_sorting)
+
+    def _copy_export_remove_selected_images(self):
+        """Copies filenames, exports cropped images, and removes selected images from the list."""
+        if not self.ui.image_list_view.selectionModel().hasSelection():
+            return
+
+        self._copy_selected_filenames_to_clipboard()
+        success = self.crop_and_export_selected_images()
+        if success:
+            self._remove_selected_images_from_list()
 
     def _update_selection_dependent_actions_state(self):
         """Enables/disables actions based on the current selection in the image list view."""
         has_selection = len(self.ui.image_list_view.selectionModel().selectedIndexes()) > 0
         self.ui.crop_and_export_selected_images_action.setEnabled(has_selection)
-        self.ui.reveal_image_in_filemanager_action.setEnabled(has_selection)
+        self.ui.locate_image_in_filemanager_action.setEnabled(has_selection)
         self.ui.copy_filenames_to_clipboard_action.setEnabled(has_selection)
         self.ui.remove_selected_images_from_list_action.setEnabled(has_selection)
+        self.ui.copy_export_remove_action.setEnabled(has_selection)
 
     def _update_clear_image_list_action_state(self):
         """Enables/disables clear_image_list_action based on whether the model has images."""
@@ -839,13 +859,18 @@ class DetectoristApp(QMainWindow):
 
         if self.ui.image_list_view.selectionModel().hasSelection():
             menu = QMenu()
-            menu.addAction(self.ui.reveal_image_in_filemanager_action)
-            menu.addAction(self.ui.copy_filenames_to_clipboard_action)
+            menu.addAction(self.ui.locate_image_in_filemanager_action)
+            menu.addSeparator()
+            menu.addAction(self.ui.crop_and_export_selected_images_action)
+            menu.addAction(self.ui.copy_export_remove_action)
             menu.addSeparator()
             menu.addAction(self.ui.remove_selected_images_from_list_action)
+            menu.addSeparator()
+            menu.addAction(self.ui.copy_filenames_to_clipboard_action)
+
             menu.exec(self.ui.image_list_view.mapToGlobal(position))
 
-    def _reveal_selected_image_in_file_manager(self):
+    def _locate_selected_image_in_file_manager(self):
         index = self.ui.image_list_view.currentIndex()
         if not index.isValid():
             return

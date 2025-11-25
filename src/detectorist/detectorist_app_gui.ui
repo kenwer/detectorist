@@ -437,8 +437,9 @@ Highest confidence	: -</string>
     </property>
     <addaction name="group_images_by_object_class_action"/>
     <addaction name="separator"/>
-    <addaction name="crop_and_export_selected_images_action"/>
     <addaction name="crop_and_export_all_images_action"/>
+    <addaction name="crop_and_export_selected_images_action"/>
+    <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
@@ -458,6 +459,9 @@ Highest confidence	: -</string>
    <property name="shortcut">
     <string>Ctrl+O</string>
    </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
+   </property>
   </action>
   <action name="open_folder_action">
    <property name="text">
@@ -466,16 +470,22 @@ Highest confidence	: -</string>
    <property name="shortcut">
     <string>Ctrl+Shift+O</string>
    </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
+   </property>
   </action>
   <action name="crop_and_export_selected_images_action">
    <property name="enabled">
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Crop &amp;&amp; Export Selected Images</string>
+    <string>Crop &amp;&amp; Export selected Images</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+E</string>
+   </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
    </property>
   </action>
   <action name="crop_and_export_all_images_action">
@@ -488,10 +498,16 @@ Highest confidence	: -</string>
    <property name="shortcut">
     <string>Ctrl+Shift+E</string>
    </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
+   </property>
   </action>
   <action name="about_action">
    <property name="text">
     <string>About</string>
+   </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
    </property>
   </action>
   <action name="group_images_by_object_class_action">
@@ -504,6 +520,9 @@ Highest confidence	: -</string>
    <property name="shortcut">
     <string>Ctrl+Shift+G</string>
    </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
+   </property>
   </action>
   <action name="clear_image_list_action">
    <property name="enabled">
@@ -514,6 +533,9 @@ Highest confidence	: -</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Backspace</string>
+   </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
    </property>
   </action>
   <action name="remove_selected_images_from_list_action">
@@ -533,15 +555,18 @@ Highest confidence	: -</string>
     <bool>true</bool>
    </property>
   </action>
-  <action name="reveal_image_in_filemanager_action">
+  <action name="locate_image_in_filemanager_action">
    <property name="enabled">
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Reveal Image in File Manager</string>
+    <string>Locate Image in File Manager</string>
    </property>
    <property name="toolTip">
-    <string>Reveal Image in File Manager</string>
+    <string>Locate Image in File Manager</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+L</string>
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>
@@ -556,6 +581,26 @@ Highest confidence	: -</string>
    </property>
    <property name="toolTip">
     <string>Copy Filenames to Clipboard</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+C</string>
+   </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
+   </property>
+  </action>
+  <action name="copy_export_remove_action">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Crop &amp;&amp; Export &amp;&amp; Remove selected Images from List </string>
+   </property>
+   <property name="toolTip">
+    <string>Starts a batch process that crops and exports the selected image(s) into a subfolder and also removes the image(s) from the list</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+E</string>
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>
