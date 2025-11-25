@@ -25,6 +25,7 @@ dev = [
     "nuitka",
     "imageio",
     "poethepoet",
+    "md-toc",
 ]
 
 [project.scripts]

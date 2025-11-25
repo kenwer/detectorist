@@ -1,6 +1,28 @@
 # Detectorist
 
-This desktop application uses machine learning for object detection to sort and crop photos. The main use case is to save time when cropping similar objects across a large number of images. For example, imagine returning from a diving session with thousands of photos of fish and wanting to quickly crop them for better viewing. Or, if you're into bees and want to discard any images that don't contain bees or similar looking insects. This niche application allows you to do that with adjustable parameters like confidence, aspect ratio, and padding. Detectorist supports various image formats, including JPG, PNG, BMP, 10 bit HEIF, and Sony RAW (.arw) files.
+<!--TOC-->
+
+- [About](#about)
+- [Download](#download)
+- [Key features](#key-features)
+- [AI model info](#ai-model-info)
+- [Using Detectorist](#using-detectorist)
+  - [Typical usage scenario](#typical-usage-scenario)
+  - [Keyboard shortcuts](#keyboard-shortcuts)
+    - [Global shortcuts](#global-shortcuts)
+    - [Shortcuts that operate on a set of selected images](#shortcuts-that-operate-on-a-set-of-selected-images)
+    - [Image navigation shortcuts](#image-navigation-shortcuts)
+- [Changelog](#changelog)
+- [Roadmap/TODOs](#roadmaptodos)
+- [FAQ](#faq)
+- [Development](#development)
+- [License](#license)
+
+<!--TOC-->
+
+## About
+
+Detectorist is a multi platform desktop application that uses machine learning for object detection to sort and crop photos. The main use case is to save time when cropping similar objects across a large number of images by using local AI. For example, imagine returning from a diving session with thousands of photos of fish and wanting to quickly crop them for better viewing. Or, if you're into bees and want to discard any images that don't contain bees or similar looking insects. This niche application allows you to do that with adjustable parameters like confidence, aspect ratio, and padding. Detectorist supports various image formats, including JPG, PNG, BMP, 10 bit HEIF, and Sony RAW (.arw) files.
 
 ![Main application interface](https://github.com/user-attachments/assets/5483da55-39e3-421c-9053-131ea1d22d95)
 
@@ -15,6 +37,7 @@ Download the binary for your operating system from the [release page](https://gi
 * Linux (x64): [Detectorist.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.tar.gz)
   * Note: on Linux you can also easily run Detectorist from the source as described below.
 
+
 ## Key features
 
 *   **Image Browser:** Load and browse images from a local folder using drag & drop.
@@ -26,6 +49,7 @@ Download the binary for your operating system from the [release page](https://gi
 *   **Configurable aspect ratio for cropping:** with 3:2, 4:4, 16:9, plus support for padding.
 *   **Sort into subfolder:** Detect object classes and sort images into corresponding sub folders.
 *   **CSV log when processing multiple images:** Write log file to the output directory providing information about the detections like the 	number of detected objects and the highest confidence score.
+
 
 ## AI model info
 * The `fish-detect-2025-09-11` model has been trained for 150 epochs on 863 images of fish.
