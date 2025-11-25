@@ -40,17 +40,50 @@ Download the binary for your operating system from the [release page](https://gi
 
 ## Using Detectorist
 
+### Typical usage scenario
 *   Select the AI model you want to use from the drop down list at the top right.
-*   Go to `File > Open Folder...` or simply drag a folder containing images onto the application window.
+*   Go to `File > Open Folder...` or simply drag and drop a folder containing images onto the application window.
 *   The folder will be scanned for supported images and the first image will load automatically.
 *   The AI model will automatically run, and detection boxes will be drawn on the image.
-*   Click on an item in the list on the left to navigate through the image set.
+*   Click on an item in the list on the left or use the arrow keys to navigate through the image set.
 *   Use the slider and spin-box on the right to adjust the **Confidence** threshold. Detections will update automatically.
     * The Confidence threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
 *   You can sort the images into sub folders that are named after the detected object class using the corresponding item in the Actions menu. The images are copied, not moved.
 *   Optionally configure the crop & padding settings, and start cropping via the Actions menu.
     * The cropped images will be placed in a subdirectory of the directory that is currently being viewed.
     * The name of the output directory encodes the confidence level and the model used (like: `detectorist_conf75_fish-detect-2025-09-11`).
+
+### Keyboard shortcuts
+
+#### Global shortcuts
+| Windows/Linux | macOS | Action | Decription |
+| --- | --- | --- | --- |
+| Ctrl+O          | ⌘O  | **Open Image(s)...** | Brings up the file dialog to load one or more images |
+| Shift+Ctrl+O    | ⇧⌘O | **Open Folder...** | Brings up the file dialog to open an entire folder with images |
+| Ctril+Backspace | ⌘⌫  | **Clear Image List** | Clears the list of loaded images |
+| Shift+Ctrl+G    | ⇧⌘G | **Group images into folder** | Starts a batch process that groups all images by its detected object classes into individual sub folders |
+| Shift+Ctrl+E    | ⇧⌘E | **Crop & Export all Images** | Starts a batch process that crops and exports all loaded images into a subfolder |
+
+#### Shortcuts that operate on a set of selected images
+| Windows/Linux | macOS | Action | Decription |
+| --- | --- | --- | --- |
+| Ctrl+L    | ⌘L | **Locate Image in Filemanager** | Locates the image in your filemanager |
+| Ctrl+C    | ⌘C | **Copy selected Filenames to Clipboard**| Puts the filenames of the selected image(s) into your clipboard |
+| Ctrl+E    | ⌘E | **Crop & Export selected Images** | Starts a batch process that crops and exports the selected images into a subfolder |
+| Alt+E     | ⌥E | **Crop & Export & Remove selected Images from List** | Starts a batch process that crops and exports the selected image(s) into a subfolder and also removes the image(s) from the list |
+| Backspace | ⌫  | **Remove Selected Image from List** | Removes the selected image(s) from the list (not deleted, just removed from the view) |
+
+#### Image navigation shortcuts
+| Windows/Linux | macOS | Action | Decription |
+| --- | --- | --- | --- |
+| Right      | ➡︎  | **Next Image** | Jumps to the next image in the list, same as Down / ⬇︎ |
+| Left       | ⬅︎  | **Previous Image** | Jumps to the previous image in the list, same as Up / ⬆︎ |
+| Ctrl+Right | ⌘➡︎ | **Last Image** | Jumps to the last image in the list, same as Ctrl+Down / ⌘⬇︎ |
+| Ctrl+Left  | ⌘⬅︎ | **First Image** | Jumps to the first image in the list, same as Ctrl+Up / ⌘⬆︎ |
+| Down       | ⬇︎  | **Next Image** | Jumps to the next image in the list, same as Right / ➡︎ |
+| Up         | ⬆︎  | **Previous Image** | Jumps to the previous image in the list, same as Left / ⬅︎ |
+| Ctrl+Down  | ⌘⬇︎ | **Last Image** | Jumps to the last image in the list, same as Ctrl+Right / ⌘➡︎ |
+| Ctrl+Up    | ⌘⬆︎ | **First Image** | Jumps to the first image in the list, same as Ctrl+Left / ⌘⬅︎ |
 
 
 ## FAQ
