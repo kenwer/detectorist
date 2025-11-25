@@ -61,7 +61,7 @@ Download the binary for your operating system from the [release page](https://gi
 | Ctrl+O          | ⌘O  | **Open Image(s)...** | Brings up the file dialog to load one or more images |
 | Shift+Ctrl+O    | ⇧⌘O | **Open Folder...** | Brings up the file dialog to open an entire folder with images |
 | Ctril+Backspace | ⌘⌫  | **Clear Image List** | Clears the list of loaded images |
-| Shift+Ctrl+G    | ⇧⌘G | **Group images into folder** | Starts a batch process that groups all images by its detected object classes into individual sub folders |
+| Shift+Ctrl+G    | ⇧⌘G | **Group Images into Folders** | Starts a batch process that groups all images by its detected object classes into individual sub folders |
 | Shift+Ctrl+E    | ⇧⌘E | **Crop & Export all Images** | Starts a batch process that crops and exports all loaded images into a subfolder |
 
 #### Shortcuts that operate on a set of selected images
@@ -71,7 +71,7 @@ Download the binary for your operating system from the [release page](https://gi
 | Ctrl+C    | ⌘C | **Copy selected Filenames to Clipboard**| Puts the filenames of the selected image(s) into your clipboard |
 | Ctrl+E    | ⌘E | **Crop & Export selected Images** | Starts a batch process that crops and exports the selected images into a subfolder |
 | Alt+E     | ⌥E | **Crop & Export & Remove selected Images from List** | Starts a batch process that crops and exports the selected image(s) into a subfolder and also removes the image(s) from the list |
-| Backspace | ⌫  | **Remove Selected Image from List** | Removes the selected image(s) from the list (not deleted, just removed from the view) |
+| Backspace | ⌫  | **Remove selected Image from List** | Removes the selected image(s) from the list (not deleted, just removed from the view) |
 
 #### Image navigation shortcuts
 | Windows/Linux | macOS | Action | Decription |
