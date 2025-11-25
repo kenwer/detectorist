@@ -5,6 +5,7 @@
 .venv/
 venv/
 env/
+build/
 
 # Egg-info directories (multiple patterns for comprehensive coverage)
 *.egg-info/
