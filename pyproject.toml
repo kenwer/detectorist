@@ -8,7 +8,7 @@ dynamic = ["version"]
 
 description = "A desktop application for sorting and cropping photos using a machine learning for object detection."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "onnxruntime",
     "opencv-python",
@@ -123,6 +123,7 @@ nuitka.cmd \
     --windows-console-mode=attach \
     --output-filename=Detectorist \
     --assume-yes-for-downloads \
+    --msvc=latest \
     ./src/detectorist/main.py
 """
 deps = ["compile-ui", "compile-qrc"]

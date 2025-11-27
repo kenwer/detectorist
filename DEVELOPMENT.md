@@ -1,6 +1,6 @@
 ## Development
 
-To run the application from source code, I recommend to use `Python 3.12+` and `uv`.
+To run the application from source code, I recommend to use `Python 3.13` and `uv`.
 
 1.  **Clone the repository:**
     ```shell
@@ -59,12 +59,13 @@ On macOS:
 On Windows:
 1.  **Install the prerequisites on Windows:**
     ```shell
-    winget install astral-sh.uv Python.Python.3.12 --scope user
+    winget install Microsoft.VisualStudio.2022.Community --silent --override "--wait --quiet --addProductLang En-us --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended"
+    winget install astral-sh.uv Python.Python.3.13 --scope user
     ```
 
 2.  **Set up the build environment and run the build:**
     ```shell
-    uv venv -p 3.12 .venv
+    uv venv -p 3.13 .venv
     uv sync --group dev
     .venv\Scripts\activate
     poe build-windows
