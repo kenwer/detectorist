@@ -9,10 +9,26 @@ on:
     types: [published]
 
 jobs:
-  build-linux:
+  get-version:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.get-version.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Get version from Python package
+      id: version
+      run: |
+        VERSION=$(python3 -c "exec(open('src/detectorist/_version.py').read()); print(__version__)")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+
+  build-linux:
+    needs: get-version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.get-version.outputs.version }}
 
     steps:
     - uses: actions/checkout@v4
@@ -31,13 +47,6 @@ jobs:
       run: |
         uv venv
         uv sync --group dev
-
-    - name: Set version # Get version from Python package
-      id: get-version
-      run: |
-        VERSION=$(uv run poe get_app_version)
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Lint code
       run: uv run poe ruff
@@ -59,7 +68,10 @@ jobs:
         path: dist/linux/Detectorist-linux-x64.tar.gz
 
   build-linux-arm64:
+    needs: get-version
     runs-on: ubuntu-24.04-arm
+    env:
+      VERSION: ${{ needs.get-version.outputs.version }}
 
     steps:
     - uses: actions/checkout@v4
@@ -78,9 +90,6 @@ jobs:
       run: |
         uv venv
         uv sync --group dev
-
-    - name: Set version # Get version from Python package
-      run: echo "VERSION=$(uv run poe get_app_version)" >> $GITHUB_ENV
 
     - name: Lint code
       run: uv run poe ruff
@@ -102,7 +111,10 @@ jobs:
         path: dist/linux/Detectorist-linux-arm64.tar.gz
 
   build-macos:
+    needs: get-version
     runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.get-version.outputs.version }}
 
     steps:
     - uses: actions/checkout@v4
@@ -121,9 +133,6 @@ jobs:
       run: |
         uv venv
         uv sync --group dev
-
-    - name: Set version # Get version from Python package
-      run: echo "VERSION=$(uv run poe get_app_version)" >> $GITHUB_ENV
 
     - name: Lint code
       run: uv run poe ruff
@@ -145,7 +154,10 @@ jobs:
         path: dist/macos/Detectorist-macos-arm64.zip
 
   build-macos-intel:
+    needs: get-version
     runs-on: macos-15-intel
+    env:
+      VERSION: ${{ needs.get-version.outputs.version }}
 
     steps:
     - uses: actions/checkout@v4
@@ -164,9 +176,6 @@ jobs:
       run: |
         uv venv
         uv sync --group dev
-
-    - name: Set version # Get version from Python package
-      run: echo "VERSION=$(uv run poe get_app_version)" >> $GITHUB_ENV
 
     - name: Lint code
       run: uv run poe ruff
@@ -188,7 +197,10 @@ jobs:
         path: dist/macos/Detectorist-macos-x64.zip
 
   build-windows:
+    needs: get-version
     runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.get-version.outputs.version }}
 
     steps:
     - uses: actions/checkout@v4
@@ -207,9 +219,6 @@ jobs:
       run: |
         uv venv
         uv sync --group dev
-
-    - name: Set version # Get version from Python package
-      run: echo "VERSION=$(uv run poe get_app_version)" >> $env:GITHUB_ENV
 
     - name: Lint code
       run: uv run poe ruff
@@ -230,7 +239,10 @@ jobs:
         path: dist/windows/Detectorist-windows-x64.zip
 
   build-windows-arm64:
+    needs: get-version
     runs-on: windows-11-arm
+    env:
+      VERSION: ${{ needs.get-version.outputs.version }}
 
     steps:
     - uses: actions/checkout@v4
@@ -249,9 +261,6 @@ jobs:
       run: |
         uv venv
         uv sync --group dev
-
-    - name: Set version # Get version from Python package
-      run: echo "VERSION=$(uv run poe get_app_version)" >> $env:GITHUB_ENV
 
     - name: Lint code
       run: uv run poe ruff
