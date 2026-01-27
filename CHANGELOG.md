@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Added
 - Added builds for macOS Intel (x64), Linux arm64, and Windows arm64.
+- [Dev] Added `poe build` task that automatically calls the appropriate platform-specific build task.
 
 ### Changed
 - Release archive filenames now include OS and architecture (e.g., `Detectorist-macos-arm64.zip`). 

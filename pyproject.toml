@@ -51,6 +51,28 @@ clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
 
 ruff = { cmd = "uv run ruff check", help = "Run ruff linter" }
 
+[tool.poe.tasks.build]
+help = "Build for the current platform"
+script = """
+import platform
+import subprocess
+import sys
+
+os_name = platform.system()
+if os_name == 'Darwin':
+    task = 'build-mac'
+elif os_name == 'Windows':
+    task = 'build-windows'
+elif os_name == 'Linux':
+    task = 'build-linux'
+else:
+    print(f'Unsupported platform: {os_name}')
+    sys.exit(1)
+
+print(f'Building for {os_name}...')
+sys.exit(subprocess.call(['poe', task]))
+"""
+
 [tool.poe.tasks.build-linux]
 shell = """
 nuitka \
