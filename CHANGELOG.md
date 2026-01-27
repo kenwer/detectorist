@@ -6,8 +6,9 @@
 - [Dev] Added `poe build` task that automatically calls the appropriate platform-specific build task.
 
 ### Changed
-- Release archive filenames now include OS and architecture (e.g., `Detectorist-macos-arm64.zip`). 
+- Release archive filenames now include OS and architecture (e.g., `Detectorist-macos-arm64.zip`).
 - The binaries inside the archives include the version number (e.g., `Detectorist-0.7.3.app`).
+- [Dev] Upgraded dependencies.
 
 ## [0.7.2] - 2025-11-25
 ### Added
