@@ -2,21 +2,22 @@
 
 <!--TOC-->
 
-- [About](#about)
-- [Download](#download)
-- [Key features](#key-features)
-- [AI model info](#ai-model-info)
-- [Using Detectorist](#using-detectorist)
-  - [Typical usage scenario](#typical-usage-scenario)
-  - [Keyboard shortcuts](#keyboard-shortcuts)
-    - [Global shortcuts](#global-shortcuts)
-    - [Shortcuts that operate on a set of selected images](#shortcuts-that-operate-on-a-set-of-selected-images)
-    - [Image navigation shortcuts](#image-navigation-shortcuts)
-- [Changelog](#changelog)
-- [Roadmap/TODOs](#roadmaptodos)
-- [FAQ](#faq)
-- [Development](#development)
-- [License](#license)
+- [Detectorist](#detectorist)
+  - [About](#about)
+  - [Download](#download)
+  - [Key features](#key-features)
+  - [AI model info](#ai-model-info)
+  - [Using Detectorist](#using-detectorist)
+    - [Typical usage scenario](#typical-usage-scenario)
+    - [Keyboard shortcuts](#keyboard-shortcuts)
+      - [Global shortcuts](#global-shortcuts)
+      - [Shortcuts that operate on a set of selected images](#shortcuts-that-operate-on-a-set-of-selected-images)
+      - [Image navigation shortcuts](#image-navigation-shortcuts)
+  - [Changelog](#changelog)
+  - [Roadmap/TODOs](#roadmaptodos)
+  - [FAQ](#faq)
+  - [Development](#development)
+  - [License](#license)
 
 <!--TOC-->
 
@@ -29,13 +30,16 @@ Detectorist is a multi platform desktop application that uses machine learning f
 
 ## Download
 
-Download the binary for your operating system from the [release page](https://github.com/kenwer/detectorist/releases) and start the application.
-* macOS (Apple Silicon): [Detectorist.app.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.app.zip) 
-  * Note: The macOS app is not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
-* Windows: [Detectorist.exe.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.exe.zip)
-  * Note: The compiled Windows executable is not signed and since it extract additional contents to load it afterwards it's common that Anti Virus/Malware tools like Defender detects the application as malicious.
-* Linux (x64): [Detectorist.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist.tar.gz)
-  * Note: on Linux you can also easily run Detectorist from the source as described below.
+Download the binary for your operating system and start the application.
+* macOS (Apple Silicon): [Detectorist-macos-arm64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-macos-arm64.zip)
+* macOS (Intel): [Detectorist-macos-x64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-macos-x64.zip)
+  * Note: The macOS apps are not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
+* Windows (x64): [Detectorist-windows-x64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-windows-x64.zip)
+* Windows (arm64): [Detectorist-windows-arm64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-windows-arm64.zip)
+  * Note: The compiled Windows executables are not signed and since they extract additional contents to load afterwards it's common that Anti Virus/Malware tools like Defender detect the application as malicious.
+* Linux (x64): [Detectorist-linux-x64.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-x64.tar.gz)
+* Linux (arm64): [Detectorist-linux-arm64.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-arm64.tar.gz)
+  * Note: On Linux you can also easily run Detectorist from the source as described below.
 
 
 ## Key features

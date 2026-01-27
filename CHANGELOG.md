@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- Added builds for macOS Intel (x64), Linux arm64, and Windows arm64.
+
+### Changed
+- Release archive filenames now include OS and architecture (e.g., `Detectorist-macos-arm64.zip`). 
+- The binaries inside the archives include the version number (e.g., `Detectorist-0.7.3.app`).
+
 ## [0.7.2] - 2025-11-25
 ### Added
 - Add `Crop & Export & Remove selected Images` action that allows to start a batch process that crops and exports the selected image(s) into a subfolder and also removes the image(s) from the list once it completed.

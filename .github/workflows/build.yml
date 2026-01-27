@@ -11,12 +11,14 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-    
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+
     steps:
     - uses: actions/checkout@v4
       with: # Pull models using git-lfs for releases only
         lfs: ${{ github.event_name == 'release' }}
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -24,11 +26,18 @@ jobs:
 
     - name: Install uv
       uses: astral-sh/setup-uv@v6
-        
+
     - name: Install dependencies
       run: |
         uv venv
         uv sync --group dev
+
+    - name: Set version # Get version from Python package
+      id: get-version
+      run: |
+        VERSION=$(uv run poe get_app_version)
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Lint code
       run: uv run poe ruff
@@ -41,22 +50,22 @@ jobs:
     - name: Tar Linux binary
       run: |
         cd dist/linux
-        tar cfz Detectorist.tar.gz Detectorist
+        tar cfz Detectorist-linux-x64.tar.gz Detectorist-${{ env.VERSION }}
 
     - name: Upload Linux artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Detectorist.tar.gz
-        path: dist/linux/Detectorist.tar.gz
+        name: Detectorist-linux-x64.tar.gz
+        path: dist/linux/Detectorist-linux-x64.tar.gz
 
-  build-macos:
-    runs-on: macos-latest
-    
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+
     steps:
     - uses: actions/checkout@v4
       with: # Pull models using git-lfs for releases only
         lfs: ${{ github.event_name == 'release' }}
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -64,11 +73,57 @@ jobs:
 
     - name: Install uv
       uses: astral-sh/setup-uv@v6
-        
+
     - name: Install dependencies
       run: |
         uv venv
         uv sync --group dev
+
+    - name: Set version # Get version from Python package
+      run: echo "VERSION=$(uv run poe get_app_version)" >> $GITHUB_ENV
+
+    - name: Lint code
+      run: uv run poe ruff
+
+    - name: Build Linux binary
+      run: |
+        source .venv/bin/activate
+        poe build-linux
+
+    - name: Tar Linux binary
+      run: |
+        cd dist/linux
+        tar cfz Detectorist-linux-arm64.tar.gz Detectorist-${{ env.VERSION }}
+
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Detectorist-linux-arm64.tar.gz
+        path: dist/linux/Detectorist-linux-arm64.tar.gz
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with: # Pull models using git-lfs for releases only
+        lfs: ${{ github.event_name == 'release' }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+
+    - name: Install dependencies
+      run: |
+        uv venv
+        uv sync --group dev
+
+    - name: Set version # Get version from Python package
+      run: echo "VERSION=$(uv run poe get_app_version)" >> $GITHUB_ENV
 
     - name: Lint code
       run: uv run poe ruff
@@ -81,27 +136,27 @@ jobs:
     - name: Zip macOS app
       run: |
         cd dist/macos
-        zip -r Detectorist.app.zip Detectorist.app
+        zip -r Detectorist-macos-arm64.zip Detectorist-${{ env.VERSION }}.app
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Detectorist.app.zip
-        path: dist/macos/Detectorist.app.zip
+        name: Detectorist-macos-arm64.zip
+        path: dist/macos/Detectorist-macos-arm64.zip
 
-  build-windows:
-    runs-on: windows-latest
-    
+  build-macos-intel:
+    runs-on: macos-13
+
     steps:
     - uses: actions/checkout@v4
       with: # Pull models using git-lfs for releases only
         lfs: ${{ github.event_name == 'release' }}
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.13'
-        
+
     - name: Install uv
       uses: astral-sh/setup-uv@v6
 
@@ -110,29 +165,117 @@ jobs:
         uv venv
         uv sync --group dev
 
+    - name: Set version # Get version from Python package
+      run: echo "VERSION=$(uv run poe get_app_version)" >> $GITHUB_ENV
+
     - name: Lint code
       run: uv run poe ruff
 
-    - name: Build Windows executable 
+    - name: Build macOS app
+      run: |
+        source .venv/bin/activate
+        poe build-mac
+
+    - name: Zip macOS app
+      run: |
+        cd dist/macos
+        zip -r Detectorist-macos-x64.zip Detectorist-${{ env.VERSION }}.app
+
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Detectorist-macos-x64.zip
+        path: dist/macos/Detectorist-macos-x64.zip
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with: # Pull models using git-lfs for releases only
+        lfs: ${{ github.event_name == 'release' }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+
+    - name: Install dependencies
+      run: |
+        uv venv
+        uv sync --group dev
+
+    - name: Set version # Get version from Python package
+      run: echo "VERSION=$(uv run poe get_app_version)" >> $env:GITHUB_ENV
+
+    - name: Lint code
+      run: uv run poe ruff
+
+    - name: Build Windows executable
       run: |
         .\.venv\Scripts\activate
         poe build-windows
 
     - name: Zip Windows executable
       run: |
-        Compress-Archive -Path dist/windows/Detectorist.exe -DestinationPath dist/windows/Detectorist.exe.zip
+        Compress-Archive -Path dist/windows/Detectorist-${{ env.VERSION }}.exe -DestinationPath dist/windows/Detectorist-windows-x64.zip
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Detectorist.exe.zip
-        path: dist/windows/Detectorist.exe.zip
+        name: Detectorist-windows-x64.zip
+        path: dist/windows/Detectorist-windows-x64.zip
+
+  build-windows-arm64:
+    runs-on: windows-11-arm
+
+    steps:
+    - uses: actions/checkout@v4
+      with: # Pull models using git-lfs for releases only
+        lfs: ${{ github.event_name == 'release' }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+
+    - name: Install dependencies
+      run: |
+        uv venv
+        uv sync --group dev
+
+    - name: Set version # Get version from Python package
+      run: echo "VERSION=$(uv run poe get_app_version)" >> $env:GITHUB_ENV
+
+    - name: Lint code
+      run: uv run poe ruff
+
+    - name: Build Windows executable
+      run: |
+        .\.venv\Scripts\activate
+        poe build-windows
+
+    - name: Zip Windows executable
+      run: |
+        Compress-Archive -Path dist/windows/Detectorist-${{ env.VERSION }}.exe -DestinationPath dist/windows/Detectorist-windows-arm64.zip
+
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Detectorist-windows-arm64.zip
+        path: dist/windows/Detectorist-windows-arm64.zip
 
   create-release:
-    needs: [build-macos, build-windows, build-linux]
+    needs: [build-linux, build-linux-arm64, build-macos, build-macos-intel, build-windows, build-windows-arm64]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    
+
     steps:
     - uses: actions/download-artifact@v4
       with:
@@ -146,8 +289,11 @@ jobs:
       if: github.ref_type == 'tag'
       with:
         files: |
-          Detectorist.app.zip
-          Detectorist.exe.zip
-          Detectorist.tar.gz
+          Detectorist-linux-x64.tar.gz
+          Detectorist-linux-arm64.tar.gz
+          Detectorist-macos-arm64.zip
+          Detectorist-macos-x64.zip
+          Detectorist-windows-x64.zip
+          Detectorist-windows-arm64.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

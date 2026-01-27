@@ -66,7 +66,7 @@ nuitka \
     --output-dir=dist/linux \
     --linux-icon=assets/icon.png \
     --remove-output \
-    --output-filename=Detectorist \
+    --output-filename=Detectorist-$(poe get_app_version) \
     ./src/detectorist/main.py
 """
 deps = ["compile-ui", "compile-qrc"]
@@ -91,10 +91,10 @@ nuitka \
     --macos-app-name=Detectorist \
     --macos-app-version=$(poe get_app_version) \
     --macos-signed-app-name=de.ken.detectorist \
-    --output-filename=Detectorist \
+    --output-filename=Detectorist-$(poe get_app_version) \
     ./src/detectorist/main.py
 mv  dist/macos/main.app \
-    dist/macos/Detectorist.app
+    dist/macos/Detectorist-$(poe get_app_version).app
 """
 deps = ["compile-ui", "compile-qrc"]
 help = "Build the application for macOS"
@@ -121,7 +121,7 @@ nuitka.cmd \
     --windows-product-version=$(poe get_app_version) \
     --windows-file-version=$(poe get_app_version) \
     --windows-console-mode=attach \
-    --output-filename=Detectorist \
+    --output-filename=Detectorist-$(poe get_app_version) \
     --assume-yes-for-downloads \
     --msvc=latest \
     ./src/detectorist/main.py
