@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 ### Added
-- Added builds for macOS Intel (x64), Linux arm64, and Windows arm64.
+- Added binary builds for macOS Intel (x64) and Linux on ARM (arm64).
 - [Dev] Added `poe build` task that automatically calls the appropriate platform-specific build task.
 
 ### Changed

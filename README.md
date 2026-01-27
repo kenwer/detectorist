@@ -35,8 +35,8 @@ Download the binary for your operating system and start the application.
 * macOS (Intel): [Detectorist-macos-x64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-macos-x64.zip)
   * Note: The macOS apps are not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
 * Windows (x64): [Detectorist-windows-x64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-windows-x64.zip)
-* Windows (arm64): [Detectorist-windows-arm64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-windows-arm64.zip)
-  * Note: The compiled Windows executables are not signed and since they extract additional contents to load afterwards it's common that Anti Virus/Malware tools like Defender detect the application as malicious.
+  * Note: The compiled Windows executable is not signed and since it extracts additional contents to load afterwards it's common that Anti Virus/Malware tools like Defender detect the application as malicious.
+  * Note: Windows arm64 is not supported [yet](https://github.com/microsoft/onnxruntime/issues/27123) because `onnxruntime` doesn't provide wheels for that platform. Windows ARM users might use the x64 version via emulation.
 * Linux (x64): [Detectorist-linux-x64.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-x64.tar.gz)
 * Linux (arm64): [Detectorist-linux-arm64.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-arm64.tar.gz)
   * Note: On Linux you can also easily run Detectorist from the source as described below.

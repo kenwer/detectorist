@@ -238,7 +238,10 @@ jobs:
         name: Detectorist-windows-x64.zip
         path: dist/windows/Detectorist-windows-x64.zip
 
+# Windows on ARM is disabled because onnxruntime doesn't provide wheels for win_arm64.
+# See: https://github.com/microsoft/onnxruntime/issues/27123.
   build-windows-arm64:
+    if: false
     needs: get-version
     runs-on: windows-11-arm
     env:
@@ -281,7 +284,8 @@ jobs:
         path: dist/windows/Detectorist-windows-arm64.zip
 
   create-release:
-    needs: [build-linux, build-linux-arm64, build-macos, build-macos-intel, build-windows, build-windows-arm64]
+    # NOTE: `build-windows-arm64` removed from needs until onnxruntime provides wheels for win_arm64
+    needs: [build-linux, build-linux-arm64, build-macos, build-macos-intel, build-windows]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
 
@@ -303,6 +307,6 @@ jobs:
           Detectorist-macos-arm64.zip
           Detectorist-macos-x64.zip
           Detectorist-windows-x64.zip
-          Detectorist-windows-arm64.zip
+          # Detectorist-windows-arm64.zip  # Disabled until onnxruntime provides wheels for win_arm64
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
