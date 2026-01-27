@@ -2,22 +2,21 @@
 
 <!--TOC-->
 
-- [Detectorist](#detectorist)
-  - [About](#about)
-  - [Download](#download)
-  - [Key features](#key-features)
-  - [AI model info](#ai-model-info)
-  - [Using Detectorist](#using-detectorist)
-    - [Typical usage scenario](#typical-usage-scenario)
-    - [Keyboard shortcuts](#keyboard-shortcuts)
-      - [Global shortcuts](#global-shortcuts)
-      - [Shortcuts that operate on a set of selected images](#shortcuts-that-operate-on-a-set-of-selected-images)
-      - [Image navigation shortcuts](#image-navigation-shortcuts)
-  - [Changelog](#changelog)
-  - [Roadmap/TODOs](#roadmaptodos)
-  - [FAQ](#faq)
-  - [Development](#development)
-  - [License](#license)
+- [About](#about)
+- [Download](#download)
+- [Key features](#key-features)
+- [AI model info](#ai-model-info)
+- [Using Detectorist](#using-detectorist)
+  - [Typical usage scenario](#typical-usage-scenario)
+  - [Keyboard shortcuts](#keyboard-shortcuts)
+    - [Global shortcuts](#global-shortcuts)
+    - [Shortcuts that operate on a set of selected images](#shortcuts-that-operate-on-a-set-of-selected-images)
+    - [Image navigation shortcuts](#image-navigation-shortcuts)
+- [Changelog](#changelog)
+- [Roadmap/TODOs](#roadmaptodos)
+- [FAQ](#faq)
+- [Development](#development)
+- [License](#license)
 
 <!--TOC-->
 
