@@ -8,7 +8,7 @@ from . import image_utils
 from .image_object import ImageObject
 from .structures import ImageMode
 
-RAW_EXTENSIONS = ('.arw', '.nef', '.cwr', 'cr2', 'cr3', 'orf', 'pef' )
+RAW_EXTENSIONS = ('.arw', '.nef', '.cwr', '.cr2', '.cr3', '.orf', '.pef')
 
 
 class RawImageObject(ImageObject):

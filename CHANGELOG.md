@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Fixed
 - "Crop & Export all Images" action is now enabled as soon as images are loaded, rather than requiring the current image to have detections.
+- Fixed RAW_EXTENSIONS missing leading dots for some extensions (.cr2, .cr3, .orf, .pef), which caused folders or files with names ending in those strings to be incorrectly identified as image files.
 
 ## [0.7.2] - 2026-01-27
 ### Added
