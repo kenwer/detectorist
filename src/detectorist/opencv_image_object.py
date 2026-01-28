@@ -7,9 +7,8 @@ from PIL import Image as PILImage
 
 from . import image_utils
 from .image_object import ImageObject
+from .pillow_image_object import STANDARD_IMG_EXTENSIONS
 from .structures import ImageMode
-
-STANDARD_IMG_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp')
 
 
 class OpencvImageObject(ImageObject):

@@ -3,15 +3,6 @@ import os
 import cv2
 import numpy as np
 
-# Files with these extensions will be treated as HEIF files (using pillow_heif)
-HEIF_EXTENSIONS = ('.heic', '.heics', '.heif', '.heifs', '.hif')
-
-# Files with these extensions will be treated as RAW files (using rawpy)
-RAW_EXTENSIONS = ('.arw', '.nef', '.cwr', '.cr2', '.cr3', '.orf', '.pef' )
-
-# All supported image file extensions
-IMG_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp') + HEIF_EXTENSIONS + RAW_EXTENSIONS
-
 
 def adjust_exposure(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int = None) -> np.ndarray:
     """

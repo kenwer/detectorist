@@ -34,7 +34,7 @@ class ImageObject (ABC):
         """
         if ImageObject._supported_extensions is None:
             from .heif_image_object import HEIF_EXTENSIONS
-            from .opencv_image_object import STANDARD_IMG_EXTENSIONS
+            from .pillow_image_object import STANDARD_IMG_EXTENSIONS
             from .raw_image_object import RAW_EXTENSIONS
             ImageObject._supported_extensions = HEIF_EXTENSIONS + RAW_EXTENSIONS + STANDARD_IMG_EXTENSIONS
         return ImageObject._supported_extensions
@@ -299,8 +299,8 @@ class ImageObject (ABC):
             ValueError: If no matching image type is found
         """
         from .heif_image_object import HEIF_EXTENSIONS, HeifImageObject
-        from .opencv_image_object import STANDARD_IMG_EXTENSIONS, OpencvImageObject
-        from .pillow_image_object import PillowImageObject
+        from .opencv_image_object import OpencvImageObject
+        from .pillow_image_object import STANDARD_IMG_EXTENSIONS, PillowImageObject
         from .raw_image_object import RAW_EXTENSIONS, RawImageObject
 
         file_extension = os.path.splitext(image_path)[1].lower()
