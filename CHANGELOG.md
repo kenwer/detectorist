@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- "Crop & Export all Images" action is now enabled as soon as images are loaded, rather than requiring the current image to have detections.
+
+## [0.7.2] - 2026-01-27
 ### Added
 - Added binary builds for macOS Intel (x64) and Linux on ARM (arm64).
 - [Dev] Added `poe build` task that automatically calls the appropriate platform-specific build task.

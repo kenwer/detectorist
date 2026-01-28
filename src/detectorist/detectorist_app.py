@@ -331,10 +331,10 @@ class DetectoristApp(QMainWindow):
 
         if not supported_files:
             # Handle UI state for no images
+            # (Selection-dependent actions are handled via selectionChanged signal from model.clear())
             self.ui.image_label.set_detection_boxes([])
             self.ui.image_label.hide_bands()
             self._update_detection_info()
-            self.ui.crop_and_export_selected_images_action.setEnabled(False)
             self.ui.crop_and_export_all_images_action.setEnabled(False)
             self.ui.group_images_by_object_class_action.setEnabled(False)
             self.ui.image_label.setText("No supported images found or selected.")
@@ -350,6 +350,10 @@ class DetectoristApp(QMainWindow):
         self.model.setImagePaths(supported_files)
         QApplication.processEvents() # Ensure UI updates
 
+        # Enable actions that operate on all loaded images
+        self.ui.crop_and_export_all_images_action.setEnabled(True)
+        self.ui.group_images_by_object_class_action.setEnabled(True)
+
         # Select the first image in the list view
         first_file_path = supported_files[0]
         try:
@@ -359,10 +363,6 @@ class DetectoristApp(QMainWindow):
         except ValueError:
             print(f"Error: Could not find {first_file_path} in the list.")
             self.ui.image_label.setText(f"Error: Could not find {os.path.basename(first_file_path)} in the list.")
-
-            self.ui.crop_and_export_all_images_action.setEnabled(True)
-            self.ui.crop_and_export_selected_images_action.setEnabled(True)
-            self.ui.group_images_by_object_class_action.setEnabled(True)
     def open_images(self):
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
@@ -399,8 +399,8 @@ class DetectoristApp(QMainWindow):
         self.ui.status_bar.clearMessage()
 
         # Disable actions that depend on images being loaded
+        # (Selection-dependent actions are handled via selectionChanged signal)
         self.ui.crop_and_export_all_images_action.setEnabled(False)
-        self.ui.crop_and_export_selected_images_action.setEnabled(False)
         self.ui.group_images_by_object_class_action.setEnabled(False)
 
     def on_image_selected(self, index):
@@ -577,7 +577,6 @@ class DetectoristApp(QMainWindow):
             crop_mode = 'most_centered'
         else:
             self.ui.image_label.hide_bands()
-            self.ui.crop_save_all_images_action.setEnabled(False)
             crop_mode = None
 
         padding_percentage = self.ui.padding_slider.value() / 100.0
@@ -623,11 +622,9 @@ class DetectoristApp(QMainWindow):
 
         if not crop_rects:
             self.ui.image_label.hide_bands()
-            self.ui.crop_and_export_all_images_action.setEnabled(False)
             return
 
         self.ui.image_label.set_crop_boxes(crop_rects)
-        self.ui.crop_and_export_all_images_action.setEnabled(True)
 
     def _create_output_dir(self, base_dir: str):
         """
