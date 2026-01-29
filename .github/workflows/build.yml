@@ -59,7 +59,7 @@ jobs:
     - name: Tar Linux binary
       run: |
         cd dist/linux-x86_64
-        tar cfz Detectorist-linux-x86_64.tar.gz Detectorist-${{ env.VERSION }}
+        tar cfz Detectorist-linux-x86_64.tar.gz Detectorist-${{ env.VERSION }}-linux-x86_64
 
     - name: Upload Linux artifact
       uses: actions/upload-artifact@v4
@@ -102,7 +102,7 @@ jobs:
     - name: Tar Linux binary
       run: |
         cd dist/linux-aarch64
-        tar cfz Detectorist-linux-aarch64.tar.gz Detectorist-${{ env.VERSION }}
+        tar cfz Detectorist-linux-aarch64.tar.gz Detectorist-${{ env.VERSION }}-linux-aarch64
 
     - name: Upload Linux artifact
       uses: actions/upload-artifact@v4
@@ -145,7 +145,7 @@ jobs:
     - name: Zip macOS app
       run: |
         cd dist/macos-arm64
-        zip -r Detectorist-macos-arm64.zip Detectorist-${{ env.VERSION }}.app
+        zip -r Detectorist-macos-arm64.zip Detectorist-${{ env.VERSION }}-macos-arm64.app
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
@@ -188,7 +188,7 @@ jobs:
     - name: Zip macOS app
       run: |
         cd dist/macos-x86_64
-        zip -r Detectorist-macos-x86_64.zip Detectorist-${{ env.VERSION }}.app
+        zip -r Detectorist-macos-x86_64.zip Detectorist-${{ env.VERSION }}-macos-x86_64.app
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
@@ -230,7 +230,7 @@ jobs:
 
     - name: Zip Windows executable
       run: |
-        Compress-Archive -Path dist/windows-x86_64/Detectorist-${{ env.VERSION }}.exe -DestinationPath dist/windows-x86_64/Detectorist-windows-x86_64.zip
+        Compress-Archive -Path dist/windows-x86_64/Detectorist-${{ env.VERSION }}-windows-x86_64.exe -DestinationPath dist/windows-x86_64/Detectorist-windows-x86_64.zip
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
@@ -275,7 +275,7 @@ jobs:
 
     - name: Zip Windows executable
       run: |
-        Compress-Archive -Path dist/windows-aarch64/Detectorist-${{ env.VERSION }}.exe -DestinationPath dist/windows-aarch64/Detectorist-windows-aarch64.zip
+        Compress-Archive -Path dist/windows-aarch64/Detectorist-${{ env.VERSION }}-windows-aarch64.exe -DestinationPath dist/windows-aarch64/Detectorist-windows-aarch64.zip
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4

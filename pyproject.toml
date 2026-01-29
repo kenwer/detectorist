@@ -64,7 +64,8 @@ esac
 
 [tool.poe.tasks.build-linux]
 shell = """
-OUTPUT_DIR=dist/linux-$(uname -m)
+ARCH=$(uname -m)
+OUTPUT_DIR=dist/linux-$ARCH
 rm -rf "$OUTPUT_DIR"
 nuitka \
     --standalone \
@@ -79,7 +80,7 @@ nuitka \
     --output-dir="$OUTPUT_DIR" \
     --linux-icon=assets/icon.png \
     --remove-output \
-    --output-filename=Detectorist-$(poe get_app_version) \
+    --output-filename=Detectorist-$(poe get_app_version)-linux-$ARCH \
     ./src/detectorist/main.py
 """
 deps = ["compile-ui", "compile-qrc"]
@@ -87,7 +88,9 @@ help = "Build the application for Linux"
 
 [tool.poe.tasks.build-mac]
 shell = """
-OUTPUT_DIR=dist/macos-$(uname -m)
+ARCH=$(uname -m)
+VERSION=$(poe get_app_version)
+OUTPUT_DIR=dist/macos-$ARCH
 rm -rf "$OUTPUT_DIR"
 nuitka \
     --standalone \
@@ -104,12 +107,12 @@ nuitka \
     --remove-output \
     --product-name=Detectorist \
     --macos-app-name=Detectorist \
-    --macos-app-version=$(poe get_app_version) \
+    --macos-app-version=$VERSION \
     --macos-signed-app-name=de.ken.detectorist \
-    --output-filename=Detectorist-$(poe get_app_version) \
+    --output-filename=Detectorist-$VERSION-macos-$ARCH \
     ./src/detectorist/main.py
 mv  "$OUTPUT_DIR/main.app" \
-    "$OUTPUT_DIR/Detectorist-$(poe get_app_version).app"
+    "$OUTPUT_DIR/Detectorist-$VERSION-macos-$ARCH.app"
 """
 deps = ["compile-ui", "compile-qrc"]
 help = "Build the application for macOS"
@@ -117,7 +120,9 @@ help = "Build the application for macOS"
 
 [tool.poe.tasks.build-windows]
 shell = """
-OUTPUT_DIR=dist/windows-$(uname -m)
+ARCH=$(uname -m)
+VERSION=$(poe get_app_version)
+OUTPUT_DIR=dist/windows-$ARCH
 rm -rf "$OUTPUT_DIR"
 nuitka.cmd \
     --standalone \
@@ -135,10 +140,10 @@ nuitka.cmd \
     --output-dir="$OUTPUT_DIR" \
     --remove-output \
     --windows-product-name=Detectorist \
-    --windows-product-version=$(poe get_app_version) \
-    --windows-file-version=$(poe get_app_version) \
+    --windows-product-version=$VERSION \
+    --windows-file-version=$VERSION \
     --windows-console-mode=attach \
-    --output-filename=Detectorist-$(poe get_app_version) \
+    --output-filename=Detectorist-$VERSION-windows-$ARCH \
     --assume-yes-for-downloads \
     --msvc=latest \
     ./src/detectorist/main.py
