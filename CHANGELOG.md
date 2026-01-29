@@ -7,6 +7,7 @@
 ### Changed
 - [Dev] Consolidate image file extension constants to single definitions in their respective ImageObject subclasses (HEIF_EXTENSIONS in HeifImageObject, STANDARD_IMG_EXTENSIONS in PillowImageObject, RAW_EXTENSIONS in RawImageObject), removing duplicates.
 - [Dev] Improve build output structure: architecture-specific directories (e.g., `dist/macos-arm64`), version and architecture in executable names (e.g., `Detectorist-0.7.4-macos-arm64.app`), and clean directory before building.
+- [Dev] Add release.sh to assist with creating releases.
 
 ### Fixed
 - "Crop & Export all Images" action is now enabled as soon as images are loaded, rather than requiring the current image to have detections.
