@@ -58,14 +58,14 @@ jobs:
 
     - name: Tar Linux binary
       run: |
-        cd dist/linux
-        tar cfz Detectorist-linux-x64.tar.gz Detectorist-${{ env.VERSION }}
+        cd dist/linux-x86_64
+        tar cfz Detectorist-linux-x86_64.tar.gz Detectorist-${{ env.VERSION }}
 
     - name: Upload Linux artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Detectorist-linux-x64.tar.gz
-        path: dist/linux/Detectorist-linux-x64.tar.gz
+        name: Detectorist-linux-x86_64.tar.gz
+        path: dist/linux-x86_64/Detectorist-linux-x86_64.tar.gz
 
   build-linux-arm64:
     needs: get-version
@@ -101,14 +101,14 @@ jobs:
 
     - name: Tar Linux binary
       run: |
-        cd dist/linux
-        tar cfz Detectorist-linux-arm64.tar.gz Detectorist-${{ env.VERSION }}
+        cd dist/linux-aarch64
+        tar cfz Detectorist-linux-aarch64.tar.gz Detectorist-${{ env.VERSION }}
 
     - name: Upload Linux artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Detectorist-linux-arm64.tar.gz
-        path: dist/linux/Detectorist-linux-arm64.tar.gz
+        name: Detectorist-linux-aarch64.tar.gz
+        path: dist/linux-aarch64/Detectorist-linux-aarch64.tar.gz
 
   build-macos:
     needs: get-version
@@ -144,14 +144,14 @@ jobs:
 
     - name: Zip macOS app
       run: |
-        cd dist/macos
+        cd dist/macos-arm64
         zip -r Detectorist-macos-arm64.zip Detectorist-${{ env.VERSION }}.app
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
       with:
         name: Detectorist-macos-arm64.zip
-        path: dist/macos/Detectorist-macos-arm64.zip
+        path: dist/macos-arm64/Detectorist-macos-arm64.zip
 
   build-macos-intel:
     needs: get-version
@@ -187,14 +187,14 @@ jobs:
 
     - name: Zip macOS app
       run: |
-        cd dist/macos
-        zip -r Detectorist-macos-x64.zip Detectorist-${{ env.VERSION }}.app
+        cd dist/macos-x86_64
+        zip -r Detectorist-macos-x86_64.zip Detectorist-${{ env.VERSION }}.app
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Detectorist-macos-x64.zip
-        path: dist/macos/Detectorist-macos-x64.zip
+        name: Detectorist-macos-x86_64.zip
+        path: dist/macos-x86_64/Detectorist-macos-x86_64.zip
 
   build-windows:
     needs: get-version
@@ -230,13 +230,13 @@ jobs:
 
     - name: Zip Windows executable
       run: |
-        Compress-Archive -Path dist/windows/Detectorist-${{ env.VERSION }}.exe -DestinationPath dist/windows/Detectorist-windows-x64.zip
+        Compress-Archive -Path dist/windows-x86_64/Detectorist-${{ env.VERSION }}.exe -DestinationPath dist/windows-x86_64/Detectorist-windows-x86_64.zip
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Detectorist-windows-x64.zip
-        path: dist/windows/Detectorist-windows-x64.zip
+        name: Detectorist-windows-x86_64.zip
+        path: dist/windows-x86_64/Detectorist-windows-x86_64.zip
 
 # Windows on ARM is disabled because onnxruntime doesn't provide wheels for win_arm64.
 # See: https://github.com/microsoft/onnxruntime/issues/27123.
@@ -275,13 +275,13 @@ jobs:
 
     - name: Zip Windows executable
       run: |
-        Compress-Archive -Path dist/windows/Detectorist-${{ env.VERSION }}.exe -DestinationPath dist/windows/Detectorist-windows-arm64.zip
+        Compress-Archive -Path dist/windows-aarch64/Detectorist-${{ env.VERSION }}.exe -DestinationPath dist/windows-aarch64/Detectorist-windows-aarch64.zip
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Detectorist-windows-arm64.zip
-        path: dist/windows/Detectorist-windows-arm64.zip
+        name: Detectorist-windows-aarch64.zip
+        path: dist/windows-aarch64/Detectorist-windows-aarch64.zip
 
   create-release:
     # NOTE: `build-windows-arm64` removed from needs until onnxruntime provides wheels for win_arm64
@@ -302,11 +302,11 @@ jobs:
       if: github.ref_type == 'tag'
       with:
         files: |
-          Detectorist-linux-x64.tar.gz
-          Detectorist-linux-arm64.tar.gz
+          Detectorist-linux-x86_64.tar.gz
+          Detectorist-linux-aarch64.tar.gz
           Detectorist-macos-arm64.zip
-          Detectorist-macos-x64.zip
-          Detectorist-windows-x64.zip
-          # Detectorist-windows-arm64.zip  # Disabled until onnxruntime provides wheels for win_arm64
+          Detectorist-macos-x86_64.zip
+          Detectorist-windows-x86_64.zip
+          # Detectorist-windows-aarch64.zip  # Disabled until onnxruntime provides wheels for win_arm64
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

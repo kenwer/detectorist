@@ -64,6 +64,8 @@ esac
 
 [tool.poe.tasks.build-linux]
 shell = """
+OUTPUT_DIR=dist/linux-$(uname -m)
+rm -rf "$OUTPUT_DIR"
 nuitka \
     --standalone \
     --onefile \
@@ -74,7 +76,7 @@ nuitka \
     --include-qt-plugins=platforminputcontexts \
     --include-data-dir=models=models \
     --disable-ccache \
-    --output-dir=dist/linux \
+    --output-dir="$OUTPUT_DIR" \
     --linux-icon=assets/icon.png \
     --remove-output \
     --output-filename=Detectorist-$(poe get_app_version) \
@@ -85,6 +87,8 @@ help = "Build the application for Linux"
 
 [tool.poe.tasks.build-mac]
 shell = """
+OUTPUT_DIR=dist/macos-$(uname -m)
+rm -rf "$OUTPUT_DIR"
 nuitka \
     --standalone \
     --macos-create-app-bundle \
@@ -96,7 +100,7 @@ nuitka \
     --include-qt-plugins=platforminputcontexts \
     --include-data-dir=models=models \
     --disable-ccache \
-    --output-dir=dist/macos \
+    --output-dir="$OUTPUT_DIR" \
     --remove-output \
     --product-name=Detectorist \
     --macos-app-name=Detectorist \
@@ -104,8 +108,8 @@ nuitka \
     --macos-signed-app-name=de.ken.detectorist \
     --output-filename=Detectorist-$(poe get_app_version) \
     ./src/detectorist/main.py
-mv  dist/macos/main.app \
-    dist/macos/Detectorist-$(poe get_app_version).app
+mv  "$OUTPUT_DIR/main.app" \
+    "$OUTPUT_DIR/Detectorist-$(poe get_app_version).app"
 """
 deps = ["compile-ui", "compile-qrc"]
 help = "Build the application for macOS"
@@ -113,6 +117,8 @@ help = "Build the application for macOS"
 
 [tool.poe.tasks.build-windows]
 shell = """
+OUTPUT_DIR=dist/windows-$(uname -m)
+rm -rf "$OUTPUT_DIR"
 nuitka.cmd \
     --standalone \
     --onefile \
@@ -126,7 +132,7 @@ nuitka.cmd \
     --include-qt-plugins=platforminputcontexts \
     --include-data-dir=models=models \
     --disable-ccache \
-    --output-dir=dist/windows \
+    --output-dir="$OUTPUT_DIR" \
     --remove-output \
     --windows-product-name=Detectorist \
     --windows-product-version=$(poe get_app_version) \

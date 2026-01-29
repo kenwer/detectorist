@@ -31,13 +31,13 @@ Detectorist is a multi platform desktop application that uses machine learning f
 
 Download the binary for your operating system and start the application.
 * macOS (Apple Silicon): [Detectorist-macos-arm64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-macos-arm64.zip)
-* macOS (Intel): [Detectorist-macos-x64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-macos-x64.zip)
+* macOS (Intel): [Detectorist-macos-x86_64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-macos-x86_64.zip)
   * Note: The macOS apps are not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
-* Windows (x64): [Detectorist-windows-x64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-windows-x64.zip)
+* Windows (x86_64): [Detectorist-windows-x86_64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-windows-x86_64.zip)
   * Note: The compiled Windows executable is not signed and since it extracts additional contents to load afterwards it's common that Anti Virus/Malware tools like Defender detect the application as malicious.
-  * Note: Windows arm64 is not supported [yet](https://github.com/microsoft/onnxruntime/issues/27123) because `onnxruntime` doesn't provide wheels for that platform. Windows ARM users might use the x64 version via emulation.
-* Linux (x64): [Detectorist-linux-x64.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-x64.tar.gz)
-* Linux (arm64): [Detectorist-linux-arm64.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-arm64.tar.gz)
+  * Note: Windows aarch64 is not supported [yet](https://github.com/microsoft/onnxruntime/issues/27123) because `onnxruntime` doesn't provide wheels for that platform. Windows ARM users might use the x86_64 version via emulation.
+* Linux (x86_64): [Detectorist-linux-x86_64.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-x86_64.tar.gz)
+* Linux (aarch64): [Detectorist-linux-aarch64.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-aarch64.tar.gz)
   * Note: On Linux you can also easily run Detectorist from the source as described below.
 
 
