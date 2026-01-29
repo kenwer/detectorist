@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Display the changelog in the About dialog.
+
 ### Changed
 - [Dev] Consolidated image file extension constants to single definitions in their respective ImageObject subclasses (HEIF_EXTENSIONS in HeifImageObject, STANDARD_IMG_EXTENSIONS in PillowImageObject, RAW_EXTENSIONS in RawImageObject), removing duplicates.
 
@@ -38,23 +41,26 @@
   - "Copy Filename to Clipboard" that copies the file name string of the selected image to your clipboard.
 - File menu item to clear the image list.
 - Navigating through the list of images using the keyboard:
-    | Shortcut Windows/Linux | Shortcut macOS | Action |
-    | --- | --- | --- |
-    | Ctrl+Up    | ⌘⬆︎ | jump to first image |
-    | Ctrl+Left  | ⌘⬅︎ | jump to first image |
-    | Ctrl+Down  | ⌘⬇︎ | jump to last image |
-    | Ctrl+Right | ⌘➡︎ | jump to last image |
+  - Windows/Linux:
+    - Ctrl+Up or Ctrl+Left: jump to first image
+    - Ctrl+Down or Ctrl+Right: jump to last image
+  - macOS:
+    - ⌘⬆︎ or ⌘⬅︎: jump to first image
+    - ⌘⬇︎ or ⌘➡︎: jump to last image
 
 ### Changed
 - Remove `Crop & copy current image` because we now have the `Crop & export selected images`action.
 - Rename `Sort images into folders` action to `Group images into folders` because it groups images by the detected object class.
 - Rename `save` actions to `export` actions to clarify that the original images are not overwritten.
-- Adjust keybord shortcuts:
-    | Shortcut Windows/Linux | Shortcut macOS | Action |
-    | --- | --- | --- |
-    | Shift+Ctrl+G   | ⇧⌘G | Group images into folder |
-    | Ctrl+E | ⌘E | Crop & Export selected Images |
-    | Shift+Ctrl+E | ⇧⌘E | Crop & Export all Images |
+- Adjust keyboard shortcuts:
+  - Windows/Linux:
+    - Shift+Ctrl+G: Group images into folder
+    - Ctrl+E: Crop & Export selected Images
+    - Shift+Ctrl+E: Crop & Export all Images
+  - macOS:
+    - ⇧⌘G: Group images into folder
+    - ⌘E: Crop & Export selected Images
+    - ⇧⌘E: Crop & Export all Images
 
 ## [0.7.0] - 2025-11-14
 ### Added

@@ -2,4 +2,7 @@
   <qresource prefix="icons">
     <file alias="icon.png">../../assets/icon.png</file>
   </qresource>
+  <qresource prefix="docs">
+    <file alias="CHANGELOG.md">../../CHANGELOG.md</file>
+  </qresource>
 </RCC>

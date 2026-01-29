@@ -16,7 +16,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
-    QHBoxLayout, QLabel, QSizePolicy, QSpacerItem,
+    QHBoxLayout, QLabel, QSizePolicy, QTextBrowser,
     QVBoxLayout, QWidget)
 from . import resources_rc
 
@@ -24,7 +24,7 @@ class Ui_AboutDialog(object):
     def setupUi(self, AboutDialog):
         if not AboutDialog.objectName():
             AboutDialog.setObjectName(u"AboutDialog")
-        AboutDialog.resize(450, 200)
+        AboutDialog.resize(671, 635)
         AboutDialog.setMinimumSize(QSize(450, 200))
         self.verticalLayout = QVBoxLayout(AboutDialog)
         self.verticalLayout.setObjectName(u"verticalLayout")
@@ -53,10 +53,6 @@ class Ui_AboutDialog(object):
 
         self.textLayout.addWidget(self.app_name_label)
 
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
-
-        self.textLayout.addItem(self.verticalSpacer)
-
         self.version_label = QLabel(AboutDialog)
         self.version_label.setObjectName(u"version_label")
         self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -81,6 +77,11 @@ class Ui_AboutDialog(object):
 
 
         self.verticalLayout.addLayout(self.horizontalLayout)
+
+        self.changelog_text_browser = QTextBrowser(AboutDialog)
+        self.changelog_text_browser.setObjectName(u"changelog_text_browser")
+
+        self.verticalLayout.addWidget(self.changelog_text_browser)
 
         self.button_box = QDialogButtonBox(AboutDialog)
         self.button_box.setObjectName(u"button_box")

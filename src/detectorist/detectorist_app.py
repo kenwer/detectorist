@@ -7,6 +7,8 @@ import pillow_heif
 from PySide6.QtCore import (
     Q_ARG,
     QDir,
+    QFile,
+    QIODeviceBase,
     QMetaObject,
     QRect,
     Qt,
@@ -523,6 +525,14 @@ class DetectoristApp(QMainWindow):
         about_ui = Ui_AboutDialog()
         about_ui.setupUi(about_dialog)
         about_ui.version_label.setText(f"Version: {__version__}")
+
+        # Load changelog programmatically from the qrc to render markdown as QTextBrowser.source only handles HTML
+        changelog_file = QFile(":docs/CHANGELOG.md")
+        if changelog_file.open(QIODeviceBase.OpenModeFlag.ReadOnly | QIODeviceBase.OpenModeFlag.Text):
+            changelog_text = changelog_file.readAll().data().decode("utf-8")
+            about_ui.changelog_text_browser.setMarkdown(changelog_text)
+            changelog_file.close()
+
         about_dialog.exec()
 
     def dragEnterEvent(self, event):
