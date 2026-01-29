@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.7.4] - 2026-01-29
 ### Added
 - Display the changelog in the About dialog.
 
