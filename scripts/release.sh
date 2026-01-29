@@ -1,10 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-
-# =============================================================================
-# Interactive Release Script for Detectorist
-# =============================================================================
-#
 # This script guides you through the release process with confirmations at
 # each step. It automates the following tasks:
 #
@@ -40,8 +35,6 @@ set -euo pipefail
 #
 # Usage:
 #   ./scripts/release.sh
-#
-# =============================================================================
 
 # Colors for output
 RED='\033[0;31m'
@@ -194,11 +187,9 @@ success "QRC files compiled"
 # Show diff for review
 echo ""
 info "Review changes:"
-echo "─────────────────────────────────────────────────────────────"
 git diff --color=always
-echo "─────────────────────────────────────────────────────────────"
-echo ""
 
+echo ""
 info "Files that will be staged:"
 git status --short
 echo ""
@@ -342,9 +333,10 @@ git push -u origin "v${NEW_VERSION}"
 success "Tag pushed"
 
 echo ""
-success "Release v${NEW_VERSION} initiated!"
+success "Tag v${NEW_VERSION} pushed!"
 echo ""
 info "Next steps:"
-echo "  • Watch the release workflow: https://github.com/$(git remote get-url origin | sed 's/.*://; s/\.git$//')/actions"
-echo "  • Once complete, check the release: https://github.com/$(git remote get-url origin | sed 's/.*://; s/\.git$//')/releases/tag/v${NEW_VERSION}"
+echo " - Watch the release workflow: https://github.com/$(git remote get-url origin | sed 's/.*://; s/\.git$//')/actions"
+echo " - Once complete, check the tag: https://github.com/$(git remote get-url origin | sed 's/.*://; s/\.git$//')/releases/tag/v${NEW_VERSION}"
+echo " - You may want to create a release from the tag: https://github.com/$(git remote get-url origin | sed 's/.*://; s/\.git$//')/releases/new?tag=v${NEW_VERSION}"
 echo ""
