@@ -4,6 +4,10 @@
 
 - [Q1: When starting the app on macOS, how do I get past the  "*Detectorist.app Not Opened*" message?](#q1-when-starting-the-app-on-macos-how-do-i-get-past-the--detectoristapp-not-opened-message)
 - [Q2: When starting the Windows executable, how do I get past the "*Windows protected your PC*" / "*Don't run*" message?](#q2-when-starting-the-windows-executable-how-do-i-get-past-the-windows-protected-your-pc--dont-run-message)
+- [Q3: How do I reset the application settings?](#q3-how-do-i-reset-the-application-settings)
+  - [macOS:](#macos)
+  - [Windows:](#windows)
+  - [Linux:](#linux)
 
 <!--TOC-->
 
@@ -37,3 +41,23 @@ Background: For this open source application there's no valid Developer ID certi
 
   * <img src="https://github.com/user-attachments/assets/69ac275c-c815-4176-a2f5-8c46faa28901" width="40%" alt="Image">
     <img src="https://github.com/user-attachments/assets/61048311-4f35-4aad-830c-7506aaaec84c" width="40%" alt="Image">
+
+## Q3: How do I reset the application settings?
+**A:** Detectorist stores settings (window size, last used folder, confidence threshold, etc.) using platform-specific storage. To reset them:
+
+### macOS:
+```bash
+defaults delete com.kenwer.detectorist
+```
+Note: Simply deleting the plist file (`~/Library/Preferences/com.kenwer.detectorist.plist`) may not work because macOS caches preferences in memory via `cfprefsd`.
+
+### Windows:
+Delete the registry key at `HKEY_CURRENT_USER\Software\kenwer\detectorist`, or run:
+```cmd
+reg delete "HKEY_CURRENT_USER\Software\kenwer\detectorist" /f
+```
+
+### Linux:
+```bash
+rm ~/.config/kenwer/detectorist.conf
+```

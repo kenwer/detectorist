@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- Application settings (window size, model, confidence, crop/padding settings, etc.) are persistently saved and restored between sessions.
+
 ## [0.7.4] - 2026-01-29
 ### Added
 - Display the changelog in the About dialog.

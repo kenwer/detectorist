@@ -6,7 +6,6 @@ import sys
 import pillow_heif
 from PySide6.QtCore import (
     Q_ARG,
-    QDir,
     QFile,
     QIODeviceBase,
     QMetaObject,
@@ -33,6 +32,7 @@ from .detectorist_app_gui import Ui_DetectoristAppUI
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
 from .image_object import ImageObject
+from .settings import Settings
 from .utils import get_model_path
 from .worker import DetectionWorker
 
@@ -210,7 +210,6 @@ class DetectoristApp(QMainWindow):
         super().__init__()
 
         self.current_image_path = None
-        self.last_opened_directory = QDir.homePath()
 
         # Ensure opener is registered (otherwise the native code will segfault)
         pillow_heif.register_heif_opener()
@@ -315,9 +314,89 @@ class DetectoristApp(QMainWindow):
 
         # Start the thread and load initial model
         self.thread.start()
-        # Load AI model
-        self.on_model_selected(0)
 
+        # Load settings (must be after UI setup and before triggering model load)
+        self._load_settings()
+
+        # Load AI model (combo box index was set by _load_settings if a saved model exists)
+        self.on_model_selected(self.ui.model_select_combo_box.currentIndex())
+
+    def _load_settings(self):
+        """Load persistent settings and apply to UI."""
+        self.settings = Settings()
+
+        # Window geometry and splitter state
+        if self.settings.window_geometry:
+            self.restoreGeometry(self.settings.window_geometry)
+        if self.settings.splitter_state:
+            self.ui.splitter.restoreState(self.settings.splitter_state)
+
+        # Model selection
+        if self.settings.model:
+            model_index = self.ui.model_select_combo_box.findText(self.settings.model)
+            if model_index >= 0:
+                self.ui.model_select_combo_box.setCurrentIndex(model_index)
+
+        # Confidence (slider and spinbox are linked)
+        if (confidence := self.settings.confidence) is not None:
+            self.ui.confidence_slider.setValue(confidence)
+
+        # Crop mode
+        if (crop_mode := self.settings.crop_mode) is not None:
+            if crop_mode == Settings.CROP_TOP_CONFIDENCE:
+                self.ui.rb_crop_to_top_conf.setChecked(True)
+            elif crop_mode == Settings.CROP_LARGEST_AREA:
+                self.ui.rb_crop_largest_area.setChecked(True)
+            elif crop_mode == Settings.CROP_ALL_DETECTED:
+                self.ui.rb_crop_all_detected_objects.setChecked(True)
+            elif crop_mode == Settings.CROP_MOST_CENTERED:
+                self.ui.rb_crop_centered_obj.setChecked(True)
+
+        # Aspect ratio
+        if (aspect_ratio_index := self.settings.aspect_ratio_index) is not None:
+            if 0 <= aspect_ratio_index < self.ui.crop_ratio_combo_box.count():
+                self.ui.crop_ratio_combo_box.setCurrentIndex(aspect_ratio_index)
+
+        # Padding
+        if (padding := self.settings.padding) is not None:
+            self.ui.padding_slider.setValue(padding)
+
+        # Auto correct camera exposure bias
+        if (auto_exposure := self.settings.auto_correct_exposure_enabled) is not None:
+            self.ui.cb_comp_cam_exposure.setChecked(auto_exposure)
+
+    def _save_settings(self):
+        """Save current UI state to persistent settings."""
+        self.settings.save_current_version()
+
+        # Window geometry and splitter state
+        self.settings.window_geometry = self.saveGeometry()
+        self.settings.splitter_state = self.ui.splitter.saveState()
+
+        # Model selection
+        self.settings.model = self.ui.model_select_combo_box.currentText()
+
+        # Confidence
+        self.settings.confidence = self.ui.confidence_slider.value()
+
+        # Crop mode
+        if self.ui.rb_crop_to_top_conf.isChecked():
+            self.settings.crop_mode = Settings.CROP_TOP_CONFIDENCE
+        elif self.ui.rb_crop_largest_area.isChecked():
+            self.settings.crop_mode = Settings.CROP_LARGEST_AREA
+        elif self.ui.rb_crop_all_detected_objects.isChecked():
+            self.settings.crop_mode = Settings.CROP_ALL_DETECTED
+        elif self.ui.rb_crop_centered_obj.isChecked():
+            self.settings.crop_mode = Settings.CROP_MOST_CENTERED
+
+        # Aspect ratio
+        self.settings.aspect_ratio_index = self.ui.crop_ratio_combo_box.currentIndex()
+
+        # Padding
+        self.settings.padding = self.ui.padding_slider.value()
+
+        # Auto correct camera exposure bias
+        self.settings.auto_correct_exposure_enabled = self.ui.cb_comp_cam_exposure.isChecked()
 
     def _update_detection_info(self, objects="-", confidence="-", time="-"):
         detection_info_items = [
@@ -369,15 +448,17 @@ class DetectoristApp(QMainWindow):
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Open Image(s)",
-            QDir.homePath(),
+            self.settings.base_folder,
             f"Images ({' '.join(['*' + ext for ext in ImageObject.get_supported_extensions()])})"
         )
         if file_paths:
+            self.settings.base_folder = os.path.dirname(file_paths[0])
             self._load_images_from_paths(file_paths)
 
     def open_folder(self):
-        folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", QDir.homePath())
+        folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", self.settings.base_folder)
         if folder_path:
+            self.settings.base_folder = folder_path
             image_files_basenames = sorted([f for f in os.listdir(folder_path)
                            if f.lower().endswith(ImageObject.get_supported_extensions())])
             full_paths = [os.path.join(folder_path, f) for f in image_files_basenames]
@@ -954,6 +1035,8 @@ class DetectoristApp(QMainWindow):
         super().keyPressEvent(event) # Pass other key events to the base class
 
     def closeEvent(self, event):
+        # Save settings before closing
+        self._save_settings()
         # Clean up resources, if any
         print("Closing application...")
         self.thread.quit()
