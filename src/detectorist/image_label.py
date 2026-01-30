@@ -64,7 +64,7 @@ class ImageLabel(QLabel):
         widget_size = self.size()
         pixmap_size = self._pixmap.size()
 
-        scaled_pixmap = pixmap_size.scaled(widget_size, Qt.KeepAspectRatio)
+        scaled_pixmap = pixmap_size.scaled(widget_size, Qt.AspectRatioMode.KeepAspectRatio)
 
         scale_x = scaled_pixmap.width() / pixmap_size.width()
         scale_y = scaled_pixmap.height() / pixmap_size.height()
@@ -205,20 +205,20 @@ class ImageLabel(QLabel):
         height, width, channel = image_data.shape
         bytes_per_line = 3 * width
 
-        q_image = QImage(image_data.data, width, height, bytes_per_line, QImage.Format_RGB888)
+        q_image = QImage(image_data.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(q_image)
 
         if not pixmap.isNull():
             self.setPixmap(pixmap)
         else:
             self.setText("Cannot load image from data")
-            self.setAlignment(Qt.AlignCenter)
+            self.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
     def paintEvent(self, event):
         super().paintEvent(event)
         if not self._pixmap.isNull():
             size = self.size()
-            scaled_pixmap = self._pixmap.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            scaled_pixmap = self._pixmap.scaled(size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             point = QPoint((size.width() - scaled_pixmap.width()) // 2, (size.height() - scaled_pixmap.height()) // 2)
             painter = QPainter(self)
             painter.drawPixmap(point, scaled_pixmap)

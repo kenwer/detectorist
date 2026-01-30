@@ -596,7 +596,7 @@ class DetectoristApp(QMainWindow):
         model_name = self.ui.model_select_combo_box.itemText(index)
         model_path = os.path.join(self.models_dir, model_name)
         # The worker lives in another thread, so we must use invokeMethod to call it safely.
-        QMetaObject.invokeMethod(self.worker, "load_model", Qt.QueuedConnection, Q_ARG(str, model_path))
+        QMetaObject.invokeMethod(self.worker, "load_model", Qt.ConnectionType.QueuedConnection, Q_ARG(str, model_path))
 
     def on_exposure_compensation_toggled(self, checked: bool):
         if self.ui.image_label.image:
@@ -794,7 +794,7 @@ class DetectoristApp(QMainWindow):
 
             total_files = len(image_full_paths)
             progress_dialog = QProgressDialog(f"{process_name}...", "Cancel", 0, total_files, self)
-            progress_dialog.setWindowModality(Qt.WindowModal)
+            progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
             progress_dialog.setAutoClose(True)
 
             confidence = self.ui.confidence_slider.value() / 100.0
@@ -1008,12 +1008,12 @@ class DetectoristApp(QMainWindow):
 
         # Ctrl + Up/Down or Ctrl + Left/Right to jump to the first/last image
         if modifiers & Qt.KeyboardModifier.ControlModifier: # Cmd key on macOS
-            if key == Qt.Key_Up or key == Qt.Key_Left:
+            if key == Qt.Key.Key_Up or key == Qt.Key.Key_Left:
                 self.ui.image_list_view.selectionModel().clear()
                 self.ui.image_list_view.setCurrentIndex(self.model.index(0, 0))
                 event.accept()
                 return
-            elif key == Qt.Key_Down or key == Qt.Key_Right:
+            elif key == Qt.Key.Key_Down or key == Qt.Key.Key_Right:
                 self.ui.image_list_view.selectionModel().clear()
                 self.ui.image_list_view.setCurrentIndex(self.model.index(self.model.rowCount() - 1, 0))
                 event.accept()
@@ -1022,9 +1022,9 @@ class DetectoristApp(QMainWindow):
         else:
             current_row = self.ui.image_list_view.currentIndex().row()
             next_row = -1 # Initialize with an invalid value
-            if key == Qt.Key_Left:
+            if key == Qt.Key.Key_Left:
                 next_row = max(0, current_row - 1)
-            elif key == Qt.Key_Right:
+            elif key == Qt.Key.Key_Right:
                 next_row = min(self.model.rowCount() - 1, current_row + 1)
 
             if next_row != -1 and next_row != current_row: # Only update if a valid new row is calculated and it's different from the current one

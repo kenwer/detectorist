@@ -10,7 +10,7 @@ class ImageListModel(QAbstractListModel):
     It stores the full paths to the images but displays only the filenames.
     A custom role `FullPathRole` is provided to retrieve the full path.
     """
-    FullPathRole = Qt.UserRole + 1
+    FullPathRole = Qt.ItemDataRole.UserRole + 1
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -22,14 +22,14 @@ class ImageListModel(QAbstractListModel):
             return 0
         return len(self._image_paths)
 
-    def data(self, index, role=Qt.DisplayRole):
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         """Returns the data for a given index and role."""
         if not index.isValid() or not (0 <= index.row() < len(self._image_paths)):
             return None
 
         path = self._image_paths[index.row()]
 
-        if role == Qt.DisplayRole:
+        if role == Qt.ItemDataRole.DisplayRole:
             return os.path.basename(path)
         elif role == self.FullPathRole:
             return path
