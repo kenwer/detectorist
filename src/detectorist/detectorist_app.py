@@ -760,7 +760,7 @@ class DetectoristApp(QMainWindow):
             subprocess.Popen(['xdg-open', dir_path])
 
 
-    def _process_all_images(self, process_name: str, setup_callback: callable, process_image_callback: callable, image_files_to_process: list[str] = None) -> bool:
+    def _process_all_images(self, process_name: str, setup_callback: callable, process_image_callback: callable, image_files_to_process: list[str] | None = None) -> bool:
         """
         Helper method that encapsulates the loop that goes through all the images.
         It covers the progress dialog, image loading, and object detection.
@@ -837,7 +837,7 @@ class DetectoristApp(QMainWindow):
             self.ui.status_bar.showMessage(f"Error during {process_name}: {e}", 5000)
             return False
 
-    def _crop_and_export_images_with_progress(self, process_name: str, image_files_to_process: list[str] = None):
+    def _crop_and_export_images_with_progress(self, process_name: str, image_files_to_process: list[str] | None = None):
         """
         Helper method that encapsulates the loop that goes through all the images for cropping.
         It covers the progress dialog, image loading, and object detection.
