@@ -48,7 +48,7 @@ class DetectionWorker(QObject):
             self._new_request_pending = True
             if not self._is_processing:
                 self._is_processing = True
-                QMetaObject.invokeMethod(self, "_process_loop", Qt.QueuedConnection)
+                QMetaObject.invokeMethod(self, "_process_loop", Qt.ConnectionType.QueuedConnection)
 
     @Slot()
     def _process_loop(self):
