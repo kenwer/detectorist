@@ -2,6 +2,7 @@ import csv
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 
 import pillow_heif
 from PySide6.QtCore import (
@@ -760,7 +761,7 @@ class DetectoristApp(QMainWindow):
             subprocess.Popen(['xdg-open', dir_path])
 
 
-    def _process_all_images(self, process_name: str, setup_callback: callable, process_image_callback: callable, image_files_to_process: list[str] | None = None) -> bool:
+    def _process_all_images(self, process_name: str, setup_callback: Callable, process_image_callback: Callable, image_files_to_process: list[str] | None = None) -> bool:
         """
         Helper method that encapsulates the loop that goes through all the images.
         It covers the progress dialog, image loading, and object detection.
