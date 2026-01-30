@@ -426,8 +426,16 @@ Highest confidence	: -</string>
     <property name="title">
      <string>File</string>
     </property>
+    <widget class="QMenu" name="recent_folders_menu">
+     <property name="title">
+      <string>Recent Folders</string>
+     </property>
+     <addaction name="separator"/>
+     <addaction name="clear_recent_folders_action"/>
+    </widget>
     <addaction name="open_images_action"/>
     <addaction name="open_folder_action"/>
+    <addaction name="recent_folders_menu"/>
     <addaction name="separator"/>
     <addaction name="clear_image_list_action"/>
    </widget>
@@ -604,6 +612,11 @@ Highest confidence	: -</string>
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>
+   </property>
+  </action>
+  <action name="clear_recent_folders_action">
+   <property name="text">
+    <string>Clear Recent</string>
    </property>
   </action>
  </widget>

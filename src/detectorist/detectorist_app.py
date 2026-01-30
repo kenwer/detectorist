@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
     QMenu,
+    QMessageBox,
     QProgressDialog,
 )
 
@@ -34,7 +35,7 @@ from .image_label import ImageLabel
 from .image_list_model import ImageListModel
 from .image_object import ImageObject
 from .settings import Settings
-from .utils import get_model_path
+from .utils import contract_user_path, get_model_path
 from .worker import DetectionWorker
 
 # The Non-Maximum Suppression threshold used for object detection
@@ -268,6 +269,7 @@ class DetectoristApp(QMainWindow):
         self.ui.copy_filenames_to_clipboard_action.triggered.connect(self._copy_selected_filenames_to_clipboard)
         self.ui.remove_selected_images_from_list_action.triggered.connect(self._remove_selected_images_from_list)
         self.ui.copy_export_remove_action.triggered.connect(self._copy_export_remove_selected_images)
+        self.ui.clear_recent_folders_action.triggered.connect(self._clear_recent_folders)
 
         # Delayed/debounced Slider and SpinBoxe (because they are emitted very often as they both change)
         self.ui.confidence_slider.valueChanged.connect(self.debounce_processing_trigger)
@@ -319,6 +321,7 @@ class DetectoristApp(QMainWindow):
 
         # Load settings (must be after UI setup and before triggering model load)
         self._load_settings()
+        self._update_recent_folders_menu()
 
         # Load AI model (combo box index was set by _load_settings if a saved model exists)
         self.on_model_selected(self.ui.model_select_combo_box.currentIndex())
@@ -455,16 +458,52 @@ class DetectoristApp(QMainWindow):
         )
         if file_paths:
             self.settings.add_recent_directory(os.path.dirname(file_paths[0]))
+            self._update_recent_folders_menu()
             self._load_images_from_paths(file_paths)
 
-    def open_folder(self):
+    def open_folder(self) -> None:
         folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", self.settings.last_directory)
         if folder_path:
-            self.settings.add_recent_directory(folder_path)
-            image_files_basenames = sorted([f for f in os.listdir(folder_path)
-                           if f.lower().endswith(ImageObject.get_supported_extensions())])
-            full_paths = [os.path.join(folder_path, f) for f in image_files_basenames]
-            self._load_images_from_paths(full_paths)
+            self._open_folder_by_path(folder_path)
+
+    def _open_folder_by_path(self, folder_path: str) -> None:
+        """Open a folder and load its images."""
+        self.settings.add_recent_directory(folder_path)
+        self._update_recent_folders_menu()
+        image_files_basenames = sorted([f for f in os.listdir(folder_path)
+                       if f.lower().endswith(ImageObject.get_supported_extensions())])
+        full_paths = [os.path.join(folder_path, f) for f in image_files_basenames]
+        self._load_images_from_paths(full_paths)
+
+    def _update_recent_folders_menu(self) -> None:
+        """Rebuild the Recent Folders submenu from settings."""
+        self.ui.recent_folders_menu.clear()
+
+        recent = self.settings.recent_directories
+        if not recent:
+            no_recent = self.ui.recent_folders_menu.addAction("No Recent Folders")
+            no_recent.setEnabled(False)
+        else:
+            for path in recent:
+                action = self.ui.recent_folders_menu.addAction(contract_user_path(path))
+                action.triggered.connect(lambda checked, p=path: self._open_recent_folder(p))
+
+        # Re-add the separator and Clear Recent action (defined in .ui, removed by clear())
+        self.ui.recent_folders_menu.addSeparator()
+        self.ui.clear_recent_folders_action.setEnabled(bool(recent))
+        self.ui.recent_folders_menu.addAction(self.ui.clear_recent_folders_action)
+
+    def _open_recent_folder(self, path: str) -> None:
+        """Open a folder from the recent list."""
+        if os.path.isdir(path):
+            self._open_folder_by_path(path)
+        else:
+            QMessageBox.warning(self, "Folder Not Found", f"The folder is not accessible anymore (e.g. no longer exists):\n{path}")
+
+    def _clear_recent_folders(self) -> None:
+        """Clear the recent folders list."""
+        self.settings.clear_recent_directories()
+        self._update_recent_folders_menu()
 
     def clear_image_list(self):
         """Clears the image list and resets the application to its initial state."""

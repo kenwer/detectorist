@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Added
 - Application settings (window size, model, confidence, crop/padding settings, etc.) are persistently saved and restored between sessions.
+- Add Recent Folders submenu in the File menu to quickly reopen folders, with option to clear the list."
 
 ## [0.7.4] - 2026-01-29
 ### Added
