@@ -120,12 +120,13 @@ class DetectoristApp(QMainWindow):
         h += 2 * padding_y
 
         # Handle aspect ratio for "detection_frame"
-        final_aspect_ratio = aspect_ratio
-        if aspect_ratio == 'detection_frame':
+        if isinstance(aspect_ratio, str):
             if detection_w > 0 and detection_h > 0:
                 final_aspect_ratio = (detection_w, detection_h)
             else:
-                final_aspect_ratio = (1, 1) # Fallback to square if detection has zero area
+                final_aspect_ratio = (1, 1)  # Fallback to square if detection has zero area
+        else:
+            final_aspect_ratio = aspect_ratio
 
         ratio_w, ratio_h = final_aspect_ratio
         rect_w, rect_h = w, h
