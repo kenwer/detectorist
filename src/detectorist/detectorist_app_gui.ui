@@ -437,6 +437,9 @@ Highest confidence	: -</string>
     <addaction name="open_folder_action"/>
     <addaction name="recent_folders_menu"/>
     <addaction name="separator"/>
+    <addaction name="import_settings_action"/>
+    <addaction name="export_settings_action"/>
+    <addaction name="separator"/>
     <addaction name="clear_image_list_action"/>
    </widget>
    <widget class="QMenu" name="menu_actions">
@@ -617,6 +620,22 @@ Highest confidence	: -</string>
   <action name="clear_recent_folders_action">
    <property name="text">
     <string>Clear Recent</string>
+   </property>
+  </action>
+  <action name="import_settings_action">
+   <property name="text">
+    <string>Import Settings...</string>
+   </property>
+   <property name="toolTip">
+    <string>Import Model and Crop settings from a previous export's settings.json file</string>
+   </property>
+  </action>
+  <action name="export_settings_action">
+   <property name="text">
+    <string>Export Settings...</string>
+   </property>
+   <property name="toolTip">
+    <string>Export current Model and Crop settings to a JSON file</string>
    </property>
   </action>
  </widget>

@@ -3,7 +3,9 @@
 ## [Unreleased]
 ### Added
 - Application settings (window size, model, confidence, crop/padding settings, etc.) are persistently saved and restored between sessions.
-- Add Recent Folders submenu in the File menu to quickly reopen folders, with option to clear the list."
+- Add Recent Folders submenu in the File menu to quickly reopen folders, with option to clear the list.
+- Batch processing now exports a `settings.json` file alongside the `detections.csv`, documenting the model and crop settings used.
+- Add Import/Export Settings menu entries to save and load model and crop settings as JSON files.
 
 ## [0.7.4] - 2026-01-29
 ### Added

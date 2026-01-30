@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 from collections.abc import Callable
+from pathlib import Path
 
 import pillow_heif
 from PySide6.QtCore import (
@@ -270,6 +271,8 @@ class DetectoristApp(QMainWindow):
         self.ui.remove_selected_images_from_list_action.triggered.connect(self._remove_selected_images_from_list)
         self.ui.copy_export_remove_action.triggered.connect(self._copy_export_remove_selected_images)
         self.ui.clear_recent_folders_action.triggered.connect(self._clear_recent_folders)
+        self.ui.import_settings_action.triggered.connect(self._import_settings)
+        self.ui.export_settings_action.triggered.connect(self._export_settings)
 
         # Delayed/debounced Slider and SpinBoxe (because they are emitted very often as they both change)
         self.ui.confidence_slider.valueChanged.connect(self.debounce_processing_trigger)
@@ -504,6 +507,42 @@ class DetectoristApp(QMainWindow):
         """Clear the recent folders list."""
         self.settings.clear_recent_directories()
         self._update_recent_folders_menu()
+
+    def _import_settings(self) -> None:
+        """Import settings from a JSON file exported during a previous batch run."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Settings",
+            self.settings.last_directory,
+            "Settings Files (*.json)"
+        )
+        if not file_path:
+            return
+
+        self.settings.import_from_file(
+            Path(file_path),
+            [Settings.GROUP_MODEL, Settings.GROUP_CROP]
+        )
+        self._load_settings()
+        self.ui.status_bar.showMessage("Settings imported.", 3000)
+
+    def _export_settings(self) -> None:
+        """Export current settings to a JSON file."""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Settings",
+            self.settings.last_directory + "/settings.json",
+            "Settings Files (*.json)"
+        )
+        if not file_path:
+            return
+
+        self._save_settings()
+        self.settings.export_to_file(
+            Path(file_path),
+            [Settings.GROUP_MODEL, Settings.GROUP_CROP]
+        )
+        self.ui.status_bar.showMessage("Settings exported.", 3000)
 
     def clear_image_list(self):
         """Clears the image list and resets the application to its initial state."""
@@ -862,6 +901,14 @@ class DetectoristApp(QMainWindow):
                     log_data = process_image_callback(image, results, output_dir, **state)
                     if log_data:
                         csv_writer.writerow(log_data)
+
+            # Export Model & Crop settings to JSON alongside the CSV
+            self._save_settings()
+            settings_file_path = Path(output_dir) / "settings.json"
+            self.settings.export_to_file(
+                settings_file_path,
+                [Settings.GROUP_MODEL, Settings.GROUP_CROP]
+            )
 
             if not cancelled:
                 self.ui.status_bar.showMessage(f"Finished {process_name.lower()}.", 5000)
