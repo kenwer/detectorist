@@ -65,6 +65,7 @@ class DetectionWorker(QObject):
                 # Get the latest request and reset the pending flag
                 params = self._latest_request_params
                 self._new_request_pending = False
+                assert params is not None  # Guaranteed by process_image setting both together
 
             # Start of processing for the latest request
             image_path, confidence_threshold, nms_threshold, exposure_correction = params
