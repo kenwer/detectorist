@@ -300,9 +300,9 @@ class DetectoristApp(QMainWindow):
         self.ui.model_select_combo_box.addItems(self.onnx_models)
 
         # Setup worker thread, to offload image loading and detection, so the GUI remains responsive.
-        self.thread = QThread()
+        self._worker_thread = QThread()
         self.worker = DetectionWorker()
-        self.worker.moveToThread(self.thread)
+        self.worker.moveToThread(self._worker_thread)
 
         # Connect signals/slots for worker
         self.request_processing.connect(self.worker.process_image)
@@ -313,7 +313,7 @@ class DetectoristApp(QMainWindow):
         self.ui.model_select_combo_box.currentIndexChanged.connect(self.on_model_selected)
 
         # Start the thread and load initial model
-        self.thread.start()
+        self._worker_thread.start()
 
         # Load settings (must be after UI setup and before triggering model load)
         self._load_settings()
@@ -1039,6 +1039,6 @@ class DetectoristApp(QMainWindow):
         self._save_settings()
         # Clean up resources, if any
         print("Closing application...")
-        self.thread.quit()
-        self.thread.wait()
+        self._worker_thread.quit()
+        self._worker_thread.wait()
         super().closeEvent(event)
