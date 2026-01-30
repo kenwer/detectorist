@@ -450,17 +450,17 @@ class DetectoristApp(QMainWindow):
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Open Image(s)",
-            self.settings.base_folder,
+            self.settings.last_directory,
             f"Images ({' '.join(['*' + ext for ext in ImageObject.get_supported_extensions()])})"
         )
         if file_paths:
-            self.settings.base_folder = os.path.dirname(file_paths[0])
+            self.settings.add_recent_directory(os.path.dirname(file_paths[0]))
             self._load_images_from_paths(file_paths)
 
     def open_folder(self):
-        folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", self.settings.base_folder)
+        folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", self.settings.last_directory)
         if folder_path:
-            self.settings.base_folder = folder_path
+            self.settings.add_recent_directory(folder_path)
             image_files_basenames = sorted([f for f in os.listdir(folder_path)
                            if f.lower().endswith(ImageObject.get_supported_extensions())])
             full_paths = [os.path.join(folder_path, f) for f in image_files_basenames]
