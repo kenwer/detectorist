@@ -1,6 +1,10 @@
+from typing import TypeVar, cast
+
 from PySide6.QtCore import QByteArray, QDir, QSettings
 
 from ._version import __version__
+
+T = TypeVar("T")
 
 
 class Settings:
@@ -30,10 +34,17 @@ class Settings:
     def __init__(self):
         self._settings = QSettings(self.ORGANIZATION, self.APPLICATION)
 
-    def _get_if_set(self, key: str, type_hint: type):
-        """Return the value if it exists in settings, otherwise None."""
+    def _get_if_set(self, key: str, type_hint: type[T]) -> T | None:
+        """Get a typed setting value, or None if the key doesn't exist.
+
+        Unlike QSettings.value() which requires a default, this returns None for
+        missing keys, allowing callers to distinguish "not set" from "set to default".
+
+        The cast works around QSettings.value() returning 'object' in type stubs,
+        even when type= is specified.
+        """
         if self._settings.contains(key):
-            return self._settings.value(key, type=type_hint)
+            return cast(T, self._settings.value(key, type=type_hint))
         return None
 
     # App version that wrote these settings
@@ -66,7 +77,7 @@ class Settings:
     # Base folder for file dialogs (always has a default - home directory)
     @property
     def base_folder(self) -> str:
-        return self._settings.value(self.KEY_BASE_FOLDER, QDir.homePath(), type=str)
+        return cast(str, self._settings.value(self.KEY_BASE_FOLDER, QDir.homePath(), type=str))
 
     @base_folder.setter
     def base_folder(self, value: str):
