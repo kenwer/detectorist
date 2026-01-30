@@ -51,7 +51,8 @@ Download the binary for your operating system and start the application.
 *   **Save cropped copies:** Automatically isolate detected objects in all loaded images.
 *   **Configurable aspect ratio for cropping:** with 3:2, 4:4, 16:9, plus support for padding.
 *   **Sort into subfolder:** Detect object classes and sort images into corresponding sub folders.
-*   **CSV log when processing multiple images:** Write log file to the output directory providing information about the detections like the 	number of detected objects and the highest confidence score.
+*   **CSV log when processing multiple images:** Write log file to the output directory providing information about the detections like the number of detected objects and the highest confidence score.
+*   **Settings persistence:** Application settings are saved and restored between sessions. Settings can also be imported/exported as JSON files.
 
 
 ## AI model info
@@ -120,8 +121,8 @@ The changelog can be found at the [CHANGELOG page](CHANGELOG.md).
 
 ## Roadmap/TODOs
 
-*   Implement support for **persistent settings**.
 *   Model support
+    *   Migrate to transformer-based models    
     *   Train and include more/better models
     *   Allow users to bring their own models
 
