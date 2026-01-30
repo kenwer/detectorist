@@ -34,7 +34,9 @@ set -euo pipefail
 #      V="0.7.4"; git tag -a "v${V}" -m "Release version ${V}" && git push -u origin "v${V}"
 #
 # Usage:
-#   ./scripts/release.sh
+#   ./scripts/release.sh                         # Run the release process
+#   ./scripts/release.sh --delete-tag            # Interactively select a tag to delete
+#   ./scripts/release.sh --delete-tag <version>  # Delete a specific tag (e.g., 0.7.3)
 
 # Colors for output
 RED='\033[0;31m'
@@ -69,6 +71,60 @@ wait_for_enter() {
     local prompt="${1:-Press Enter to continue...}"
     read -rp "$(echo -e "${BLUE}→${NC} ${prompt}")"
 }
+
+# Handle --delete-tag option
+if [[ "${1:-}" == "--delete-tag" ]]; then
+    if [[ -n "${2:-}" ]]; then # Version provided as argument
+        VERSION="$2"
+    else
+        # Show recent tags and prompt for selection
+        echo ""
+        info "Recent tags:"
+        RECENT_TAGS=$(git tag --sort=-version:refname | head -3)
+        if [[ -z "$RECENT_TAGS" ]]; then
+            error "No tags found in this repository."
+        fi
+        LATEST_TAG=$(echo "$RECENT_TAGS" | head -1)
+        echo "$RECENT_TAGS" | nl -w2 -s') '
+        echo ""
+        read -rp "$(echo -e "${YELLOW}?${NC} Enter tag to delete (default: ${LATEST_TAG}): ")" TAG_INPUT
+        if [[ -z "$TAG_INPUT" ]]; then
+            TAG="$LATEST_TAG"
+        else
+            TAG="$TAG_INPUT"
+        fi
+        # Strip 'v' prefix if present, normalize to ensure consistent format
+        VERSION="${TAG#v}"
+    fi
+    TAG="v${VERSION}"
+
+    echo ""
+    warn "This will delete tag ${TAG} locally and from the remote."
+    echo ""
+
+    if ! confirm "Delete tag ${TAG}?"; then
+        info "Cancelled."
+        exit 0
+    fi
+
+    info "Deleting local tag ${TAG}..."
+    if git tag -d "${TAG}"; then
+        success "Local tag deleted"
+    else
+        warn "Local tag not found or already deleted"
+    fi
+
+    info "Deleting remote tag ${TAG}..."
+    if git push origin ":${TAG}"; then
+        success "Remote tag deleted"
+    else
+        warn "Remote tag not found or already deleted"
+    fi
+
+    echo ""
+    success "Tag ${TAG} deleted!"
+    exit 0
+fi
 
 # Ensure we're in the project root
 if [[ ! -f "$VERSION_FILE" ]]; then
