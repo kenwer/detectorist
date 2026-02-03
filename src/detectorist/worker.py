@@ -29,7 +29,7 @@ class DetectionWorker(QObject):
     def load_model(self, model_path: str):
         """Loads a new detection model."""
         try:
-            self.detector = Detector(model_path)
+            self.detector = Detector.create(model_path)
             print(f"Worker loaded model: {model_path}")
             self.model_loaded.emit(True, f"Loaded model: {model_path}")
         except Exception as e:

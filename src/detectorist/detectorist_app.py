@@ -865,7 +865,7 @@ class DetectoristApp(QMainWindow):
             # The detector lives in the worker thread. We can't access it directly.
             # For batch processing, we need a separate detector instance.
             model_path = os.path.join(self.models_dir, self.ui.model_select_combo_box.currentText())
-            batch_detector = Detector(model_path)
+            batch_detector = Detector.create(model_path)
 
             state = setup_callback(output_dir)
             if state is None:

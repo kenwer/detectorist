@@ -440,10 +440,10 @@ class ImageObject (ABC):
                     pass # Fall through to return 0.0
             return 0.0 # Default return if conversion fails
 
-    def preprocess_for_onnx(self, input_width: int, input_height: int) -> np.ndarray:
+    def preprocess_for_onnx_yolo(self, input_width: int, input_height: int) -> np.ndarray:
         """
-        Preprocesses an image for ONNX model inference.
-        - Converts to 8-bit BGR.
+        Preprocesses an image for YOLO CNN model inference.
+        - Converts to 8-bit BGR format.
         - Resizes to the target dimensions.
         - Converts to float32 and normalizes to [0, 1].
         - Transposes from HWC to CHW format.
@@ -454,6 +454,34 @@ class ImageObject (ABC):
         resized_image = cv2.resize(bgr_data, (input_width, input_height))
         model_input_image = resized_image.astype(np.float32)
         model_input_image /= 255.0
+        model_input_image = model_input_image.transpose(2, 0, 1)
+        model_input_image = np.expand_dims(model_input_image, axis=0)
+        return model_input_image
+
+    def preprocess_for_onnx_detr(self, input_width: int, input_height: int) -> np.ndarray:
+        """
+        Preprocesses an image for RF-DETR transformer model inference.
+        - Converts to 8-bit RGB format.
+        - Resizes to the target dimensions.
+        - Converts to float32 and normalizes to [0, 1].
+        - Applies ImageNet normalization (required for DINOv2-based backbone).
+        - Transposes from HWC to CHW format.
+        - Adds a batch dimension.
+        """
+        rgb_data = self.image_data_rgb_8bit
+
+        resized_image = cv2.resize(rgb_data, (input_width, input_height))
+        model_input_image = resized_image.astype(np.float32)
+
+        # Normalize to [0, 1]
+        model_input_image /= 255.0
+
+        # Apply ImageNet normalization (required for RF-DETR's DINOv2-based backbone)
+        # https://stackoverflow.com/questions/58151507/why-pytorch-officially-use-mean-0-485-0-456-0-406-and-std-0-229-0-224-0-2
+        imagenet_mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+        imagenet_std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        model_input_image = (model_input_image - imagenet_mean) / imagenet_std
+
         model_input_image = model_input_image.transpose(2, 0, 1)
         model_input_image = np.expand_dims(model_input_image, axis=0)
         return model_input_image
