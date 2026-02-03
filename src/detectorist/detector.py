@@ -1,4 +1,4 @@
-import re
+import ast
 from abc import ABC, abstractmethod
 
 import cv2
@@ -13,33 +13,6 @@ class Detector(ABC):
     Abstract base class for object detection using ONNX models.
     Subclasses implement specific model architectures (YOLO, DETR, etc.).
     """
-
-    @staticmethod
-    def _label_class_names_to_dict(onnx_names_str):
-        """
-        Parses a string of class names (e.g. obtained from an ONNX model) into a dictionary.
-
-        The input string is expected to be in a format like:
-        "{0: 'Fish', 1: 'Bee', 2: 'Cat', ...}"
-
-        Args:
-            names_str (str): The string containing the class names.
-
-        Returns:
-            dict: A dictionary mapping class IDs to class names.
-        """
-        onnx_names_str = onnx_names_str.strip()
-        if onnx_names_str.startswith("{") and onnx_names_str.endswith("}"):
-            onnx_names_str = onnx_names_str[1:-1].strip()
-        if not onnx_names_str:
-            return {}
-        entries = {}
-        for part in re.split(r',\s*(?=\d+\s*:)', onnx_names_str):
-            k, v = part.split(":", 1)
-            key = int(k.strip())
-            val = v.strip().strip("'\" ")
-            entries[key] = val
-        return entries
 
     @staticmethod
     def create(model_path: str) -> 'Detector':
@@ -84,8 +57,8 @@ class Detector(ABC):
         """
         try:
             self.session = session if session else ort.InferenceSession(model_path)
-            onnx_names_str = self.session.get_modelmeta().custom_metadata_map.get('names')
-            self.class_names = self._label_class_names_to_dict(onnx_names_str)
+            onnx_names_str = self.session.get_modelmeta().custom_metadata_map.get('names', '{}')
+            self.class_names = ast.literal_eval(onnx_names_str.strip())
 
         except Exception as e:
             raise OSError(f"Error loading ONNX model from '{model_path}': {e}") from e
