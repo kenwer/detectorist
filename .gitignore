@@ -7,10 +7,11 @@ venv/
 env/
 build/
 
-# Egg-info directories (multiple patterns for comprehensive coverage)
+# Egg-info directories 
 *.egg-info/
 **/*.egg-info/
 *.egg
+
 # Project specific ignores
 dist/
 
@@ -19,5 +20,6 @@ dist/
 .idea/
 
 # Miscellaneous
+**/*.patch
 *.log
 .DS_Store
