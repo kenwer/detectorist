@@ -1,6 +1,6 @@
 # Changelog
 
-## [unreleased]
+## [0.8.0] - 2026-02-16
 ### Added
 - Support for DETR (DEtection TRansformer) models for better object detection and faster inference.
 ### Changed
