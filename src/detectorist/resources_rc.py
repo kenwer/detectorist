@@ -6,9 +6,43 @@
 from PySide6 import QtCore
 
 qt_resource_data = b"\
-\x00\x00.\x1a\
+\x00\x000:\
 #\
  Changelog\x0a\x0a## [\
+unreleased]\x0a### \
+Added\x0a- Support \
+for DETR (DEtect\
+ion TRansformer)\
+ models for bett\
+er object detect\
+ion and faster i\
+nference.\x0a### Ch\
+anged\x0a- Upgrade \
+detection models\
+:\x0a  - `apoidea-d\
+etect-transforme\
+r-2026-02-16` re\
+places `bee-dete\
+ct-2025-09-10`.\x0a\
+  - `fish-detect\
+-transformer-202\
+6-02-15` replace\
+s `fish-detect-2\
+025-09-11`.\x0a  - \
+Thanks to the Hi\
+gh Performance a\
+nd Cloud Computi\
+ng Group at the \
+Zentrum f\xc3\xbcr Dat\
+enverarbeitung o\
+f the University\
+ of T\xc3\xbcbingen fo\
+r providing the \
+computing resour\
+ces to train tra\
+in our models on\
+ the bwForCluste\
+r BinAC 2.\x0a\x0a## [\
 0.7.5] - 2026-01\
 -30\x0a### Added\x0a- \
 Application sett\
@@ -2665,10 +2699,10 @@ qt_resource_struct = b"\
 \x00\x00\x00\x00\x00\x00\x00\x00\
 \x00\x00\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x03\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x00<\x00\x00\x00\x00\x00\x01\x00\x00.\x1e\
+\x00\x00\x00<\x00\x00\x00\x00\x00\x01\x00\x000>\
 \x00\x00\x01\x9a\x11\xc7\xad*\
 \x00\x00\x00\x1e\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\
-\x00\x00\x01\x9c\x0f\xd7\xb88\
+\x00\x00\x01\x9cg?Gv\
 "
 
 def qInitResources():

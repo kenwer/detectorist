@@ -1,5 +1,14 @@
 # Changelog
 
+## [unreleased]
+### Added
+- Support for DETR (DEtection TRansformer) models for better object detection and faster inference.
+### Changed
+- Upgrade detection models:
+  - `apoidea-detect-transformer-2026-02-16` replaces `bee-detect-2025-09-10`.
+  - `fish-detect-transformer-2026-02-15` replaces `fish-detect-2025-09-11`.
+  - Thanks to the High Performance and Cloud Computing Group at the Zentrum für Datenverarbeitung of the University of Tübingen for providing the computing resources to train train our models on the bwForCluster BinAC 2.
+
 ## [0.7.5] - 2026-01-30
 ### Added
 - Application settings (window size, model, confidence, crop/padding settings, etc.) are persistently saved and restored between sessions.

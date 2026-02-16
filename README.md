@@ -16,6 +16,7 @@
 - [Roadmap/TODOs](#roadmaptodos)
 - [FAQ](#faq)
 - [Development](#development)
+- [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 <!--TOC-->
@@ -56,14 +57,13 @@ Download the binary for your operating system and start the application.
 
 
 ## AI model info
-* The `fish-detect-2025-09-11` model has been trained for 150 epochs on 863 images of fish.
+* The `fish-detect-transformer-2026-02-15` model has been trained for 25 epochs on 25641  images of fish (98247 annotations).
   * Class name mapping: `[0]: 'Fish'` (single-class detector).
-* The `bee-detect-2025-09-10` model has been trained for 150 epochs on 171 images of bees.
+* The `apoidea-detect-transformer-2026-02-16` model has been trained for 32 epochs on 25141 images of Apoidea (30505 annotations).
   * Class name mapping: `[0]: 'Bee'` (single-class detector).
-* Both models use:
-  * an image input image size of 1024px (larger images are downscaled automatically).
-  * largest detection stride of 32 (the model’s coarsest feature map is 32× smaller than the input spatial resolution).
-  * 3 input channels (RGB).
+* Both models:
+  * are based on a DETR (DEtection TRansformer) architecture.
+  * use an image input image size of 704px (larger images are downscaled automatically).
 
 
 ## Using Detectorist
@@ -122,7 +122,6 @@ The changelog can be found at the [CHANGELOG page](CHANGELOG.md).
 ## Roadmap/TODOs
 
 *   Model support
-    *   Migrate to transformer-based models    
     *   Train and include more/better models
     *   Allow users to bring their own models
 
@@ -143,6 +142,10 @@ Frequently asked questions can be found at the [FAQ page](FAQ.md).
 ## Development
 
 For instructions on how to run the application from source, build the distributables, or view the changelog, please see the [DEVELOPMENT.md](DEVELOPMENT.md) file.
+
+## Acknowledgements
+
+The authors acknowledge support by the High Performance and Cloud Computing Group at the Zentrum für Datenverarbeitung of the University of Tübingen, the state of Baden-Württemberg through bwHPC and the German Research Foundation (DFG) for funding under Project number 455787709 ([bwForCluster BinAC 2](https://uni-tuebingen.de/en/einrichtungen/zentrum-fuer-datenverarbeitung/dienstleistungen/server/computing/resources/bwforcluster-binac-2/)).
 
 ## License
 
