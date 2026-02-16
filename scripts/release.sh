@@ -230,7 +230,7 @@ success "Version updated to ${NEW_VERSION}"
 echo ""
 info "Step 6: Updating CHANGELOG.md..."
 TODAY=$(date +%Y-%m-%d)
-sed -i.bak "s/## \[Unreleased\]/## [${NEW_VERSION}] - ${TODAY}/" "$CHANGELOG_FILE"
+sed -i.bak "s/## \[[Uu]nreleased\]/## [${NEW_VERSION}] - ${TODAY}/" "$CHANGELOG_FILE"
 rm -f "${CHANGELOG_FILE}.bak"
 success "CHANGELOG.md updated"
 
