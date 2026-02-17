@@ -34,9 +34,9 @@ from .detector import Detector
 from .detectorist_app_gui import Ui_DetectoristAppUI
 from .download_models import DownloadModelsDialog
 from .image_label import ImageLabel
-from .model_downloader import ModelDownloader
 from .image_list_model import ImageListModel
 from .image_object import ImageObject
+from .model_downloader import ModelDownloader
 from .settings import Settings
 from .utils import contract_user_path, get_model_path
 from .worker import DetectionWorker

@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- Initial support to browse and download detection models from the project page.
+- Local-only models (on disk but not available on the remote) also appear in the model dialog.
+### Changed
+- The application doesn't ship any detection models with the release binary anymore but asks to download them at first start.
+
 ## [0.8.0] - 2026-02-16
 ### Added
 - Support for DETR (DEtection TRansformer) models for better object detection and faster inference.

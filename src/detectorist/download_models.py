@@ -156,6 +156,65 @@ class DownloadModelsDialog(QDialog):
 
             self.ui.scroll_contents_layout.addWidget(row_widget)
 
+        # Add local-only models (on disk but not in manifest)
+        manifest_filenames = {m["filename"] for m in manifest}
+        local_only_files = sorted(
+            f for f in existing_models
+            if f not in manifest_filenames and f not in active_filenames
+        )
+        for filename in local_only_files:
+            separator = QFrame()
+            separator.setFrameShape(QFrame.Shape.HLine)
+            separator.setFrameShadow(QFrame.Shadow.Raised)
+            self.ui.scroll_contents_layout.addWidget(separator)
+
+            model = {
+                "name": filename,
+                "filename": filename,
+                "description": "This model is not available for download.",
+            }
+
+            row_widget = QWidget()
+            grid = QGridLayout(row_widget)
+
+            name_label = QLabel(f"<b>{model['name']}</b>")
+
+            progress_bar = QProgressBar()
+            progress_bar.setTextVisible(True)
+            progress_bar.setVisible(False)
+
+            header_widget = QWidget()
+            header_layout = QHBoxLayout(header_widget)
+            header_layout.setContentsMargins(0, 0, 0, 0)
+            header_layout.addWidget(name_label)
+            header_layout.addWidget(progress_bar, stretch=1)
+
+            status_label = QLabel()
+            status_label.setFixedWidth(90)
+            status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            status_label.setVisible(False)
+
+            grid.addWidget(header_widget, 0, 0)
+            grid.addWidget(status_label, 0, 1)
+
+            desc_label = QLabel(f"<p>{model['description']}</p>")
+            desc_label.setWordWrap(True)
+            desc_label.setStyleSheet("color: dimgray;")
+
+            action_button = QPushButton("Remove")
+            action_button.setFixedWidth(90)
+            action_button.clicked.connect(lambda _checked, m=model: self._on_action_clicked(m))
+
+            grid.addWidget(desc_label, 1, 0)
+            grid.addWidget(action_button, 1, 1, Qt.AlignmentFlag.AlignTop)
+            grid.setColumnStretch(0, 1)
+
+            row = _ModelRow(model, action_button, progress_bar, status_label)
+            self._rows.append(row)
+            self._set_row_state(row, "local_only")
+
+            self.ui.scroll_contents_layout.addWidget(row_widget)
+
         self._update_download_all_button_state()
 
     def _set_row_state(self, row: _ModelRow, state: str):
@@ -183,6 +242,13 @@ class DownloadModelsDialog(QDialog):
             row.status_label.setText("Error")
             row.status_label.setStyleSheet("color: red; font-weight: bold;")
             row.status_label.setVisible(True)
+        elif state == "local_only":
+            row.action_button.setText("Remove")
+            row.progress_bar.setVisible(False)
+            row.status_label.setText("Local only")
+            row.status_label.setStyleSheet("color: gray; font-weight: bold;")
+            row.status_label.setToolTip("This model is not available for download.")
+            row.status_label.setVisible(True)
 
     def _on_action_clicked(self, model: dict):
         row = self._find_row(model["filename"])
@@ -199,7 +265,7 @@ class DownloadModelsDialog(QDialog):
                     self._set_row_state(r, "available")
             self.ui.status_label.setText("Download cancelled.")
             self._update_download_all_button_state()
-        elif row.state == "downloaded":
+        elif row.state in ("downloaded", "local_only"):
             self._delete_model(model)
 
     def _find_row(self, filename: str) -> _ModelRow | None:
@@ -215,7 +281,21 @@ class DownloadModelsDialog(QDialog):
 
         row = self._find_row(model["filename"])
         if row:
-            self._set_row_state(row, "available")
+            if row.state == "local_only":
+                # Remove the row widget and its preceding separator from the layout
+                row_widget = row.action_button.parent()
+                layout = self.ui.scroll_contents_layout
+                idx = layout.indexOf(row_widget)
+                if idx > 0:
+                    separator_item = layout.itemAt(idx - 1)
+                    if separator_item and separator_item.widget():
+                        separator_item.widget().deleteLater()
+                        layout.removeWidget(separator_item.widget())
+                row_widget.deleteLater()
+                layout.removeWidget(row_widget)
+                self._rows.remove(row)
+            else:
+                self._set_row_state(row, "available")
 
         self._update_download_all_button_state()
         self.models_changed.emit()
