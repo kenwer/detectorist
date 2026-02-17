@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Apoidea Detection Model",
+    "filename": "apoidea-detect-transformer-2026-02-16.onnx",
+    "size_mb": 116,
+    "description": "Detects Apoidea species (bees, wasps, etc.) using a transformer-based model.",
+    "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-detect-transformer-2026-02-16.onnx",
+    "release_date": "2026-02-16"
+  },
+  {
+    "name": "Fish Detection Model",
+    "filename": "fish-detect-transformer-2026-02-15.onnx",
+    "size_mb": 116,
+    "description": "Detects Pisces species (fish) using a detection transformer based model.",
+    "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-detect-transformer-2026-02-15.onnx",
+    "release_date": "2026-02-15"
+  }
+]
