@@ -9,6 +9,7 @@ from detectorist.detectorist_app import DetectoristApp
 
 def main():
     app = QApplication(sys.argv)
+    app.setApplicationName("detectorist")
     window = DetectoristApp()
 
     # Signal the splash screen removal to nuitka

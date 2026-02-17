@@ -25,6 +25,11 @@ class DetectionWorker(QObject):
         self._new_request_pending = False
         self._is_processing = False
 
+    @Slot()
+    def unload_model(self):
+        """Unloads the current detection model."""
+        self.detector = None
+
     @Slot(str)
     def load_model(self, model_path: str):
         """Loads a new detection model."""

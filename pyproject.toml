@@ -75,7 +75,6 @@ nuitka \
     --noinclude-dlls='*.cpp.o' \
     --noinclude-dlls='*.qsb' \
     --include-qt-plugins=platforminputcontexts \
-    --include-data-dir=models=models \
     --disable-ccache \
     --output-dir="$OUTPUT_DIR" \
     --linux-icon=assets/icon.png \
@@ -101,7 +100,6 @@ nuitka \
     --noinclude-dlls='*.cpp.o' \
     --noinclude-dlls='*.qsb' \
     --include-qt-plugins=platforminputcontexts \
-    --include-data-dir=models=models \
     --disable-ccache \
     --output-dir="$OUTPUT_DIR" \
     --remove-output \
@@ -135,7 +133,6 @@ nuitka.cmd \
     --noinclude-dlls='*.cpp.o' \
     --noinclude-dlls='*.qsb' \
     --include-qt-plugins=platforminputcontexts \
-    --include-data-dir=models=models \
     --disable-ccache \
     --output-dir="$OUTPUT_DIR" \
     --remove-output \
@@ -163,6 +160,7 @@ build-and-run = "poe run"
 exclude = [
     "src/detectorist/detectorist_app_gui.py",
     "src/detectorist/about_dialog.py",
+    "src/detectorist/download_models_dialog.py",
 ]
 [tool.ruff.lint]
 # Never enforce `E501` (line length violations).

@@ -440,6 +440,8 @@ Highest confidence	: -</string>
     <addaction name="import_settings_action"/>
     <addaction name="export_settings_action"/>
     <addaction name="separator"/>
+    <addaction name="download_models_action"/>
+    <addaction name="separator"/>
     <addaction name="clear_image_list_action"/>
    </widget>
    <widget class="QMenu" name="menu_actions">
@@ -636,6 +638,14 @@ Highest confidence	: -</string>
    </property>
    <property name="toolTip">
     <string>Export current Model and Crop settings to a JSON file</string>
+   </property>
+  </action>
+  <action name="download_models_action">
+   <property name="text">
+    <string>Download Models...</string>
+   </property>
+   <property name="toolTip">
+    <string>Download detection models from the internet</string>
    </property>
   </action>
  </widget>

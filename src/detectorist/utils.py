@@ -1,27 +1,31 @@
 import os
 import sys
 
+from PySide6.QtCore import QStandardPaths
 
-# Determine the path based on compilation mode
-def get_model_path(directory: str="models") -> str:
+
+def get_model_path() -> str:
     """
-    Get the path to the models directory, handling different compilation scenarios.
+    Get the path to the models directory.
 
-    Args:
-        directory (str, optional): The subdirectory name. Defaults to "models".
+    In dev mode (not compiled), if a local ./models/ directory exists with .onnx files, use it.
+    Otherwise, use the platform user data directory (QStandardPaths.AppDataLocation/models).
+    The directory is created if it doesn't exist.
 
     Returns:
         str: The absolute path to the models directory.
     """
-    if "__compiled__" in globals() or "NUITKA_ONEFILE_PARENT" in os.environ or getattr(sys, 'frozen', False):
-        # running in compiled mode
-        # root directory of inside the AppBundle (macOS) or OneFileTempDir (windows)
-        project_dir = os.path.dirname(sys.modules['__main__'].__file__)
-    else:
-        # running in script mode
-        project_dir = os.getcwd()
+    # Dev mode fallback: use local ./models/ if it exists and has .onnx files
+    if not ("__compiled__" in globals() or "NUITKA_ONEFILE_PARENT" in os.environ or getattr(sys, 'frozen', False)):
+        local_models = os.path.realpath(os.path.normpath(os.path.join(os.getcwd(), "models")))
+        if os.path.isdir(local_models) and any(f.endswith(".onnx") for f in os.listdir(local_models)):
+            return local_models
 
-    return os.path.realpath(os.path.normpath(os.path.join(project_dir, directory)))
+    # Default: platform user data directory
+    data_location = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
+    models_dir = os.path.join(data_location, "models")
+    os.makedirs(models_dir, exist_ok=True)
+    return models_dir
 
 
 def get_base_path():

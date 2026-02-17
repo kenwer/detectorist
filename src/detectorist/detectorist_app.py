@@ -32,7 +32,9 @@ from detectorist._version import __version__
 from .about_dialog import Ui_AboutDialog
 from .detector import Detector
 from .detectorist_app_gui import Ui_DetectoristAppUI
+from .download_models import DownloadModelsDialog
 from .image_label import ImageLabel
+from .model_downloader import ModelDownloader
 from .image_list_model import ImageListModel
 from .image_object import ImageObject
 from .settings import Settings
@@ -237,7 +239,7 @@ class DetectoristApp(QMainWindow):
         self.ui.image_label.setSizePolicy(sizePolicy)
         self.ui.image_label.setAlignment(alignment)
         self.ui.splitter.replaceWidget(1, self.ui.image_label)
-        self.ui.image_label.setText("Drop a folder with images")
+        self.ui.image_label.setText("Drop a folder with images<br/>Or use: File -> Open...")
         self.ui.image_label.setAcceptDrops(True) # Enable drag and drop for image_label
 
         self.model = ImageListModel()
@@ -273,6 +275,7 @@ class DetectoristApp(QMainWindow):
         self.ui.clear_recent_folders_action.triggered.connect(self._clear_recent_folders)
         self.ui.import_settings_action.triggered.connect(self._import_settings)
         self.ui.export_settings_action.triggered.connect(self._export_settings)
+        self.ui.download_models_action.triggered.connect(self.show_download_models_dialog)
 
         # Delayed/debounced Slider and SpinBoxe (because they are emitted very often as they both change)
         self.ui.confidence_slider.valueChanged.connect(self.debounce_processing_trigger)
@@ -295,16 +298,11 @@ class DetectoristApp(QMainWindow):
         # Connect model signals
         self.model.modelReset.connect(self._update_clear_image_list_action_state)
 
-        self.models_dir=get_model_path()
-        if not os.path.exists(self.models_dir):
-            print(f"Error: models directory does not exist at {self.models_dir}")
-            # Handle the error, e.g., by raising an exception or showing a message
-            raise FileNotFoundError(f"Models directory not found: {self.models_dir}")
+        self.models_dir = get_model_path()
 
-        # Find and populate models
-        self.onnx_models = [f for f in os.listdir(self.models_dir) if f.endswith(".onnx")]
-        print(f"Found ONNX models: {self.onnx_models}")
-        self.ui.model_select_combo_box.addItems(self.onnx_models)
+        # Shared model downloader (lives for the app's lifetime so downloads survive dialog close)
+        self._model_downloader = ModelDownloader(self.models_dir, self)
+        self._model_downloader.download_finished.connect(self._refresh_model_list)
 
         # Setup worker thread, to offload image loading and detection, so the GUI remains responsive.
         self._worker_thread = QThread()
@@ -319,8 +317,11 @@ class DetectoristApp(QMainWindow):
         self.worker.error.connect(self.handle_worker_error)
         self.ui.model_select_combo_box.currentIndexChanged.connect(self.on_model_selected)
 
-        # Start the thread and load initial model
+        # Start the thread
         self._worker_thread.start()
+
+        # Find and populate models (must be after worker setup so _on_model_availability_changed can reach it)
+        self._refresh_model_list()
 
         # Load settings (must be after UI setup and before triggering model load)
         self._load_settings()
@@ -328,6 +329,10 @@ class DetectoristApp(QMainWindow):
 
         # Load AI model (combo box index was set by _load_settings if a saved model exists)
         self.on_model_selected(self.ui.model_select_combo_box.currentIndex())
+
+        # Auto-show download dialog if no models found
+        if self.ui.model_select_combo_box.count() == 0:
+            QTimer.singleShot(0, self.show_download_models_dialog)
 
     def _load_settings(self):
         """Load persistent settings and apply to UI."""
@@ -439,9 +444,10 @@ class DetectoristApp(QMainWindow):
         self.model.setImagePaths(supported_files)
         QApplication.processEvents() # Ensure UI updates
 
-        # Enable actions that operate on all loaded images
-        self.ui.crop_and_export_all_images_action.setEnabled(True)
-        self.ui.group_images_by_object_class_action.setEnabled(True)
+        # Enable actions that operate on all loaded images (only if a model is available)
+        has_models = self.ui.model_select_combo_box.count() > 0
+        self.ui.crop_and_export_all_images_action.setEnabled(has_models)
+        self.ui.group_images_by_object_class_action.setEnabled(has_models)
 
         # Select the first image in the list view
         first_file_path = supported_files[0]
@@ -551,7 +557,7 @@ class DetectoristApp(QMainWindow):
 
         # Clear the main image view and reset text
         self.ui.image_label.clear()
-        self.ui.image_label.setText("Drop a folder with images")
+        self.ui.image_label.setText("Drop a folder with images<br/>Or use: File -> Open...")
         self.ui.image_label.set_detection_boxes([])
         self.ui.image_label.hide_bands()
 
@@ -582,6 +588,15 @@ class DetectoristApp(QMainWindow):
             return  # No need to reload the same image
 
         self.current_image_path = new_image_path
+
+        if self.ui.model_select_combo_box.count() == 0:
+            self.ui.image_label.setText(
+                "No models available<br/>Use File -> Download Models"
+            )
+            self._update_detection_info()
+            self.ui.status_bar.clearMessage()
+            return
+
         file_name = os.path.basename(new_image_path) # Get basename for display purposes
         self.ui.status_bar.showMessage(f"Loading {file_name}...")
 
@@ -608,6 +623,8 @@ class DetectoristApp(QMainWindow):
         """Emits a signal to the worker to start processing the current image."""
         if not self.current_image_path:
             return
+        if self.ui.model_select_combo_box.count() == 0:
+            return
 
         confidence = self.ui.confidence_slider.value() / 100.0
         exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
@@ -622,7 +639,9 @@ class DetectoristApp(QMainWindow):
             if self.current_image_path:
                 self.trigger_processing()
         else:
+            self.ui.image_label.hide_bands()
             self.ui.image_label.setText(message)
+            self._update_detection_info()
             print(message)
 
     def handle_image_loaded(self, image_path: str, image_object: ImageObject):
@@ -670,8 +689,11 @@ class DetectoristApp(QMainWindow):
         print(f"Worker error for {image_path}: {message}")
         self.ui.image_label.setText(f"Error: {message}")
         self._update_detection_info()
+        self.ui.status_bar.clearMessage()
 
     def on_model_selected(self, index):
+        if index < 0:
+            return
         model_name = self.ui.model_select_combo_box.itemText(index)
         model_path = os.path.join(self.models_dir, model_name)
         # The worker lives in another thread, so we must use invokeMethod to call it safely.
@@ -695,6 +717,47 @@ class DetectoristApp(QMainWindow):
             changelog_file.close()
 
         about_dialog.exec()
+
+    def show_download_models_dialog(self):
+        dialog = DownloadModelsDialog(self._model_downloader, self.models_dir, self)
+        dialog.models_changed.connect(self._refresh_model_list)
+        dialog.exec()
+
+    def _refresh_model_list(self):
+        """Re-scan the models directory and update the combo box."""
+        previous_model = self.ui.model_select_combo_box.currentText()
+        self.ui.model_select_combo_box.clear()
+        onnx_models = sorted(f for f in os.listdir(self.models_dir) if f.endswith(".onnx"))
+        print(f"Found ONNX models: {onnx_models}")
+        self.ui.model_select_combo_box.addItems(onnx_models)
+        # Restore previous selection if it still exists
+        if previous_model:
+            idx = self.ui.model_select_combo_box.findText(previous_model)
+            if idx >= 0:
+                self.ui.model_select_combo_box.setCurrentIndex(idx)
+
+        self._on_model_availability_changed()
+
+    def _on_model_availability_changed(self):
+        """React to the model combo box becoming empty or populated."""
+        has_models = self.ui.model_select_combo_box.count() > 0
+        has_images = self.model.rowCount() > 0
+
+        # Enable/disable actions that require a model
+        self.ui.crop_and_export_all_images_action.setEnabled(has_models and has_images)
+        self.ui.crop_and_export_selected_images_action.setEnabled(
+            has_models and self.ui.image_list_view.selectionModel().hasSelection()
+        )
+        self.ui.group_images_by_object_class_action.setEnabled(has_models and has_images)
+
+        if not has_models:
+            # Clear visual state completely
+            self.ui.image_label.hide_bands()
+            self.ui.image_label.setText("No models available<br/>Use File -> Download Models")
+            self._update_detection_info()
+            QMetaObject.invokeMethod(self.worker, "unload_model", Qt.ConnectionType.QueuedConnection)
+        elif not has_images:
+            self.ui.image_label.setText("Drop a folder with images<br/>Or use: File -> Open...")
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -1018,11 +1081,12 @@ class DetectoristApp(QMainWindow):
     def _update_selection_dependent_actions_state(self):
         """Enables/disables actions based on the current selection in the image list view."""
         has_selection = len(self.ui.image_list_view.selectionModel().selectedIndexes()) > 0
-        self.ui.crop_and_export_selected_images_action.setEnabled(has_selection)
+        has_models = self.ui.model_select_combo_box.count() > 0
+        self.ui.crop_and_export_selected_images_action.setEnabled(has_selection and has_models)
         self.ui.locate_image_in_filemanager_action.setEnabled(has_selection)
         self.ui.copy_filenames_to_clipboard_action.setEnabled(has_selection)
         self.ui.remove_selected_images_from_list_action.setEnabled(has_selection)
-        self.ui.copy_export_remove_action.setEnabled(has_selection)
+        self.ui.copy_export_remove_action.setEnabled(has_selection and has_models)
 
     def _update_clear_image_list_action_state(self):
         """Enables/disables clear_image_list_action based on whether the model has images."""
