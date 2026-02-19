@@ -56,26 +56,16 @@
            <string>Model</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_2">
-           <item row="0" column="0" colspan="3">
-            <widget class="QComboBox" name="model_select_combo_box">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
+           <item row="1" column="2">
+            <widget class="QSpinBox" name="confidence_spin_box">
+             <property name="minimum">
+              <number>1</number>
              </property>
-             <property name="toolTip">
-              <string>Model used for object detection</string>
+             <property name="maximum">
+              <number>100</number>
              </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="confidence_label">
-             <property name="toolTip">
-              <string>The confidence threshold for filtering detections</string>
-             </property>
-             <property name="text">
-              <string>Confidence</string>
+             <property name="value">
+              <number>75</number>
              </property>
             </widget>
            </item>
@@ -113,17 +103,45 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="2">
-            <widget class="QSpinBox" name="confidence_spin_box">
-             <property name="minimum">
-              <number>1</number>
+           <item row="0" column="0" colspan="3">
+            <widget class="QComboBox" name="model_select_combo_box">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
              </property>
-             <property name="maximum">
-              <number>100</number>
+             <property name="toolTip">
+              <string>Model used for object detection</string>
              </property>
-             <property name="value">
-              <number>75</number>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="confidence_label">
+             <property name="toolTip">
+              <string>The confidence threshold for filtering detections</string>
              </property>
+             <property name="text">
+              <string>Confidence</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0" colspan="3">
+            <widget class="QComboBox" name="class_filter_combo_box">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>Select detection class to filter for</string>
+             </property>
+             <item>
+              <property name="text">
+               <string>All classes</string>
+              </property>
+             </item>
             </widget>
            </item>
           </layout>
@@ -389,7 +407,7 @@ Highest confidence	: -</string>
                 <x>0</x>
                 <y>0</y>
                 <width>298</width>
-                <height>114</height>
+                <height>78</height>
                </rect>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout_2">

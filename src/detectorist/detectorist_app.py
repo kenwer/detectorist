@@ -41,9 +41,6 @@ from .settings import Settings
 from .utils import contract_user_path, get_model_path
 from .worker import DetectionWorker
 
-# The Non-Maximum Suppression threshold used for object detection
-NMS_THRESHOLD = 0.4
-
 
 def _strip_model_ext(filename: str) -> str:
     """Strip .onnx or .onnx.gz extension for display."""
@@ -51,7 +48,7 @@ def _strip_model_ext(filename: str) -> str:
 
 class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
-    request_processing = Signal(str, float, float, bool)
+    request_processing = Signal(str, bool)
 
     @staticmethod
     def _calculate_single_crop_rect(detections: list, image_height: int, image_width: int, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int] | str) -> tuple[int, int, int, int] | None:
@@ -221,6 +218,8 @@ class DetectoristApp(QMainWindow):
         super().__init__()
 
         self.current_image_path = None
+        self._all_detection_results: list = []
+        self._last_detection_time_ms: float = 0.0
 
         # Ensure opener is registered (otherwise the native code will segfault)
         pillow_heif.register_heif_opener()
@@ -229,12 +228,6 @@ class DetectoristApp(QMainWindow):
         self.ui = Ui_DetectoristAppUI()
         self.ui.setupUi(self)
         self.setWindowTitle(f"Detectorist {__version__}")
-
-        # Debounce timer for processing
-        self.processing_timer = QTimer(self)
-        self.processing_timer.setSingleShot(True)
-        self.processing_timer.setInterval(200)  # 200ms delay
-        self.processing_timer.timeout.connect(self.trigger_processing)
 
         # Replace the image_label from the ui file with our custom ImageLabel
         # but keep/re-use the sizePolicy and alignment from the .ui file
@@ -282,13 +275,9 @@ class DetectoristApp(QMainWindow):
         self.ui.export_settings_action.triggered.connect(self._export_settings)
         self.ui.download_models_action.triggered.connect(self.show_download_models_dialog)
 
-        # Delayed/debounced Slider and SpinBoxe (because they are emitted very often as they both change)
-        self.ui.confidence_slider.valueChanged.connect(self.debounce_processing_trigger)
-        self.ui.confidence_spin_box.valueChanged.connect(self.debounce_processing_trigger)
-
-        # Immediate trigger
-        self.ui.confidence_slider.sliderReleased.connect(self.trigger_processing_immediately)
-        self.ui.confidence_spin_box.editingFinished.connect(self.trigger_processing_immediately)
+        # Confidence slider/spinbox update the display filter only (no re-inference)
+        self.ui.confidence_slider.valueChanged.connect(self._display_filtered_results)
+        self.ui.confidence_spin_box.valueChanged.connect(self._display_filtered_results)
 
         # Connect crop controls
         self.ui.rb_crop_to_top_conf.toggled.connect(self.update_crop_bands)
@@ -321,6 +310,7 @@ class DetectoristApp(QMainWindow):
         self.worker.detection_complete.connect(self.handle_detection_complete)
         self.worker.error.connect(self.handle_worker_error)
         self.ui.model_select_combo_box.currentIndexChanged.connect(self.on_model_selected)
+        self.ui.class_filter_combo_box.currentIndexChanged.connect(self.on_class_filter_changed)
 
         # Start the thread
         self._worker_thread.start()
@@ -562,6 +552,7 @@ class DetectoristApp(QMainWindow):
         """Clears the image list and resets the application to its initial state."""
         self.model.clear()
         self.current_image_path = None
+        self._all_detection_results = []
 
         # Clear the main image view and reset text
         self.ui.image_label.clear()
@@ -596,6 +587,7 @@ class DetectoristApp(QMainWindow):
             return  # No need to reload the same image
 
         self.current_image_path = new_image_path
+        self._all_detection_results = []
 
         if self.ui.model_select_combo_box.count() == 0:
             self.ui.image_label.setText(
@@ -616,16 +608,7 @@ class DetectoristApp(QMainWindow):
         QApplication.processEvents()
 
         # Request the worker to load and process the image
-        self.trigger_processing_immediately()
-
-    def debounce_processing_trigger(self):
-        """Starts or restarts the debounce timer."""
-        self.processing_timer.start()
-
-    def trigger_processing_immediately(self):
-        """Triggers processing immediately and cancels any pending debounced trigger."""
-        self.processing_timer.stop() # cancel any pending debounced processing requests
-        self.trigger_processing()    # and start processing right away
+        self.trigger_processing()
 
     def trigger_processing(self):
         """Emits a signal to the worker to start processing the current image."""
@@ -634,13 +617,18 @@ class DetectoristApp(QMainWindow):
         if self.ui.model_select_combo_box.count() == 0:
             return
 
-        confidence = self.ui.confidence_slider.value() / 100.0
         exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
+        self.request_processing.emit(self.current_image_path, exposure_correction)
 
-        self.request_processing.emit(self.current_image_path, confidence, NMS_THRESHOLD, exposure_correction)
-
-    def handle_model_loaded(self, success: bool, message: str):
+    def handle_model_loaded(self, success: bool, message: str, class_names: list):
         """Handles the result of loading a model in the worker."""
+        self.ui.class_filter_combo_box.blockSignals(True)
+        self.ui.class_filter_combo_box.clear()
+        self.ui.class_filter_combo_box.addItem("All classes")
+        for name in class_names:
+            self.ui.class_filter_combo_box.addItem(name)
+        self.ui.class_filter_combo_box.blockSignals(False)
+        self._all_detection_results = []
         if success:
             print(message)
             # If an image is currently displayed, trigger a new detection with the new model.
@@ -680,14 +668,33 @@ class DetectoristApp(QMainWindow):
         if image_path != self.current_image_path:
             return  # Stale result (this can happen if user quickly switches images)
 
-        self._update_detection_info(
-            objects=len(results),
-            confidence=f"{max((det[1] for det in results), default=0):.4f}",
-            time=f"{detection_time_ms:.2f} ms"
-        )
+        self._all_detection_results = results
+        self._last_detection_time_ms = detection_time_ms
+        self._display_filtered_results()
 
-        self.ui.image_label.set_detection_boxes(results)
+    def _filtered_results(self) -> list:
+        """Returns detection results filtered by the current confidence and class filter selections."""
+        confidence = self.ui.confidence_slider.value() / 100.0
+        results = [d for d in self._all_detection_results if d[1] >= confidence]
+        if self.ui.class_filter_combo_box.currentIndex() <= 0:
+            return results
+        selected = self.ui.class_filter_combo_box.currentText()
+        return [d for d in results if d[2] == selected]
+
+    def _display_filtered_results(self):
+        """Updates the UI with detection results filtered by the current class selection."""
+        filtered = self._filtered_results()
+        self._update_detection_info(
+            objects=len(filtered),
+            confidence=f"{max((det[1] for det in filtered), default=0):.4f}",
+            time=f"{self._last_detection_time_ms:.2f} ms"
+        )
+        self.ui.image_label.set_detection_boxes(filtered)
         self.update_crop_bands()
+
+    def on_class_filter_changed(self):
+        """Re-displays detection results when the class filter selection changes."""
+        self._display_filtered_results()
 
     def handle_worker_error(self, image_path: str, message: str):
         """Handles an error signal from the worker."""
@@ -976,7 +983,8 @@ class DetectoristApp(QMainWindow):
 
                     image = ImageObject.create(image_path)
                     image.exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
-                    results = batch_detector.detect(image, confidence_threshold=confidence, nms_threshold=NMS_THRESHOLD)
+                    results = batch_detector.detect(image)
+                    results = [d for d in results if d[1] >= confidence]
 
                     log_data = process_image_callback(image, results, output_dir, **state)
                     if log_data:

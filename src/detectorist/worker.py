@@ -12,7 +12,7 @@ class DetectionWorker(QObject):
     A worker class that performs image loading and object detection in a background thread.
     It is designed to handle a high volume of requests by only processing the most recent one.
     """
-    model_loaded = Signal(bool, str)  # success, message
+    model_loaded = Signal(bool, str, list)  # success, message, sorted class names
     image_loaded = Signal(str, object)  # image_path, image_object
     detection_complete = Signal(str, list, float)  # image_path, results, detection_time_ms
     error = Signal(str, str)  # image_path, error_message
@@ -36,20 +36,21 @@ class DetectionWorker(QObject):
         try:
             self.detector = Detector.create(model_path)
             print(f"Worker loaded model: {model_path}")
-            self.model_loaded.emit(True, f"Loaded model: {model_path}")
+            class_names = sorted(self.detector.class_names.values())
+            self.model_loaded.emit(True, f"Loaded model: {model_path}", class_names)
         except Exception as e:
             self.detector = None
             print(f"Worker error loading model: {e}")
-            self.model_loaded.emit(False, f"Error loading model: {e}")
+            self.model_loaded.emit(False, f"Error loading model: {e}", [])
 
-    @Slot(str, float, float, bool)
-    def process_image(self, image_path: str, confidence_threshold: float, nms_threshold: float, exposure_correction: bool):
+    @Slot(str, bool)
+    def process_image(self, image_path: str, exposure_correction: bool):
         """
         Receives a request to process an image. Instead of processing immediately,
         it updates the latest request parameters and ensures the processing loop is running.
         """
         with self._lock:
-            self._latest_request_params = (image_path, confidence_threshold, nms_threshold, exposure_correction)
+            self._latest_request_params = (image_path, exposure_correction)
             self._new_request_pending = True
             if not self._is_processing:
                 self._is_processing = True
@@ -73,7 +74,7 @@ class DetectionWorker(QObject):
                 assert params is not None  # Guaranteed by process_image setting both together
 
             # Start of processing for the latest request
-            image_path, confidence_threshold, nms_threshold, exposure_correction = params
+            image_path, exposure_correction = params
 
             if not self.detector:
                 self.error.emit(image_path, "Model not loaded.")
@@ -102,7 +103,7 @@ class DetectionWorker(QObject):
 
                 # Perform detection
                 start_time = time.perf_counter()
-                results = self.detector.detect(image, confidence_threshold=confidence_threshold, nms_threshold=nms_threshold)
+                results = self.detector.detect(image)
                 end_time = time.perf_counter()
                 detection_time_ms = (end_time - start_time) * 1000
 
