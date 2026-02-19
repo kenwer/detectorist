@@ -145,7 +145,13 @@ For instructions on how to run the application from source, build the distributa
 
 ## Acknowledgements
 
-The authors acknowledge support by the High Performance and Cloud Computing Group at the Zentrum für Datenverarbeitung of the University of Tübingen, the state of Baden-Württemberg through bwHPC and the German Research Foundation (DFG) for funding under Project number 455787709 ([bwForCluster BinAC 2](https://uni-tuebingen.de/en/einrichtungen/zentrum-fuer-datenverarbeitung/dienstleistungen/server/computing/resources/bwforcluster-binac-2/)).
+The author would like to thank the following projects and people that made this work possible:
+
+* The High Performance and Cloud Computing Group at the Zentrum für Datenverarbeitung, University of Tübingen, for providing computing resources via [bwForCluster BinAC 2](https://uni-tuebingen.de/en/einrichtungen/zentrum-fuer-datenverarbeitung/dienstleistungen/server/computing/resources/bwforcluster-binac-2/), funded by the state of Baden-Württemberg through bwHPC and the German Research Foundation (DFG) under Project number 455787709.
+* [RF-DETR](https://github.com/roboflow/rf-detr) (Robinson et al., [arXiv:2511.09554](https://arxiv.org/abs/2511.09554), 2025) for powering object detection.
+* [Prof. Dr. Nico Michiels](https://uni-tuebingen.de/en/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/fachbereiche/biologie/institute/evolution-und-oekologie/lehrbereiche/animal-evolutionary-ecology/people/nico-michiels/) (University of Tübingen) for providing thousands of images used for training the fish detection model.
+* [Qt](https://www.qt.io/) / [PySide6](https://doc.qt.io/qtforpython/) for the application framework.
+* [ONNX Runtime](https://onnxruntime.ai/) for providing a runtime for inference.
 
 ## License
 

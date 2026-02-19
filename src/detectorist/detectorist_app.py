@@ -760,6 +760,12 @@ class DetectoristApp(QMainWindow):
             combo.setCurrentIndex(idx)
         combo.blockSignals(False)
 
+        # If the selected model changed (e.g. first download), load it in the worker.
+        # on_model_selected is not triggered automatically because signals were blocked.
+        new_filename = combo.currentData()
+        if new_filename and new_filename != previous_filename:
+            self.on_model_selected(combo.currentIndex())
+
         self._on_model_availability_changed()
 
     def _on_model_availability_changed(self):

@@ -1,17 +1,18 @@
 # Changelog
 
-## [Unreleased]
+## [0.8.1] - 2026-02-19
 ### Added
-- Added a class filter combo box to filter displayed detections by object class.
-- Initial support to browse and download detection models from the project page.
+- Support to browse and download detection models from the project page.
+- A "Generic Object Detection" model that detects 80 everyday object classes (Person, Bicycle, Car, etc.) based on RF-DETR.
+- Added a filter combo box to filter displayed detections by object class.
 - Local-only models (on disk but not available on the remote) also appear in the model dialog.
-- New "Generic Object Detection" model that detects 80 everyday object classes (Person, Bicycle, Car, etc.) using the RF-DETR detection transformer.
+transformer.
 - The remote model manifest is cached to disk after the first successful fetch so that human-readable model names are available immediately on the next launch, even before the manifest is re-fetched.
 ### Changed
-- The confidence slider now filters bounding boxes instantly.
-- The application doesn't ship any detection models with the release binary anymore but asks to download them at first start.
-- Models are now distributed as gzip-compressed `.onnx.gz` files, reducing download size.
+- The application prompts to download models at first start and doesn't ship them with the release binary anymore.
 - The model selector shows the human-readable model name (e.g. "Fish Detection Model") instead of the raw filename.
+- The confidence slider now filters bounding boxes instantly without running inference again.
+- Models are distributed as gzip-compressed `.onnx.gz` files, reducing download size.
 
 ## [0.8.0] - 2026-02-16
 ### Added
