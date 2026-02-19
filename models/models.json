@@ -14,5 +14,13 @@
     "description": "Detects Pisces species (fish) using a detection transformer based model.",
     "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-detect-transformer-2026-02-15.onnx.gz",
     "release_date": "2026-02-15"
+  },
+  {
+    "name": "Generic Object Detection 2026-02-19",
+    "filename": "generic-generic-detr-l-2026-02-19.onnx.gz",
+    "size_mb": 108,
+    "description": "Detects 80 object classes ('Person', 'Bicycle', 'Car', etc.) using a generic detection transformer model.",
+    "url": "https://github.com/kenwer/detectorist/raw/main/models/generic-detr-l-2026-02-19.onnx.gz",
+    "release_date": "2026-02-19"
   }
 ]
