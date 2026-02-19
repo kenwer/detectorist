@@ -44,6 +44,11 @@ from .worker import DetectionWorker
 # The Non-Maximum Suppression threshold used for object detection
 NMS_THRESHOLD = 0.4
 
+
+def _strip_model_ext(filename: str) -> str:
+    """Strip .onnx or .onnx.gz extension for display."""
+    return filename.removesuffix(".gz").removesuffix(".onnx")
+
 class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
     request_processing = Signal(str, float, float, bool)
@@ -346,9 +351,12 @@ class DetectoristApp(QMainWindow):
 
         # Model selection
         if self.settings.model:
-            model_index = self.ui.model_select_combo_box.findText(self.settings.model)
-            if model_index >= 0:
-                self.ui.model_select_combo_box.setCurrentIndex(model_index)
+            combo = self.ui.model_select_combo_box
+            combo.blockSignals(True)
+            idx = combo.findData(self.settings.model)
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+            combo.blockSignals(False)
 
         # Confidence (slider and spinbox are linked)
         if (confidence := self.settings.confidence) is not None:
@@ -387,7 +395,7 @@ class DetectoristApp(QMainWindow):
         self.settings.splitter_state = self.ui.splitter.saveState()
 
         # Model selection
-        self.settings.model = self.ui.model_select_combo_box.currentText()
+        self.settings.model = self.ui.model_select_combo_box.currentData()
 
         # Confidence
         self.settings.confidence = self.ui.confidence_slider.value()
@@ -694,8 +702,8 @@ class DetectoristApp(QMainWindow):
     def on_model_selected(self, index):
         if index < 0:
             return
-        model_name = self.ui.model_select_combo_box.itemText(index)
-        model_path = os.path.join(self.models_dir, model_name)
+        filename = self.ui.model_select_combo_box.itemData(index)
+        model_path = os.path.join(self.models_dir, filename)
         # The worker lives in another thread, so we must use invokeMethod to call it safely.
         QMetaObject.invokeMethod(self.worker, "load_model", Qt.ConnectionType.QueuedConnection, Q_ARG(str, model_path))
 
@@ -725,16 +733,25 @@ class DetectoristApp(QMainWindow):
 
     def _refresh_model_list(self):
         """Re-scan the models directory and update the combo box."""
-        previous_model = self.ui.model_select_combo_box.currentText()
+        previous_filename = self.ui.model_select_combo_box.currentData()
         self.ui.model_select_combo_box.clear()
-        onnx_models = sorted(f for f in os.listdir(self.models_dir) if f.endswith(".onnx") or f.endswith(".onnx.gz"))
-        print(f"Found ONNX models: {onnx_models}")
-        self.ui.model_select_combo_box.addItems(onnx_models)
-        # Restore previous selection if it still exists
-        if previous_model:
-            idx = self.ui.model_select_combo_box.findText(previous_model)
-            if idx >= 0:
-                self.ui.model_select_combo_box.setCurrentIndex(idx)
+
+        name_map = self._model_downloader.filename_to_name
+
+        onnx_files = sorted(f for f in os.listdir(self.models_dir)
+                            if f.endswith(".onnx") or f.endswith(".onnx.gz"))
+
+        combo = self.ui.model_select_combo_box
+        combo.blockSignals(True)
+        for filename in onnx_files:
+            display_name = name_map.get(filename) or _strip_model_ext(filename)
+            combo.addItem(display_name, filename)
+
+        # Restore previous selection by filename
+        idx = combo.findData(previous_filename)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+        combo.blockSignals(False)
 
         self._on_model_availability_changed()
 
@@ -868,7 +885,7 @@ class DetectoristApp(QMainWindow):
 
         #timestamp = time.strftime("%Y%m%d")
         confidence = self.ui.confidence_slider.value()
-        model_name = os.path.splitext(self.ui.model_select_combo_box.currentText())[0]
+        model_name = _strip_model_ext(self.ui.model_select_combo_box.currentData() or "")
         output_dir = os.path.join(base_dir, f"detectorist_conf-{confidence}_{model_name}")
         os.makedirs(output_dir, exist_ok=True)
         return output_dir
@@ -927,7 +944,7 @@ class DetectoristApp(QMainWindow):
 
             # The detector lives in the worker thread. We can't access it directly.
             # For batch processing, we need a separate detector instance.
-            model_path = os.path.join(self.models_dir, self.ui.model_select_combo_box.currentText())
+            model_path = os.path.join(self.models_dir, self.ui.model_select_combo_box.currentData())
             batch_detector = Detector.create(model_path)
 
             state = setup_callback(output_dir)

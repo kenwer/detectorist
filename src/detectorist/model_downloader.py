@@ -7,7 +7,23 @@ from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequ
 MANIFEST_URL = "https://raw.githubusercontent.com/kenwer/detectorist/main/models/models.json"
 
 
+def model_filename_from_url(url: str) -> str:
+    """Derive the model filename from its download URL (last URL path segment)."""
+    return url.rsplit("/", 1)[-1]
+
+
 class ModelDownloader(QObject):
+    """Downloads the model manifest and model files from the remote server.
+
+    Signals:
+        manifest_loaded(list):              Emitted after a successful manifest fetch with the parsed list.
+        download_started(str):              Emitted when a file download begins (filename).
+        download_progress(str, int, int):   Emitted periodically during download (filename, received, total).
+        download_finished(str):             Emitted when a file has been saved successfully (filename).
+        download_error(str):                Emitted on any network or parse error (message).
+        all_downloads_finished():           Emitted when the download queue is drained.
+    """
+
     manifest_loaded = Signal(list)
     download_started = Signal(str)         # filename
     download_progress = Signal(str, int, int)  # filename, bytes_received, bytes_total
@@ -23,20 +39,38 @@ class ModelDownloader(QObject):
         self._current_file = None
         self._current_filename = ""
         self._download_queue: list[dict] = []
+        # Load manifest cached by a previous network fetch; absent on a clean install.
+        self._manifest: list[dict] = []
+        manifest_path = os.path.join(models_dir, "models.json")
+        if os.path.isfile(manifest_path):
+            try:
+                with open(manifest_path) as f:
+                    self._manifest = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                pass
 
     @property
     def is_downloading(self) -> bool:
+        """True while a download is active or files remain in the queue."""
         return self._current_reply is not None or len(self._download_queue) > 0
 
     @property
     def current_filename(self) -> str:
+        """Filename of the model currently being downloaded, or empty string if idle."""
         return self._current_filename
 
     @property
     def queued_filenames(self) -> list[str]:
-        return [m["filename"] for m in self._download_queue]
+        """Filenames of models waiting in the download queue (excludes the active download)."""
+        return [model_filename_from_url(m["url"]) for m in self._download_queue]
+
+    @property
+    def filename_to_name(self) -> dict[str, str]:
+        """Map of filename → human-readable name built from the cached manifest."""
+        return {model_filename_from_url(m["url"]): m["name"] for m in self._manifest}
 
     def fetch_manifest(self):
+        """Fetch the remote manifest. Emits manifest_loaded on success, download_error on failure."""
         request = QNetworkRequest(QUrl(MANIFEST_URL))
         reply = self._nam.get(request)
         reply.finished.connect(lambda: self._on_manifest_finished(reply))
@@ -49,13 +83,22 @@ class ModelDownloader(QObject):
 
         try:
             data = json.loads(bytes(reply.readAll()))
+            self._manifest = data
             self.manifest_loaded.emit(data)
+            manifest_path = os.path.join(self._models_dir, "models.json")
+            with open(manifest_path, "w") as f:
+                json.dump(data, f, indent=2)
         except (json.JSONDecodeError, ValueError) as e:
             self.download_error.emit(f"Invalid manifest: {e}")
         finally:
             reply.deleteLater()
 
     def download(self, models: list[dict]):
+        """Add models to the download queue and start downloading if not already active.
+
+        Args:
+            models: List of manifest entries (dicts with at least a "url" key).
+        """
         already_active = self._current_reply is not None
         self._download_queue.extend(models)
         if not already_active:
@@ -67,7 +110,7 @@ class ModelDownloader(QObject):
             return
 
         model = self._download_queue.pop(0)
-        self._current_filename = model["filename"]
+        self._current_filename = model_filename_from_url(model["url"])
         part_path = os.path.join(self._models_dir, self._current_filename + ".part")
 
         self._current_file = open(part_path, "wb")  # noqa: SIM115
@@ -121,6 +164,7 @@ class ModelDownloader(QObject):
         self._download_next()
 
     def cancel(self):
+        """Abort the active download and clear the queue. Removes any partial file."""
         self._download_queue.clear()
         if self._current_reply:
             self._current_reply.abort()

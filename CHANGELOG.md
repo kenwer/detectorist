@@ -4,8 +4,12 @@
 ### Added
 - Initial support to browse and download detection models from the project page.
 - Local-only models (on disk but not available on the remote) also appear in the model dialog.
+- New "Generic Object Detection" model that detects 80 everyday object classes (Person, Bicycle, Car, etc.) using the RF-DETR detection transformer.
+- The remote model manifest is cached to disk after the first successful fetch so that human-readable model names are available immediately on the next launch, even before the manifest is re-fetched.
 ### Changed
 - The application doesn't ship any detection models with the release binary anymore but asks to download them at first start.
+- Models are now distributed as gzip-compressed `.onnx.gz` files, reducing download size.
+- The model selector shows the human-readable model name (e.g. "Fish Detection Model") instead of the raw filename.
 
 ## [0.8.0] - 2026-02-16
 ### Added
