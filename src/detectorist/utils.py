@@ -18,7 +18,7 @@ def get_model_path() -> str:
     # Dev mode fallback: use local ./models/ if it exists and has .onnx files
     if not ("__compiled__" in globals() or "NUITKA_ONEFILE_PARENT" in os.environ or getattr(sys, 'frozen', False)):
         local_models = os.path.realpath(os.path.normpath(os.path.join(os.getcwd(), "models")))
-        if os.path.isdir(local_models) and any(f.endswith(".onnx") for f in os.listdir(local_models)):
+        if os.path.isdir(local_models) and any(f.endswith(".onnx") or f.endswith(".onnx.gz") for f in os.listdir(local_models)):
             return local_models
 
     # Default: platform user data directory

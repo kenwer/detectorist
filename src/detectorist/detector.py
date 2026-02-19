@@ -1,4 +1,5 @@
 import ast
+import gzip
 from abc import ABC, abstractmethod
 
 import cv2
@@ -6,6 +7,15 @@ import numpy as np
 import onnxruntime as ort
 
 from .image_object import ImageObject
+
+
+def _load_model_bytes(model_path: str) -> bytes:
+    """Read an ONNX model file, transparently decompressing gzip if needed."""
+    if model_path.endswith(".gz"):
+        with gzip.open(model_path, 'rb') as f:
+            return f.read()
+    with open(model_path, 'rb') as f:
+        return f.read()
 
 
 class Detector(ABC):
@@ -33,7 +43,7 @@ class Detector(ABC):
             OSError: If the model file cannot be loaded.
         """
         try:
-            session = ort.InferenceSession(model_path)
+            session = ort.InferenceSession(_load_model_bytes(model_path))
         except Exception as e:
             raise OSError(f"Error loading ONNX model from '{model_path}': {e}") from e
 
@@ -56,7 +66,7 @@ class Detector(ABC):
             OSError: If the model file cannot be loaded.
         """
         try:
-            self.session = session if session else ort.InferenceSession(model_path)
+            self.session = session if session else ort.InferenceSession(_load_model_bytes(model_path))
             onnx_names_str = self.session.get_modelmeta().custom_metadata_map.get('names', '{}')
             self.class_names = ast.literal_eval(onnx_names_str.strip())
 

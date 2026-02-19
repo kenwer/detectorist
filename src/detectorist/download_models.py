@@ -69,7 +69,7 @@ class DownloadModelsDialog(QDialog):
         self._manifest = manifest
         self.ui.status_label.setText("")
 
-        existing_models = {f for f in os.listdir(self._models_dir) if f.endswith(".onnx")}
+        existing_models = {f for f in os.listdir(self._models_dir) if f.endswith(".onnx") or f.endswith(".onnx.gz")}
         active_filenames = set()
         if self._downloader.is_downloading:
             active_filenames.add(self._downloader.current_filename)

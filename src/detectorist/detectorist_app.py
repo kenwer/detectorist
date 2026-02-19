@@ -727,7 +727,7 @@ class DetectoristApp(QMainWindow):
         """Re-scan the models directory and update the combo box."""
         previous_model = self.ui.model_select_combo_box.currentText()
         self.ui.model_select_combo_box.clear()
-        onnx_models = sorted(f for f in os.listdir(self.models_dir) if f.endswith(".onnx"))
+        onnx_models = sorted(f for f in os.listdir(self.models_dir) if f.endswith(".onnx") or f.endswith(".onnx.gz"))
         print(f"Found ONNX models: {onnx_models}")
         self.ui.model_select_combo_box.addItems(onnx_models)
         # Restore previous selection if it still exists
