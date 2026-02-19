@@ -237,10 +237,11 @@ class DetrDetector(Detector):
         boxes_xywh = np.column_stack((x, y, w_scaled, h_scaled)).astype(int).tolist()
 
         # Build final results
-        # RF-DETR uses 1-indexed class IDs (0 is background), so subtract 1 for class_names lookup
+        # RF-DETR uses 1-indexed class IDs (0 is background). The 'names' metadata is
+        # keyed by the class ID the model outputs (1-indexed), so look up directly.
         final_results = []
         for i in range(len(boxes_xywh)):
-            class_id = class_ids[i] - 1  # Convert from 1-indexed to 0-indexed
+            class_id = class_ids[i]
             class_name = self.class_names.get(class_id, f"Class {class_id}")
             final_results.append((boxes_xywh[i], scores[i], class_name))
 
