@@ -122,6 +122,8 @@ jobs:
 
     - name: Install uv
       uses: astral-sh/setup-uv@v6
+      with:
+        python-version: '3.13'
 
     - name: Install dependencies
       run: |
@@ -152,6 +154,11 @@ jobs:
     runs-on: macos-15-intel
     env:
       VERSION: ${{ needs.get-version.outputs.version }}
+      # Force uv to use its managed Python (python-build-standalone) instead of the
+      # actions/setup-python framework Python. Framework Python installs to
+      # /Library/Frameworks/, which Nuitka treats as a system path and won't bundle,
+      # causing @executable_path/Python link errors at runtime.
+      UV_PYTHON_PREFERENCE: only-managed
 
     steps:
     - uses: actions/checkout@v4
@@ -163,6 +170,8 @@ jobs:
 
     - name: Install uv
       uses: astral-sh/setup-uv@v6
+      with:
+        python-version: '3.13'
 
     - name: Install dependencies
       run: |
