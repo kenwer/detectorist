@@ -173,6 +173,32 @@ jobs:
       with:
         python-version: '3.13'
 
+    - name: Fix Homebrew OpenSSL symlinks
+      # Nuitka's dependency scanner compares the path where it finds a library against
+      # that library's own LC_ID_DYLIB install name (baked into the Mach-O header).
+      # Homebrew installs /usr/local/lib/libcrypto.dylib as a symlink whose target has
+      # install name /usr/local/opt/openssl@3/lib/libcrypto.3.dylib — a mismatch that
+      # triggers Nuitka's FATAL. Replacing the symlink with a real copy and rewriting
+      # the install name to match the file's new location fixes the check.
+      run: |
+        for lib in /usr/local/lib/libcrypto.dylib /usr/local/lib/libssl.dylib; do
+          if [ -L "$lib" ]; then
+            real=$(readlink -f "$lib")
+            sudo rm "$lib"
+            sudo cp "$real" "$lib"
+            # Rewrite the embedded LC_ID_DYLIB so the file's identity matches its path.
+            sudo install_name_tool -id "$lib" "$lib"
+          fi
+        done
+        # libssl's LC_LOAD_DYLIB entry for libcrypto still points at the Cellar/opt path,
+        # which Nuitka resolves to the Cellar file whose own LC_ID_DYLIB uses the /opt
+        # path — a second mismatch. Rewrite that reference to our already-fixed copy.
+        CRYPTO_REF=$(otool -L /usr/local/lib/libssl.dylib | awk '/libcrypto/{print $1}')
+        if [ -n "$CRYPTO_REF" ] && [ "$CRYPTO_REF" != "/usr/local/lib/libcrypto.dylib" ]; then
+          sudo install_name_tool -change "$CRYPTO_REF" "/usr/local/lib/libcrypto.dylib" \
+            /usr/local/lib/libssl.dylib
+        fi
+
     - name: Install dependencies
       run: |
         uv venv
