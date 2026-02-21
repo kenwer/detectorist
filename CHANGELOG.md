@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.2] - 2026-02-21
+### Changed
+- Inference speed-up due to upgraded dependencies.
+### Fixed
+- Fix macOS x86_64 build.
+
 ## [0.8.1] - 2026-02-19
 ### Added
 - Support to browse and download detection models from the project page.
