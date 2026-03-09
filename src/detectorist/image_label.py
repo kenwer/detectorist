@@ -67,7 +67,7 @@ class TooltipEventFilter(QObject):
             # Pair each band with its mask and sort by mask area ascending so smaller
             # objects are checked first — they take priority when overlapping a larger one.
             pairs = sorted(
-                zip(self.parent_label.detection_bands, masks),
+                zip(self.parent_label.detection_bands, masks, strict=True),
                 key=lambda bm: int(bm[1].sum()) if bm[1] is not None else float('inf'),
             )
             for band, mask in pairs:
@@ -189,7 +189,7 @@ class ImageLabel(QLabel):
         h, w = self.orig_detection_masks[0].shape[:2]
         rgba = np.zeros((h, w, 4), dtype=np.uint8)
 
-        for (_, score, class_name), mask in zip(self.orig_detection_rects, self.orig_detection_masks):
+        for (_, score, class_name), mask in zip(self.orig_detection_rects, self.orig_detection_masks, strict=True):
             r, g, b = color_map.get(class_name, MASK_COLORS[0])
             rgba[mask > 128] = (r, g, b, int(score * 140))  # alpha scales with confidence
 
