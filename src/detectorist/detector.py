@@ -140,8 +140,9 @@ class Detector:
         boxes_xywh = np.column_stack((x, y, w_scaled, h_scaled)).astype(int).tolist()
 
         # Build final results.
-        # RF-DETR uses 1-indexed class IDs (0 is background). The 'names' metadata is
-        # keyed by the class ID the model outputs (1-indexed), so look up directly.
+        # The 'names' metadata is keyed by the class ID argmax produces: RF-DETR detection
+        # models are 1-indexed (index 0 is background); segmentation models are 0-indexed
+        # (no background class).
         final_results = []
         for i in range(len(boxes_xywh)):
             class_id = class_ids[i]
