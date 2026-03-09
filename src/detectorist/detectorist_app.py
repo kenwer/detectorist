@@ -32,7 +32,7 @@ from detectorist._version import __version__
 from .about_dialog import Ui_AboutDialog
 from .detector import Detector
 from .detectorist_app_gui import Ui_DetectoristAppUI
-from .download_models import DownloadModelsDialog
+from .manage_models import ManageModelsDialog
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
 from .image_object import ImageObject
@@ -273,7 +273,7 @@ class DetectoristApp(QMainWindow):
         self.ui.clear_recent_folders_action.triggered.connect(self._clear_recent_folders)
         self.ui.import_settings_action.triggered.connect(self._import_settings)
         self.ui.export_settings_action.triggered.connect(self._export_settings)
-        self.ui.download_models_action.triggered.connect(self.show_download_models_dialog)
+        self.ui.manage_models_action.triggered.connect(self.show_manage_models_dialog)
 
         # Confidence slider/spinbox update the display filter only (no re-inference)
         self.ui.confidence_slider.valueChanged.connect(self._display_filtered_results)
@@ -327,7 +327,7 @@ class DetectoristApp(QMainWindow):
 
         # Auto-show download dialog if no models found
         if self.ui.model_select_combo_box.count() == 0:
-            QTimer.singleShot(0, self.show_download_models_dialog)
+            QTimer.singleShot(0, self.show_manage_models_dialog)
 
     def _load_settings(self):
         """Load persistent settings and apply to UI."""
@@ -733,8 +733,8 @@ class DetectoristApp(QMainWindow):
 
         about_dialog.exec()
 
-    def show_download_models_dialog(self):
-        dialog = DownloadModelsDialog(self._model_downloader, self.models_dir, self)
+    def show_manage_models_dialog(self):
+        dialog = ManageModelsDialog(self._model_downloader, self.models_dir, self)
         dialog.models_changed.connect(self._refresh_model_list)
         dialog.exec()
 

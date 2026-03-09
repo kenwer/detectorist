@@ -1,5 +1,13 @@
 # Changelog
 
+## [unreleased]
+### Added
+- Initial support for using segmentation models.
+### Changed
+- [Dev] Refactor model management code.
+- [Dev] QRC omit per-file timestamps for reproducible builds.
+- [Dev] Upgrade dependencies.
+
 ## [0.8.2] - 2026-02-21
 ### Changed
 - Inference speed-up due to upgraded dependencies.

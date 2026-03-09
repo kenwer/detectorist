@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'download_models_dialog.ui'
+## Form generated from reading UI file 'manage_models_dialog.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.10.2
 ##
@@ -19,15 +19,15 @@ from PySide6.QtWidgets import (QApplication, QDialog, QHBoxLayout, QLabel,
     QPushButton, QScrollArea, QSizePolicy, QSpacerItem,
     QVBoxLayout, QWidget)
 
-class Ui_DownloadModelsDialog(object):
-    def setupUi(self, DownloadModelsDialog):
-        if not DownloadModelsDialog.objectName():
-            DownloadModelsDialog.setObjectName(u"DownloadModelsDialog")
-        DownloadModelsDialog.resize(776, 403)
-        DownloadModelsDialog.setMinimumSize(QSize(450, 300))
-        self.main_layout = QVBoxLayout(DownloadModelsDialog)
+class Ui_ManageModelsDialog(object):
+    def setupUi(self, ManageModelsDialog):
+        if not ManageModelsDialog.objectName():
+            ManageModelsDialog.setObjectName(u"ManageModelsDialog")
+        ManageModelsDialog.resize(776, 403)
+        ManageModelsDialog.setMinimumSize(QSize(450, 300))
+        self.main_layout = QVBoxLayout(ManageModelsDialog)
         self.main_layout.setObjectName(u"main_layout")
-        self.scroll_area = QScrollArea(DownloadModelsDialog)
+        self.scroll_area = QScrollArea(ManageModelsDialog)
         self.scroll_area.setObjectName(u"scroll_area")
         self.scroll_area.setWidgetResizable(True)
         self.scroll_contents = QWidget()
@@ -41,7 +41,7 @@ class Ui_DownloadModelsDialog(object):
 
         self.button_layout = QHBoxLayout()
         self.button_layout.setObjectName(u"button_layout")
-        self.status_label = QLabel(DownloadModelsDialog)
+        self.status_label = QLabel(ManageModelsDialog)
         self.status_label.setObjectName(u"status_label")
 
         self.button_layout.addWidget(self.status_label)
@@ -50,13 +50,13 @@ class Ui_DownloadModelsDialog(object):
 
         self.button_layout.addItem(self.button_spacer)
 
-        self.download_button = QPushButton(DownloadModelsDialog)
+        self.download_button = QPushButton(ManageModelsDialog)
         self.download_button.setObjectName(u"download_button")
         self.download_button.setEnabled(False)
 
         self.button_layout.addWidget(self.download_button)
 
-        self.close_button = QPushButton(DownloadModelsDialog)
+        self.close_button = QPushButton(ManageModelsDialog)
         self.close_button.setObjectName(u"close_button")
 
         self.button_layout.addWidget(self.close_button)
@@ -65,15 +65,15 @@ class Ui_DownloadModelsDialog(object):
         self.main_layout.addLayout(self.button_layout)
 
 
-        self.retranslateUi(DownloadModelsDialog)
+        self.retranslateUi(ManageModelsDialog)
 
-        QMetaObject.connectSlotsByName(DownloadModelsDialog)
+        QMetaObject.connectSlotsByName(ManageModelsDialog)
     # setupUi
 
-    def retranslateUi(self, DownloadModelsDialog):
-        DownloadModelsDialog.setWindowTitle(QCoreApplication.translate("DownloadModelsDialog", u"Download Models", None))
-        self.status_label.setText(QCoreApplication.translate("DownloadModelsDialog", u"Loading available models...", None))
-        self.download_button.setText(QCoreApplication.translate("DownloadModelsDialog", u"Download All", None))
-        self.close_button.setText(QCoreApplication.translate("DownloadModelsDialog", u"Close", None))
+    def retranslateUi(self, ManageModelsDialog):
+        ManageModelsDialog.setWindowTitle(QCoreApplication.translate("ManageModelsDialog", u"Manage Models", None))
+        self.status_label.setText(QCoreApplication.translate("ManageModelsDialog", u"Loading available models...", None))
+        self.download_button.setText(QCoreApplication.translate("ManageModelsDialog", u"Download All", None))
+        self.close_button.setText(QCoreApplication.translate("ManageModelsDialog", u"Close", None))
     # retranslateUi
 

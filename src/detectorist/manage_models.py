@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .download_models_dialog import Ui_DownloadModelsDialog
+from .manage_models_dialog import Ui_ManageModelsDialog
 from .model_downloader import ModelDownloader, model_filename_from_url
 
 
@@ -42,7 +42,7 @@ class _ModelRow:
         self.local_path = local_path
 
 
-class DownloadModelsDialog(QDialog):
+class ManageModelsDialog(QDialog):
     """Dialog for browsing, downloading, and removing models.
 
     Fetches the remote manifest on open and renders one row per model.
@@ -63,7 +63,7 @@ class DownloadModelsDialog(QDialog):
         self._rows: list[_ModelRow] = []
         self._downloader = downloader
 
-        self.ui = Ui_DownloadModelsDialog()
+        self.ui = Ui_ManageModelsDialog()
         self.ui.setupUi(self)
         self.ui.scroll_contents_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
