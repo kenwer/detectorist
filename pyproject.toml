@@ -44,7 +44,8 @@ version = {attr = "detectorist._version.__version__"}
 
 [tool.poe.tasks]
 compile-ui = { shell = "for f in src/detectorist/*.ui; do pyside6-uic --from-imports \"$f\" -o \"${f%.ui}.py\"; done", help = "Compile Qt UI files to Python files with relative imports" }
-compile-qrc = { shell = "export SOURCE_DATE_EPOCH=0 && for f in src/detectorist/*.qrc; do pyside6-rcc \"$f\" -o \"${f%.qrc}_rc.py\"; done", help = "Compile Qt resource files to Python files" }
+# --format-version 1 omits per-file timestamps for reproducible output as setting SOURCE_DATE_EPOCH=0 does not work (Qt treats 0 as "not set" see QTBUG-62511).
+compile-qrc = { shell = "for f in src/detectorist/*.qrc; do pyside6-rcc --format-version 1 \"$f\" -o \"${f%.qrc}_rc.py\"; done", help = "Compile Qt resource files to Python files" }
 
 run-app = { cmd = "uv run src/detectorist/main.py", help = "Run the application" }
 run = { sequence = ["compile-ui", "compile-qrc", "run-app"], help = "Compile UI and resource files and run the application" }
