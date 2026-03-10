@@ -12,8 +12,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .manage_models_dialog import Ui_ManageModelsDialog
 from .model_downloader import ModelDownloader, model_filename_from_url
+from .ui_manage_models_dialog import Ui_ManageModelsDialog
 
 # Row states where the action button triggers a download
 _DOWNLOADABLE_STATES = ("available", "error", "outdated")
