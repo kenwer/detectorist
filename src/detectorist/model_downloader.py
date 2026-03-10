@@ -5,6 +5,7 @@ from PySide6.QtCore import QObject, QUrl, Signal
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 
 MANIFEST_URL = "https://raw.githubusercontent.com/kenwer/detectorist/main/models/models.json"
+MANIFEST_FILENAME = MANIFEST_URL.rsplit("/", 1)[-1]
 
 
 def model_filename_from_url(url: str) -> str:
@@ -66,29 +67,46 @@ class ModelDownloader(QObject):
 
     @property
     def filename_to_name(self) -> dict[str, str]:
-        """Map of filename → human-readable name built from the cached manifest."""
-        return {model_filename_from_url(m["url"]): m["name"] for m in self._manifest}
+        """Map of filename to human-readable name built from the cached manifest.
+
+        Superseded filenames are included and resolve to the same name as their replacement,
+        so older on-disk models display their conceptual name rather than a raw filename.
+        """
+        result = {}
+        for m in self._manifest:
+            result[model_filename_from_url(m["url"])] = m["name"]
+            for fname in m.get("supersedes", []):
+                result.setdefault(fname, m["name"])
+        return result
 
     def fetch_manifest(self):
-        """Fetch the remote manifest. Emits manifest_loaded on success, download_error on failure."""
-        request = QNetworkRequest(QUrl(MANIFEST_URL))
-        reply = self._nam.get(request)
+        """Fetch manifest from the local models dir if available, otherwise fetch from the network."""
+        local_models_dir = os.path.realpath(os.path.normpath(os.path.join(os.getcwd(), "models")))
+        manifest_path = os.path.join(self._models_dir, MANIFEST_FILENAME)
+        if os.path.realpath(self._models_dir) == local_models_dir and os.path.isfile(manifest_path):
+            url = QUrl.fromLocalFile(manifest_path)
+        else:
+            url = QUrl(MANIFEST_URL)
+
+        # async: when the reply is ready _on_manifest_finished is called 
+        # The lambda captures `reply` so it can be passed to the callback (finished carries no arguments)
+        reply = self._nam.get(QNetworkRequest(url))
         reply.finished.connect(lambda: self._on_manifest_finished(reply))
 
     def _on_manifest_finished(self, reply: QNetworkReply):
-        if reply.error() != QNetworkReply.NetworkError.NoError:
-            self.download_error.emit(f"Failed to fetch manifest: {reply.errorString()}")
-            reply.deleteLater()
-            return
-
+        """Handle the manifest reply: cache it to disk (network only), parse it, and emit manifest_loaded."""
+        manifest_path = os.path.join(self._models_dir, MANIFEST_FILENAME)
         try:
-            data = json.loads(bytes(reply.readAll()))
-            self._manifest = data
-            self.manifest_loaded.emit(data)
-            manifest_path = os.path.join(self._models_dir, "models.json")
-            with open(manifest_path, "w") as f:
-                json.dump(data, f, indent=2)
-        except (json.JSONDecodeError, ValueError) as e:
+            if reply.error() != QNetworkReply.NetworkError.NoError:
+                self.download_error.emit(f"Failed to fetch manifest: {reply.errorString()}")
+                return
+            data = bytes(reply.readAll())
+            if not reply.url().isLocalFile():
+                with open(manifest_path, "wb") as f:
+                    f.write(data)
+            self._manifest = json.loads(data)
+            self.manifest_loaded.emit(self._manifest)
+        except (OSError, json.JSONDecodeError) as e:
             self.download_error.emit(f"Invalid manifest: {e}")
         finally:
             reply.deleteLater()
@@ -158,6 +176,15 @@ class ModelDownloader(QObject):
         if os.path.exists(final_path):
             os.remove(final_path)
         os.rename(part_path, final_path)
+
+        # Delete any files that this download supersedes
+        for m in self._manifest:
+            if model_filename_from_url(m["url"]) == self._current_filename:
+                for old_fname in m.get("supersedes", []):
+                    old_path = os.path.join(self._models_dir, old_fname)
+                    if os.path.exists(old_path):
+                        os.remove(old_path)
+                break
 
         reply.deleteLater()
         self.download_finished.emit(self._current_filename)

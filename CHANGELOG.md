@@ -3,6 +3,7 @@
 ## [unreleased]
 ### Added
 - Initial support for using segmentation models.
+- Implement model update mechanism.
 ### Changed
 - [Dev] Refactor model management code.
 - [Dev] QRC omit per-file timestamps for reproducible builds.

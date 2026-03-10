@@ -8,18 +8,19 @@ def get_model_path() -> str:
     """
     Get the path to the models directory.
 
-    In dev mode (not compiled), if a local ./models/ directory exists with .onnx files, use it.
+    If a local ./models/ directory exists and contains model files and a models.json manifest,
+    use it (covers running from source or a local development checkout).
     Otherwise, use the platform user data directory (QStandardPaths.AppDataLocation/models).
     The directory is created if it doesn't exist.
 
     Returns:
         str: The absolute path to the models directory.
     """
-    # Dev mode fallback: use local ./models/ if it exists and has .onnx files
-    if not ("__compiled__" in globals() or "NUITKA_ONEFILE_PARENT" in os.environ or getattr(sys, 'frozen', False)):
-        local_models = os.path.realpath(os.path.normpath(os.path.join(os.getcwd(), "models")))
-        if os.path.isdir(local_models) and any(f.endswith(".onnx") or f.endswith(".onnx.gz") for f in os.listdir(local_models)):
-            return local_models
+    local_models = os.path.realpath(os.path.normpath(os.path.join(os.getcwd(), "models")))
+    if (os.path.isdir(local_models)
+            and os.path.isfile(os.path.join(local_models, "models.json"))
+            and any(f.endswith(".onnx") or f.endswith(".onnx.gz") for f in os.listdir(local_models))):
+        return local_models
 
     # Default: platform user data directory
     data_location = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)

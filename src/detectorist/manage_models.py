@@ -15,6 +15,9 @@ from PySide6.QtWidgets import (
 from .manage_models_dialog import Ui_ManageModelsDialog
 from .model_downloader import ModelDownloader, model_filename_from_url
 
+# Row states where the action button triggers a download
+_DOWNLOADABLE_STATES = ("available", "error", "outdated")
+
 
 class _ModelRow:
     """Holds the widgets and state for a single model row in the dialog.
@@ -27,17 +30,19 @@ class _ModelRow:
         "downloading" — download in progress
         "downloaded"  — on disk and in the manifest
         "error"       — last download attempt failed
+        "outdated"    — old version on disk, new version not yet downloaded
         "local_only"  — on disk but not in the manifest
     """
-    __slots__ = ("model", "action_button", "progress_bar", "status_label", "state", "local_path")
+    __slots__ = ("model", "action_button", "progress_bar", "status_label", "desc_label", "state", "local_path")
 
     def __init__(self, model: dict, action_button: QPushButton,
                  progress_bar: QProgressBar, status_label: QLabel,
-                 local_path: str = ""):
+                 desc_label: QLabel, local_path: str = ""):
         self.model = model
         self.action_button = action_button
         self.progress_bar = progress_bar
         self.status_label = status_label
+        self.desc_label = desc_label
         self.state = "available"
         self.local_path = local_path
 
@@ -125,6 +130,9 @@ class ManageModelsDialog(QDialog):
             active_filenames.add(self._downloader.current_filename)
             active_filenames.update(self._downloader.queued_filenames)
 
+        # Set of all filenames superseded by any manifest entry
+        all_superseded = {fname for m in manifest for fname in m.get("supersedes", [])}
+
         for i, model in enumerate(manifest):
             # TODO: maybe there's a more elegant way to separate rows than manually adding a separator widget?
             if i > 0:
@@ -139,6 +147,7 @@ class ManageModelsDialog(QDialog):
             filename = model_filename_from_url(model["url"])
             is_downloaded = filename in existing_models
             is_active = filename in active_filenames
+            superseded_on_disk = not is_downloaded and not is_active and any(f in existing_models for f in model.get("supersedes", []))
 
             # Row 0: name + progress bar (combined), status label
             header_widget, progress_bar, status_label = self._build_row_header(model["name"])
@@ -146,11 +155,12 @@ class ManageModelsDialog(QDialog):
             grid.addWidget(status_label, 0, 1)
 
             # Row 1: description, action button
+            filename_label = "Update available:" if superseded_on_disk else "File name:"
             desc_label = QLabel(f"""
             <p>{model.get("description", "no description available")}</p>
             <p><table style="border-collapse: collapse;">
                 <tr>
-                    <td style="text-align: left; padding-right: 10px; white-space: nowrap;">File name:</td>
+                    <td style="text-align: left; padding-right: 10px; white-space: nowrap;">{filename_label}</td>
                     <td style="font-family: 'Courier New', Consolas, monospace; white-space: nowrap;">{filename}</td>
                 </tr>
                 <tr>
@@ -171,7 +181,7 @@ class ManageModelsDialog(QDialog):
             action_button.setFixedWidth(90)
 
             local_path = os.path.join(self._models_dir, filename) if is_downloaded else ""
-            row = _ModelRow(model, action_button, progress_bar, status_label, local_path)
+            row = _ModelRow(model, action_button, progress_bar, status_label, desc_label, local_path)
             action_button.clicked.connect(lambda _checked, r=row: self._on_action_clicked(r))
             self._rows.append(row)
 
@@ -186,17 +196,19 @@ class ManageModelsDialog(QDialog):
             elif is_downloaded:
                 self._set_row_state(row, "downloaded")
             else:
-                self._set_row_state(row, "available")
+                if superseded_on_disk:
+                    self._set_row_state(row, "outdated")
+                else:
+                    self._set_row_state(row, "available")
 
             self.ui.scroll_contents_layout.addWidget(row_widget)
 
-        # Add local-only models (on disk but not in manifest)
+        # Add local-only models (on disk but not in manifest, and not superseded by a manifest entry)
         manifest_filenames = {model_filename_from_url(m["url"]) for m in manifest}
-        local_only_files = sorted(
-            f for f in existing_models
-            if f not in manifest_filenames and f not in active_filenames
-        )
-        for filename in local_only_files:
+        for filename in existing_models:
+            # Skip manifest models, active downloads, and files represented by an "outdated" manifest row
+            if filename in manifest_filenames or filename in active_filenames or filename in all_superseded:
+                continue
             separator = QFrame()
             separator.setFrameShape(QFrame.Shape.HLine)
             separator.setFrameShadow(QFrame.Shadow.Raised)
@@ -224,7 +236,7 @@ class ManageModelsDialog(QDialog):
             action_button.setFixedWidth(90)
 
             local_path = os.path.join(self._models_dir, filename)
-            row = _ModelRow(model, action_button, progress_bar, status_label, local_path)
+            row = _ModelRow(model, action_button, progress_bar, status_label, desc_label, local_path)
             action_button.clicked.connect(lambda _checked, r=row: self._on_action_clicked(r))
             self._rows.append(row)
 
@@ -258,11 +270,20 @@ class ManageModelsDialog(QDialog):
             row.status_label.setStyleSheet("color: green; font-weight: bold;")
             row.status_label.setToolTip("")
             row.status_label.setVisible(True)
+            row.desc_label.setText(row.desc_label.text().replace("Update available:", "File name:"))
         elif state == "error":
             row.action_button.setText("Retry")
             row.progress_bar.setVisible(False)
             row.status_label.setText("Error")
             row.status_label.setStyleSheet("color: red; font-weight: bold;")
+            row.status_label.setVisible(True)
+        elif state == "outdated":
+            row.action_button.setText("Update")
+            row.action_button.setEnabled(True)
+            row.progress_bar.setVisible(False)
+            row.status_label.setText("Outdated")
+            row.status_label.setStyleSheet("color: darkorange; font-weight: bold;")
+            row.status_label.setToolTip("")
             row.status_label.setVisible(True)
         elif state == "local_only":
             row.action_button.setText("Remove")
@@ -274,14 +295,18 @@ class ManageModelsDialog(QDialog):
 
     def _on_action_clicked(self, row: _ModelRow):
         """Handle Download / Cancel / Remove / Retry button clicks for a model row."""
-        if row.state == "available" or row.state == "error":
+        if row.state in _DOWNLOADABLE_STATES:
             self._downloader.download([row.model])
             self._set_row_state(row, "downloading")
         elif row.state == "downloading":
             self._downloader.cancel()
+            existing_models = {f for f in os.listdir(self._models_dir)
+                               if f.endswith(".onnx") or f.endswith(".onnx.gz")}
             for r in self._rows:
                 if r.state == "downloading":
-                    self._set_row_state(r, "available")
+                    superseded_on_disk = [f for f in r.model.get("supersedes", [])
+                                          if f in existing_models]
+                    self._set_row_state(r, "outdated" if superseded_on_disk else "available")
             self.ui.status_label.setText("Download cancelled.")
             self._update_download_all_button_state()
         elif row.state in ("downloaded", "local_only"):
@@ -325,13 +350,13 @@ class ManageModelsDialog(QDialog):
 
     def _update_download_all_button_state(self):
         """Enable the Download All button only if at least one row can be downloaded."""
-        any_available = any(row.state in ("available", "error") for row in self._rows)
+        any_available = any(row.state in _DOWNLOADABLE_STATES for row in self._rows)
         self.ui.download_button.setEnabled(any_available)
 
     def _on_download_all_clicked(self):
         """Queue all available (and errored) models for download."""
         models_to_download = [row.model for row in self._rows
-                              if row.state in ("available", "error")]
+                              if row.state in _DOWNLOADABLE_STATES]
         if not models_to_download:
             return
         self.ui.status_label.setText("Downloading...")
@@ -357,6 +382,7 @@ class ManageModelsDialog(QDialog):
         if row:
             row.local_path = os.path.join(self._models_dir, filename)
             self._set_row_state(row, "downloaded")
+
         self._update_download_all_button_state()
 
     def _on_download_error(self, error_message: str):
