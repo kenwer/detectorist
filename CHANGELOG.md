@@ -1,11 +1,16 @@
 # Changelog
 
-## [unreleased]
+## [0.9.0] - 2026-03-10
 ### Added
-- Initial support for using segmentation models.
-- Implement model update mechanism.
+- Add support for instance segmentation. Three new models are included:
+  - Fish Segmentation
+  - Apoidea Segmentation
+  - Generic Instance Segmentation
+- The model manager now detects when an older version of a model is installed and marks it as outdated, with an option to download the newer version.
 ### Changed
+- Model names in the combo box no longer include the release date. It is still shown in the model manager.
 - [Dev] Refactor model management code.
+- [Dev] Rename generated Qt UI files to the `ui_*` convention.
 - [Dev] QRC omit per-file timestamps for reproducible builds.
 - [Dev] Upgrade dependencies.
 
