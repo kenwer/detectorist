@@ -32,10 +32,10 @@ from detectorist._version import __version__
 from .about_dialog import Ui_AboutDialog
 from .detector import Detector
 from .detectorist_app_gui import Ui_DetectoristAppUI
-from .manage_models import ManageModelsDialog
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
 from .image_object import ImageObject
+from .manage_models import ManageModelsDialog
 from .model_downloader import ModelDownloader
 from .settings import Settings
 from .utils import contract_user_path, get_model_path

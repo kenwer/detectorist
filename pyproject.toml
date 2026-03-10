@@ -165,7 +165,7 @@ build-and-run = "poe run"
 exclude = [
     "src/detectorist/detectorist_app_gui.py",
     "src/detectorist/about_dialog.py",
-    "src/detectorist/download_models_dialog.py",
+    "src/detectorist/manage_models_dialog.py",
 ]
 [tool.ruff.lint]
 # Never enforce `E501` (line length violations).

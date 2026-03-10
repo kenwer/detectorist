@@ -88,7 +88,7 @@ class ModelDownloader(QObject):
         else:
             url = QUrl(MANIFEST_URL)
 
-        # async: when the reply is ready _on_manifest_finished is called 
+        # async: when the reply is ready _on_manifest_finished is called
         # The lambda captures `reply` so it can be passed to the callback (finished carries no arguments)
         reply = self._nam.get(QNetworkRequest(url))
         reply.finished.connect(lambda: self._on_manifest_finished(reply))
