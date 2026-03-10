@@ -2,7 +2,7 @@
   {
     "name": "Fish Detection",
     "size_mb": 107,
-    "description": "Locates and identifies fish species using a transformer-based bounding box detection model. Best for batch sorting and cropping.",
+    "description": "Locates fish using a transformer-based bounding box detection model. Best for batch sorting and cropping.",
     "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-detect-transformer-2026-02-15.onnx.gz",
     "release_date": "2026-02-15",
     "supersedes": [
@@ -13,14 +13,14 @@
   {
     "name": "Fish Segmentation",
     "size_mb": 115,
-    "description": "Locates and identifies fish species using a transformer-based instance segmentation model. Best for visualizing detected objects.",
+    "description": "Locates fish using a transformer-based instance segmentation model. Best for visualizing detected objects.",
     "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-seg-transormer-2026-02-24.onnx.gz",
     "release_date": "2026-02-24"
   },
   {
     "name": "Apoidea Detection",
     "size_mb": 107,
-    "description": "Locates and identifies bees, wasps, and related Apoidea species using a transformer-based bounding box detection model. Best for batch sorting and cropping.",
+    "description": "Locates bees, wasps, and related Apoidea species using a transformer-based bounding box detection model. Best for batch sorting and cropping.",
     "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-detect-transformer-2026-02-16.onnx.gz",
     "release_date": "2026-02-16",
     "supersedes": [
@@ -31,7 +31,7 @@
   {
     "name": "Apoidea Segmentation",
     "size_mb": 115,
-    "description": "Locates and identifies bees, wasps, and related Apoidea species using a transformer-based instance segmentation model. Best for visualizing detected objects.",
+    "description": "Locates bees, wasps, and related Apoidea species using a transformer-based instance segmentation model. Best for visualizing detected objects.",
     "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-seg-transormer-2026-02-24.onnx.gz",
     "release_date": "2026-02-16"
   },
