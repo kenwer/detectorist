@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Changed
+- [Dev] Make release script handle HTTPS git remotes.
 ### Fixed
 - Fix export/cropping on Windows for deeply nested folders or long file names. Output paths over the 260 char `MAX_PATH` limit now use Windows extended-length paths.
 
