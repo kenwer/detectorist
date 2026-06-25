@@ -224,5 +224,5 @@ class HeifImageObject(ImageObject):
         # The bit_depth parameter explicitly instructs the HEIF encoder to save the final file with the specified bit depth (e.g. 10 bit).
         #  For images with >8 bit, it knows the in-memory data is 16-bit and it knows the desired output is e.g. 10-bit.
         #  It scales the pixel values back down from the [0, 65535] range to the [0, 1023] range before encoding and saving the file.
-        new_heif_image.save(output_path, format="HEIF", quality=quality, bit_depth=bit_depth, chroma=chroma, nclx_profile=nclx_profile, exif=updated_exif, xmp=xmp)
+        new_heif_image.save(image_utils.long_path(output_path), format="HEIF", quality=quality, bit_depth=bit_depth, chroma=chroma, nclx_profile=nclx_profile, exif=updated_exif, xmp=xmp)
         #print(f"Cropped image to {w}x{h} at ({x},{y}) and saved to {output_path}")

@@ -85,9 +85,9 @@ class RawImageObject(ImageObject):
         # Set parameters based on file format
         if file_format.lower() == '.tiff':
             params = [cv2.IMWRITE_TIFF_COMPRESSION, 8]  # DEFLATE compression
-            cv2.imwrite(output_path, bgr_image, params)
+            image_utils.imwrite(output_path, bgr_image, params)
         else:  # PNG
-            cv2.imwrite(output_path, bgr_image)
+            image_utils.imwrite(output_path, bgr_image)
 
     def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
         """Saves a cropped version of the RAW image as a 16-bit PNG file."""

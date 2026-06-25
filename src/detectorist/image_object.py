@@ -510,7 +510,7 @@ class ImageObject (ABC):
         """Copies the original image file to the specified output directory preserving its file name."""
         input_file_name = os.path.basename(self._image_path)
         output_path = os.path.join(target_dir_path, input_file_name)
-        shutil.copy2(self._image_path, output_path)
+        shutil.copy2(image_utils.long_path(self._image_path), image_utils.long_path(output_path))
 
     @abstractmethod
     def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):

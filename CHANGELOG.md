@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Fixed
+- Fix export/cropping on Windows for deeply nested folders or long file names. Output paths over the 260 char `MAX_PATH` limit now use Windows extended-length paths.
+
 ## [0.9.0] - 2026-03-10
 ### Added
 - Add support for instance segmentation. Three new models are included:

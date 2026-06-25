@@ -1,7 +1,49 @@
 import os
+import sys
 
 import cv2
 import numpy as np
+
+
+def long_path(path: str) -> str:
+    """
+    Make a path safe for writing on Windows, where the legacy Win32 file APIs
+    reject paths longer than MAX_PATH (260 characters).
+
+    On Windows this returns the path in extended-length form (prefixed with
+    ``\\\\?\\``), which bypasses the MAX_PATH limit. Extended-length paths are
+    passed to the filesystem verbatim, so the path must be absolute, normalized
+    and use backslashes only (forward slashes are NOT translated). UNC paths use
+    the ``\\\\?\\UNC\\`` form.
+
+    On non-Windows platforms the path is returned unchanged.
+    """
+    if sys.platform != "win32":
+        return path
+    abs_path = os.path.normpath(os.path.abspath(path))
+    if abs_path.startswith("\\\\?\\"):
+        return abs_path
+    if abs_path.startswith("\\\\"):  # UNC path: \\server\share -> \\?\UNC\server\share
+        return "\\\\?\\UNC\\" + abs_path[2:]
+    return "\\\\?\\" + abs_path
+
+
+def imwrite(path: str, image: np.ndarray, params: list[int] | None = None) -> None:
+    """
+    Write an image with OpenCV in a way that works for long paths and non-ASCII
+    paths on Windows.
+
+    ``cv2.imwrite`` builds the file via the Win32 APIs directly, so it neither
+    honors the ``\\\\?\\`` long-path prefix nor handles Unicode paths reliably.
+    Encoding into an in-memory buffer with ``cv2.imencode`` and writing the bytes
+    through Python's own ``open`` (via :func:`long_path`) avoids both problems.
+    """
+    ext = os.path.splitext(path)[1]
+    success, buffer = cv2.imencode(ext, image, params or [])
+    if not success:
+        raise OSError(f"OpenCV failed to encode image for: {path}")
+    with open(long_path(path), "wb") as f:
+        f.write(buffer)
 
 
 def adjust_exposure(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int = None) -> np.ndarray:

@@ -155,5 +155,5 @@ class PillowImageObject(ImageObject):
                 print(f"Warning: Could not update EXIF data: {e}")
                 save_kwargs['exif'] = self._exif
 
-        pil_cropped_image.save(output_path, **save_kwargs)
+        pil_cropped_image.save(image_utils.long_path(output_path), **save_kwargs)
         print(f"  Cropped {original_format or 'image'} saved to {output_path}")

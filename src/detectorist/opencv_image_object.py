@@ -89,8 +89,8 @@ class OpencvImageObject(ImageObject):
             print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
             cropped_data = image_utils.adjust_exposure(cropped_data, ev_comp, 2.2, self._original_bpc)
 
-        # The data is already in BGR/BGRA format, which cv2.imwrite expects.
-        cv2.imwrite(output_path, cropped_data)
+        # The data is already in BGR/BGRA format, which cv2 expects.
+        image_utils.imwrite(output_path, cropped_data)
         print(f"  Cropped image saved to {output_path}")
 
         # Handle EXIF data using piexif
