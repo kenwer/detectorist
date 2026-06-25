@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.9.1] - 2026-06-25
 ### Changed
 - [Dev] Make release script handle HTTPS git remotes.
 - [Dev] Upgrade dependencies.
