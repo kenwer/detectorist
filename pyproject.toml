@@ -8,7 +8,8 @@ dynamic = ["version"]
 
 description = "A desktop application for sorting and cropping photos using a machine learning for object detection."
 readme = "README.md"
-requires-python = ">=3.13"
+# Capped below 3.14 until Nuitka has non-experimental 3.14 support
+requires-python = ">=3.13,<3.14"
 dependencies = [
     # onnxruntime dropped macOS x86_64 wheels in v1.24.0, so pin to the last supported version for Intel Macs
     "onnxruntime>=1.24 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",

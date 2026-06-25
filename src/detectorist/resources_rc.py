@@ -1,899 +1,917 @@
 # Resource object code (Python 3)
 # Created by: object code
-# Created by: The Resource Compiler for Qt version 6.10.2
+# Created by: The Resource Compiler for Qt version 6.11.1
 # WARNING! All changes made in this file will be lost!
 
 from PySide6 import QtCore
 
 qt_resource_data = b"\
-\x00\x007X\
+\x00\x008y\
 #\
  Changelog\x0a\x0a## [\
-0.9.0] - 2026-03\
--10\x0a### Added\x0a- \
-Add support for \
-instance segment\
-ation. Three new\
- models are incl\
-uded:\x0a  - Fish S\
-egmentation\x0a  - \
-Apoidea Segmenta\
-tion\x0a  - Generic\
- Instance Segmen\
-tation\x0a- The mod\
-el manager now d\
-etects when an o\
-lder version of \
-a model is insta\
-lled and marks i\
-t as outdated, w\
-ith an option to\
- download the ne\
-wer version.\x0a###\
- Changed\x0a- Model\
- names in the co\
-mbo box no longe\
-r include the re\
-lease date. It i\
-s still shown in\
- the model manag\
-er.\x0a- [Dev] Refa\
-ctor model manag\
-ement code.\x0a- [D\
-ev] Rename gener\
-ated Qt UI files\
- to the `ui_*` c\
-onvention.\x0a- [De\
-v] QRC omit per-\
-file timestamps \
-for reproducible\
- builds.\x0a- [Dev]\
- Upgrade depende\
-ncies.\x0a\x0a## [0.8.\
-2] - 2026-02-21\x0a\
-### Changed\x0a- In\
-ference speed-up\
- due to upgraded\
- dependencies.\x0a#\
-## Fixed\x0a- Fix m\
-acOS x86_64 buil\
-d.\x0a\x0a## [0.8.1] -\
- 2026-02-19\x0a### \
-Added\x0a- Support \
-to browse and do\
-wnload detection\
- models from the\
- project page.\x0a-\
- A \x22Generic Obje\
-ct Detection\x22 mo\
-del that detects\
- 80 everyday obj\
-ect classes (Per\
-son, Bicycle, Ca\
-r, etc.) based o\
-n RF-DETR.\x0a- Add\
-ed a filter comb\
-o box to filter \
-displayed detect\
-ions by object c\
-lass.\x0a- Local-on\
-ly models (on di\
-sk but not avail\
-able on the remo\
-te) also appear \
-in the model dia\
-log.\x0atransformer\
-.\x0a- The remote m\
-odel manifest is\
- cached to disk \
-after the first \
-successful fetch\
- so that human-r\
-eadable model na\
-mes are availabl\
-e immediately on\
- the next launch\
-, even before th\
-e manifest is re\
--fetched.\x0a### Ch\
-anged\x0a- The appl\
-ication prompts \
-to download mode\
-ls at first star\
-t and doesn't sh\
-ip them with the\
- release binary \
-anymore.\x0a- The m\
-odel selector sh\
-ows the human-re\
-adable model nam\
-e (e.g. \x22Fish De\
-tection Model\x22) \
-instead of the r\
-aw filename.\x0a- T\
-he confidence sl\
-ider now filters\
- bounding boxes \
-instantly withou\
-t running infere\
-nce again.\x0a- Mod\
-els are distribu\
-ted as gzip-comp\
-ressed `.onnx.gz\
-` files, reducin\
-g download size.\
-\x0a\x0a## [0.8.0] - 2\
-026-02-16\x0a### Ad\
-ded\x0a- Support fo\
-r DETR (DEtectio\
-n TRansformer) m\
-odels for better\
- object detectio\
-n and faster inf\
-erence.\x0a### Chan\
-ged\x0a- Upgrade de\
-tection models:\x0a\
-  - `apoidea-det\
-ect-transformer-\
-2026-02-16` repl\
-aces `bee-detect\
--2025-09-10`.\x0a  \
-- `fish-detect-t\
-ransformer-2026-\
-02-15` replaces \
-`fish-detect-202\
-5-09-11`.\x0a  - Th\
-anks to the High\
- Performance and\
- Cloud Computing\
- Group at the Ze\
-ntrum f\xc3\xbcr Daten\
-verarbeitung of \
-the University o\
-f T\xc3\xbcbingen for \
-providing the co\
-mputing resource\
-s to train train\
- our models on t\
-he bwForCluster \
-BinAC 2.\x0a\x0a## [0.\
-7.5] - 2026-01-3\
-0\x0a### Added\x0a- Ap\
-plication settin\
-gs (window size,\
- model, confiden\
-ce, crop/padding\
- settings, etc.)\
- are persistentl\
-y saved and rest\
-ored between ses\
-sions.\x0a- Add Rec\
-ent Folders subm\
-enu in the File \
-menu to quickly \
-reopen folders, \
-with option to c\
-lear the list.\x0a-\
- Batch processin\
-g now exports a \
-`settings.json` \
-file alongside t\
-he `detections.c\
-sv`, documenting\
- the model and c\
-rop settings use\
-d.\x0a- Add Import/\
-Export Settings \
-menu entries to \
-save and load mo\
-del and crop set\
-tings as JSON fi\
-les.\x0a\x0a## [0.7.4]\
- - 2026-01-29\x0a##\
-# Added\x0a- Displa\
-y the changelog \
-in the About dia\
-log.\x0a\x0a### Change\
-d\x0a- [Dev] Consol\
-idate image file\
- extension const\
-ants to single d\
-efinitions in th\
-eir respective I\
-mageObject subcl\
-asses (HEIF_EXTE\
-NSIONS in HeifIm\
-ageObject, STAND\
-ARD_IMG_EXTENSIO\
-NS in PillowImag\
-eObject, RAW_EXT\
-ENSIONS in RawIm\
-ageObject), remo\
-ving duplicates.\
-\x0a- [Dev] Improve\
- build output st\
-ructure: archite\
-cture-specific d\
-irectories (e.g.\
-, `dist/macos-ar\
-m64`), version a\
-nd architecture \
-in executable na\
-mes (e.g., `Dete\
-ctorist-0.7.4-ma\
-cos-arm64.app`),\
- and clean direc\
-tory before buil\
-ding.\x0a- [Dev] Ad\
-d release.sh to \
-assist with crea\
-ting releases.\x0a\x0a\
-### Fixed\x0a- \x22Cro\
-p & Export all I\
-mages\x22 action is\
- now enabled as \
-soon as images a\
-re loaded, rathe\
-r than requiring\
- the current ima\
-ge to have detec\
-tions.\x0a- Fixed R\
-AW_EXTENSIONS mi\
-ssing leading do\
-ts for some exte\
-nsions (.cr2, .c\
-r3, .orf, .pef),\
- which caused fo\
-lders or files w\
-ith names ending\
- in those string\
-s to be incorrec\
-tly identified a\
-s image files.\x0a\x0a\
-## [0.7.3] - 202\
-6-01-27\x0a### Adde\
-d\x0a- Added binary\
- builds for macO\
-S Intel (x64) an\
-d Linux on ARM (\
-arm64).\x0a- [Dev] \
-Added `poe build\
-` task that auto\
-matically calls \
-the appropriate \
-platform-specifi\
-c build task.\x0a\x0a#\
-## Changed\x0a- Rel\
-ease archive fil\
-enames now inclu\
-de OS and archit\
-ecture (e.g., `D\
-etectorist-macos\
--arm64.zip`).\x0a- \
-The binaries ins\
-ide the archives\
- include the ver\
-sion number (e.g\
-., `Detectorist-\
-0.7.3.app`).\x0a- [\
-Dev] Upgraded de\
-pendencies.\x0a\x0a## \
-[0.7.2] - 2025-1\
-1-25\x0a### Added\x0a-\
- Add `Crop & Exp\
-ort & Remove sel\
-ected Images` ac\
-tion that allows\
- to start a batc\
-h process that c\
-rops and exports\
- the selected im\
-age(s) into a su\
-bfolder and also\
- removes the ima\
-ge(s) from the l\
-ist once it comp\
-leted.\x0a- Selecte\
-d images can now\
- be removed from\
- the list view v\
-ia the context m\
-enu or using the\
- backspace keybo\
-ard shortcut.\x0a  \
-- Note: The imag\
-es are just remo\
-ved from the lis\
-t view in the UI\
-, the images on \
-the filesystem a\
-re untouched. \x0a\x0a\
-### Changed\x0a- Th\
-e `Copy Filename\
- to Clipboard` i\
-s now called `Co\
-py Filenames to \
-Clipboard` becau\
-se it allows to \
-copy all of the \
-selected filenam\
-es into the clip\
-board.\x0a- Rename \
-the `Reveal Imag\
-e in File Manage\
-r` action to `Lo\
-cate Image in Fi\
-lemanager`.\x0a- [D\
-ev] Move action \
-definitions into\
- the .ui file.\x0a\x0a\
-## [0.7.1] - 202\
-5-11-20\x0a### Adde\
-d\x0a- Add option t\
-o crop to the mo\
-st centrally loc\
-ated of all dete\
-cted objects.\x0a- \
-Add option to se\
-t the aspect rat\
-io of the crop t\
-o the aspect rat\
-io of the detect\
- frame (\x22aspect \
-ratio: same as d\
-etection frame\x22)\
-.\x0a- New context \
-menu for the ima\
-ge list view wit\
-h the following \
-image specific a\
-ctions:\x0a  - \x22Rev\
-eal Image in Fil\
-e Manager\x22 to ea\
-sily locate an i\
-mage in your nat\
-ive file manager\
- (Finder, Explor\
-er, etc), and\x0a  \
-- \x22Copy Filename\
- to Clipboard\x22 t\
-hat copies the f\
-ile name string \
-of the selected \
-image to your cl\
-ipboard.\x0a- File \
-menu item to cle\
-ar the image lis\
-t.\x0a- Navigating \
-through the list\
- of images using\
- the keyboard:\x0a \
- - Windows/Linux\
-:\x0a    - Ctrl+Up \
-or Ctrl+Left: ju\
-mp to first imag\
-e\x0a    - Ctrl+Dow\
-n or Ctrl+Right:\
- jump to last im\
-age\x0a  - macOS:\x0a \
-   - \xe2\x8c\x98\xe2\xac\x86\xef\xb8\x8e o\
-r \xe2\x8c\x98\xe2\xac\x85\xef\xb8\x8e: jum\
-p to first image\
-\x0a    - \xe2\x8c\x98\xe2\xac\x87\xef\xb8\x8e\
- or \xe2\x8c\x98\xe2\x9e\xa1\xef\xb8\x8e: j\
-ump to last imag\
-e\x0a\x0a### Changed\x0a-\
- Remove `Crop & \
-copy current ima\
-ge` because we n\
-ow have the `Cro\
-p & export selec\
-ted images`actio\
-n.\x0a- Rename `Sor\
-t images into fo\
-lders` action to\
- `Group images i\
-nto folders` bec\
-ause it groups i\
-mages by the det\
-ected object cla\
-ss.\x0a- Rename `sa\
-ve` actions to `\
-export` actions \
-to clarify that \
-the original ima\
-ges are not over\
-written.\x0a- Adjus\
-t keyboard short\
-cuts:\x0a  - Window\
-s/Linux:\x0a    - S\
-hift+Ctrl+G: Gro\
-up images into f\
-older\x0a    - Ctrl\
-+E: Crop & Expor\
-t selected Image\
-s\x0a    - Shift+Ct\
-rl+E: Crop & Exp\
-ort all Images\x0a \
- - macOS:\x0a    - \
-\xe2\x87\xa7\xe2\x8c\x98G: Group i\
-mages into folde\
-r\x0a    - \xe2\x8c\x98E: Cr\
-op & Export sele\
-cted Images\x0a    \
-- \xe2\x87\xa7\xe2\x8c\x98E: Crop \
-& Export all Ima\
-ges\x0a\x0a## [0.7.0] \
-- 2025-11-14\x0a###\
- Added\x0a- New \x22Op\
-en Image(s)...\x22 \
-action at the Fi\
-le menu to open \
-and load selecte\
-d files only (al\
-so works for dro\
-pping slected fi\
-les).\x0a- Allow se\
-lecting a subset\
- of the loaded i\
-mages to be crop\
-ped & saved.\x0a- D\
-isplay the GPS c\
-oordinates if av\
-ailable in EXIF.\
-\x0a- Allow text se\
-lection in the E\
-XIF info widget \
-to be able to co\
-py text.\x0a\x0a### Ch\
-anged\x0a- Shortcut\
- to open/load fo\
-lders now is Ctr\
-l+Shift+O, since\
- Ctrl+O is for o\
-pening images wi\
-thin folders.\x0a- \
-Enhanced UI resp\
-onsiveness by of\
-floading image l\
-oading and objec\
-t detection to a\
- dedicated `Dete\
-ctionWorker` thr\
-ead for asynchro\
-nous processing.\
-\x0a- Remember the \
-last opened dire\
-ctory for the cu\
-rrent session (n\
-ot persistent).\x0a\
-- [Dev] Refactor\
- ImageObject sub\
-classes into ded\
-icated files and\
- let them handle\
- EXIF individual\
-ly.\x0a- [Dev] Adop\
-t piexif to hand\
-le EXIF and remo\
-ve the now unuse\
-d exifread depen\
-dency.\x0a\x0a### Fixe\
-d\x0a- When auto co\
-rrecting the exp\
-osure for a crop\
-ped image, also \
-reset the Exposu\
-reBiasValue in t\
-he EXIF.\x0a- Fix U\
-I layout for the\
- crop settings.\x0a\
-\x0a## [0.6.2] - 20\
-25-11-06\x0a### Cha\
-nged\x0a- The `Tool\
-s` menu is now c\
-alled `Actions` \
-to make it clear\
-er that its entr\
-ies trigger imme\
-diate actions.\x0a-\
- Enable the auto\
- correct camera \
-exposure bios fu\
-nctionality by d\
-efault.\x0a- Add '_\
-crop' to the nam\
-e of the resulti\
-ng file when cro\
-pping images.\x0a- \
-[Dev] Clarify bi\
-t depth handling\
- for HEIF images\
-.\x0a- [Dev] Use co\
-ntext manager wh\
-en loading EXIF \
-data from PIL im\
-ages.\x0a- [Dev] Up\
-date dependencie\
-s.\x0a\x0a### Fixed\x0a- \
-Memory leak when\
- cropping HEIF i\
-mages (fixed wit\
-h upgrading pill\
-ow-heif).\x0a- Prog\
-ress bar visibil\
-ity when croppin\
-g multiple image\
-s (fixed with py\
-side6 upgrade).\x0a\
-- Ignore exposur\
-e compensation r\
-equests for imag\
-es that don't ha\
-ve the ExposureB\
-iasValue data pr\
-esent in their E\
-XIF.\x0a\x0a## [0.6.1]\
- - 2025-11-03\x0a##\
-# Added\x0a- Suppor\
-t to automatical\
-ly adjust the ex\
-posure when crop\
-ping images to c\
-orrect for any e\
-xposure bias pre\
-sent in the EXIF\
- data.\x0a- Add sup\
-port for palette\
--based images su\
-ch as GIFs.\x0a\x0a###\
- Changed\x0a- [Dev]\
- Move the detect\
-orist sources in\
-to a `src` direc\
-tory and:\x0a  - Us\
-e relative impor\
-ts within the pa\
-ckage (e.g., fro\
-m .module import\
- ...).\x0a  - Use a\
-bsolute imports \
-for entry points\
- or scripts (e.g\
-., from detector\
-ist.module impor\
-t ...).\x0a\x0a### Fix\
-ed\x0a- Support for\
- handling 8 bit \
-CMYK images.\x0a\x0a##\
- [0.6.0] - 2025-\
-10-31\x0a### Added\x0a\
-- Display Exposu\
-re Compensation \
-for a loaded ima\
-ge from its EXIF\
- data.\x0a- Display\
- the Bits Per Ch\
-annel (color dep\
-th) of the loade\
-d image.\x0a- Add s\
-upport for 16 bi\
-t standard image\
- files (e.g. 16 \
-bit PNG).\x0a- [Dev\
-] Switch from Pi\
-llow to OpenCV t\
-o support 16 bit\
- standard image \
-files.\x0a\x0a### Chan\
-ged\x0a- UI space f\
-or EXIF data exp\
-ands to display \
-more contents (i\
-f the app window\
- size is increas\
-ed vertically).\x0a\
-- [Dev] Refactor\
- image data load\
-ing/holding/savi\
-ng logic to make\
- it more robust \
-and universal.\x0a\x0a\
-### Fixed\x0a- Drag\
- & drop for imag\
-es.\x0a\x0a## [0.5.1] \
-- 2025-10-02\x0a###\
+Unreleased]\x0a### \
+Changed\x0a- [Dev] \
+Make release scr\
+ipt handle HTTPS\
+ git remotes.\x0a- \
+[Dev] Upgrade de\
+pendencies.\x0a### \
+Fixed\x0a- Fix expo\
+rt/cropping on W\
+indows for deepl\
+y nested folders\
+ or long file na\
+mes. Output path\
+s over the 260 c\
+har `MAX_PATH` l\
+imit now use Win\
+dows extended-le\
+ngth paths.\x0a\x0a## \
+[0.9.0] - 2026-0\
+3-10\x0a### Added\x0a-\
+ Add support for\
+ instance segmen\
+tation. Three ne\
+w models are inc\
+luded:\x0a  - Fish \
+Segmentation\x0a  -\
+ Apoidea Segment\
+ation\x0a  - Generi\
+c Instance Segme\
+ntation\x0a- The mo\
+del manager now \
+detects when an \
+older version of\
+ a model is inst\
+alled and marks \
+it as outdated, \
+with an option t\
+o download the n\
+ewer version.\x0a##\
+# Changed\x0a- Mode\
+l names in the c\
+ombo box no long\
+er include the r\
+elease date. It \
+is still shown i\
+n the model mana\
+ger.\x0a- [Dev] Ref\
+actor model mana\
+gement code.\x0a- [\
+Dev] Rename gene\
+rated Qt UI file\
+s to the `ui_*` \
+convention.\x0a- [D\
+ev] QRC omit per\
+-file timestamps\
+ for reproducibl\
+e builds.\x0a- [Dev\
+] Upgrade depend\
+encies.\x0a\x0a## [0.8\
+.2] - 2026-02-21\
+\x0a### Changed\x0a- I\
+nference speed-u\
+p due to upgrade\
+d dependencies.\x0a\
+### Fixed\x0a- Fix \
+macOS x86_64 bui\
+ld.\x0a\x0a## [0.8.1] \
+- 2026-02-19\x0a###\
  Added\x0a- Support\
- loading 4 chann\
-el CMYK JPG imag\
-es.\x0a- [Dev] Add \
-ruff for linting\
-.\x0a\x0a### Changed\x0a-\
- [Dev] GitHub Ac\
-tions, pull mode\
-ls using git-lfs\
- for releases on\
-ly.\x0a- [Dev] Remo\
-ve unused code.\x0a\
-\x0a## [0.5.0] - 20\
-25-09-22\x0a### Add\
+ to browse and d\
+ownload detectio\
+n models from th\
+e project page.\x0a\
+- A \x22Generic Obj\
+ect Detection\x22 m\
+odel that detect\
+s 80 everyday ob\
+ject classes (Pe\
+rson, Bicycle, C\
+ar, etc.) based \
+on RF-DETR.\x0a- Ad\
+ded a filter com\
+bo box to filter\
+ displayed detec\
+tions by object \
+class.\x0a- Local-o\
+nly models (on d\
+isk but not avai\
+lable on the rem\
+ote) also appear\
+ in the model di\
+alog.\x0atransforme\
+r.\x0a- The remote \
+model manifest i\
+s cached to disk\
+ after the first\
+ successful fetc\
+h so that human-\
+readable model n\
+ames are availab\
+le immediately o\
+n the next launc\
+h, even before t\
+he manifest is r\
+e-fetched.\x0a### C\
+hanged\x0a- The app\
+lication prompts\
+ to download mod\
+els at first sta\
+rt and doesn't s\
+hip them with th\
+e release binary\
+ anymore.\x0a- The \
+model selector s\
+hows the human-r\
+eadable model na\
+me (e.g. \x22Fish D\
+etection Model\x22)\
+ instead of the \
+raw filename.\x0a- \
+The confidence s\
+lider now filter\
+s bounding boxes\
+ instantly witho\
+ut running infer\
+ence again.\x0a- Mo\
+dels are distrib\
+uted as gzip-com\
+pressed `.onnx.g\
+z` files, reduci\
+ng download size\
+.\x0a\x0a## [0.8.0] - \
+2026-02-16\x0a### A\
+dded\x0a- Support f\
+or DETR (DEtecti\
+on TRansformer) \
+models for bette\
+r object detecti\
+on and faster in\
+ference.\x0a### Cha\
+nged\x0a- Upgrade d\
+etection models:\
+\x0a  - `apoidea-de\
+tect-transformer\
+-2026-02-16` rep\
+laces `bee-detec\
+t-2025-09-10`.\x0a \
+ - `fish-detect-\
+transformer-2026\
+-02-15` replaces\
+ `fish-detect-20\
+25-09-11`.\x0a  - T\
+hanks to the Hig\
+h Performance an\
+d Cloud Computin\
+g Group at the Z\
+entrum f\xc3\xbcr Date\
+nverarbeitung of\
+ the University \
+of T\xc3\xbcbingen for\
+ providing the c\
+omputing resourc\
+es to train trai\
+n our models on \
+the bwForCluster\
+ BinAC 2.\x0a\x0a## [0\
+.7.5] - 2026-01-\
+30\x0a### Added\x0a- A\
+pplication setti\
+ngs (window size\
+, model, confide\
+nce, crop/paddin\
+g settings, etc.\
+) are persistent\
+ly saved and res\
+tored between se\
+ssions.\x0a- Add Re\
+cent Folders sub\
+menu in the File\
+ menu to quickly\
+ reopen folders,\
+ with option to \
+clear the list.\x0a\
+- Batch processi\
+ng now exports a\
+ `settings.json`\
+ file alongside \
+the `detections.\
+csv`, documentin\
+g the model and \
+crop settings us\
+ed.\x0a- Add Import\
+/Export Settings\
+ menu entries to\
+ save and load m\
+odel and crop se\
+ttings as JSON f\
+iles.\x0a\x0a## [0.7.4\
+] - 2026-01-29\x0a#\
+## Added\x0a- Displ\
+ay the changelog\
+ in the About di\
+alog.\x0a\x0a### Chang\
+ed\x0a- [Dev] Conso\
+lidate image fil\
+e extension cons\
+tants to single \
+definitions in t\
+heir respective \
+ImageObject subc\
+lasses (HEIF_EXT\
+ENSIONS in HeifI\
+mageObject, STAN\
+DARD_IMG_EXTENSI\
+ONS in PillowIma\
+geObject, RAW_EX\
+TENSIONS in RawI\
+mageObject), rem\
+oving duplicates\
+.\x0a- [Dev] Improv\
+e build output s\
+tructure: archit\
+ecture-specific \
+directories (e.g\
+., `dist/macos-a\
+rm64`), version \
+and architecture\
+ in executable n\
+ames (e.g., `Det\
+ectorist-0.7.4-m\
+acos-arm64.app`)\
+, and clean dire\
+ctory before bui\
+lding.\x0a- [Dev] A\
+dd release.sh to\
+ assist with cre\
+ating releases.\x0a\
+\x0a### Fixed\x0a- \x22Cr\
+op & Export all \
+Images\x22 action i\
+s now enabled as\
+ soon as images \
+are loaded, rath\
+er than requirin\
+g the current im\
+age to have dete\
+ctions.\x0a- Fixed \
+RAW_EXTENSIONS m\
+issing leading d\
+ots for some ext\
+ensions (.cr2, .\
+cr3, .orf, .pef)\
+, which caused f\
+olders or files \
+with names endin\
+g in those strin\
+gs to be incorre\
+ctly identified \
+as image files.\x0a\
+\x0a## [0.7.3] - 20\
+26-01-27\x0a### Add\
+ed\x0a- Added binar\
+y builds for mac\
+OS Intel (x64) a\
+nd Linux on ARM \
+(arm64).\x0a- [Dev]\
+ Added `poe buil\
+d` task that aut\
+omatically calls\
+ the appropriate\
+ platform-specif\
+ic build task.\x0a\x0a\
+### Changed\x0a- Re\
+lease archive fi\
+lenames now incl\
+ude OS and archi\
+tecture (e.g., `\
+Detectorist-maco\
+s-arm64.zip`).\x0a-\
+ The binaries in\
+side the archive\
+s include the ve\
+rsion number (e.\
+g., `Detectorist\
+-0.7.3.app`).\x0a- \
+[Dev] Upgraded d\
+ependencies.\x0a\x0a##\
+ [0.7.2] - 2025-\
+11-25\x0a### Added\x0a\
+- Add `Crop & Ex\
+port & Remove se\
+lected Images` a\
+ction that allow\
+s to start a bat\
+ch process that \
+crops and export\
+s the selected i\
+mage(s) into a s\
+ubfolder and als\
+o removes the im\
+age(s) from the \
+list once it com\
+pleted.\x0a- Select\
+ed images can no\
+w be removed fro\
+m the list view \
+via the context \
+menu or using th\
+e backspace keyb\
+oard shortcut.\x0a \
+ - Note: The ima\
+ges are just rem\
+oved from the li\
+st view in the U\
+I, the images on\
+ the filesystem \
+are untouched. \x0a\
+\x0a### Changed\x0a- T\
+he `Copy Filenam\
+e to Clipboard` \
+is now called `C\
+opy Filenames to\
+ Clipboard` beca\
+use it allows to\
+ copy all of the\
+ selected filena\
+mes into the cli\
+pboard.\x0a- Rename\
+ the `Reveal Ima\
+ge in File Manag\
+er` action to `L\
+ocate Image in F\
+ilemanager`.\x0a- [\
+Dev] Move action\
+ definitions int\
+o the .ui file.\x0a\
+\x0a## [0.7.1] - 20\
+25-11-20\x0a### Add\
 ed\x0a- Add option \
-to crop all dete\
-cted objects int\
-o new (cropped) \
-images.\x0a- Suppor\
-t for additional\
- crop aspect rat\
-ios.\x0a\x0a### Change\
-d\x0a- When the cro\
-p rectangle is l\
-arger than the i\
-mage, the center\
- point of is now\
- preserved to pr\
-event the croppi\
-ng frame from sh\
-ifting away (in \
-case the padding\
- is increased).\x0a\
-\x0a### Fixed\x0a- All\
-ow the about dia\
-log to change it\
-s size so the co\
-ntent always fit\
-s (e.g. when dif\
-ferent fonts are\
- used).\x0a- In cas\
-e a new folder i\
-s opened that do\
-esn't contain an\
-y supported imag\
-es, any previous\
- detection infos\
- are cleared.\x0a\x0a#\
-# [0.4.2] - 2025\
--09-18\x0a### Chang\
-ed\x0a- Minimum all\
-owed confidence \
-threshold is 1 i\
-nstead of 0.\x0a- R\
-emove the NMS sl\
-ider & spin-box,\
- and use a defau\
-lt of 0.4.\x0a\x0a### \
-Fixed\x0a- When pro\
-cessing multiple\
- images, ensure \
-that the progres\
-s dialog is clos\
-ed when the acti\
-on has been comp\
-leted or cancele\
-d.\x0a\x0a## [0.4.1] -\
- 2025-09-15\x0a### \
-Added\x0a- Build EL\
-F binary for Lin\
-ux x64.\x0a\x0a### Cha\
-nged\x0a- [Dev] Poe\
- tasks now depen\
-d on building th\
-e `.ui` and `.qr\
-c` files.\x0a\x0a### F\
-ixed\x0a- Handle im\
-ages with alpha \
-channels - this \
-fixes loading PN\
-Gs.\x0a\x0a## [0.4.0] \
-- 2025-09-11\x0a###\
- Added\x0a- Additio\
-nal model for de\
-tecting bees in \
-images.\x0a- Re-run\
- object detectio\
-n when the model\
- is changed.\x0a- [\
-Dev] Add poe ruf\
-f task.\x0a\x0a### Cha\
-nged\x0a- [Dev] Tra\
-ck model files w\
-ith git lfs.\x0a- U\
-pdate model for \
-fish detection t\
-hat works better\
- for images with\
- multiple fish.\x0a\
-\x0a## [0.3.4] - 20\
-25-09-10\x0a### Cha\
-nged\x0a- [Dev] Sim\
-plify build proc\
-ess of the binar\
-y distributables\
-.\x0a\x0a### Fixed\x0a- F\
-ixed instruction\
-s to build distr\
-ibutables.\x0a- [Wi\
-ndows] Ensure th\
-e splash screen \
-disappears when \
-the main applica\
-tion window star\
-ts.\x0a\x0a## [0.3.3] \
-- 2025-09-07\x0a###\
- Added\x0a- When pr\
-ocessing multipl\
-e images, write \
-a log file to th\
-e output directo\
-ry providing inf\
-ormation about t\
-he detections.\x0a-\
- [Dev] Added ruf\
-f for linting.\x0a\x0a\
-### Changed\x0a- Na\
-me of the output\
- directory chang\
-ed (example: `de\
-tectorist_conf-7\
-5_fish-detect-20\
-25-08-01`).\x0a- [D\
-ev] Migrate from\
- PEP 621-style d\
-ependencies to P\
-EP 695 dependenc\
-y-groups.\x0a\x0a### F\
-ixed\x0a- [Dev] Con\
-sistent code for\
-matting.\x0a\x0a## [0.\
-3.2] - 2025-09-0\
-6\x0a### Added\x0a- Di\
-splay the class \
-of the detected \
-object in the to\
-oltip.\x0a- Support\
- for sorting ima\
-ges into sub fol\
-ders that are na\
-med after the de\
+to crop to the m\
+ost centrally lo\
+cated of all det\
+ected objects.\x0a-\
+ Add option to s\
+et the aspect ra\
+tio of the crop \
+to the aspect ra\
+tio of the detec\
+t frame (\x22aspect\
+ ratio: same as \
+detection frame\x22\
+).\x0a- New context\
+ menu for the im\
+age list view wi\
+th the following\
+ image specific \
+actions:\x0a  - \x22Re\
+veal Image in Fi\
+le Manager\x22 to e\
+asily locate an \
+image in your na\
+tive file manage\
+r (Finder, Explo\
+rer, etc), and\x0a \
+ - \x22Copy Filenam\
+e to Clipboard\x22 \
+that copies the \
+file name string\
+ of the selected\
+ image to your c\
+lipboard.\x0a- File\
+ menu item to cl\
+ear the image li\
+st.\x0a- Navigating\
+ through the lis\
+t of images usin\
+g the keyboard:\x0a\
+  - Windows/Linu\
+x:\x0a    - Ctrl+Up\
+ or Ctrl+Left: j\
+ump to first ima\
+ge\x0a    - Ctrl+Do\
+wn or Ctrl+Right\
+: jump to last i\
+mage\x0a  - macOS:\x0a\
+    - \xe2\x8c\x98\xe2\xac\x86\xef\xb8\x8e \
+or \xe2\x8c\x98\xe2\xac\x85\xef\xb8\x8e: ju\
+mp to first imag\
+e\x0a    - \xe2\x8c\x98\xe2\xac\x87\xef\xb8\
+\x8e or \xe2\x8c\x98\xe2\x9e\xa1\xef\xb8\x8e: \
+jump to last ima\
+ge\x0a\x0a### Changed\x0a\
+- Remove `Crop &\
+ copy current im\
+age` because we \
+now have the `Cr\
+op & export sele\
+cted images`acti\
+on.\x0a- Rename `So\
+rt images into f\
+olders` action t\
+o `Group images \
+into folders` be\
+cause it groups \
+images by the de\
 tected object cl\
-ass using the co\
-rresponding acti\
-on in the Tools \
-menu.\x0a\x0a### Fixed\
-\x0a- Information c\
-orrected in the \
-About dialog.\x0a\x0a#\
-# [0.3.1] - 2025\
--09-05\x0a### Fixed\
-\x0a- Ensure the cr\
-opping rectangle\
- always fits the\
- image and maint\
-ains aspect rati\
-o.\x0a- Ensure the \
-object bounding \
-box always stays\
- within the imag\
-e boundaries.\x0a\x0a#\
-# [0.3.0] - 2025\
--09-02\x0a### Chang\
-ed\x0a- Renamed the\
- project to Dete\
-ctorist.\x0a\x0a## [0.\
-2.1] - 2025-08-3\
-0\x0a### Added\x0a- In\
-itial [FAQ](FAQ.\
-md) added.\x0a\x0a### \
-Changed\x0a- Improv\
-ed the GitHub ac\
-tions build & re\
-lease workflow.\x0a\
-\x0a### Fixed\x0a- Fix\
-ed the macOS app\
- bundle build an\
-d binary release\
-.\x0a\x0a## [0.2.0] - \
-2025-08-29\x0a### A\
-dded\x0a- Cropping \
-feature to save \
-detected objects\
- as separate ima\
-ges.\x0a- Configura\
-ble aspect ratio\
-s (3:2, 4:4, 16:\
-9) and padding f\
-or cropped image\
-s.\x0a- Confidence \
-scores are now s\
-hown as tooltips\
- when hovering o\
-ver bounding box\
-es.\x0a- Object det\
-ection informati\
-on is displayed \
-in the UI.\x0a- The\
- native file exp\
-lorer is opened \
-to show the crop\
-ped images after\
- the crop action\
- is finished.\x0a- \
-Simple About dia\
-log added with l\
-ink to the proje\
-ct page.\x0a\x0a### Ch\
-anged\x0a- The \x22Cro\
-p\x22 actions have \
-been moved into \
-a dedicated \x22Too\
-ls\x22 menu.\x0a- Rewo\
-rked path handli\
-ng for cropping \
-to be more robus\
-t.\x0a- Refactored \
-`Image` to `Imag\
-eObject` and `Ex\
-if` to `ExifWrap\
-per` for better \
-code organizatio\
-n.\x0a- Updated dep\
-endencies to the\
-ir latest versio\
-ns.\x0a\x0a### Fixed\x0a-\
- Support for RAW\
- image files has\
- been fixed.\x0a- C\
-ropping of non-H\
-EIF images is no\
-w correctly hand\
-led using PIL.\x0a-\
- The \x22Crop & Sav\
-e All\x22 action no\
-w works correctl\
-y even if the cu\
-rrently displaye\
-d image has no d\
-etections.\x0a\x0a## [\
-0.1.3] - 2025-08\
--15\x0a### Changed\x0a\
-- Migrated GitHu\
-b Actions to use\
- `astral-sh/setu\
-p-uv@v6` and `ac\
-tions/upload-art\
-ifact@v4`.\x0a\x0a### \
-Fixed\x0a- Resolved\
- problem with th\
-e Windows build \
-process.\x0a- Fixed\
- the release pac\
-kaging.\x0a\x0a## [0.1\
-.2] - 2025-08-15\
-\x0a### Added\x0a- Dra\
-g & drop support\
- for folders and\
- images.\x0a- Added\
- a GitHub Action\
-s workflow for a\
-utomated builds.\
-\x0a\x0a## [0.1.1] - 2\
-025-08-12\x0a### Ad\
-ded\x0a- Display se\
-lected EXIF data\
-.\x0a\x0a## [0.1.0] - \
-2025-08-01\x0a### A\
-dded\x0a- Initial r\
-elease with MVP \
-functionality.\x0a-\
- Image browser w\
-ith navigation a\
-dded.\x0a- Basic ob\
-ject detection u\
-sing an ONNX mod\
-el.\x0a- Support fo\
-r PNG, JPG, BMP,\
- HEIC/HEIF, and \
-Sony RAW (.ARW) \
-images.\
+ass.\x0a- Rename `s\
+ave` actions to \
+`export` actions\
+ to clarify that\
+ the original im\
+ages are not ove\
+rwritten.\x0a- Adju\
+st keyboard shor\
+tcuts:\x0a  - Windo\
+ws/Linux:\x0a    - \
+Shift+Ctrl+G: Gr\
+oup images into \
+folder\x0a    - Ctr\
+l+E: Crop & Expo\
+rt selected Imag\
+es\x0a    - Shift+C\
+trl+E: Crop & Ex\
+port all Images\x0a\
+  - macOS:\x0a    -\
+ \xe2\x87\xa7\xe2\x8c\x98G: Group \
+images into fold\
+er\x0a    - \xe2\x8c\x98E: C\
+rop & Export sel\
+ected Images\x0a   \
+ - \xe2\x87\xa7\xe2\x8c\x98E: Crop\
+ & Export all Im\
+ages\x0a\x0a## [0.7.0]\
+ - 2025-11-14\x0a##\
+# Added\x0a- New \x22O\
+pen Image(s)...\x22\
+ action at the F\
+ile menu to open\
+ and load select\
+ed files only (a\
+lso works for dr\
+opping slected f\
+iles).\x0a- Allow s\
+electing a subse\
+t of the loaded \
+images to be cro\
+pped & saved.\x0a- \
+Display the GPS \
+coordinates if a\
+vailable in EXIF\
+.\x0a- Allow text s\
+election in the \
+EXIF info widget\
+ to be able to c\
+opy text.\x0a\x0a### C\
+hanged\x0a- Shortcu\
+t to open/load f\
+olders now is Ct\
+rl+Shift+O, sinc\
+e Ctrl+O is for \
+opening images w\
+ithin folders.\x0a-\
+ Enhanced UI res\
+ponsiveness by o\
+ffloading image \
+loading and obje\
+ct detection to \
+a dedicated `Det\
+ectionWorker` th\
+read for asynchr\
+onous processing\
+.\x0a- Remember the\
+ last opened dir\
+ectory for the c\
+urrent session (\
+not persistent).\
+\x0a- [Dev] Refacto\
+r ImageObject su\
+bclasses into de\
+dicated files an\
+d let them handl\
+e EXIF individua\
+lly.\x0a- [Dev] Ado\
+pt piexif to han\
+dle EXIF and rem\
+ove the now unus\
+ed exifread depe\
+ndency.\x0a\x0a### Fix\
+ed\x0a- When auto c\
+orrecting the ex\
+posure for a cro\
+pped image, also\
+ reset the Expos\
+ureBiasValue in \
+the EXIF.\x0a- Fix \
+UI layout for th\
+e crop settings.\
+\x0a\x0a## [0.6.2] - 2\
+025-11-06\x0a### Ch\
+anged\x0a- The `Too\
+ls` menu is now \
+called `Actions`\
+ to make it clea\
+rer that its ent\
+ries trigger imm\
+ediate actions.\x0a\
+- Enable the aut\
+o correct camera\
+ exposure bios f\
+unctionality by \
+default.\x0a- Add '\
+_crop' to the na\
+me of the result\
+ing file when cr\
+opping images.\x0a-\
+ [Dev] Clarify b\
+it depth handlin\
+g for HEIF image\
+s.\x0a- [Dev] Use c\
+ontext manager w\
+hen loading EXIF\
+ data from PIL i\
+mages.\x0a- [Dev] U\
+pdate dependenci\
+es.\x0a\x0a### Fixed\x0a-\
+ Memory leak whe\
+n cropping HEIF \
+images (fixed wi\
+th upgrading pil\
+low-heif).\x0a- Pro\
+gress bar visibi\
+lity when croppi\
+ng multiple imag\
+es (fixed with p\
+yside6 upgrade).\
+\x0a- Ignore exposu\
+re compensation \
+requests for ima\
+ges that don't h\
+ave the Exposure\
+BiasValue data p\
+resent in their \
+EXIF.\x0a\x0a## [0.6.1\
+] - 2025-11-03\x0a#\
+## Added\x0a- Suppo\
+rt to automatica\
+lly adjust the e\
+xposure when cro\
+pping images to \
+correct for any \
+exposure bias pr\
+esent in the EXI\
+F data.\x0a- Add su\
+pport for palett\
+e-based images s\
+uch as GIFs.\x0a\x0a##\
+# Changed\x0a- [Dev\
+] Move the detec\
+torist sources i\
+nto a `src` dire\
+ctory and:\x0a  - U\
+se relative impo\
+rts within the p\
+ackage (e.g., fr\
+om .module impor\
+t ...).\x0a  - Use \
+absolute imports\
+ for entry point\
+s or scripts (e.\
+g., from detecto\
+rist.module impo\
+rt ...).\x0a\x0a### Fi\
+xed\x0a- Support fo\
+r handling 8 bit\
+ CMYK images.\x0a\x0a#\
+# [0.6.0] - 2025\
+-10-31\x0a### Added\
+\x0a- Display Expos\
+ure Compensation\
+ for a loaded im\
+age from its EXI\
+F data.\x0a- Displa\
+y the Bits Per C\
+hannel (color de\
+pth) of the load\
+ed image.\x0a- Add \
+support for 16 b\
+it standard imag\
+e files (e.g. 16\
+ bit PNG).\x0a- [De\
+v] Switch from P\
+illow to OpenCV \
+to support 16 bi\
+t standard image\
+ files.\x0a\x0a### Cha\
+nged\x0a- UI space \
+for EXIF data ex\
+pands to display\
+ more contents (\
+if the app windo\
+w size is increa\
+sed vertically).\
+\x0a- [Dev] Refacto\
+r image data loa\
+ding/holding/sav\
+ing logic to mak\
+e it more robust\
+ and universal.\x0a\
+\x0a### Fixed\x0a- Dra\
+g & drop for ima\
+ges.\x0a\x0a## [0.5.1]\
+ - 2025-10-02\x0a##\
+# Added\x0a- Suppor\
+t loading 4 chan\
+nel CMYK JPG ima\
+ges.\x0a- [Dev] Add\
+ ruff for lintin\
+g.\x0a\x0a### Changed\x0a\
+- [Dev] GitHub A\
+ctions, pull mod\
+els using git-lf\
+s for releases o\
+nly.\x0a- [Dev] Rem\
+ove unused code.\
+\x0a\x0a## [0.5.0] - 2\
+025-09-22\x0a### Ad\
+ded\x0a- Add option\
+ to crop all det\
+ected objects in\
+to new (cropped)\
+ images.\x0a- Suppo\
+rt for additiona\
+l crop aspect ra\
+tios.\x0a\x0a### Chang\
+ed\x0a- When the cr\
+op rectangle is \
+larger than the \
+image, the cente\
+r point of is no\
+w preserved to p\
+revent the cropp\
+ing frame from s\
+hifting away (in\
+ case the paddin\
+g is increased).\
+\x0a\x0a### Fixed\x0a- Al\
+low the about di\
+alog to change i\
+ts size so the c\
+ontent always fi\
+ts (e.g. when di\
+fferent fonts ar\
+e used).\x0a- In ca\
+se a new folder \
+is opened that d\
+oesn't contain a\
+ny supported ima\
+ges, any previou\
+s detection info\
+s are cleared.\x0a\x0a\
+## [0.4.2] - 202\
+5-09-18\x0a### Chan\
+ged\x0a- Minimum al\
+lowed confidence\
+ threshold is 1 \
+instead of 0.\x0a- \
+Remove the NMS s\
+lider & spin-box\
+, and use a defa\
+ult of 0.4.\x0a\x0a###\
+ Fixed\x0a- When pr\
+ocessing multipl\
+e images, ensure\
+ that the progre\
+ss dialog is clo\
+sed when the act\
+ion has been com\
+pleted or cancel\
+ed.\x0a\x0a## [0.4.1] \
+- 2025-09-15\x0a###\
+ Added\x0a- Build E\
+LF binary for Li\
+nux x64.\x0a\x0a### Ch\
+anged\x0a- [Dev] Po\
+e tasks now depe\
+nd on building t\
+he `.ui` and `.q\
+rc` files.\x0a\x0a### \
+Fixed\x0a- Handle i\
+mages with alpha\
+ channels - this\
+ fixes loading P\
+NGs.\x0a\x0a## [0.4.0]\
+ - 2025-09-11\x0a##\
+# Added\x0a- Additi\
+onal model for d\
+etecting bees in\
+ images.\x0a- Re-ru\
+n object detecti\
+on when the mode\
+l is changed.\x0a- \
+[Dev] Add poe ru\
+ff task.\x0a\x0a### Ch\
+anged\x0a- [Dev] Tr\
+ack model files \
+with git lfs.\x0a- \
+Update model for\
+ fish detection \
+that works bette\
+r for images wit\
+h multiple fish.\
+\x0a\x0a## [0.3.4] - 2\
+025-09-10\x0a### Ch\
+anged\x0a- [Dev] Si\
+mplify build pro\
+cess of the bina\
+ry distributable\
+s.\x0a\x0a### Fixed\x0a- \
+Fixed instructio\
+ns to build dist\
+ributables.\x0a- [W\
+indows] Ensure t\
+he splash screen\
+ disappears when\
+ the main applic\
+ation window sta\
+rts.\x0a\x0a## [0.3.3]\
+ - 2025-09-07\x0a##\
+# Added\x0a- When p\
+rocessing multip\
+le images, write\
+ a log file to t\
+he output direct\
+ory providing in\
+formation about \
+the detections.\x0a\
+- [Dev] Added ru\
+ff for linting.\x0a\
+\x0a### Changed\x0a- N\
+ame of the outpu\
+t directory chan\
+ged (example: `d\
+etectorist_conf-\
+75_fish-detect-2\
+025-08-01`).\x0a- [\
+Dev] Migrate fro\
+m PEP 621-style \
+dependencies to \
+PEP 695 dependen\
+cy-groups.\x0a\x0a### \
+Fixed\x0a- [Dev] Co\
+nsistent code fo\
+rmatting.\x0a\x0a## [0\
+.3.2] - 2025-09-\
+06\x0a### Added\x0a- D\
+isplay the class\
+ of the detected\
+ object in the t\
+ooltip.\x0a- Suppor\
+t for sorting im\
+ages into sub fo\
+lders that are n\
+amed after the d\
+etected object c\
+lass using the c\
+orresponding act\
+ion in the Tools\
+ menu.\x0a\x0a### Fixe\
+d\x0a- Information \
+corrected in the\
+ About dialog.\x0a\x0a\
+## [0.3.1] - 202\
+5-09-05\x0a### Fixe\
+d\x0a- Ensure the c\
+ropping rectangl\
+e always fits th\
+e image and main\
+tains aspect rat\
+io.\x0a- Ensure the\
+ object bounding\
+ box always stay\
+s within the ima\
+ge boundaries.\x0a\x0a\
+## [0.3.0] - 202\
+5-09-02\x0a### Chan\
+ged\x0a- Renamed th\
+e project to Det\
+ectorist.\x0a\x0a## [0\
+.2.1] - 2025-08-\
+30\x0a### Added\x0a- I\
+nitial [FAQ](FAQ\
+.md) added.\x0a\x0a###\
+ Changed\x0a- Impro\
+ved the GitHub a\
+ctions build & r\
+elease workflow.\
+\x0a\x0a### Fixed\x0a- Fi\
+xed the macOS ap\
+p bundle build a\
+nd binary releas\
+e.\x0a\x0a## [0.2.0] -\
+ 2025-08-29\x0a### \
+Added\x0a- Cropping\
+ feature to save\
+ detected object\
+s as separate im\
+ages.\x0a- Configur\
+able aspect rati\
+os (3:2, 4:4, 16\
+:9) and padding \
+for cropped imag\
+es.\x0a- Confidence\
+ scores are now \
+shown as tooltip\
+s when hovering \
+over bounding bo\
+xes.\x0a- Object de\
+tection informat\
+ion is displayed\
+ in the UI.\x0a- Th\
+e native file ex\
+plorer is opened\
+ to show the cro\
+pped images afte\
+r the crop actio\
+n is finished.\x0a-\
+ Simple About di\
+alog added with \
+link to the proj\
+ect page.\x0a\x0a### C\
+hanged\x0a- The \x22Cr\
+op\x22 actions have\
+ been moved into\
+ a dedicated \x22To\
+ols\x22 menu.\x0a- Rew\
+orked path handl\
+ing for cropping\
+ to be more robu\
+st.\x0a- Refactored\
+ `Image` to `Ima\
+geObject` and `E\
+xif` to `ExifWra\
+pper` for better\
+ code organizati\
+on.\x0a- Updated de\
+pendencies to th\
+eir latest versi\
+ons.\x0a\x0a### Fixed\x0a\
+- Support for RA\
+W image files ha\
+s been fixed.\x0a- \
+Cropping of non-\
+HEIF images is n\
+ow correctly han\
+dled using PIL.\x0a\
+- The \x22Crop & Sa\
+ve All\x22 action n\
+ow works correct\
+ly even if the c\
+urrently display\
+ed image has no \
+detections.\x0a\x0a## \
+[0.1.3] - 2025-0\
+8-15\x0a### Changed\
+\x0a- Migrated GitH\
+ub Actions to us\
+e `astral-sh/set\
+up-uv@v6` and `a\
+ctions/upload-ar\
+tifact@v4`.\x0a\x0a###\
+ Fixed\x0a- Resolve\
+d problem with t\
+he Windows build\
+ process.\x0a- Fixe\
+d the release pa\
+ckaging.\x0a\x0a## [0.\
+1.2] - 2025-08-1\
+5\x0a### Added\x0a- Dr\
+ag & drop suppor\
+t for folders an\
+d images.\x0a- Adde\
+d a GitHub Actio\
+ns workflow for \
+automated builds\
+.\x0a\x0a## [0.1.1] - \
+2025-08-12\x0a### A\
+dded\x0a- Display s\
+elected EXIF dat\
+a.\x0a\x0a## [0.1.0] -\
+ 2025-08-01\x0a### \
+Added\x0a- Initial \
+release with MVP\
+ functionality.\x0a\
+- Image browser \
+with navigation \
+added.\x0a- Basic o\
+bject detection \
+using an ONNX mo\
+del.\x0a- Support f\
+or PNG, JPG, BMP\
+, HEIC/HEIF, and\
+ Sony RAW (.ARW)\
+ images.\
 \x00\x00v\x07\
 \x89\
 PNG\x0d\x0a\x1a\x0a\x00\x00\x00\x0dIHDR\x00\
@@ -2810,7 +2828,7 @@ qt_resource_struct = b"\
 \x00\x00\x00\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00\x01\
 \x00\x00\x00\x10\x00\x02\x00\x00\x00\x01\x00\x00\x00\x04\
 \x00\x00\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x03\
-\x00\x00\x00<\x00\x00\x00\x00\x00\x01\x00\x007\x5c\
+\x00\x00\x00<\x00\x00\x00\x00\x00\x01\x00\x008}\
 \x00\x00\x00\x1e\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\
 "
 
