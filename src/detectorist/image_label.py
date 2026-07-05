@@ -240,10 +240,19 @@ class ImageLabel(QLabel):
         self.setPixmap(pixmap)
         self.set_detection_boxes([])
 
+    def refresh_pixmap(self):
+        """
+        Rebuilds the pixmap from the current image while keeping the detection
+        and crop bands, e.g. after the exposure correction setting changed.
+        The image geometry is unchanged, so the bands remain valid.
+        """
+        if self.image is not None:
+            self.setPixmap(self._create_qpixmap(self.image))
+
     def _create_qpixmap(self, image: ImageObject) -> QPixmap:
         """Creates a QPixmap from an ImageObject, ready for display."""
-        # image_data_rgb_8bit provides a contiguous 8-bit RGB numpy array.
-        rgb_image = image.image_data_rgb_8bit
+        # A contiguous 8-bit RGB numpy array, with exposure correction applied when enabled.
+        rgb_image = image.image_data_rgb_8bit_display
 
         qimage = QImage(rgb_image.data, image.width, image.height, rgb_image.strides[0], QImage.Format.Format_RGB888)
 

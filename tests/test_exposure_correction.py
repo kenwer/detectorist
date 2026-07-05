@@ -121,3 +121,17 @@ def test_correction_policy_is_a_no_op_when_disabled(tmp_path):
 
     data = np.full((4, 4, 3), 100, dtype=np.uint8)
     np.testing.assert_array_equal(image._apply_exposure_correction(data, 8), data)
+
+
+def test_display_data_applies_correction_when_enabled(tmp_path):
+    image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
+    image.exposure_correction = True
+
+    expected = image_utils.adjust_exposure(image.image_data_rgb_8bit, 1.0, 2.2, 8)
+    np.testing.assert_array_equal(image.image_data_rgb_8bit_display, expected)
+
+
+def test_display_data_is_unchanged_when_disabled(tmp_path):
+    image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
+
+    np.testing.assert_array_equal(image.image_data_rgb_8bit_display, image.image_data_rgb_8bit)

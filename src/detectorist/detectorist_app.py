@@ -576,6 +576,7 @@ class DetectoristApp(QMainWindow):
     def on_exposure_compensation_toggled(self, checked: bool):
         if self.ui.image_label.image:
             self.ui.image_label.image.exposure_correction = checked
+            self.ui.image_label.refresh_pixmap()
 
     def show_about_dialog(self):
         about_dialog = QDialog(self)

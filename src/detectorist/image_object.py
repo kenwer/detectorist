@@ -372,7 +372,8 @@ class ImageObject (ABC):
     @exposure_correction.setter
     def exposure_correction(self, value: bool):
         """Sets whether exposure correction based on EXIF data is enabled.
-        This controls if exposure correction is applied when saving cropped images."""
+        This controls if exposure correction is applied when saving cropped
+        images and in the display data (image_data_rgb_8bit_display)."""
         print(f"Setting exposure_correction to {value} for image: {self.image_path}")
         self._exposure_correction = value
 
@@ -413,6 +414,17 @@ class ImageObject (ABC):
         bgr_image = self.image_data_bgr_8bit
         rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
         return rgb_image
+
+    @property
+    def image_data_rgb_8bit_display(self) -> np.ndarray:
+        """
+        Returns image_data in 8-bit RGB format with the exposure correction
+        applied when it is enabled, so the display matches what save_cropped
+        exports. Detection preprocessing deliberately keeps using the
+        uncorrected data, otherwise cached detection results would depend on
+        the correction flag.
+        """
+        return self._apply_exposure_correction(self.image_data_rgb_8bit, 8)
 
     def get_exposure_compensation(self) -> float:
         """

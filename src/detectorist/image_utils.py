@@ -146,35 +146,27 @@ def adjust_exposure_inplace(image_data: np.ndarray, exposure_compensation: float
     # pillow-heif scales the data to the full range of the dtype (e.g. uint16).
     max_val_dtype = (2**(image_data.dtype.itemsize * 8)) - 1
 
-    # Use floating point arithmetic to prevent overflow and precision loss (on color data only)
-    image_float = color_data.astype(np.float32)
-
-    # Normalize to [0, 1]
-    image_norm = image_float / max_val_dtype
-
-    # Linearize the image data (remove gamma compression)
-    image_linear = np.power(image_norm, gamma)
-
-    # Apply exposure compensation in linear space as operations on pixel values should be performed in "linear light" (gamma 1).
-    adjusted_linear = image_linear * factor
-
-    # Apply gamma correction back to the image
-    adjusted_gamma = np.power(adjusted_linear, 1.0 / gamma)
-
-    # Denormalize from [0, 1] back to the original range
-    adjusted_image_float = adjusted_gamma * max_val_dtype
-
-    # Clip the values to the valid range of the current NumPy array dtype
-    np.clip(adjusted_image_float, 0, max_val_dtype, out=adjusted_image_float)
-
-    # Convert back to the original dtype (e.g., uint8, uint16)
-    adjusted_color_data = adjusted_image_float.astype(image_data.dtype)
+    # The adjustment depends only on a channel's value, so precompute it once
+    # for every possible value and apply it as a lookup table. Evaluating the
+    # gamma math per pixel instead takes hundreds of milliseconds on large
+    # images (two np.power calls over every element).
+    values = np.arange(max_val_dtype + 1, dtype=np.float32) / max_val_dtype
+    # Linearize (remove gamma compression), scale in "linear light" (gamma 1),
+    # then re-apply the gamma compression and denormalize
+    adjusted = np.power(np.power(values, gamma) * factor, 1.0 / gamma) * max_val_dtype
+    np.clip(adjusted, 0, max_val_dtype, out=adjusted)
+    lut = adjusted.astype(image_data.dtype)
 
     # Update the original array in-place
     if has_alpha:
-        image_data[:, :, :-1] = adjusted_color_data
+        # Fancy indexing instead of cv2.LUT because the color channels are a
+        # non-contiguous view here
+        image_data[:, :, :-1] = lut[color_data]
+    elif image_data.dtype == np.uint8 and image_data.flags.c_contiguous:
+        # cv2.LUT is a SIMD gather, considerably faster than numpy indexing
+        cv2.LUT(image_data, lut, dst=image_data)
     else:
-        image_data[:] = adjusted_color_data
+        image_data[:] = lut[image_data]
 
 def convert_16bit_to_8bit(image_16bit: np.ndarray) -> np.ndarray:
     """
