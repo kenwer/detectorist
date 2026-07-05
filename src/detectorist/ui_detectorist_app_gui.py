@@ -197,12 +197,12 @@ class Ui_DetectoristAppUI(object):
 
         self.grdlyt_crop.addWidget(self.rb_crop_centered_obj, 2, 0, 1, 2)
 
-        self.rb_crop_largest_area = QRadioButton(self.crop_info_group_box)
-        self.btngroup_crop.addButton(self.rb_crop_largest_area)
-        self.rb_crop_largest_area.setObjectName(u"rb_crop_largest_area")
-        self.rb_crop_largest_area.setChecked(False)
+        self.rb_crop_union = QRadioButton(self.crop_info_group_box)
+        self.btngroup_crop.addButton(self.rb_crop_union)
+        self.rb_crop_union.setObjectName(u"rb_crop_union")
+        self.rb_crop_union.setChecked(False)
 
-        self.grdlyt_crop.addWidget(self.rb_crop_largest_area, 3, 0, 1, 2)
+        self.grdlyt_crop.addWidget(self.rb_crop_union, 3, 0, 1, 2)
 
         self.crop_ratio_combo_box = QComboBox(self.crop_info_group_box)
         self.crop_ratio_combo_box.addItem("")
@@ -449,9 +449,9 @@ class Ui_DetectoristAppUI(object):
 #endif // QT_CONFIG(tooltip)
         self.rb_crop_centered_obj.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop to object closest to center", None))
 #if QT_CONFIG(tooltip)
-        self.rb_crop_largest_area.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Crops all detected objects into a single image", None))
+        self.rb_crop_union.setToolTip(QCoreApplication.translate("DetectoristAppUI", u"Crops all detected objects into a single image", None))
 #endif // QT_CONFIG(tooltip)
-        self.rb_crop_largest_area.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop to largest area", None))
+        self.rb_crop_union.setText(QCoreApplication.translate("DetectoristAppUI", u"Crop to union of detected objects", None))
         self.crop_ratio_combo_box.setItemText(0, QCoreApplication.translate("DetectoristAppUI", u"aspect ratio: same as source image", None))
         self.crop_ratio_combo_box.setItemText(1, QCoreApplication.translate("DetectoristAppUI", u"aspect ratio: same as detection frame", None))
         self.crop_ratio_combo_box.setItemText(2, QCoreApplication.translate("DetectoristAppUI", u"3:2 (landscape)", None))

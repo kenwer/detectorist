@@ -43,12 +43,6 @@ class Settings:
     KEY_PADDING = "padding"
     KEY_AUTO_CORRECT_EXPOSURE = "auto_correct_exposure"
 
-    # Crop mode constants
-    CROP_TOP_CONFIDENCE = "top_confidence"
-    CROP_LARGEST_AREA = "largest_area"
-    CROP_ALL_DETECTED = "all_detected_objects"
-    CROP_MOST_CENTERED = "most_centered"
-
     def __init__(self):
         self._settings = QSettings(self.ORGANIZATION, self.APPLICATION)
 

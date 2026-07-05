@@ -220,12 +220,12 @@ Highest confidence	: -</string>
             </widget>
            </item>
            <item row="3" column="0" colspan="2">
-            <widget class="QRadioButton" name="rb_crop_largest_area">
+            <widget class="QRadioButton" name="rb_crop_union">
              <property name="toolTip">
               <string>Crops all detected objects into a single image</string>
              </property>
              <property name="text">
-              <string>Crop to largest area</string>
+              <string>Crop to union of detected objects</string>
              </property>
              <property name="checked">
               <bool>false</bool>

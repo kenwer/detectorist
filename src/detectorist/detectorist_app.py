@@ -25,10 +25,12 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QProgressDialog,
+    QRadioButton,
 )
 
 from detectorist._version import __version__
 
+from .crop_planner import CropMode, CropSettings, plan_crops
 from .detector import Detector
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
@@ -49,170 +51,6 @@ def _strip_model_ext(filename: str) -> str:
 class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
     request_processing = Signal(str, bool)
-
-    @staticmethod
-    def _calculate_single_crop_rect(detections: list, image_height: int, image_width: int, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int] | str) -> tuple[int, int, int, int] | None:
-        """
-        Calculates a single crop rectangle crop rectangle based on detections and parameters.
-
-        Args:
-            detections: A list of detections, where each detection is a tuple ((x, y, w, h), score, class_id).
-            image_height: The height of the image.
-            image_width: The width of the image.
-            crop_mode: 'top_confidence', 'largest_area', or 'most_centered'.
-            padding_percentage: Padding to add around the bounding box, as a float (e.g., 0.1 for 10%).
-            aspect_ratio: A tuple (width, height) for the target aspect ratio, or the string "detection_frame".
-
-        Returns:
-            A tuple (x, y, w, h) for the crop rectangle, or None if no rectangle could be calculated.
-        """
-        if not detections:
-            return None
-
-        # The detection boxes are tuples of (x, y, w, h)
-        if crop_mode == 'top_confidence':
-            top_detection = max(detections, key=lambda d: d[1])
-            x, y, w, h = top_detection[0]
-        elif crop_mode == 'largest_area':
-            left = min(d[0][0] for d in detections)
-            top = min(d[0][1] for d in detections)
-            right = max(d[0][0] + d[0][2] for d in detections)
-            bottom = max(d[0][1] + d[0][3] for d in detections)
-            x, y, w, h = left, top, right - left, bottom - top
-        elif crop_mode == 'most_centered':
-            image_center_x = image_width / 2
-            image_center_y = image_height / 2
-
-            min_distance = float('inf')
-            most_centered_detection = None
-
-            # Iterate through each detected object to find the one closest to the image center
-            for detection in detections:
-                # Bounding box coordinates and dimensions for the current detection
-                det_x, det_y, det_w, det_h = detection[0]
-                # Calculate the center coordinates of the current detection's bounding box
-                det_center_x = det_x + det_w / 2
-                det_center_y = det_y + det_h / 2
-
-                # Euclidean distance between the detection's center and the image's center
-                distance = ((det_center_x - image_center_x)**2 + (det_center_y - image_center_y)**2)**0.5
-
-                # If this detection is closer to the image center than previous ones, update
-                if distance < min_distance:
-                    min_distance = distance
-                    most_centered_detection = detection
-
-            # If a most centered detection was found, use its bounding box for cropping
-            if most_centered_detection:
-                x, y, w, h = most_centered_detection[0]
-            else:
-                return None # No centered detection found
-        else:
-            print(f"Warning {crop_mode}: invalid crop mode for _calculate_single_crop_rect")
-            return None
-
-        detection_w, detection_h = w, h
-
-        # Calculate the horizontal/vertical padding based on the width/height of the bounding box and the padding percentage
-        padding_x = int(detection_w * padding_percentage)
-        padding_y = int(detection_h * padding_percentage)
-
-        # Extend the bounding box's x-coordinate to the left by `padding_x`
-        x -= padding_x
-        # Extend the bounding box's y-coordinate upwards by `padding_y`
-        y -= padding_y
-        # Increase the width of the bounding box by `2 * padding_x` (left and right)
-        w += 2 * padding_x
-        # Increase the height of the bounding box by `2 * padding_y` (top and bottom)
-        h += 2 * padding_y
-
-        # Handle aspect ratio for "detection_frame"
-        if isinstance(aspect_ratio, str):
-            if detection_w > 0 and detection_h > 0:
-                final_aspect_ratio = (detection_w, detection_h)
-            else:
-                final_aspect_ratio = (1, 1)  # Fallback to square if detection has zero area
-        else:
-            final_aspect_ratio = aspect_ratio
-
-        ratio_w, ratio_h = final_aspect_ratio
-        rect_w, rect_h = w, h
-
-        current_ratio = rect_w / rect_h
-        target_ratio = ratio_w / ratio_h
-
-        if current_ratio > target_ratio:
-            # Too wide, adjust height
-            new_h = int(rect_w / target_ratio)
-            diff_h = new_h - rect_h
-            y -= diff_h // 2
-            h = new_h
-        else:
-            # Too tall, adjust width
-            new_w = int(rect_h * target_ratio)
-            diff_w = new_w - rect_w
-            x -= diff_w // 2
-            w = new_w
-
-        # Ensure the crop rectangle is within the image boundaries
-        # If the crop rectangle is larger than the image, scale it down
-        scale = 1.0
-        if w > image_width:
-            scale = image_width / w
-        if h > image_height:
-            scale = min(scale, image_height / h)
-
-        if scale < 1.0:
-            new_w = int(w * scale)
-            new_h = int(h * scale)
-            x += (w - new_w) // 2
-            y += (h - new_h) // 2
-            w = new_w
-            h = new_h
-
-        # If the crop rectangle is outside the image, move it
-        if x < 0:
-            x = 0
-        if y < 0:
-            y = 0
-        if x + w > image_width:
-            x = image_width - w
-        if y + h > image_height:
-            y = image_height - h
-
-        return (x, y, w, h)
-
-    @staticmethod
-    def _calculate_crop_rectangles(detections: list, image_height: int, image_width: int, crop_mode: str, padding_percentage: float, aspect_ratio: tuple[int, int] | str) -> list[tuple[int, int, int, int]]:
-        """
-        Calculates crop rectangles based on detections and parameters.
-
-        Args:
-            detections: A list of detections, where each detection is a tuple ((x, y, w, h), score, class_id).
-            image_height: The height of the image.
-            image_width: The width of the image.
-            crop_mode: 'top_confidence', 'largest_area', or 'most_centered'.
-            padding_percentage: Padding to add around the bounding box, as a float (e.g., 0.1 for 10%).
-            aspect_ratio: A tuple (width, height) for the target aspect ratio, or the string "detection_frame".
-
-        Returns:
-            A list of tuples (x, y, w, h) for the crop rectangles.
-        """
-        if not detections:
-            return []
-
-        if crop_mode == 'all_detected_objects': # We might have more than one crop rectangle
-            crop_rects = []
-            # For 'all_detected_objects', we treat each detection individually
-            for detection in detections:
-                # For 'all_detected_objects', we treat each detection individually with 'top_confidence'
-                rect = DetectoristApp._calculate_single_crop_rect([detection], image_height, image_width, 'top_confidence', padding_percentage, aspect_ratio)
-                if rect:
-                    crop_rects.append(rect)
-            return crop_rects
-        else: # Just a single crop rectangle
-            rect = DetectoristApp._calculate_single_crop_rect(detections, image_height, image_width, crop_mode, padding_percentage, aspect_ratio)
-            return [rect] if rect else []
 
     def __init__(self):
         super().__init__()
@@ -281,7 +119,7 @@ class DetectoristApp(QMainWindow):
 
         # Connect crop controls
         self.ui.rb_crop_to_top_conf.toggled.connect(self.update_crop_bands)
-        self.ui.rb_crop_largest_area.toggled.connect(self.update_crop_bands)
+        self.ui.rb_crop_union.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_all_detected_objects.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_centered_obj.toggled.connect(self.update_crop_bands)
         self.ui.crop_ratio_combo_box.currentIndexChanged.connect(self.update_crop_bands)
@@ -353,15 +191,8 @@ class DetectoristApp(QMainWindow):
             self.ui.confidence_slider.setValue(confidence)
 
         # Crop mode
-        if (crop_mode := self.settings.crop_mode) is not None:
-            if crop_mode == Settings.CROP_TOP_CONFIDENCE:
-                self.ui.rb_crop_to_top_conf.setChecked(True)
-            elif crop_mode == Settings.CROP_LARGEST_AREA:
-                self.ui.rb_crop_largest_area.setChecked(True)
-            elif crop_mode == Settings.CROP_ALL_DETECTED:
-                self.ui.rb_crop_all_detected_objects.setChecked(True)
-            elif crop_mode == Settings.CROP_MOST_CENTERED:
-                self.ui.rb_crop_centered_obj.setChecked(True)
+        if (crop_mode := CropMode.from_setting(self.settings.crop_mode)) is not None:
+            self._crop_mode_radios()[crop_mode].setChecked(True)
 
         # Aspect ratio
         if (aspect_ratio_index := self.settings.aspect_ratio_index) is not None:
@@ -391,14 +222,10 @@ class DetectoristApp(QMainWindow):
         self.settings.confidence = self.ui.confidence_slider.value()
 
         # Crop mode
-        if self.ui.rb_crop_to_top_conf.isChecked():
-            self.settings.crop_mode = Settings.CROP_TOP_CONFIDENCE
-        elif self.ui.rb_crop_largest_area.isChecked():
-            self.settings.crop_mode = Settings.CROP_LARGEST_AREA
-        elif self.ui.rb_crop_all_detected_objects.isChecked():
-            self.settings.crop_mode = Settings.CROP_ALL_DETECTED
-        elif self.ui.rb_crop_centered_obj.isChecked():
-            self.settings.crop_mode = Settings.CROP_MOST_CENTERED
+        for mode, radio in self._crop_mode_radios().items():
+            if radio.isChecked():
+                self.settings.crop_mode = mode.value
+                break
 
         # Aspect ratio
         self.settings.aspect_ratio_index = self.ui.crop_ratio_combo_box.currentIndex()
@@ -829,19 +656,21 @@ class DetectoristApp(QMainWindow):
 
         event.acceptProposedAction()
 
-    def _get_current_crop_settings(self):
-        """Gets crop settings from the UI."""
-        if self.ui.rb_crop_all_detected_objects.isChecked():
-            crop_mode = 'all_detected_objects'
-        elif self.ui.rb_crop_to_top_conf.isChecked():
-            crop_mode = 'top_confidence'
-        elif self.ui.rb_crop_largest_area.isChecked():
-            crop_mode = 'largest_area'
-        elif self.ui.rb_crop_centered_obj.isChecked():
-            crop_mode = 'most_centered'
-        else:
+    def _crop_mode_radios(self) -> dict[CropMode, QRadioButton]:
+        """The crop panel radio button for each CropMode."""
+        return {
+            CropMode.TOP_CONFIDENCE: self.ui.rb_crop_to_top_conf,
+            CropMode.UNION: self.ui.rb_crop_union,
+            CropMode.MOST_CENTERED: self.ui.rb_crop_centered_obj,
+            CropMode.EACH_OBJECT: self.ui.rb_crop_all_detected_objects,
+        }
+
+    def _get_current_crop_settings(self) -> CropSettings | None:
+        """Gets crop settings from the UI, or None if no crop mode is selected."""
+        crop_mode = next((mode for mode, radio in self._crop_mode_radios().items() if radio.isChecked()), None)
+        if crop_mode is None:
             self.ui.image_label.hide_bands()
-            crop_mode = None
+            return None
 
         padding_percentage = self.ui.padding_slider.value() / 100.0
         ratio_str = self.ui.crop_ratio_combo_box.currentText()
@@ -866,7 +695,7 @@ class DetectoristApp(QMainWindow):
                 print(f"Warning: Could not parse aspect ratio '{ratio_str}'. Defaulting to 1:1.")
                 aspect_ratio = (1, 1)
 
-        return crop_mode, padding_percentage, aspect_ratio
+        return CropSettings(mode=crop_mode, padding=padding_percentage, aspect=aspect_ratio)
 
     def update_crop_bands(self):
         if not self.ui.image_label.image or not self.ui.image_label.orig_detection_rects:
@@ -880,8 +709,11 @@ class DetectoristApp(QMainWindow):
             for d in self.ui.image_label.orig_detection_rects
         ]
 
-        crop_mode, padding_percentage, aspect_ratio = self._get_current_crop_settings()
-        crop_tuples = DetectoristApp._calculate_crop_rectangles(detections, self.ui.image_label.image.height, self.ui.image_label.image.width, crop_mode, padding_percentage, aspect_ratio)
+        crop_settings = self._get_current_crop_settings()
+        if crop_settings is None:
+            self.ui.image_label.hide_bands()
+            return
+        crop_tuples = plan_crops(detections, self.ui.image_label.image.height, self.ui.image_label.image.width, crop_settings)
         crop_rects = [QRect(*crop_tuple) for crop_tuple in crop_tuples if crop_tuple and crop_tuple[2] > 0 and crop_tuple[3] > 0]
 
         if not crop_rects:
@@ -1024,13 +856,13 @@ class DetectoristApp(QMainWindow):
         It covers the progress dialog, image loading, and object detection.
         """
         def setup(output_dir):
-            crop_mode, padding_percentage, aspect_ratio = self._get_current_crop_settings()
+            crop_settings = self._get_current_crop_settings()
+            if crop_settings is None:
+                return None
 
             cropped_dir, not_cropped_dir = self._create_crop_dirs(output_dir)
             return {
-                "crop_mode": crop_mode,
-                "padding_percentage": padding_percentage,
-                "aspect_ratio": aspect_ratio,
+                "crop_settings": crop_settings,
                 "cropped_dir": cropped_dir,
                 "not_cropped_dir": not_cropped_dir
             }
@@ -1044,7 +876,7 @@ class DetectoristApp(QMainWindow):
             confidence_score = top_detection[1]
             class_name = top_detection[2]
 
-            crop_tuples = DetectoristApp._calculate_crop_rectangles(results, image.height, image.width, state["crop_mode"], state["padding_percentage"], state["aspect_ratio"])
+            crop_tuples = plan_crops(results, image.height, image.width, state["crop_settings"])
 
             if not crop_tuples:
                 print(f"Warning {os.path.basename(image.image_path)}: invalid crop rectangle, crop_tuples: {crop_tuples}")
