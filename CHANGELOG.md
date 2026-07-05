@@ -4,6 +4,7 @@
 ### Changed
 - Rename the "Crop to largest area" option to "Crop to union of detected objects". Previously saved crop settings still load.
 - [Dev] Extract crop planning from the main window into a `crop_planner` module.
+- [Dev] Extract batch processing (crop & export, sort by class) into a `batch_run` module.
 
 ## [0.9.1] - 2026-06-25
 ### Changed

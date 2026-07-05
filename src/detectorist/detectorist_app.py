@@ -1,8 +1,6 @@
-import csv
 import os
 import subprocess
 import sys
-from collections.abc import Callable
 from pathlib import Path
 
 import pillow_heif
@@ -30,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from detectorist._version import __version__
 
+from .batch_run import CropExportAction, SortByClassAction, output_dir_name, run_batch
 from .crop_planner import CropMode, CropSettings, plan_crops
 from .detector import Detector
 from .image_label import ImageLabel
@@ -40,13 +39,9 @@ from .model_downloader import ModelDownloader
 from .settings import Settings
 from .ui_about_dialog import Ui_AboutDialog
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
-from .utils import contract_user_path, get_model_path
+from .utils import contract_user_path, get_model_path, strip_model_ext
 from .worker import DetectionWorker
 
-
-def _strip_model_ext(filename: str) -> str:
-    """Strip .onnx or .onnx.gz extension for display."""
-    return filename.removesuffix(".gz").removesuffix(".onnx")
 
 class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
@@ -578,7 +573,7 @@ class DetectoristApp(QMainWindow):
         combo = self.ui.model_select_combo_box
         combo.blockSignals(True)
         for filename in onnx_files:
-            display_name = name_map.get(filename) or _strip_model_ext(filename)
+            display_name = name_map.get(filename) or strip_model_ext(filename)
             combo.addItem(display_name, filename)
 
         # Restore previous selection by filename
@@ -722,30 +717,6 @@ class DetectoristApp(QMainWindow):
 
         self.ui.image_label.set_crop_boxes(crop_rects)
 
-    def _create_output_dir(self, base_dir: str):
-        """
-        Create the output directory for the images, encoding the date and model name.
-        Returns the paths to the output directory.
-        """
-
-        #timestamp = time.strftime("%Y%m%d")
-        confidence = self.ui.confidence_slider.value()
-        model_name = _strip_model_ext(self.ui.model_select_combo_box.currentData() or "")
-        output_dir = os.path.join(base_dir, f"detectorist_conf-{confidence}_{model_name}")
-        os.makedirs(output_dir, exist_ok=True)
-        return output_dir
-
-    def _create_crop_dirs(self, output_dir):
-        """
-        Creates the output directories for the cropped and non-cropped images inside the given directory
-        Returns the paths to the cropped and not-cropped directories.
-        """
-        cropped_dir = os.path.join(output_dir, "cropped")
-        not_cropped_dir = os.path.join(output_dir, "not-cropped")
-        os.makedirs(cropped_dir, exist_ok=True)
-        os.makedirs(not_cropped_dir, exist_ok=True)
-        return cropped_dir, not_cropped_dir
-
     def _open_native_file_manager(self, path):
         """Opens a folder in the native (OS specific) file manager, revealing the file if a file path is provided."""
         path = os.path.normpath(path)
@@ -764,12 +735,11 @@ class DetectoristApp(QMainWindow):
             subprocess.Popen(['xdg-open', dir_path])
 
 
-    def _process_all_images(self, process_name: str, setup_callback: Callable, process_image_callback: Callable, image_files_to_process: list[str] | None = None) -> bool:
+    def _run_batch_with_progress(self, process_name: str, action, image_files_to_process: list[str] | None = None) -> bool:
         """
-        Helper method that encapsulates the loop that goes through all the images.
-        It covers the progress dialog, image loading, and object detection.
-        This helper accepts a setup_callback for any pre-processing steps (like preparing directories)
-        and a process_callback to execute the specific action (cropping or sorting) for each image.
+        Runs a Batch Run over the given images (or all loaded images) with a
+        modal progress dialog, then exports the settings alongside the CSV and
+        reveals the output directory.
 
         Returns:
             bool: True if the process completed, False if it was cancelled or an error occurred.
@@ -779,71 +749,55 @@ class DetectoristApp(QMainWindow):
         # Use the directory of the first loaded image as the base for output
         output_base_dir = os.path.dirname(self.model.imagePaths()[0])
 
-
         image_full_paths = image_files_to_process if image_files_to_process is not None else self.model.imagePaths()
         if not image_full_paths:
             return False
 
         try:
-            output_dir = self._create_output_dir(output_base_dir)
+            model_filename = self.ui.model_select_combo_box.currentData()
+            output_dir = os.path.join(output_base_dir, output_dir_name(self.ui.confidence_slider.value(), model_filename))
 
             # The detector lives in the worker thread. We can't access it directly.
             # For batch processing, we need a separate detector instance.
-            model_path = os.path.join(self.models_dir, self.ui.model_select_combo_box.currentData())
-            batch_detector = Detector.create(model_path)
-
-            state = setup_callback(output_dir)
-            if state is None:
-                return False
+            batch_detector = Detector.create(os.path.join(self.models_dir, model_filename))
 
             total_files = len(image_full_paths)
             progress_dialog = QProgressDialog(f"{process_name}...", "Cancel", 0, total_files, self)
             progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
             progress_dialog.setAutoClose(True)
 
-            confidence = self.ui.confidence_slider.value() / 100.0
+            def progress(index: int, total: int, file_name: str) -> bool:
+                progress_dialog.setValue(index)
+                progress_dialog.setLabelText(f"Processing {index+1}/{total}: {file_name}")
+                QApplication.processEvents()
+                return not progress_dialog.wasCanceled()
 
-            log_file_path = os.path.join(output_dir, "detections.csv")
-            with open(log_file_path, "w", newline="") as log_file:
-                csv_writer = csv.writer(log_file)
-                csv_writer.writerow(["Filename", "Highest confidence score", "Class name", "Number of detected objects", "Subdirectory"])
-
-                cancelled = False
-                for i, image_path in enumerate(image_full_paths): # Iterate over full paths
-                    file_name_display = os.path.basename(image_path) # Use basename for display
-                    progress_dialog.setValue(i)
-                    progress_dialog.setLabelText(f"Processing {i+1}/{total_files}: {file_name_display}")
-                    QApplication.processEvents()
-
-                    if progress_dialog.wasCanceled():
-                        cancelled = True
-                        break
-
-                    image = ImageObject.create(image_path)
-                    image.exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
-                    results = batch_detector.detect(image)
-                    results = [d for d in results if d[1] >= confidence]
-
-                    log_data = process_image_callback(image, results, output_dir, **state)
-                    if log_data:
-                        csv_writer.writerow(log_data)
+            result = run_batch(
+                image_full_paths,
+                batch_detector,
+                confidence=self.ui.confidence_slider.value() / 100.0,
+                exposure_correction=self.ui.cb_comp_cam_exposure.isChecked(),
+                output_dir=output_dir,
+                action=action,
+                progress=progress,
+            )
 
             # Export Model & Crop settings to JSON alongside the CSV
             self._save_settings()
-            settings_file_path = Path(output_dir) / "settings.json"
+            settings_file_path = Path(result.output_dir) / "settings.json"
             self.settings.export_to_file(
                 settings_file_path,
                 [Settings.GROUP_MODEL, Settings.GROUP_CROP]
             )
 
-            if not cancelled:
+            if not result.cancelled:
                 self.ui.status_bar.showMessage(f"Finished {process_name.lower()}.", 5000)
             else:
                 self.ui.status_bar.showMessage(f"{process_name} cancelled.", 5000)
 
-            self._open_native_file_manager(output_dir)
+            self._open_native_file_manager(result.output_dir)
             progress_dialog.close()
-            return not cancelled
+            return not result.cancelled
 
         except Exception as e:
             print(f"Error during {process_name}: {e}")
@@ -851,50 +805,11 @@ class DetectoristApp(QMainWindow):
             return False
 
     def _crop_and_export_images_with_progress(self, process_name: str, image_files_to_process: list[str] | None = None):
-        """
-        Helper method that encapsulates the loop that goes through all the images for cropping.
-        It covers the progress dialog, image loading, and object detection.
-        """
-        def setup(output_dir):
-            crop_settings = self._get_current_crop_settings()
-            if crop_settings is None:
-                return None
-
-            cropped_dir, not_cropped_dir = self._create_crop_dirs(output_dir)
-            return {
-                "crop_settings": crop_settings,
-                "cropped_dir": cropped_dir,
-                "not_cropped_dir": not_cropped_dir
-            }
-
-        def process_image_for_cropping(image, results, output_dir, **state):
-            if not results:
-                image.copy_image(state["not_cropped_dir"])
-                return os.path.basename(image.image_path), 0, "N/A", 0, os.path.basename(state["not_cropped_dir"])
-
-            top_detection = max(results, key=lambda d: d[1])
-            confidence_score = top_detection[1]
-            class_name = top_detection[2]
-
-            crop_tuples = plan_crops(results, image.height, image.width, state["crop_settings"])
-
-            if not crop_tuples:
-                print(f"Warning {os.path.basename(image.image_path)}: invalid crop rectangle, crop_tuples: {crop_tuples}")
-                image.copy_image(state["not_cropped_dir"])
-                return os.path.basename(image.image_path), confidence_score, class_name, len(results), os.path.basename(state["not_cropped_dir"])
-
-            base, ext = os.path.splitext(os.path.basename(image.image_path))
-            for i, crop_tuple in enumerate(crop_tuples):
-                if len(crop_tuples) > 1:
-                    file_name = f"{base}_crop_{i}{ext}"
-                else:
-                    file_name = f"{base}_crop{ext}"
-                output_path = os.path.join(state["cropped_dir"], file_name)
-                image.save_cropped(crop_tuple, output_path)
-
-            return os.path.basename(image.image_path), confidence_score, class_name, len(results), os.path.basename(state["cropped_dir"])
-
-        return self._process_all_images(process_name, setup, process_image_for_cropping, image_files_to_process)
+        """Crops and exports images via a Batch Run using the current crop settings."""
+        crop_settings = self._get_current_crop_settings()
+        if crop_settings is None:
+            return False
+        return self._run_batch_with_progress(process_name, CropExportAction(crop_settings), image_files_to_process)
 
     def crop_and_export_selected_images(self):
         """Crop and export the currently selected images."""
@@ -911,25 +826,7 @@ class DetectoristApp(QMainWindow):
 
     def sort_images_by_class_into_folders(self):
         """Sorts images into folders based on the detected object class name."""
-        def setup(output_dir):
-            return {} # Return empty dict for state
-
-        def process_image_for_sorting(image, results, output_dir, **state):
-            if results:
-                top_detection = max(results, key=lambda d: d[1])
-                confidence_score = top_detection[1]
-                class_name = top_detection[2]
-                class_dir = os.path.join(output_dir, class_name)
-                os.makedirs(class_dir, exist_ok=True)
-                image.copy_image(class_dir)
-                return os.path.basename(image.image_path), confidence_score, class_name, len(results), class_name
-            else:
-                no_detection_dir = os.path.join(output_dir, "no-detection")
-                os.makedirs(no_detection_dir, exist_ok=True)
-                image.copy_image(no_detection_dir)
-                return os.path.basename(image.image_path), 0, "no-detection", 0, "no-detection"
-
-        return self._process_all_images("Sorting images", setup, process_image_for_sorting)
+        return self._run_batch_with_progress("Sorting images", SortByClassAction())
 
     def _copy_export_remove_selected_images(self):
         """Copies filenames, exports cropped images, and removes selected images from the list."""

@@ -23,3 +23,13 @@ dist/
 **/*.patch
 *.log
 .DS_Store
+*.csv
+*.md
+!README.md
+!CHANGELOG.md
+!DEVELOPMENT.md
+!FAQ.md
+
+# PyQt/PySide generated files
+ui_*.py
+*_rc.py

@@ -29,6 +29,11 @@ def get_model_path() -> str:
     return models_dir
 
 
+def strip_model_ext(filename: str) -> str:
+    """Strip .onnx or .onnx.gz extension for display."""
+    return filename.removesuffix(".gz").removesuffix(".onnx")
+
+
 def get_base_path():
     try:
         base_path = sys._MEIPASS
