@@ -105,6 +105,27 @@ def test_sort_by_class_run(tmp_path):
     ]
 
 
+def test_load_failure_skips_image_and_continues(tmp_path):
+    paths = make_images(tmp_path, ["good_a.png", "good_b.png"])
+    # A nonexistent file makes ImageObject.create raise on the prefetch thread
+    paths.insert(1, str(tmp_path / "missing.png"))
+    detector = FakeDetector({"good_a.png": [((10, 10, 20, 20), 0.9, "Fish")]})
+    output_dir = str(tmp_path / "out")
+
+    result = run_batch(paths, detector, confidence=0.5, exposure_correction=False,
+                       output_dir=output_dir, action=CropExportAction(CROP_SETTINGS),
+                       progress=always_continue)
+
+    assert not result.cancelled
+    assert result.rows == [
+        ("good_a.png", 0.9, "Fish", 1, "cropped"),
+        ("missing.png", 0, "load-error", 0, ""),
+        ("good_b.png", 0, "N/A", 0, "not-cropped"),
+    ]
+    assert os.path.isfile(os.path.join(output_dir, "cropped", "good_a_crop.png"))
+    assert os.path.isfile(os.path.join(output_dir, "not-cropped", "good_b.png"))
+
+
 def test_progress_can_cancel_the_run(tmp_path):
     paths = make_images(tmp_path, ["a.png", "b.png", "c.png"])
     detector = FakeDetector({})

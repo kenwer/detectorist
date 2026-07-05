@@ -1,14 +1,16 @@
 """The Batch Run: one pass of a detector over a set of images.
 
 Owns the pipeline (load, detect, filter, act, log) plus cancellation and
-the detections.csv summary. Qt-free: progress crosses a callback seam, and
-the per-image behaviour is a BatchAction adapter (Crop & Export or Sort by
-Class), so the whole run can be exercised headless.
+the detections.csv summary. Loading runs one image ahead on a background
+thread so decode overlaps detection. Qt-free: progress crosses a callback
+seam, and the per-image behaviour is a BatchAction adapter (Crop & Export
+or Sort by Class), so the whole run can be exercised headless.
 """
 
 import csv
 import os
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -57,6 +59,13 @@ class BatchResult:
     rows: list[CsvRow]
 
 
+def _load_image(image_path: str, exposure_correction: bool) -> ImageObject:
+    """Load one image for the pipeline. Runs on the prefetch thread."""
+    image = ImageObject.create(image_path)
+    image.exposure_correction = exposure_correction
+    return image
+
+
 def output_dir_name(confidence: int, model_filename: str) -> str:
     """
     The name of a Batch Run's output directory, encoding the confidence level
@@ -70,6 +79,14 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
     """
     Runs the detector over the given images, delegating each one to the action
     and writing a row per image to detections.csv in the output directory.
+
+    While an image runs detection and the action, the next image is already
+    decoding on a background thread (pillow-heif and ONNX both release the
+    GIL, so the overlap is real). The lookahead is one image deep because each
+    decoded image can occupy hundreds of MB.
+
+    An image whose load fails is skipped with a "load-error" row instead of
+    aborting the run, so one corrupt file cannot end a batch of thousands.
 
     Args:
         image_paths: Full paths of the images to process.
@@ -96,19 +113,38 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(CSV_HEADER)
 
-        for i, image_path in enumerate(image_paths):
-            if not progress(i, total, os.path.basename(image_path)):
-                cancelled = True
-                break
+        # The context manager drains any in-flight load on exit (bounded by
+        # one decode), so cancellation and errors cannot leak a thread.
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            next_future = None
+            for i, image_path in enumerate(image_paths):
+                if not progress(i, total, os.path.basename(image_path)):
+                    cancelled = True
+                    break
 
-            image = ImageObject.create(image_path)
-            image.exposure_correction = exposure_correction
-            detections = [d for d in detector.detect(image) if d[1] >= confidence]
+                future = next_future or executor.submit(_load_image, image_path, exposure_correction)
+                # Queue the next load before waiting on the current one: the
+                # single worker starts it the moment the current load ends,
+                # and a failed load still leaves the lookahead running.
+                next_future = (executor.submit(_load_image, image_paths[i + 1], exposure_correction)
+                               if i + 1 < total else None)
 
-            row = action.process(image, detections)
-            if row:
-                csv_writer.writerow(row)
-                rows.append(row)
+                file_name = os.path.basename(image_path)
+                try:
+                    image = future.result()
+                except Exception as e:
+                    print(f"Warning {file_name}: could not load image: {e}")
+                    row = (file_name, 0, "load-error", 0, "")
+                    csv_writer.writerow(row)
+                    rows.append(row)
+                    continue
+
+                detections = [d for d in detector.detect(image) if d[1] >= confidence]
+
+                row = action.process(image, detections)
+                if row:
+                    csv_writer.writerow(row)
+                    rows.append(row)
 
     return BatchResult(output_dir=output_dir, cancelled=cancelled, rows=rows)
 
