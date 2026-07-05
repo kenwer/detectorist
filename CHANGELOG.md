@@ -11,6 +11,7 @@
 - [Dev] Extract crop planning from the main window into a `crop_planner` module.
 - [Dev] Extract batch processing (crop & export, sort by class) into a `batch_run` module.
 - [Dev] Concentrate the exposure correction and EXIF update logic in the ImageObject base class.
+- [Dev] Upgrade dependencies.
 ### Fixed
 - Exposure-corrected JPEG crops now reset the EXIF exposure bias to 0, as HEIF and other formats already did. Correcting an already corrected crop no longer doubles the adjustment.
 
