@@ -45,7 +45,7 @@ from .worker import DetectionWorker
 
 class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
-    request_processing = Signal(str, bool)
+    request_processing = Signal(str, bool, list)  # image_path, exposure_correction, prefetch_paths
 
     def __init__(self):
         super().__init__()
@@ -131,13 +131,24 @@ class DetectoristApp(QMainWindow):
         self._model_downloader = ModelDownloader(self.models_dir, self)
         self._model_downloader.download_finished.connect(self._refresh_model_list)
 
+        # Deferred loading placeholder: started when an image is selected,
+        # stopped when it arrives. Cached images arrive within a few
+        # milliseconds, so the placeholder never flashes for them.
+        self._loading_indicator_timer = QTimer(self)
+        self._loading_indicator_timer.setSingleShot(True)
+        self._loading_indicator_timer.setInterval(200)
+        self._loading_indicator_timer.timeout.connect(self._show_loading_indicator)
+
         # Setup worker thread, to offload image loading and detection, so the GUI remains responsive.
         self._worker_thread = QThread()
         self.worker = DetectionWorker()
         self.worker.moveToThread(self._worker_thread)
 
         # Connect signals/slots for worker
-        self.request_processing.connect(self.worker.process_image)
+        # DirectConnection runs process_image on this (GUI) thread: it only
+        # updates lock-protected request state, and the worker loop must see a
+        # new request immediately to abandon stale work and prefetches.
+        self.request_processing.connect(self.worker.process_image, Qt.ConnectionType.DirectConnection)
         self.worker.model_loaded.connect(self.handle_model_loaded)
         self.worker.image_loaded.connect(self.handle_image_loaded)
         self.worker.detection_complete.connect(self.handle_detection_complete)
@@ -259,6 +270,10 @@ class DetectoristApp(QMainWindow):
         self.model.clear()
         self.current_image_path = None
         self.ui.image_label.clear()
+        # Files on disk may have changed, so cached decodes are not trustworthy.
+        # The queued invocation runs clear_cache on the worker thread, which is
+        # the only thread allowed to touch the cache (no lock needed there).
+        QMetaObject.invokeMethod(self.worker, "clear_cache", Qt.ConnectionType.QueuedConnection)
 
         self.ui.image_label.setText("Loading Images...")
         self.model.setImagePaths(supported_files)
@@ -419,18 +434,25 @@ class DetectoristApp(QMainWindow):
             self.ui.status_bar.clearMessage()
             return
 
-        file_name = os.path.basename(new_image_path) # Get basename for display purposes
-        self.ui.status_bar.showMessage(f"Loading {file_name}...")
-
-        # Clear previous results and show loading state
-        self.ui.image_label.setText("Loading image...")
+        # Clear previous results. The loading placeholder is deferred so that
+        # cache hits do not flash "Loading image..." for a single frame.
+        self._loading_indicator_timer.start()
         self.ui.image_label.hide_bands()
         self._update_detection_info()
         self.ui.image_exif_label.setText("")
-        QApplication.processEvents()
 
         # Request the worker to load and process the image
         self.trigger_processing()
+
+    def _show_loading_indicator(self):
+        """
+        Shows the loading placeholder. Only reached when the image did not
+        arrive within the timer interval, i.e. it was not served from the
+        worker's cache.
+        """
+        self.ui.image_label.setText("Loading image...")
+        if self.current_image_path:
+            self.ui.status_bar.showMessage(f"Loading {os.path.basename(self.current_image_path)}...")
 
     def trigger_processing(self):
         """Emits a signal to the worker to start processing the current image."""
@@ -440,7 +462,19 @@ class DetectoristApp(QMainWindow):
             return
 
         exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
-        self.request_processing.emit(self.current_image_path, exposure_correction)
+        self.request_processing.emit(self.current_image_path, exposure_correction, self._prefetch_hints())
+
+    def _prefetch_hints(self) -> list[str]:
+        """
+        Returns the paths worth decoding ahead of time: the image after the
+        current one, since browsing mostly steps forward through the list.
+        """
+        paths = self.model.imagePaths()
+        try:
+            row = paths.index(self.current_image_path)
+        except ValueError:
+            return []
+        return paths[row + 1:row + 2]
 
     def handle_model_loaded(self, success: bool, message: str, class_names: list):
         """Handles the result of loading a model in the worker."""
@@ -466,6 +500,8 @@ class DetectoristApp(QMainWindow):
         """Handles the image_loaded signal from the worker."""
         if image_path != self.current_image_path:
             return  # Stale result for a different image
+
+        self._loading_indicator_timer.stop()
 
         if not image_object:
             self.ui.image_label.clear()
@@ -523,6 +559,7 @@ class DetectoristApp(QMainWindow):
         if image_path != self.current_image_path:
             return  # Stale error for a different image (ignored)
 
+        self._loading_indicator_timer.stop()
         print(f"Worker error for {image_path}: {message}")
         self.ui.image_label.setText(f"Error: {message}")
         self._update_detection_info()
