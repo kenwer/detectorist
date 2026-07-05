@@ -172,13 +172,7 @@ class HeifImageObject(ImageObject):
 
         size = (unrotated_np.shape[1], unrotated_np.shape[0])
 
-        exposure_corrected = False
-        # Apply exposure correction based on EXIF data if requested
-        if self._exposure_correction:
-            ev_comp = -self.get_exposure_compensation()
-            print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
-            unrotated_np = image_utils.adjust_exposure(unrotated_np, ev_comp, 2.2, bit_depth)
-            exposure_corrected = True
+        unrotated_np = self._apply_exposure_correction(unrotated_np, bit_depth)
 
         data = unrotated_np.tobytes()
 
@@ -198,21 +192,8 @@ class HeifImageObject(ImageObject):
         if exif:
             try:
                 exif_dict = piexif.load(exif)
-                # Update image dimensions in Exif IFD
-                if 'Exif' in exif_dict:
-                    exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = size[0]
-                    exif_dict['Exif'][piexif.ExifIFD.PixelYDimension] = size[1]
-                # Update image dimensions in 0th IFD
-                if '0th' in exif_dict:
-                    exif_dict['0th'][piexif.ImageIFD.ImageWidth] = size[0]
-                    exif_dict['0th'][piexif.ImageIFD.ImageLength] = size[1]
-
-                if exposure_corrected:
-                    if 'Exif' not in exif_dict:
-                        exif_dict['Exif'] = {}
-                    # ExposureBiasValue is SRATIONAL, so it's a tuple of (numerator, denominator)
-                    exif_dict['Exif'][piexif.ExifIFD.ExposureBiasValue] = (0, 1)
-
+                self._update_exif_dimensions(exif_dict, size[0], size[1])
+                self._neutralize_exposure_bias(exif_dict)
                 updated_exif = piexif.dump(exif_dict)
             except Exception as e:
                 print(f"  Could not update EXIF data: {e}")

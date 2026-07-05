@@ -440,6 +440,46 @@ class ImageObject (ABC):
                     pass # Fall through to return 0.0
             return 0.0 # Default return if conversion fails
 
+    def _apply_exposure_correction(self, data: np.ndarray, bits_per_channel: int | None = None) -> np.ndarray:
+        """
+        Apply the EXIF-based exposure correction to pixel data if enabled,
+        otherwise return the data unchanged. Owns the correction policy shared
+        by all subclasses: the negated ExposureBiasValue is applied as EV
+        stops with gamma 2.2 at the given bit depth (defaults to the image's
+        original bit depth).
+        """
+        if not self._exposure_correction:
+            return data
+        ev_comp = -self.get_exposure_compensation()
+        print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
+        if bits_per_channel is None:
+            bits_per_channel = self._original_bpc
+        return image_utils.adjust_exposure(data, ev_comp, 2.2, bits_per_channel)
+
+    @staticmethod
+    def _update_exif_dimensions(exif_dict: dict, width: int, height: int) -> None:
+        """Update the EXIF image dimension tags to the cropped size."""
+        if 'Exif' in exif_dict:
+            exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = width
+            exif_dict['Exif'][piexif.ExifIFD.PixelYDimension] = height
+        if '0th' in exif_dict:
+            exif_dict['0th'][piexif.ImageIFD.ImageWidth] = width
+            exif_dict['0th'][piexif.ImageIFD.ImageLength] = height
+
+    def _neutralize_exposure_bias(self, exif_dict: dict) -> None:
+        """
+        Zero out ExposureBiasValue in the EXIF dict after exposure correction
+        was baked into the pixels. Without this a corrected crop would still
+        claim the original bias and correcting it again would double the
+        adjustment. Does nothing when exposure correction is disabled.
+        """
+        if not self._exposure_correction:
+            return
+        if 'Exif' not in exif_dict:
+            exif_dict['Exif'] = {}
+        # ExposureBiasValue is SRATIONAL, a (numerator, denominator) tuple
+        exif_dict['Exif'][piexif.ExifIFD.ExposureBiasValue] = (0, 1)
+
     def preprocess_for_onnx_yolo(self, input_width: int, input_height: int) -> np.ndarray:
         """
         Preprocesses an image for YOLO CNN model inference.

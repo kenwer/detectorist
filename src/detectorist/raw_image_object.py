@@ -97,10 +97,6 @@ class RawImageObject(ImageObject):
         x, y, w, h = rect
         cropped_np_array = self._image_data[y:y+h, x:x+w]
 
-        # Apply exposure correction based on EXIF data if requested
-        if self._exposure_correction:
-            ev_comp = -self.get_exposure_compensation()
-            print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
-            cropped_np_array = image_utils.adjust_exposure(cropped_np_array, ev_comp, 2.2, self._original_bpc)
+        cropped_np_array = self._apply_exposure_correction(cropped_np_array)
 
         self._save_16bit_image(cropped_np_array, output_path)

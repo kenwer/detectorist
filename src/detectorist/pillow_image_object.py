@@ -98,11 +98,9 @@ class PillowImageObject(ImageObject):
         # PIL crop is (left, upper, right, lower)
         pil_cropped_image = self._pil_image.crop((x, y, x + w, y + h))
 
-        # Apply exposure correction based on EXIF data if requested
+        # Exposure correction operates on numpy RGB(A) data, so convert,
+        # adjust via the shared base class policy, and convert back
         if self._exposure_correction:
-            ev_comp = -self.get_exposure_compensation()
-            print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
-
             original_mode = pil_cropped_image.mode
 
             # Determine if we need to handle an alpha channel
@@ -112,9 +110,7 @@ class PillowImageObject(ImageObject):
             # Convert to the appropriate adjustment mode (RGB or RGBA)
             image_for_adjustment = pil_cropped_image.convert(adjust_mode)
 
-            # Perform exposure adjustment on the numpy array
-            adjusted_np = np.array(image_for_adjustment)
-            adjusted_np = image_utils.adjust_exposure(adjusted_np, ev_comp, 2.2, 8)
+            adjusted_np = self._apply_exposure_correction(np.array(image_for_adjustment), 8)
             adjusted_pil = PILImage.fromarray(adjusted_np)
 
             # Convert back to the original mode
@@ -137,19 +133,8 @@ class PillowImageObject(ImageObject):
         if self._exif:
             try:
                 exif_dict = piexif.load(self._exif)
-                # Update image dimensions
-                if 'Exif' in exif_dict:
-                    exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = w
-                    exif_dict['Exif'][piexif.ExifIFD.PixelYDimension] = h
-                if '0th' in exif_dict:
-                    exif_dict['0th'][piexif.ImageIFD.ImageWidth] = w
-                    exif_dict['0th'][piexif.ImageIFD.ImageLength] = h
-
-                if self._exposure_correction:
-                    if 'Exif' not in exif_dict:
-                        exif_dict['Exif'] = {}
-                    exif_dict['Exif'][piexif.ExifIFD.ExposureBiasValue] = (0, 1)
-
+                self._update_exif_dimensions(exif_dict, w, h)
+                self._neutralize_exposure_bias(exif_dict)
                 save_kwargs['exif'] = piexif.dump(exif_dict)
             except Exception as e:
                 print(f"Warning: Could not update EXIF data: {e}")

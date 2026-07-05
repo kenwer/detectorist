@@ -83,11 +83,7 @@ class OpencvImageObject(ImageObject):
 
         cropped_data = self.image_data[y:y+h, x:x+w]
 
-        # Apply exposure correction based on EXIF data if requested
-        if self._exposure_correction:
-            ev_comp = -self.get_exposure_compensation()
-            print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
-            cropped_data = image_utils.adjust_exposure(cropped_data, ev_comp, 2.2, self._original_bpc)
+        cropped_data = self._apply_exposure_correction(cropped_data)
 
         # The data is already in BGR/BGRA format, which cv2 expects.
         image_utils.imwrite(output_path, cropped_data)
@@ -96,12 +92,8 @@ class OpencvImageObject(ImageObject):
         # Handle EXIF data using piexif
         if self._exif_dict and os.path.splitext(output_path)[1].lower() in ('.jpg', '.jpeg'):
             try:
-                # Update image width and height
-                self._exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = w
-                self._exif_dict['Exif'][piexif.ExifIFD.PixelYDimension] = h
-                # Some cameras store dimensions in the 0th IFD too
-                self._exif_dict['0th'][piexif.ImageIFD.ImageWidth] = w
-                self._exif_dict['0th'][piexif.ImageIFD.ImageLength] = h
+                self._update_exif_dimensions(self._exif_dict, w, h)
+                self._neutralize_exposure_bias(self._exif_dict)
 
                 exif_bytes = piexif.dump(self._exif_dict)
                 piexif.insert(exif_bytes, output_path)
