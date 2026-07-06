@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 ### Changed
-- Detectorist now prefetches adjacent images in both directions, so stepping forward or backward feels faster.
+- Detectorist prefetches and processes the next 3 images in the current direction. Cached images & detections are displayed almost instantly so the app feels snappier.
 - The "Loading image..." placeholder only appears when loading actually takes noticeable time.
 - Batch runs load the next image in the background while the current one is processed, cutting batch time (up to 2x for HIF files).
 - A batch run no longer aborts when one image fails to load. The image is skipped and recorded as "load-error" in detections.csv.

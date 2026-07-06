@@ -168,7 +168,8 @@ class DetectionWorker(QObject):
         real request for this path presents the results (or surfaces errors)
         through the normal path.
         """
-        if image_path in self._cache:
+        if self._cache.get(image_path) is not None:
+            # Already cached; get() promotes it to MRU so it survives upcoming evictions.
             return
         try:
             image = ImageObject.create(image_path)

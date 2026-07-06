@@ -25,13 +25,13 @@ class ImageCache:
     the image file and the loaded model, so entries stay valid until the
     model changes or the files on disk may have (callers clear it then).
 
-    The default capacity of 3 keeps two previously viewed images plus the
-    prefetched next image resident, so both a forward and a backward step
-    land in the cache. Each decoded 33 MP 16-bit image occupies roughly
-    200 MB, which is why the capacity is this small.
+    The default capacity of 5 keeps 3 images ahead in the travel direction and
+    1 image behind alongside the current image, so three consecutive steps in
+    the browsing direction are served without decoding. Each decoded 33 MP
+    16-bit image occupies roughly 200 MB, so the capacity is kept small.
     """
 
-    def __init__(self, max_entries: int = 3):
+    def __init__(self, max_entries: int = 5):
         self._max_entries = max_entries
         # dicts preserve insertion order; the first key is the least recently used
         self._entries: dict[str, CacheEntry] = {}
