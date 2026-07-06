@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.9.2] - 2026-07-06
 ### Changed
 - Detectorist prefetches and processes the next 3 images in the current direction. Cached images & detections are displayed almost instantly so the app feels snappier.
 - The "Loading image..." placeholder only appears when loading actually takes noticeable time.
