@@ -51,12 +51,14 @@ compile-qrc = { shell = "for f in src/detectorist/*.qrc; do pyside6-rcc --format
 
 run-app = { cmd = "uv run src/detectorist/main.py", help = "Run the application" }
 run = { sequence = ["compile-ui", "compile-qrc", "run-app"], help = "Compile UI and resource files and run the application" }
+test = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest" }], help = "Compile UI/resources, then run all tests" }
 
 get_app_version = { shell = "python -c 'from detectorist._version import __version__; print(__version__.strip())'", help = "Get the application version" }
 
 clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
 
-ruff = { cmd = "uv run ruff check", help = "Run ruff linter" }
+lint = { cmd = "ruff check src tests", help = "Run ruff linter" }
+fmt = { cmd = "ruff format src tests", help = "Run ruff formatter" }
 
 [tool.poe.tasks.build]
 help = "Build for the current platform"
@@ -163,6 +165,7 @@ run = "poe run-app"
 build-and-run = "poe run"
 
 [tool.ruff]
+line-length = 120
 # Exclude files generated from .ui and .qrc sources
 extend-exclude = ["src/detectorist/ui_*.py", "src/detectorist/*_rc.py"]
 [tool.ruff.lint]
@@ -180,4 +183,6 @@ select = [
 ]
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
 pythonpath = ["src"]
