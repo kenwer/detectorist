@@ -15,8 +15,8 @@ class DetectionWorker(QObject):
 
     Recently viewed images and their detection results are kept in a small LRU
     cache, and while idle the worker prefetches the images the caller hints at
-    (typically the next one in the list), so stepping through images is served
-    from the cache without decoding or inference.
+    (typically the adjacent images in both directions), so stepping through
+    images is served from the cache without decoding or inference.
 
     process_image is intended to be called directly from other threads (it only
     touches lock-protected state); the heavy work always runs on this object's

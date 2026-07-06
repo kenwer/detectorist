@@ -466,15 +466,21 @@ class DetectoristApp(QMainWindow):
 
     def _prefetch_hints(self) -> list[str]:
         """
-        Returns the paths worth decoding ahead of time: the image after the
-        current one, since browsing mostly steps forward through the list.
+        Returns the paths worth decoding ahead of time: one step forward and
+        one step backward. During forward browsing the previous image is
+        already cached (no-op), so the cost is one extra decode. During
+        backward browsing the backward hint populates the slot that would
+        otherwise miss two steps back.
         """
         paths = self.model.imagePaths()
         try:
             row = paths.index(self.current_image_path)
         except ValueError:
             return []
-        return paths[row + 1:row + 2]
+        hints = paths[row + 1:row + 2]
+        if row > 0:
+            hints = hints + [paths[row - 1]]
+        return hints
 
     def handle_model_loaded(self, success: bool, message: str, class_names: list):
         """Handles the result of loading a model in the worker."""
