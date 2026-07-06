@@ -4,7 +4,7 @@ from typing import TypeVar, cast
 
 from PySide6.QtCore import QByteArray, QDir, QSettings
 
-from ._version import __version__
+from detectorist import __version__
 
 T = TypeVar("T")
 

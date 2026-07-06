@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "detectorist"
-dynamic = ["version"]
+version = "0.9.1"
 
 description = "A desktop application for sorting and cropping photos using a machine learning for object detection."
 readme = "README.md"
@@ -41,9 +41,6 @@ detectorist = "detectorist.main:main"
 package-dir = {"" = "src"}
 packages = ["detectorist"]
 
-[tool.setuptools.dynamic]
-version = {attr = "detectorist._version.__version__"}
-
 [tool.poe.tasks]
 compile-ui = { shell = "for f in src/detectorist/*.ui; do base=\"${f%.ui}\"; out=\"${base%/*}/ui_${base##*/}.py\"; pyside6-uic --from-imports \"$f\" -o \"$out\"; done", help = "Compile Qt UI files to Python files with relative imports" }
 # --format-version 1 omits per-file timestamps for reproducible output as setting SOURCE_DATE_EPOCH=0 does not work (Qt treats 0 as "not set" see QTBUG-62511).
@@ -53,7 +50,7 @@ run-app = { cmd = "uv run src/detectorist/main.py", help = "Run the application"
 run = { sequence = ["compile-ui", "compile-qrc", "run-app"], help = "Compile UI and resource files and run the application" }
 test = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest" }], help = "Compile UI/resources, then run all tests" }
 
-get_app_version = { shell = "python -c 'from detectorist._version import __version__; print(__version__.strip())'", help = "Get the application version" }
+get_app_version = { shell = "python -c 'import importlib.metadata; print(importlib.metadata.version(\"detectorist\"))'", help = "Get the application version" }
 
 clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
 

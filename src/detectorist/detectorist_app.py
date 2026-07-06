@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QRadioButton,
 )
 
-from detectorist._version import __version__
+from detectorist import __version__
 
 from .batch_run import CropExportAction, SortByClassAction, output_dir_name, run_batch
 from .crop_planner import CropMode, CropSettings, plan_crops

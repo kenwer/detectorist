@@ -12,7 +12,7 @@
 - [Dev] Extract batch processing (crop & export, sort by class) into a `batch_run` module.
 - [Dev] Concentrate the exposure correction and EXIF update logic in the ImageObject base class.
 - [Dev] Upgrade dependencies.
-- [Dev] Cleanup CI and collapse build jobs into a single matrix job.
+- [Dev] Cleanup CI and collapse build jobs into a single matrix job. Update release version handling.
 ### Fixed
 - Exposure-corrected JPEG crops now reset the EXIF exposure bias to 0, as HEIF and other formats already did. Correcting an already corrected crop no longer doubles the adjustment.
 

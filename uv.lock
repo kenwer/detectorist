@@ -29,6 +29,7 @@ wheels = [
 
 [[package]]
 name = "detectorist"
+version = "0.9.1"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
