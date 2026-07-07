@@ -1,3 +1,4 @@
+import html
 import os
 import subprocess
 import sys
@@ -75,7 +76,7 @@ class DetectoristApp(QMainWindow):
         self.ui.image_label.setSizePolicy(sizePolicy)
         self.ui.image_label.setAlignment(alignment)
         self.ui.splitter.replaceWidget(1, self.ui.image_label)
-        self.ui.image_label.setText("Drop a folder with images<br/>Or use: File -> Open...")
+        self.ui.image_label.linkActivated.connect(self._open_recent_folder)
         self.ui.image_label.setAcceptDrops(True) # Enable drag and drop for image_label
 
         self.model = ImageListModel()
@@ -173,6 +174,7 @@ class DetectoristApp(QMainWindow):
         # Load settings (must be after UI setup and before triggering model load)
         self._load_settings()
         self._update_recent_folders_menu()
+        self._show_welcome_state()
 
         # Load AI model (combo box index was set by _load_settings if a saved model exists)
         self.on_model_selected(self.ui.model_select_combo_box.currentIndex())
@@ -394,6 +396,21 @@ class DetectoristApp(QMainWindow):
         )
         self.ui.status_bar.showMessage("Settings exported.", 3000)
 
+    def _show_welcome_state(self) -> None:
+        parts = ['<span style="font-size: large;">Drop a folder with images</span><br/>']
+        recents = self.settings.recent_directories if hasattr(self, "settings") else []
+        if recents:
+            parts.append('<span style="color: #000000;"><br/>You can also use File menu to open images or folder<br/><br/><br/><br/>Recent Folders:</span><br/>')
+            for path in recents:
+                name = html.escape(os.path.basename(path.rstrip(os.sep)))
+                href = html.escape(path, quote=True)
+                escaped_path = html.escape(path)
+                parts.append(
+                    f'<br/><a href="{href}" style="color: #4b5563; font-weight: bold; text-decoration: none;">{name}</a>'
+                    f'<br/><span style="color: #4b5563; font-size: small;">{escaped_path}</span><br>'
+                )
+        self.ui.image_label.setText("".join(parts))
+
     def clear_image_list(self):
         """Clears the image list and resets the application to its initial state."""
         self.model.clear()
@@ -402,7 +419,7 @@ class DetectoristApp(QMainWindow):
 
         # Clear the main image view and reset text
         self.ui.image_label.clear()
-        self.ui.image_label.setText("Drop a folder with images<br/>Or use: File -> Open...")
+        self._show_welcome_state()
         self.ui.image_label.set_detection_boxes([])
         self.ui.image_label.hide_bands()
 
@@ -696,7 +713,7 @@ class DetectoristApp(QMainWindow):
             self._update_detection_info()
             QMetaObject.invokeMethod(self.worker, "unload_model", Qt.ConnectionType.QueuedConnection)
         elif not has_images:
-            self.ui.image_label.setText("Drop a folder with images<br/>Or use: File -> Open...")
+            self._show_welcome_state()
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
