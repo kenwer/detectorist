@@ -397,10 +397,10 @@ class DetectoristApp(QMainWindow):
         self.ui.status_bar.showMessage("Settings exported.", 3000)
 
     def _show_welcome_state(self) -> None:
-        parts = ['<span style="font-size: large;">Drop a folder with images</span><br/>']
+        parts = ['<span style="font-size: large;">Drop images or a folder with images</span><br/>']
         recents = self.settings.recent_directories if hasattr(self, "settings") else []
         if recents:
-            parts.append('<span style="color: #000000;"><br/>You can also use File menu to open images or folder<br/><br/><br/><br/>Recent Folders:</span><br/>')
+            parts.append('<span style="color: #000000;"><br/>You can also use File menu<br/><br/><br/><br/>Recent Folders:</span><br/>')
             for path in recents:
                 name = html.escape(os.path.basename(path.rstrip(os.sep)))
                 href = html.escape(path, quote=True)
