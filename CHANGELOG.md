@@ -8,6 +8,8 @@
   - background model downloads finish or fail
   - filenames are copied to the clipboard
   - image processing fails
+### Fixed
+- Fix a Qt SSL warning that appeared ~30s after a model download completed.
 ### Changed
 - Single-image actions don't open the file manager automatically anymore.
 - The "recent folder no longer exists" warning is now a toast instead of a modal dialog.

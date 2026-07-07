@@ -124,6 +124,9 @@ class ModelDownloader(QObject):
 
     def _download_next(self):
         if not self._download_queue:
+            # Close pooled SSL connections so the server's keep-alive timeout does not
+            # trigger a "QIODevice::read (QSslSocket): device not open" warning later.
+            self._nam.clearConnectionCache()
             self.all_downloads_finished.emit()
             return
 
