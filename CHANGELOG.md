@@ -9,6 +9,7 @@
   - background model downloads finish or fail
   - filenames are copied to the clipboard
   - image processing fails
+- "Clear Image List" is now available in the image list context menu.
 ### Fixed
 - Removing a large selection of images from the list is now instant instead of freezing the UI.
 - Fix a Qt SSL warning that appeared ~30s after a model download completed.
