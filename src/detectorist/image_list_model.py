@@ -43,12 +43,20 @@ class ImageListModel(QAbstractListModel):
 
     def removeImagePaths(self, indices: list[int]):
         """Removes items (paths of images) from the model based on the provided list of indices."""
-        # Sort indices in descending order to avoid issues with shifting indices
-        for index_row in sorted(indices, reverse=True):
+        if not indices:
+            return
+        if len(indices) == 1:
+            index_row = indices[0]
             if 0 <= index_row < len(self._image_paths):
                 self.beginRemoveRows(_DEFAULT_PARENT, index_row, index_row)
                 del self._image_paths[index_row]
                 self.endRemoveRows()
+        else:
+            # Bulk removal: single reset is O(1) vs O(n) individual row signals
+            index_set = set(indices)
+            self.beginResetModel()
+            self._image_paths = [p for i, p in enumerate(self._image_paths) if i not in index_set]
+            self.endResetModel()
 
     def clear(self):
         """Clears all image paths from the model."""

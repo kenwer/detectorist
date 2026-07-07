@@ -10,6 +10,7 @@
   - filenames are copied to the clipboard
   - image processing fails
 ### Fixed
+- Removing a large selection of images from the list is now instant instead of freezing the UI.
 - Fix a Qt SSL warning that appeared ~30s after a model download completed.
 ### Changed
 - Single-image actions don't open the file manager automatically anymore.
