@@ -38,6 +38,7 @@ dependencies = [
     { name = "opencv-python" },
     { name = "piexif" },
     { name = "pillow-heif" },
+    { name = "pyqt-toast-notification" },
     { name = "pyside6" },
     { name = "rawpy", version = "0.25.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
     { name = "rawpy", version = "0.27.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
@@ -61,6 +62,7 @@ requires-dist = [
     { name = "opencv-python" },
     { name = "piexif" },
     { name = "pillow-heif" },
+    { name = "pyqt-toast-notification", specifier = "==1.3.3" },
     { name = "pyside6" },
     { name = "rawpy", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'", specifier = ">=0.26" },
     { name = "rawpy", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'", specifier = "<=0.25.1" },
@@ -343,6 +345,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pyqt-toast-notification"
+version = "1.3.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "qtpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/96/31/2953091ccc0432c6b238f01031f845f35ffe65e0f0dbb77ceda5a31978dc/pyqt-toast-notification-1.3.3.tar.gz", hash = "sha256:595dbf4b9edee77329e2514255d9a9415ff5d70708c50790db0fee207d323a29", size = 40565, upload-time = "2025-03-26T23:41:02.277Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/3a/7614af8234f36a38476ae62599ba666b2bda66a71605323a4dbadcf94776/pyqt_toast_notification-1.3.3-py3-none-any.whl", hash = "sha256:65ba011f536aa728f0b3ad3a452ab2b578a17f6e0e3468d6f1dc97f5b1cd4d15", size = 41300, upload-time = "2025-03-26T23:41:00.858Z" },
+]
+
+[[package]]
 name = "pyside6"
 version = "6.11.1"
 source = { registry = "https://pypi.org/simple" }
@@ -422,6 +436,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/de/94/980b50a6531b3019e45ddeada0626d45fa85cbe22300844a7983285bed3b/pyyaml-6.0.3-cp313-cp313-win32.whl", hash = "sha256:d0eae10f8159e8fdad514efdc92d74fd8d682c933a6dd088030f3834bc8e6b26", size = 137427, upload-time = "2025-09-25T21:32:32.58Z" },
     { url = "https://files.pythonhosted.org/packages/97/c9/39d5b874e8b28845e4ec2202b5da735d0199dbe5b8fb85f91398814a9a46/pyyaml-6.0.3-cp313-cp313-win_amd64.whl", hash = "sha256:79005a0d97d5ddabfeeea4cf676af11e647e41d81c9a7722a193022accdb6b7c", size = 154090, upload-time = "2025-09-25T21:32:33.659Z" },
     { url = "https://files.pythonhosted.org/packages/73/e8/2bdf3ca2090f68bb3d75b44da7bbc71843b19c9f2b9cb9b0f4ab7a5a4329/pyyaml-6.0.3-cp313-cp313-win_arm64.whl", hash = "sha256:5498cd1645aa724a7c71c8f378eb29ebe23da2fc0d7a08071d89469bf1d2defb", size = 140246, upload-time = "2025-09-25T21:32:34.663Z" },
+]
+
+[[package]]
+name = "qtpy"
+version = "2.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/70/01/392eba83c8e47b946b929d7c46e0f04b35e9671f8bb6fc36b6f7945b4de8/qtpy-2.4.3.tar.gz", hash = "sha256:db744f7832e6d3da90568ba6ccbca3ee2b3b4a890c3d6fbbc63142f6e4cdf5bb", size = 66982, upload-time = "2025-02-11T15:09:25.759Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/69/76/37c0ccd5ab968a6a438f9c623aeecc84c202ab2fabc6a8fd927580c15b5a/QtPy-2.4.3-py3-none-any.whl", hash = "sha256:72095afe13673e017946cc258b8d5da43314197b741ed2890e563cf384b51aa1", size = 95045, upload-time = "2025-02-11T15:09:24.162Z" },
 ]
 
 [[package]]

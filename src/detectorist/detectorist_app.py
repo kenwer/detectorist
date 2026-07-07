@@ -37,6 +37,7 @@ from .image_object import ImageObject
 from .manage_models import ManageModelsDialog
 from .model_downloader import ModelDownloader
 from .settings import Settings
+from .toasts import show_success_toast
 from .ui_about_dialog import Ui_AboutDialog
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
 from .utils import contract_user_path, get_model_path, strip_model_ext
@@ -54,6 +55,7 @@ class DetectoristApp(QMainWindow):
         self._previous_row: int | None = None
         self._all_detection_results: list = []
         self._last_detection_time_ms: float = 0.0
+        self._last_output_dir: str | None = None
 
         # Ensure opener is registered (otherwise the native code will segfault)
         pillow_heif.register_heif_opener()
@@ -108,6 +110,7 @@ class DetectoristApp(QMainWindow):
         self.ui.import_settings_action.triggered.connect(self._import_settings)
         self.ui.export_settings_action.triggered.connect(self._export_settings)
         self.ui.manage_models_action.triggered.connect(self.show_manage_models_dialog)
+        self.ui.open_output_folder_action.triggered.connect(self._open_last_output_folder)
 
         # Confidence slider/spinbox update the display filter only (no re-inference)
         self.ui.confidence_slider.valueChanged.connect(self._display_filtered_results)
@@ -796,6 +799,16 @@ class DetectoristApp(QMainWindow):
             dir_path = os.path.dirname(path) if os.path.isfile(path) else path
             subprocess.Popen(['xdg-open', dir_path])
 
+    def _set_last_output_dir(self, path: str):
+        """Remembers the latest export directory and enables the reveal action."""
+        self._last_output_dir = path
+        self.ui.open_output_folder_action.setEnabled(True)
+
+    def _open_last_output_folder(self):
+        """Reveals the most recent export directory in the native file manager."""
+        if self._last_output_dir:
+            self._open_native_file_manager(self._last_output_dir)
+
 
     def _run_batch_with_progress(self, process_name: str, action, image_files_to_process: list[str] | None = None) -> bool:
         """
@@ -854,10 +867,21 @@ class DetectoristApp(QMainWindow):
 
             if not result.cancelled:
                 self.ui.status_bar.showMessage(f"Finished {process_name.lower()}.", 5000)
+                self._set_last_output_dir(result.output_dir)
+                out_dir = result.output_dir
+                show_success_toast(
+                    self,
+                    "Detectorist",
+                    f"Finished {process_name.lower()}.",
+                    link_text="Show in file manager",
+                    on_link=lambda: self._open_native_file_manager(out_dir),
+                )
+                # Skip openening the file manager for single-image runs (avoids stealing focus)
+                if total_files > 1:
+                    self._open_native_file_manager(result.output_dir)
             else:
                 self.ui.status_bar.showMessage(f"{process_name} cancelled.", 5000)
 
-            self._open_native_file_manager(result.output_dir)
             progress_dialog.close()
             return not result.cancelled
 

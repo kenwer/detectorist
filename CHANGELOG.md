@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- New "Actions > Open output folder" menu item reveals the most recent export directory.
+- Finished crop and sort actions show a success toast with a "Show in file manager" link. 
+### Changed
+- Single-image actions don't open the file manager automatically anymore.
+
 ## [0.9.2] - 2026-07-06
 ### Changed
 - Detectorist prefetches and processes the next 3 images in the current direction. Cached images & detections are displayed almost instantly so the app feels snappier.

@@ -471,6 +471,7 @@ Highest confidence	: -</string>
     <addaction name="crop_and_export_all_images_action"/>
     <addaction name="crop_and_export_selected_images_action"/>
     <addaction name="separator"/>
+    <addaction name="open_output_folder_action"/>
    </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
@@ -531,6 +532,14 @@ Highest confidence	: -</string>
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>
+   </property>
+  </action>
+  <action name="open_output_folder_action">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Open output folder</string>
    </property>
   </action>
   <action name="about_action">
