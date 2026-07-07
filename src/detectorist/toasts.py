@@ -12,16 +12,17 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QWidget
 
 
-def show_success_toast(
+def _show_toast(
     parent: QWidget,
     title: str,
     text: str,
+    preset: ToastPreset,
     *,
     link_text: str | None = None,
     on_link: Callable[[], None] | None = None,
-    duration: int | None = None, # uses pyqttoast's default of 5000ms if not set
+    duration: int | None = None,
 ) -> Toast:
-    """Show a success toast, optionally ending in a clickable link.
+    """Build and show a toast with the given preset.
 
     The default toast position is bottom-right (pyqttoast's own default), so it
     does not steal focus from the main window.
@@ -36,6 +37,7 @@ def show_success_toast(
         parent: Widget the toast is parented to.
         title: Bold title line.
         text: Body text.
+        preset: pyqttoast style preset (success, error, warning, ...).
         link_text: Visible text of the trailing link, or None for no link.
         on_link: Callback invoked when the link is clicked.
         duration: Auto-dismiss time in milliseconds. None keeps pyqttoast's
@@ -48,7 +50,7 @@ def show_success_toast(
     if duration is not None:
         toast.setDuration(duration)
     toast.setTitle(title)
-    toast.applyPreset(ToastPreset.SUCCESS)
+    toast.applyPreset(preset)
 
     # pyqttoast defaults to Arial 9pt, which is small and non-native. Use the app
     # font family so the toast matches the UI, with a floor so it stays legible
@@ -76,3 +78,46 @@ def show_success_toast(
 
     toast.show()
     return toast
+
+
+def show_success_toast(
+    parent: QWidget,
+    title: str,
+    text: str,
+    *,
+    link_text: str | None = None,
+    on_link: Callable[[], None] | None = None,
+    duration: int | None = None,
+) -> Toast:
+    """Show a success toast, optionally ending in a clickable link."""
+    return _show_toast(
+        parent,
+        title,
+        text,
+        ToastPreset.SUCCESS,
+        link_text=link_text,
+        on_link=on_link,
+        duration=duration,
+    )
+
+
+def show_error_toast(
+    parent: QWidget,
+    title: str,
+    text: str,
+    *,
+    duration: int | None = None,
+) -> Toast:
+    """Show a non-blocking error toast."""
+    return _show_toast(parent, title, text, ToastPreset.ERROR, duration=duration)
+
+
+def show_warning_toast(
+    parent: QWidget,
+    title: str,
+    text: str,
+    *,
+    duration: int | None = None,
+) -> Toast:
+    """Show a non-blocking warning toast."""
+    return _show_toast(parent, title, text, ToastPreset.WARNING, duration=duration)

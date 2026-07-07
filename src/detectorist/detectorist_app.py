@@ -21,7 +21,6 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
     QMenu,
-    QMessageBox,
     QProgressDialog,
     QRadioButton,
 )
@@ -37,7 +36,7 @@ from .image_object import ImageObject
 from .manage_models import ManageModelsDialog
 from .model_downloader import ModelDownloader
 from .settings import Settings
-from .toasts import show_success_toast
+from .toasts import show_error_toast, show_success_toast, show_warning_toast
 from .ui_about_dialog import Ui_AboutDialog
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
 from .utils import contract_user_path, get_model_path, strip_model_ext
@@ -56,6 +55,9 @@ class DetectoristApp(QMainWindow):
         self._all_detection_results: list = []
         self._last_detection_time_ms: float = 0.0
         self._last_output_dir: str | None = None
+        # When the Manage Models dialog is open it reports download progress
+        # itself, so app-level toasts are suppressed to avoid double feedback.
+        self._models_dialog_open = False
 
         # Ensure opener is registered (otherwise the native code will segfault)
         pillow_heif.register_heif_opener()
@@ -134,6 +136,8 @@ class DetectoristApp(QMainWindow):
         # Shared model downloader (lives for the app's lifetime so downloads survive dialog close)
         self._model_downloader = ModelDownloader(self.models_dir, self)
         self._model_downloader.download_finished.connect(self._refresh_model_list)
+        self._model_downloader.download_finished.connect(self._notify_model_download_finished)
+        self._model_downloader.download_error.connect(self._notify_model_download_error)
 
         # Deferred loading placeholder: started when an image is selected,
         # stopped when it arrives. Cached images arrive within a few
@@ -347,7 +351,7 @@ class DetectoristApp(QMainWindow):
         if os.path.isdir(path):
             self._open_folder_by_path(path)
         else:
-            QMessageBox.warning(self, "Folder Not Found", f"The folder is not accessible anymore (e.g. no longer exists):\n{path}")
+            show_warning_toast(self, "Folder not found", f"The folder is no longer accessible:\n{path}")
 
     def _clear_recent_folders(self) -> None:
         """Clear the recent folders list."""
@@ -591,6 +595,7 @@ class DetectoristApp(QMainWindow):
         self.ui.image_label.setText(f"Error: {message}")
         self._update_detection_info()
         self.ui.status_bar.clearMessage()
+        show_error_toast(self, "Could not process image", f"{os.path.basename(image_path)}: {message}")
 
     def on_model_selected(self, index):
         if index < 0:
@@ -623,7 +628,24 @@ class DetectoristApp(QMainWindow):
     def show_manage_models_dialog(self):
         dialog = ManageModelsDialog(self._model_downloader, self.models_dir, self)
         dialog.models_changed.connect(self._refresh_model_list)
-        dialog.exec()
+        self._models_dialog_open = True
+        try:
+            dialog.exec()
+        finally:
+            self._models_dialog_open = False
+
+    def _notify_model_download_finished(self, filename: str):
+        """Toasts a completed background download when the Manage Models dialog isn't shown."""
+        if self._models_dialog_open:
+            return
+        name = self._model_downloader.filename_to_name.get(filename) or strip_model_ext(filename)
+        show_success_toast(self, "Model downloaded", f"{name} is ready to use.")
+
+    def _notify_model_download_error(self, message: str):
+        """Toasts a failed background download when the Manage Models dialog isn't shown."""
+        if self._models_dialog_open:
+            return
+        show_error_toast(self, "Model download failed", message)
 
     def _refresh_model_list(self):
         """Re-scan the models directory and update the combo box."""
@@ -972,6 +994,13 @@ class DetectoristApp(QMainWindow):
         clipboard_text = "\n".join(filenames)
         clipboard = QApplication.clipboard()
         clipboard.setText(clipboard_text)
+
+        count = len(filenames)
+        show_success_toast(
+            self,
+            "Copied to clipboard",
+            f"Copied {count} filename{'s' if count != 1 else ''}.",
+        )
 
     def _remove_selected_images_from_list(self):
         """Removes the currently selected images filenames from the list."""

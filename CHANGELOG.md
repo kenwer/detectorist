@@ -3,9 +3,14 @@
 ## [Unreleased]
 ### Added
 - New "Actions > Open output folder" menu item reveals the most recent export directory.
-- Finished crop and sort actions show a success toast with a "Show in file manager" link. 
+- Show toast notifications when:
+  - crop and sort actions finish (plus a "Show in file manager" link)
+  - background model downloads finish or fail
+  - filenames are copied to the clipboard
+  - image processing fails
 ### Changed
 - Single-image actions don't open the file manager automatically anymore.
+- The "recent folder no longer exists" warning is now a toast instead of a modal dialog.
 
 ## [0.9.2] - 2026-07-06
 ### Changed
