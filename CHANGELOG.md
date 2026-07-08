@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.10.1] - 2026-07-08
 ### Fixed
 - Fix a hang that stalled cropping/export, caused by missing toast notification assets.
 
