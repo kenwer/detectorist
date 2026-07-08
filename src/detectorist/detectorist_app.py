@@ -868,6 +868,7 @@ class DetectoristApp(QMainWindow):
             return False
 
         self._set_batch_actions_enabled(False)
+        progress_dialog = None
         try:
             model_filename = self.ui.model_select_combo_box.currentData()
             output_dir = os.path.join(output_base_dir, output_dir_name(self.ui.confidence_slider.value(), model_filename))
@@ -926,7 +927,6 @@ class DetectoristApp(QMainWindow):
             else:
                 self.ui.status_bar.showMessage(f"{process_name} cancelled.", 5000)
 
-            progress_dialog.close()
             return not result.cancelled
 
         except Exception as e:
@@ -934,6 +934,8 @@ class DetectoristApp(QMainWindow):
             self.ui.status_bar.showMessage(f"Error during {process_name}: {e}", 5000)
             return False
         finally:
+            if progress_dialog is not None:
+                progress_dialog.close()
             self._set_batch_actions_enabled(True)
 
     def _set_batch_actions_enabled(self, enabled: bool) -> None:

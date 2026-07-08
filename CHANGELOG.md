@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Fixed
+- Fix a hang that stalled cropping/export, caused by missing toast notification assets.
+
 ## [0.10.0] - 2026-07-08
 ### Added
 - The welcome screen now lists recently opened folders to provide a quick way to reopen them.

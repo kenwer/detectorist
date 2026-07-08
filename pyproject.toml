@@ -84,6 +84,7 @@ nuitka \
     --noinclude-dlls='*.cpp.o' \
     --noinclude-dlls='*.qsb' \
     --include-qt-plugins=platforminputcontexts \
+    --include-package-data=pyqttoast \
     --disable-ccache \
     --output-dir="$OUTPUT_DIR" \
     --linux-icon=assets/icon.png \
@@ -109,6 +110,7 @@ nuitka \
     --noinclude-dlls='*.cpp.o' \
     --noinclude-dlls='*.qsb' \
     --include-qt-plugins=platforminputcontexts \
+    --include-package-data=pyqttoast \
     --disable-ccache \
     --output-dir="$OUTPUT_DIR" \
     --remove-output \
@@ -142,6 +144,7 @@ nuitka.cmd \
     --noinclude-dlls='*.cpp.o' \
     --noinclude-dlls='*.qsb' \
     --include-qt-plugins=platforminputcontexts \
+    --include-package-data=pyqttoast \
     --disable-ccache \
     --output-dir="$OUTPUT_DIR" \
     --remove-output \
