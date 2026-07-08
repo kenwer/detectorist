@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "detectorist"
-version = "0.9.2"
+version = "0.10.0"
 
 description = "A desktop application for sorting and cropping photos using a machine learning for object detection."
 readme = "README.md"
