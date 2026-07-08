@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Fixed
+- Fix reading and writing on Windows for deeply nested folders or long file names, matching the write-side fix in 0.9.1. Import listing, image decoding (standard, RAW, HEIF), batch export folder/CSV creation, and settings import/export now use Windows extended-length paths.
+
 ## [0.10.1] - 2026-07-08
 ### Fixed
 - Fix a hang that stalled cropping/export, caused by missing toast notification assets.

@@ -16,7 +16,7 @@ from typing import Protocol
 
 from .crop_planner import CropSettings, plan_crops
 from .image_object import ImageObject
-from .utils import strip_model_ext
+from .utils import long_path, strip_model_ext
 
 # Called before each image as (index, total, filename); returning False cancels the run.
 ProgressFn = Callable[[int, int, str], bool]
@@ -101,7 +101,7 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
         A BatchResult with the output directory, whether the run was cancelled,
         and the rows written to detections.csv.
     """
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(long_path(output_dir), exist_ok=True)
     action.prepare(output_dir)
 
     total = len(image_paths)
@@ -109,7 +109,7 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
     cancelled = False
 
     detections_csv_path = os.path.join(output_dir, "detections.csv")
-    with open(detections_csv_path, "w", newline="") as csv_file:
+    with open(long_path(detections_csv_path), "w", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(CSV_HEADER)
 
@@ -171,8 +171,8 @@ class CropExportAction:
         """
         self.cropped_dir = os.path.join(output_dir, "cropped")
         self.not_cropped_dir = os.path.join(output_dir, "not-cropped")
-        os.makedirs(self.cropped_dir, exist_ok=True)
-        os.makedirs(self.not_cropped_dir, exist_ok=True)
+        os.makedirs(long_path(self.cropped_dir), exist_ok=True)
+        os.makedirs(long_path(self.not_cropped_dir), exist_ok=True)
 
     def process(self, image: ImageObject, detections: list) -> CsvRow:
         """
@@ -235,11 +235,11 @@ class SortByClassAction:
             top_detection = max(detections, key=lambda d: d[1])
             class_name = top_detection[2]
             class_dir = os.path.join(self._output_dir, class_name)
-            os.makedirs(class_dir, exist_ok=True)
+            os.makedirs(long_path(class_dir), exist_ok=True)
             image.copy_image(class_dir)
             return file_name, top_detection[1], class_name, len(detections), class_name
         else:
             no_detection_dir = os.path.join(self._output_dir, "no-detection")
-            os.makedirs(no_detection_dir, exist_ok=True)
+            os.makedirs(long_path(no_detection_dir), exist_ok=True)
             image.copy_image(no_detection_dir)
             return file_name, 0, "no-detection", 0, "no-detection"

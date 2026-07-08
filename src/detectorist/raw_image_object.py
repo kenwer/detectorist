@@ -40,7 +40,10 @@ class RawImageObject(ImageObject):
         The bit depth of the output is determined by the output_bps parameter.
         """
         print(f"Reading RAW file: {path}")
-        with rawpy.imread(path) as raw:
+        # rawpy.imread(path) hands the path to LibRaw's own file opener, which has the
+        # same MAX_PATH/Unicode issues on Windows as cv2's. Passing a file object instead
+        # makes rawpy read the bytes via open_buffer(), sidestepping LibRaw's path handling.
+        with open(self.long_image_path, "rb") as f, rawpy.imread(f) as raw:
             print("Loading and processing RAW image...")
             # Process the raw image to get an RGB image
             # The output is 16-bit if output_bps=16

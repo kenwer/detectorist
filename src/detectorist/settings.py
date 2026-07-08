@@ -6,6 +6,8 @@ from PySide6.QtCore import QByteArray, QDir, QSettings
 
 from detectorist import __version__
 
+from . import utils
+
 T = TypeVar("T")
 
 
@@ -207,11 +209,13 @@ class Settings:
             "app_version": __version__,
             "groups": {g: self.export_group(g) for g in groups},
         }
-        path.write_text(json.dumps(data, indent=2))
+        with open(utils.long_path(str(path)), "w") as f:
+            f.write(json.dumps(data, indent=2))
 
     def import_from_file(self, path: Path, groups: list[str] | None = None) -> None:
         """Import groups from a JSON file. If groups is None, import all."""
-        data = json.loads(path.read_text())
+        with open(utils.long_path(str(path))) as f:
+            data = json.loads(f.read())
         for group, settings in data.get("groups", {}).items():
             if groups is None or group in groups:
                 self.import_group(group, settings)

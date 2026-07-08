@@ -1,31 +1,24 @@
 import os
-import sys
 
 import cv2
 import numpy as np
 
+from .utils import long_path
 
-def long_path(path: str) -> str:
+
+def imread(path: str, flags: int = cv2.IMREAD_UNCHANGED) -> np.ndarray:
     """
-    Make a path safe for writing on Windows, where the legacy Win32 file APIs
-    reject paths longer than MAX_PATH (260 characters).
+    Read an image with OpenCV in a way that works for long paths and non-ASCII
+    paths on Windows.
 
-    On Windows this returns the path in extended-length form (prefixed with
-    ``\\\\?\\``), which bypasses the MAX_PATH limit. Extended-length paths are
-    passed to the filesystem verbatim, so the path must be absolute, normalized
-    and use backslashes only (forward slashes are NOT translated). UNC paths use
-    the ``\\\\?\\UNC\\`` form.
-
-    On non-Windows platforms the path is returned unchanged.
+    ``cv2.imread`` builds the file via the Win32 APIs directly, so it neither
+    honors the ``\\\\?\\`` long-path prefix nor handles Unicode paths reliably.
+    Reading the bytes through Python's own ``open`` (via :func:`long_path`) and
+    decoding them with ``cv2.imdecode`` avoids both problems.
     """
-    if sys.platform != "win32":
-        return path
-    abs_path = os.path.normpath(os.path.abspath(path))
-    if abs_path.startswith("\\\\?\\"):
-        return abs_path
-    if abs_path.startswith("\\\\"):  # UNC path: \\server\share -> \\?\UNC\server\share
-        return "\\\\?\\UNC\\" + abs_path[2:]
-    return "\\\\?\\" + abs_path
+    with open(long_path(path), "rb") as f:
+        buffer = np.frombuffer(f.read(), dtype=np.uint8)
+    return cv2.imdecode(buffer, flags)
 
 
 def imwrite(path: str, image: np.ndarray, params: list[int] | None = None) -> None:

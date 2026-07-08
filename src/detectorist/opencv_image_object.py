@@ -45,7 +45,7 @@ class OpencvImageObject(ImageObject):
         # Then we convert the OpenCV loaded image data to match the logical color mode determined by Pillow
 
         # Load image with OpenCV to be able to get the 16 bit data if present
-        cv_image = cv2.imread(self.image_path, cv2.IMREAD_UNCHANGED)
+        cv_image = image_utils.imread(self.image_path, cv2.IMREAD_UNCHANGED)
         if cv_image is None:
             raise OSError(f"Error: Could not read image from '{self.image_path}'")
 
@@ -56,7 +56,7 @@ class OpencvImageObject(ImageObject):
             self._original_bpc = 8
 
         # Load with Pillow to determine color mode
-        with PILImage.open(self.image_path) as pil_image:
+        with PILImage.open(self.long_image_path) as pil_image:
             # Keep image data in OpenCV's native format (BGR or BGRA)
             if pil_image.mode == 'L':
                 self._mode = ImageMode.GRAY

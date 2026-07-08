@@ -3,7 +3,7 @@ import piexif
 import pillow_heif
 from PIL import Image as PILImage
 
-from . import image_utils
+from . import utils
 from .image_object import ImageMode, ImageObject
 
 HEIF_EXTENSIONS = ('.heic', '.heics', '.heif', '.heifs', '.hif')
@@ -22,7 +22,7 @@ class HeifImageObject(ImageObject):
             raise ValueError(f"Invalid HEIF file extension \"{self._file_extension}\". Expected {HEIF_EXTENSIONS}")
 
         print(f"Loading HEIF file: {image_path}")
-        heif_file = pillow_heif.open_heif(self.image_path, convert_hdr_to_8bit=False)
+        heif_file = pillow_heif.open_heif(self.long_image_path, convert_hdr_to_8bit=False)
 
         if heif_file is None or len(heif_file) == 0:
             raise OSError(f"Error: Could not load HEIF image from '{image_path}' or it contains no images.")
@@ -205,5 +205,5 @@ class HeifImageObject(ImageObject):
         # The bit_depth parameter explicitly instructs the HEIF encoder to save the final file with the specified bit depth (e.g. 10 bit).
         #  For images with >8 bit, it knows the in-memory data is 16-bit and it knows the desired output is e.g. 10-bit.
         #  It scales the pixel values back down from the [0, 65535] range to the [0, 1023] range before encoding and saving the file.
-        new_heif_image.save(image_utils.long_path(output_path), format="HEIF", quality=quality, bit_depth=bit_depth, chroma=chroma, nclx_profile=nclx_profile, exif=updated_exif, xmp=xmp)
+        new_heif_image.save(utils.long_path(output_path), format="HEIF", quality=quality, bit_depth=bit_depth, chroma=chroma, nclx_profile=nclx_profile, exif=updated_exif, xmp=xmp)
         #print(f"Cropped image to {w}x{h} at ({x},{y}) and saved to {output_path}")

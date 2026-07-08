@@ -29,6 +29,29 @@ def get_model_path() -> str:
     return models_dir
 
 
+def long_path(path: str) -> str:
+    """
+    Make a path safe for writing on Windows, where the legacy Win32 file APIs
+    reject paths longer than MAX_PATH (260 characters).
+
+    On Windows this returns the path in extended-length form (prefixed with
+    ``\\\\?\\``), which bypasses the MAX_PATH limit. Extended-length paths are
+    passed to the filesystem verbatim, so the path must be absolute, normalized
+    and use backslashes only (forward slashes are NOT translated). UNC paths use
+    the ``\\\\?\\UNC\\`` form.
+
+    On non-Windows platforms the path is returned unchanged.
+    """
+    if sys.platform != "win32":
+        return path
+    abs_path = os.path.normpath(os.path.abspath(path))
+    if abs_path.startswith("\\\\?\\"):
+        return abs_path
+    if abs_path.startswith("\\\\"):  # UNC path: \\server\share -> \\?\UNC\server\share
+        return "\\\\?\\UNC\\" + abs_path[2:]
+    return "\\\\?\\" + abs_path
+
+
 def strip_model_ext(filename: str) -> str:
     """Strip .onnx or .onnx.gz extension for display."""
     return filename.removesuffix(".gz").removesuffix(".onnx")

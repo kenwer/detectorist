@@ -3,7 +3,7 @@ import numpy as np
 import piexif
 from PIL import Image as PILImage
 
-from . import image_utils
+from . import utils
 from .image_object import ImageObject
 from .structures import ImageMode
 
@@ -39,7 +39,7 @@ class PillowImageObject(ImageObject):
 
         print(f"Loading image file with Pillow: {self.image_path}")
 
-        self._pil_image = PILImage.open(self.image_path)
+        self._pil_image = PILImage.open(self.long_image_path)
 
         if self._pil_image.mode not in ('P', 'LA', 'CMYK'):
             self._pil_image.close()
@@ -140,5 +140,5 @@ class PillowImageObject(ImageObject):
                 print(f"Warning: Could not update EXIF data: {e}")
                 save_kwargs['exif'] = self._exif
 
-        pil_cropped_image.save(image_utils.long_path(output_path), **save_kwargs)
+        pil_cropped_image.save(utils.long_path(output_path), **save_kwargs)
         print(f"  Cropped {original_format or 'image'} saved to {output_path}")

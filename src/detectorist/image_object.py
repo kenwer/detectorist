@@ -8,7 +8,7 @@ import numpy as np
 import piexif
 from PIL import Image as PILImage
 
-from . import image_utils
+from . import image_utils, utils
 from .structures import ImageMode
 
 APPLEDOUBLE_MAGIC = b"\x00\x05\x16\x07"
@@ -17,7 +17,7 @@ APPLEDOUBLE_MAGIC = b"\x00\x05\x16\x07"
 def _is_appledouble_file(path: str) -> bool:
     """Reads the leading magic number to confirm an AppleDouble sidecar."""
     try:
-        with open(path, "rb") as fh:
+        with open(utils.long_path(path), "rb") as fh:
             return fh.read(4) == APPLEDOUBLE_MAGIC
     except OSError:
         return False
@@ -57,7 +57,7 @@ class ImageObject (ABC):
 
         It excludes macOS AppleDouble sidecar files (e.g. "._IMG_1234.HIF").
         """
-        entries = os.listdir(folder_path)
+        entries = os.listdir(utils.long_path(folder_path))
         extensions = ImageObject.get_supported_extensions()
         supported = [f for f in entries if f.lower().endswith(extensions)]
         full_paths = [os.path.join(folder_path, f) for f in supported]
@@ -362,7 +362,7 @@ class ImageObject (ABC):
             return RawImageObject(image_path)
         elif file_extension in STANDARD_IMG_EXTENSIONS:
             # For standard extensions, we check the mode to see if it's paletted
-            with PILImage.open(image_path) as pil_image:
+            with PILImage.open(utils.long_path(image_path)) as pil_image:
                 if pil_image.mode in ('P', 'LA', 'CMYK'):
                     return PillowImageObject(image_path)
                 else:
@@ -379,6 +379,15 @@ class ImageObject (ABC):
     def image_path(self) -> str:
         """Returns the path to the loaded image."""
         return self._image_path
+
+    @property
+    def long_image_path(self) -> str:
+        """
+        Returns image_path in extended-length form on Windows (see
+        utils.long_path), safe to hand to file APIs that enforce
+        MAX_PATH. Use image_path instead for display or name derivation.
+        """
+        return utils.long_path(self._image_path)
 
     @property
     def image_data(self) -> np.ndarray:
@@ -613,7 +622,7 @@ class ImageObject (ABC):
         """Copies the original image file to the specified output directory preserving its file name."""
         input_file_name = os.path.basename(self._image_path)
         output_path = os.path.join(target_dir_path, input_file_name)
-        shutil.copy2(image_utils.long_path(self._image_path), image_utils.long_path(output_path))
+        shutil.copy2(self.long_image_path, utils.long_path(output_path))
 
     @abstractmethod
     def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
