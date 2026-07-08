@@ -13,6 +13,7 @@
 ### Fixed
 - Removing a large selection of images from the list is now instant instead of freezing the UI.
 - Fix a Qt SSL warning that appeared ~30s after a model download completed.
+- Detect macOS AppleDouble sidecar files (e.g. "._IMG_1234.HIF") and exclude them from import.
 ### Changed
 - Single-image actions don't open the file manager automatically anymore.
 - The "recent folder no longer exists" warning is now a toast instead of a modal dialog.

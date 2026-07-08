@@ -11,6 +11,17 @@ from PIL import Image as PILImage
 from . import image_utils
 from .structures import ImageMode
 
+APPLEDOUBLE_MAGIC = b"\x00\x05\x16\x07"
+
+
+def _is_appledouble_file(path: str) -> bool:
+    """Reads the leading magic number to confirm an AppleDouble sidecar."""
+    try:
+        with open(path, "rb") as fh:
+            return fh.read(4) == APPLEDOUBLE_MAGIC
+    except OSError:
+        return False
+
 
 class ImageObject (ABC):
     """
@@ -38,6 +49,46 @@ class ImageObject (ABC):
             from .raw_image_object import RAW_EXTENSIONS
             ImageObject._supported_extensions = HEIF_EXTENSIONS + RAW_EXTENSIONS + STANDARD_IMG_EXTENSIONS
         return ImageObject._supported_extensions
+
+    @staticmethod
+    def list_supported_images(folder_path: str) -> list[str]:
+        """
+        Returns sorted basenames of supported image files in folder_path.
+
+        It excludes macOS AppleDouble sidecar files (e.g. "._IMG_1234.HIF").
+        """
+        entries = os.listdir(folder_path)
+        extensions = ImageObject.get_supported_extensions()
+        supported = [f for f in entries if f.lower().endswith(extensions)]
+        full_paths = [os.path.join(folder_path, f) for f in supported]
+        kept = ImageObject.filter_out_appledouble_files(full_paths)
+        return sorted(os.path.basename(p) for p in kept)
+
+    @staticmethod
+    def filter_out_appledouble_files(file_paths: list[str]) -> list[str]:
+        """
+        Returns file_paths with macOS AppleDouble sidecar files removed.
+
+        A sidecar and its original always live in the same directory, so
+        paths are grouped by directory before checking. A "._NAME" entry is
+        removed if a "NAME" sibling exists in the same directory (the
+        common case). Otherwise its leading bytes are checked against the
+        AppleDouble magic number.
+        """
+        names_by_dir: dict[str, set[str]] = {}
+        for p in file_paths:
+            names_by_dir.setdefault(os.path.dirname(p), set()).add(os.path.basename(p))
+
+        result = []
+        for p in file_paths:
+            name = os.path.basename(p)
+            if name.startswith("._"):
+                if name[2:] in names_by_dir[os.path.dirname(p)]:
+                    continue
+                if _is_appledouble_file(p):
+                    continue
+            result.append(p)
+        return result
 
     def __init__(self, image_path: str):
         """

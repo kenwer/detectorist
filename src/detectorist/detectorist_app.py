@@ -325,8 +325,7 @@ class DetectoristApp(QMainWindow):
         """Open a folder and load its images."""
         self.settings.add_recent_directory(folder_path)
         self._update_recent_folders_menu()
-        image_files_basenames = sorted([f for f in os.listdir(folder_path)
-                       if f.lower().endswith(ImageObject.get_supported_extensions())])
+        image_files_basenames = ImageObject.list_supported_images(folder_path)
         full_paths = [os.path.join(folder_path, f) for f in image_files_basenames]
         self._load_images_from_paths(full_paths)
 
@@ -740,13 +739,14 @@ class DetectoristApp(QMainWindow):
             elif os.path.isfile(path):
                 files_to_load.add(path)
 
+        files_to_load = set(ImageObject.filter_out_appledouble_files(list(files_to_load)))
+
         if folders_to_scan:
             # Scan the first folder for images
             first_folder = folders_to_scan[0]
             folder_images = {
                 os.path.join(first_folder, f)
-                for f in os.listdir(first_folder)
-                if f.lower().endswith(ImageObject.get_supported_extensions())
+                for f in ImageObject.list_supported_images(first_folder)
             }
             files_to_load.update(folder_images)
 
