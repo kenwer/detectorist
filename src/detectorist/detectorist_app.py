@@ -867,6 +867,7 @@ class DetectoristApp(QMainWindow):
         if not image_full_paths:
             return False
 
+        self._set_batch_actions_enabled(False)
         try:
             model_filename = self.ui.model_select_combo_box.currentData()
             output_dir = os.path.join(output_base_dir, output_dir_name(self.ui.confidence_slider.value(), model_filename))
@@ -879,6 +880,10 @@ class DetectoristApp(QMainWindow):
             progress_dialog = QProgressDialog(f"{process_name}...", "Cancel", 0, total_files, self)
             progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
             progress_dialog.setAutoClose(True)
+            # Default minimumDuration is 4s, during which the dialog is invisible
+            # but the window underneath stays fully clickable. Show it immediately
+            # so the batch-actions guard below has a visible reason to exist.
+            progress_dialog.setMinimumDuration(0)
 
             def progress(index: int, total: int, file_name: str) -> bool:
                 progress_dialog.setValue(index)
@@ -928,6 +933,37 @@ class DetectoristApp(QMainWindow):
             print(f"Error during {process_name}: {e}")
             self.ui.status_bar.showMessage(f"Error during {process_name}: {e}", 5000)
             return False
+        finally:
+            self._set_batch_actions_enabled(True)
+
+    def _set_batch_actions_enabled(self, enabled: bool) -> None:
+        """
+        Guards against re-entering run_batch. It blocks the GUI thread and
+        pumps QApplication.processEvents() to keep the progress dialog alive,
+        which leaves every action reachable through the app menu bar (unlike
+        toolbar widgets, it isn't covered by the dialog's window modality) for
+        the whole run. Without this, clicking a batch action again mid-run
+        starts a second run_batch writing to the same output directory.
+
+        Disabling forces every guarded action off. Re-enabling recomputes each
+        action's real state instead of forcing it on, since model/selection
+        state may have changed while the batch was running.
+        """
+        if enabled:
+            self._on_model_availability_changed()
+            self._update_selection_dependent_actions_state()
+            self._update_clear_image_list_action_state()
+            self.ui.open_images_action.setEnabled(True)
+            self.ui.open_folder_action.setEnabled(True)
+        else:
+            self.ui.crop_and_export_all_images_action.setEnabled(False)
+            self.ui.crop_and_export_selected_images_action.setEnabled(False)
+            self.ui.group_images_by_object_class_action.setEnabled(False)
+            self.ui.copy_export_remove_action.setEnabled(False)
+            self.ui.clear_image_list_action.setEnabled(False)
+            self.ui.remove_selected_images_from_list_action.setEnabled(False)
+            self.ui.open_images_action.setEnabled(False)
+            self.ui.open_folder_action.setEnabled(False)
 
     def _crop_and_export_images_with_progress(self, process_name: str, image_files_to_process: list[str] | None = None):
         """Crops and exports images via a Batch Run using the current crop settings."""

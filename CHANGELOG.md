@@ -15,6 +15,7 @@
 - Fix a Qt SSL warning that appeared ~30s after a model download completed.
 - Detect macOS AppleDouble sidecar files (e.g. "._IMG_1234.HIF") and exclude them from import.
 ### Changed
+- The progress dialog for batch runs now shows immediately and guards against starting a second run.
 - Single-image actions don't open the file manager automatically anymore.
 - The "recent folder no longer exists" warning is now a toast instead of a modal dialog.
 
