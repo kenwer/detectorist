@@ -59,3 +59,12 @@ def test_clear():
     cache.clear()
     assert "a" not in cache
     assert cache.get("a") is None
+
+
+def test_paths_reflects_current_entries_oldest_first():
+    cache = ImageCache(max_entries=2)
+    cache.put("a", 1)
+    cache.put("b", 2)
+    assert cache.paths() == ["a", "b"]
+    cache.put("c", 3)  # evicts a
+    assert cache.paths() == ["b", "c"]

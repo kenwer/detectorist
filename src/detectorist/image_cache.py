@@ -55,6 +55,10 @@ class ImageCache:
         """Membership test without changing recency."""
         return path in self._entries
 
+    def paths(self) -> list[str]:
+        """Returns the paths of all currently cached entries."""
+        return list(self._entries.keys())
+
     def clear(self) -> None:
         """Drops all entries."""
         self._entries.clear()

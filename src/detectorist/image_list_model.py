@@ -1,8 +1,10 @@
 import os
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt
+from PySide6.QtGui import QColor
 
 _DEFAULT_PARENT = QModelIndex()
+_CACHED_TEXT_COLOR = QColor("darkgreen")  # SVG darkgreen (0,100,0); no Qt.GlobalColor goes this dark
 
 class ImageListModel(QAbstractListModel):
     """
@@ -15,6 +17,7 @@ class ImageListModel(QAbstractListModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._image_paths = []
+        self._cached_paths: frozenset[str] = frozenset()
 
     def rowCount(self, parent=_DEFAULT_PARENT):
         """Returns the number of images in the model."""
@@ -33,12 +36,18 @@ class ImageListModel(QAbstractListModel):
             return os.path.basename(path)
         elif role == self.FullPathRole:
             return path
+        elif role == Qt.ItemDataRole.ForegroundRole and path in self._cached_paths:
+            return _CACHED_TEXT_COLOR
         return None
 
     def setImagePaths(self, paths: list[str]):
         """Sets the list of image paths, replacing the existing ones."""
         self.beginResetModel()
         self._image_paths = paths
+        # A fresh row set makes any leftover highlighting meaningless; the
+        # worker's own clear_cache signal will confirm this shortly after,
+        # but resetting here avoids depending on that queued signal's timing.
+        self._cached_paths = frozenset()
         self.endResetModel()
 
     def removeImagePaths(self, indices: list[int]):
@@ -61,6 +70,23 @@ class ImageListModel(QAbstractListModel):
     def clear(self):
         """Clears all image paths from the model."""
         self.setImagePaths([])
+
+    def setCachedPaths(self, paths: list[str]):
+        """
+        Updates which paths are highlighted as already analyzed (served
+        instantly from the worker's cache). Connected to the worker's
+        cache_updated signal, which arrives on the GUI thread via a queued
+        connection.
+        """
+        cached_paths = frozenset(paths)
+        if cached_paths == self._cached_paths:
+            return
+        self._cached_paths = cached_paths
+        if self._image_paths:
+            self.dataChanged.emit(
+                self.index(0), self.index(len(self._image_paths) - 1),
+                [Qt.ItemDataRole.ForegroundRole],
+            )
 
     def imagePaths(self) -> list[str]:
         """Returns the list of all full image paths."""

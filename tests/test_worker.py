@@ -96,6 +96,32 @@ def test_clear_cache_forces_reprocessing(tmp_path):
     assert worker.detector.detected_paths == ["a.png", "a.png"]
 
 
+def test_cache_updated_reports_paths_after_detection_and_prefetch(tmp_path):
+    path_a, path_b = make_images(tmp_path, ["a.png", "b.png"])
+    worker, completed = make_worker()
+    cache_updates = []
+    worker.cache_updated.connect(cache_updates.append)
+
+    worker.process_image(path_a, False, [path_b])
+    assert pump(lambda: worker.detector.detected_paths == ["a.png", "b.png"])
+
+    assert cache_updates[-2] == [path_a]
+    assert cache_updates[-1] == [path_a, path_b]
+
+
+def test_cache_updated_reports_empty_after_clear_cache(tmp_path):
+    (path_a,) = make_images(tmp_path, ["a.png"])
+    worker, completed = make_worker()
+    cache_updates = []
+    worker.cache_updated.connect(cache_updates.append)
+
+    worker.process_image(path_a, False, [])
+    assert pump(lambda: len(completed) == 1)
+
+    worker.clear_cache()
+    assert cache_updates[-1] == []
+
+
 def test_prefetch_failure_is_swallowed(tmp_path):
     (path_a,) = make_images(tmp_path, ["a.png"])
     missing = str(tmp_path / "missing.png")

@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Images already analyzed (and instantly available from the cache) are now shown in dark green in the image list.
 ### Changed
 - Faster image display and detection preprocessing as the 8-bit conversion now goes directly from the source color layout and skips redundant full-frame copies.
 - Recent folder paths on the welcome screen now show `~` instead of the full home directory path.

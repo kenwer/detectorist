@@ -29,6 +29,7 @@ class DetectionWorker(QObject):
     image_loaded = Signal(str, object)  # image_path, image_object
     detection_complete = Signal(str, list, float)  # image_path, results, detection_time_ms
     error = Signal(str, str)  # image_path, error_message
+    cache_updated = Signal(list)  # paths currently held in the cache
 
     def __init__(self):
         super().__init__()
@@ -47,6 +48,7 @@ class DetectionWorker(QObject):
         """Unloads the current detection model."""
         self.detector = None
         self._cache.clear()
+        self._notify_cache_updated()
 
     @Slot(str)
     def load_model(self, model_path: str):
@@ -55,6 +57,7 @@ class DetectionWorker(QObject):
             logger.debug("Model already loaded, skipping duplicate request: %s", model_path)
             return
         self._cache.clear()
+        self._notify_cache_updated()
         try:
             self.detector = Detector(model_path)
             logger.info("Worker loaded model: %s", model_path)
@@ -69,6 +72,11 @@ class DetectionWorker(QObject):
     def clear_cache(self):
         """Drops all cached images, e.g. after a new folder was loaded and files may have changed."""
         self._cache.clear()
+        self._notify_cache_updated()
+
+    def _notify_cache_updated(self):
+        """Reports the current set of cached paths, e.g. so the image list can highlight them."""
+        self.cache_updated.emit(self._cache.paths())
 
     @Slot(str, bool, list)
     def process_image(self, image_path: str, exposure_correction: bool, prefetch_paths: list):
@@ -154,6 +162,7 @@ class DetectionWorker(QObject):
                 # Cache even if the result turns out stale below; the work is done
                 # and the user may come back to this image.
                 self._cache.put(image_path, CacheEntry(image, results, detection_time_ms))
+                self._notify_cache_updated()
 
                 # After detection, check one last time. If a new request came in,
                 # discard these results and start over.
@@ -185,6 +194,7 @@ class DetectionWorker(QObject):
             results = self.detector.detect(image)
             detection_time_ms = (time.perf_counter() - start_time) * 1000
             self._cache.put(image_path, CacheEntry(image, results, detection_time_ms))
+            self._notify_cache_updated()
         except Exception as e:
             logger.warning("Prefetch failed for %s: %s", image_path, e)
 

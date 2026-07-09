@@ -166,6 +166,7 @@ class DetectoristApp(QMainWindow):
         self.worker.image_loaded.connect(self.handle_image_loaded)
         self.worker.detection_complete.connect(self.handle_detection_complete)
         self.worker.error.connect(self.handle_worker_error)
+        self.worker.cache_updated.connect(self.model.setCachedPaths)
         self.ui.model_select_combo_box.currentIndexChanged.connect(self.on_model_selected)
         self.ui.class_filter_combo_box.currentIndexChanged.connect(self.on_class_filter_changed)
 
