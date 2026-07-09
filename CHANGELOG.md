@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.10.2] - 2026-07-09
 ### Added
 - Images already analyzed (and instantly available from the cache) are now shown in dark green in the image list.
 ### Changed
