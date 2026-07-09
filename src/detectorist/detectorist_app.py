@@ -43,7 +43,7 @@ from .structures import Detection
 from .toasts import show_error_toast, show_success_toast, show_warning_toast
 from .ui_about_dialog import Ui_AboutDialog
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
-from .utils import contract_user_path, get_model_path, resolve_short_path, strip_model_ext
+from .utils import contract_user_path, get_model_path, long_path, resolve_short_path, strip_model_ext
 from .worker import DetectionWorker
 
 logger = logging.getLogger(__name__)
@@ -355,7 +355,7 @@ class DetectoristApp(QMainWindow):
 
     def _open_recent_folder(self, path: str) -> None:
         """Open a folder from the recent list."""
-        if os.path.isdir(path):
+        if os.path.isdir(long_path(path)):
             self._open_folder_by_path(path)
         else:
             show_warning_toast(self, "Folder not found", f"The folder is no longer accessible:\n{path}")
@@ -709,9 +709,9 @@ class DetectoristApp(QMainWindow):
             # data when the real path exceeds MAX_PATH; resolve it back.
             path = resolve_short_path(url.toLocalFile())
 
-            if os.path.isdir(path):
+            if os.path.isdir(long_path(path)):
                 folders_to_scan.append(path)
-            elif os.path.isfile(path):
+            elif os.path.isfile(long_path(path)):
                 files_to_load.add(path)
 
         files_to_load = set(filter_out_appledouble_files(list(files_to_load)))
