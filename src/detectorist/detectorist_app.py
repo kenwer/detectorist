@@ -407,7 +407,7 @@ class DetectoristApp(QMainWindow):
             for path in recents:
                 name = html.escape(os.path.basename(path.rstrip(os.sep)))
                 href = html.escape(path, quote=True)
-                escaped_path = html.escape(path)
+                escaped_path = html.escape(contract_user_path(path))
                 parts.append(
                     f'<br/><a href="{href}" style="color: #4b5563; font-weight: bold; text-decoration: none;">{name}</a>'
                     f'<br/><span style="color: #4b5563; font-size: small;">{escaped_path}</span><br>'
