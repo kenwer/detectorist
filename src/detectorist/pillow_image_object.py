@@ -1,3 +1,5 @@
+import logging
+
 import cv2
 import numpy as np
 import piexif
@@ -6,6 +8,8 @@ from PIL import Image as PILImage
 from . import utils
 from .image_object import ImageObject
 from .structures import ImageMode
+
+logger = logging.getLogger(__name__)
 
 STANDARD_IMG_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp')
 
@@ -37,7 +41,7 @@ class PillowImageObject(ImageObject):
         if self._file_extension not in STANDARD_IMG_EXTENSIONS:
             raise ValueError(f"Invalid image file extension \"{self._file_extension}\". Expected {STANDARD_IMG_EXTENSIONS}")
 
-        print(f"Loading image file with Pillow: {self.image_path}")
+        logger.debug("Loading image file with Pillow: %s", self.image_path)
 
         self._pil_image = PILImage.open(self.long_image_path)
 
@@ -63,36 +67,33 @@ class PillowImageObject(ImageObject):
         if hasattr(self, '_pil_image') and self._pil_image:
             self._pil_image.close()
 
-    @property
-    def image_data_bgr_8bit(self) -> np.ndarray:
-        """Returns image_data in 8-bit BGR format"""
-        if self._pil_image.mode == 'P':
-            pil_img_rgb = self._pil_image.convert('RGB')
-            data_8bit = np.array(pil_img_rgb)
-            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_RGB2BGR)
-        elif self._pil_image.mode == 'LA':
-            # Create a light gray background
-            bg_color = (240, 240, 240)  # Light gray
-            bg = PILImage.new('RGB', self._pil_image.size, bg_color)
-
+    def _render_rgb_8bit(self) -> np.ndarray:
+        """
+        Renders the PIL image to a fresh 8-bit RGB array. LA images are
+        composited onto a light gray background using their alpha channel;
+        P and CMYK images go through PIL's RGB conversion.
+        """
+        if self._pil_image.mode == 'LA':
+            bg = PILImage.new('RGB', self._pil_image.size, (240, 240, 240))
             # Paste the LA image onto the background, using its alpha channel as a mask
             bg.paste(self._pil_image, mask=self._pil_image.split()[1])
+            return np.array(bg)
+        if self._pil_image.mode in ('P', 'CMYK'):
+            return np.array(self._pil_image.convert('RGB'))
+        raise ValueError(f"Unsupported PIL mode in PillowImageObject: {self._pil_image.mode}")
 
-            # Convert to numpy array and then to BGR
-            rgb_data = np.array(bg)
-            bgr_data = cv2.cvtColor(rgb_data, cv2.COLOR_RGB2BGR)
-        elif self._pil_image.mode == 'CMYK':
-            pil_img_rgb = self._pil_image.convert('RGB')
-            data_8bit = np.array(pil_img_rgb)
-            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_RGB2BGR)
-        else:
-            raise ValueError(f"Unsupported PIL mode in PillowImageObject: {self._pil_image.mode}")
-
-        return bgr_data.copy()
+    def _convert_8bit(self, target: ImageMode) -> np.ndarray:
+        # np.array always allocates, so the base class no-aliasing contract
+        # holds without an extra copy. Rendering RGB directly also lets the
+        # display path skip an RGB->BGR->RGB round trip.
+        rgb_data = self._render_rgb_8bit()
+        if target == ImageMode.BGR:
+            return cv2.cvtColor(rgb_data, cv2.COLOR_RGB2BGR)
+        return rgb_data
 
     def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
         """Saves a cropped version of the image, preserving original format."""
-        print(f"Cropping image file with Pillow: {self.image_path}")
+        logger.debug("Cropping image file with Pillow: %s", self.image_path)
 
         x, y, w, h = rect
         # PIL crop is (left, upper, right, lower)
@@ -137,8 +138,8 @@ class PillowImageObject(ImageObject):
                 self._neutralize_exposure_bias(exif_dict)
                 save_kwargs['exif'] = piexif.dump(exif_dict)
             except Exception as e:
-                print(f"Warning: Could not update EXIF data: {e}")
+                logger.warning("Could not update EXIF data: %s", e)
                 save_kwargs['exif'] = self._exif
 
         pil_cropped_image.save(utils.long_path(output_path), **save_kwargs)
-        print(f"  Cropped {original_format or 'image'} saved to {output_path}")
+        logger.debug("Cropped %s saved to %s", original_format or 'image', output_path)

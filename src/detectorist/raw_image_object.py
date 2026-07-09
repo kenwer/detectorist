@@ -1,3 +1,4 @@
+import logging
 import os
 
 import cv2
@@ -7,6 +8,8 @@ import rawpy
 from . import image_utils
 from .image_object import ImageObject
 from .structures import ImageMode
+
+logger = logging.getLogger(__name__)
 
 RAW_EXTENSIONS = ('.arw', '.nef', '.cwr', '.cr2', '.cr3', '.orf', '.pef')
 
@@ -21,7 +24,7 @@ class RawImageObject(ImageObject):
         if self._file_extension not in RAW_EXTENSIONS:
             raise ValueError(f"Invalid RAW file extension \"{self._file_extension}\". Expected {RAW_EXTENSIONS}")
 
-        print(f"Loading RAW file: {self.image_path}")
+        logger.debug("Loading RAW file: %s", self.image_path)
         self._image_data = self._load_raw_image_data(self.image_path, output_bps=16)
         self._mode = ImageMode.RGB
         if self._image_data.dtype == np.uint16:
@@ -39,12 +42,12 @@ class RawImageObject(ImageObject):
         Opens a Sony ARW raw file, processes it, and returns it as 8 or 16-bit RGB numpy array.
         The bit depth of the output is determined by the output_bps parameter.
         """
-        print(f"Reading RAW file: {path}")
+        logger.debug("Reading RAW file: %s", path)
         # rawpy.imread(path) hands the path to LibRaw's own file opener, which has the
         # same MAX_PATH/Unicode issues on Windows as cv2's. Passing a file object instead
         # makes rawpy read the bytes via open_buffer(), sidestepping LibRaw's path handling.
         with open(self.long_image_path, "rb") as f, rawpy.imread(f) as raw:
-            print("Loading and processing RAW image...")
+            logger.debug("Loading and processing RAW image...")
             # Process the raw image to get an RGB image
             # The output is 16-bit if output_bps=16
             rgb_image_data = raw.postprocess(
@@ -95,7 +98,7 @@ class RawImageObject(ImageObject):
     def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
         """Saves a cropped version of the RAW image as a 16-bit PNG file."""
         output_path = os.path.splitext(output_path)[0] + '.png'
-        print(f"Cropping RAW image file: {self.image_path}")
+        logger.debug("Cropping RAW image file: %s", self.image_path)
 
         x, y, w, h = rect
         cropped_np_array = self._image_data[y:y+h, x:x+w]

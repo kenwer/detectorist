@@ -1,3 +1,5 @@
+import functools
+import logging
 import os
 import shutil
 from abc import ABC, abstractmethod
@@ -11,7 +13,27 @@ from PIL import Image as PILImage
 from . import image_utils, utils
 from .structures import ImageMode
 
+logger = logging.getLogger(__name__)
+
+# Magic number of macOS ._ sidecar files that store extended attributes
 APPLEDOUBLE_MAGIC = b"\x00\x05\x16\x07"
+
+# cv2 conversion code from a source ImageMode to a target channel order, or
+# None when the memory layout already matches. Converting straight from the
+# source mode avoids intermediate full-frame passes: an RGB source asked for
+# RGB pays only the bit-depth step instead of an RGB->BGR->RGB round trip.
+_COLOR_CONVERSIONS = {
+    (ImageMode.BGR, ImageMode.BGR): None,
+    (ImageMode.BGRA, ImageMode.BGR): cv2.COLOR_BGRA2BGR,
+    (ImageMode.RGB, ImageMode.BGR): cv2.COLOR_RGB2BGR,
+    (ImageMode.RGBA, ImageMode.BGR): cv2.COLOR_RGBA2BGR,
+    (ImageMode.GRAY, ImageMode.BGR): cv2.COLOR_GRAY2BGR,
+    (ImageMode.BGR, ImageMode.RGB): cv2.COLOR_BGR2RGB,
+    (ImageMode.BGRA, ImageMode.RGB): cv2.COLOR_BGRA2RGB,
+    (ImageMode.RGB, ImageMode.RGB): None,
+    (ImageMode.RGBA, ImageMode.RGB): cv2.COLOR_RGBA2RGB,
+    (ImageMode.GRAY, ImageMode.RGB): cv2.COLOR_GRAY2RGB,
+}
 
 
 def _is_appledouble_file(path: str) -> bool:
@@ -21,6 +43,57 @@ def _is_appledouble_file(path: str) -> bool:
             return fh.read(4) == APPLEDOUBLE_MAGIC
     except OSError:
         return False
+
+
+@functools.cache
+def supported_extensions() -> tuple[str, ...]:
+    """
+    Returns the image file extensions all format adapters support combined.
+    Imports are local to prevent circular dependencies.
+    """
+    from .heif_image_object import HEIF_EXTENSIONS
+    from .pillow_image_object import STANDARD_IMG_EXTENSIONS
+    from .raw_image_object import RAW_EXTENSIONS
+    return HEIF_EXTENSIONS + RAW_EXTENSIONS + STANDARD_IMG_EXTENSIONS
+
+
+def list_supported_images(folder_path: str) -> list[str]:
+    """
+    Returns sorted basenames of supported image files in folder_path.
+
+    It excludes macOS AppleDouble sidecar files (e.g. "._IMG_1234.HIF").
+    """
+    entries = os.listdir(utils.long_path(folder_path))
+    supported = [f for f in entries if f.lower().endswith(supported_extensions())]
+    full_paths = [os.path.join(folder_path, f) for f in supported]
+    kept = filter_out_appledouble_files(full_paths)
+    return sorted(os.path.basename(p) for p in kept)
+
+
+def filter_out_appledouble_files(file_paths: list[str]) -> list[str]:
+    """
+    Returns file_paths with macOS AppleDouble sidecar files removed.
+
+    A sidecar and its original always live in the same directory, so
+    paths are grouped by directory before checking. A "._NAME" entry is
+    removed if a "NAME" sibling exists in the same directory (the
+    common case). Otherwise its leading bytes are checked against the
+    AppleDouble magic number.
+    """
+    names_by_dir: dict[str, set[str]] = {}
+    for p in file_paths:
+        names_by_dir.setdefault(os.path.dirname(p), set()).add(os.path.basename(p))
+
+    result = []
+    for p in file_paths:
+        name = os.path.basename(p)
+        if name.startswith("._"):
+            if name[2:] in names_by_dir[os.path.dirname(p)]:
+                continue
+            if _is_appledouble_file(p):
+                continue
+        result.append(p)
+    return result
 
 
 class ImageObject (ABC):
@@ -35,60 +108,6 @@ class ImageObject (ABC):
     It provides methods for various image utility operations and is designed
     to act as the "Model" in an MVC pattern for image data.
     """
-    _supported_extensions = None
-
-    @staticmethod
-    def get_supported_extensions() -> tuple:
-        """
-        Returns a tuple of supported image file extensions.
-        Imports are local to prevent circular dependencies.
-        """
-        if ImageObject._supported_extensions is None:
-            from .heif_image_object import HEIF_EXTENSIONS
-            from .pillow_image_object import STANDARD_IMG_EXTENSIONS
-            from .raw_image_object import RAW_EXTENSIONS
-            ImageObject._supported_extensions = HEIF_EXTENSIONS + RAW_EXTENSIONS + STANDARD_IMG_EXTENSIONS
-        return ImageObject._supported_extensions
-
-    @staticmethod
-    def list_supported_images(folder_path: str) -> list[str]:
-        """
-        Returns sorted basenames of supported image files in folder_path.
-
-        It excludes macOS AppleDouble sidecar files (e.g. "._IMG_1234.HIF").
-        """
-        entries = os.listdir(utils.long_path(folder_path))
-        extensions = ImageObject.get_supported_extensions()
-        supported = [f for f in entries if f.lower().endswith(extensions)]
-        full_paths = [os.path.join(folder_path, f) for f in supported]
-        kept = ImageObject.filter_out_appledouble_files(full_paths)
-        return sorted(os.path.basename(p) for p in kept)
-
-    @staticmethod
-    def filter_out_appledouble_files(file_paths: list[str]) -> list[str]:
-        """
-        Returns file_paths with macOS AppleDouble sidecar files removed.
-
-        A sidecar and its original always live in the same directory, so
-        paths are grouped by directory before checking. A "._NAME" entry is
-        removed if a "NAME" sibling exists in the same directory (the
-        common case). Otherwise its leading bytes are checked against the
-        AppleDouble magic number.
-        """
-        names_by_dir: dict[str, set[str]] = {}
-        for p in file_paths:
-            names_by_dir.setdefault(os.path.dirname(p), set()).add(os.path.basename(p))
-
-        result = []
-        for p in file_paths:
-            name = os.path.basename(p)
-            if name.startswith("._"):
-                if name[2:] in names_by_dir[os.path.dirname(p)]:
-                    continue
-                if _is_appledouble_file(p):
-                    continue
-            result.append(p)
-        return result
 
     def __init__(self, image_path: str):
         """
@@ -192,10 +211,10 @@ class ImageObject (ABC):
         try:
             return piexif.load(self._image_path)
         except piexif.InvalidImageDataError:
-            print(f"No EXIF data found in {self._image_path}.")
+            logger.warning("No EXIF data found in %s.", self._image_path)
             return {}
         except Exception as e:
-            print(f"Error loading EXIF data for {self._image_path}: {e}")
+            logger.error("Error loading EXIF data for %s: %s", self._image_path, e)
             return {}
 
     def _print_exif_data(self, exif_dict: dict):
@@ -434,46 +453,44 @@ class ImageObject (ABC):
         """Sets whether exposure correction based on EXIF data is enabled.
         This controls if exposure correction is applied when saving cropped
         images and in the display data (image_data_rgb_8bit_display)."""
-        print(f"Setting exposure_correction to {value} for image: {self.image_path}")
+        logger.debug("Setting exposure_correction to %s for image: %s", value, self.image_path)
         self._exposure_correction = value
+
+    def _convert_8bit(self, target: ImageMode) -> np.ndarray:
+        """
+        Returns the image as a new 8-bit array in the target channel order.
+
+        The result never aliases self._image_data, so callers may mutate it:
+        convert_16bit_to_8bit, astype, and cv2.cvtColor all allocate.
+        """
+        if self._original_bpc > 8:
+            data = image_utils.convert_16bit_to_8bit(self._image_data)
+        elif self._image_data.dtype != np.uint8:
+            data = self._image_data.astype(np.uint8)
+        else:
+            data = self._image_data
+
+        try:
+            code = _COLOR_CONVERSIONS[(self._mode, target)]
+        except KeyError:
+            raise ValueError(f"Unsupported image mode for {target.value} conversion: {self._mode}") from None
+
+        if code is not None:
+            return cv2.cvtColor(data, code)
+        if data is self._image_data:
+            # Pass-through case: copy to keep the no-aliasing contract
+            return data.copy()
+        return data
 
     @property
     def image_data_bgr_8bit(self) -> np.ndarray:
-        """
-        Returns image_data in 8-bit BGR format
-        """
-        # Convert to 8-bit if necessary
-        if self._original_bpc > 8:
-            data_8bit = image_utils.convert_16bit_to_8bit(self._image_data)
-        else:
-            data_8bit = self._image_data.astype(np.uint8)
-        current_mode = self._mode
-
-        # Convert to BGR based on the current mode
-        if current_mode == ImageMode.BGR:
-            bgr_data = data_8bit
-        elif current_mode == ImageMode.BGRA:
-            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_BGRA2BGR)
-        elif current_mode == ImageMode.RGB:
-            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_RGB2BGR)
-        elif current_mode == ImageMode.RGBA:
-            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_RGBA2BGR)
-        elif current_mode == ImageMode.GRAY:
-            bgr_data = cv2.cvtColor(data_8bit, cv2.COLOR_GRAY2BGR)
-        else:
-            raise ValueError(f"Unsupported image mode for BGR conversion: {current_mode}")
-
-        return bgr_data.copy()
+        """Returns image_data in 8-bit BGR format."""
+        return self._convert_8bit(ImageMode.BGR)
 
     @property
     def image_data_rgb_8bit(self) -> np.ndarray:
-        """
-        Returns image_data in 8-bit RGB format, suitable for display in UI.
-        This is a convenience wrapper around image_data_bgr_8bit.
-        """
-        bgr_image = self.image_data_bgr_8bit
-        rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
-        return rgb_image
+        """Returns image_data in 8-bit RGB format, suitable for display in UI."""
+        return self._convert_8bit(ImageMode.RGB)
 
     @property
     def image_data_rgb_8bit_display(self) -> np.ndarray:
@@ -523,7 +540,7 @@ class ImageObject (ABC):
         if not self._exposure_correction:
             return data
         ev_comp = -self.get_exposure_compensation()
-        print(f"  Applying exposure correction of {ev_comp} EV based on EXIF data")
+        logger.debug("Applying exposure correction of %s EV based on EXIF data", ev_comp)
         if bits_per_channel is None:
             bits_per_channel = self._original_bpc
         return image_utils.adjust_exposure(data, ev_comp, 2.2, bits_per_channel)

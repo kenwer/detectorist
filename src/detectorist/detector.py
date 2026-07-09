@@ -6,6 +6,7 @@ import numpy as np
 import onnxruntime as ort
 
 from .image_object import ImageObject
+from .structures import Detection
 
 
 def _load_model_bytes(model_path: str) -> bytes:
@@ -31,40 +32,18 @@ class Detector:
     Does not require NMS (DETR architecture handles duplicate suppression via attention).
     """
 
-    @staticmethod
-    def create(model_path: str) -> 'Detector':
-        """
-        Factory method to create a Detector from a model file.
-
-        Args:
-            model_path (str): Path to the ONNX model file.
-
-        Returns:
-            Detector: A Detector instance.
-
-        Raises:
-            OSError: If the model file cannot be loaded.
-        """
-        try:
-            session = ort.InferenceSession(_load_model_bytes(model_path))
-        except Exception as e:
-            raise OSError(f"Error loading ONNX model from '{model_path}': {e}") from e
-
-        return Detector(model_path, session)
-
-    def __init__(self, model_path: str, session: ort.InferenceSession = None):
+    def __init__(self, model_path: str):
         """
         Initializes the Detector by loading the ONNX model.
 
         Args:
             model_path (str): Path to the ONNX model file.
-            session (ort.InferenceSession, optional): Pre-loaded session (used by factory).
 
         Raises:
             OSError: If the model file cannot be loaded.
         """
         try:
-            self.session = session if session else ort.InferenceSession(_load_model_bytes(model_path))
+            self.session = ort.InferenceSession(_load_model_bytes(model_path))
             onnx_names_str = self.session.get_modelmeta().custom_metadata_map.get('names', '{}')
             self.class_names = ast.literal_eval(onnx_names_str.strip())
 
@@ -77,7 +56,7 @@ class Detector:
         self.input_height, self.input_width = input_shape[2], input_shape[3]
         self.is_segmentation = len(self.session.get_outputs()) >= 3
 
-    def detect(self, image: ImageObject) -> list:
+    def detect(self, image: ImageObject) -> list[Detection]:
         """
         Detects objects in an image using the RF-DETR ONNX model.
 
@@ -88,9 +67,9 @@ class Detector:
             image: The input image (ImageObject instance).
 
         Returns:
-            A list of (box, score, class_name, mask) tuples sorted by score descending.
-            Each box is in [x, y, w, h] format (top-left corner + dimensions).
-            mask is a uint8 array at model input resolution (0 or 255) for segmentation
+            A list of Detection tuples sorted by score descending. Each box is
+            in [x, y, w, h] format (top-left corner + dimensions). mask is a
+            uint8 array at model input resolution (0 or 255) for segmentation
             models, or None for detection-only models.
         """
         original_height, original_width = image.height, image.width
@@ -158,9 +137,9 @@ class Detector:
                 with np.errstate(over="ignore"):  # very negative logits cause exp overflow, but 1/(1+inf) = 0.0
                     mask_probs = 1 / (1 + np.exp(-logits_resized))
                 mask = (mask_probs >= 0.5).astype(np.uint8) * 255
-            final_results.append((boxes_xywh[i], scores[i], class_name, mask))
+            final_results.append(Detection(boxes_xywh[i], scores[i], class_name, mask))
 
         # Sort by score descending for consistent ordering (highest-confidence first)
-        final_results.sort(key=lambda d: d[1], reverse=True)
+        final_results.sort(key=lambda d: d.score, reverse=True)
 
         return final_results

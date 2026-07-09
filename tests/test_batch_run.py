@@ -18,6 +18,7 @@ from detectorist.batch_run import (
     run_batch,
 )
 from detectorist.crop_planner import CropMode, CropSettings
+from detectorist.structures import Detection
 
 CROP_SETTINGS = CropSettings(mode=CropMode.TOP_CONFIDENCE, padding=0.0, aspect=(1, 1))
 
@@ -58,7 +59,7 @@ def test_output_dir_name_encodes_confidence_and_model():
 
 def test_crop_export_run(tmp_path):
     paths = make_images(tmp_path, ["with_fish.png", "empty.png"])
-    detector = FakeDetector({"with_fish.png": [((10, 10, 20, 20), 0.9, "Fish")]})
+    detector = FakeDetector({"with_fish.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]})
     output_dir = str(tmp_path / "out")
 
     result = run_batch(paths, detector, confidence=0.5, exposure_correction=False,
@@ -77,7 +78,7 @@ def test_crop_export_run(tmp_path):
 
 def test_detections_below_confidence_are_dropped(tmp_path):
     paths = make_images(tmp_path, ["faint.png"])
-    detector = FakeDetector({"faint.png": [((10, 10, 20, 20), 0.4, "Fish")]})
+    detector = FakeDetector({"faint.png": [Detection((10, 10, 20, 20), 0.4, "Fish")]})
     output_dir = str(tmp_path / "out")
 
     result = run_batch(paths, detector, confidence=0.5, exposure_correction=False,
@@ -90,7 +91,7 @@ def test_detections_below_confidence_are_dropped(tmp_path):
 
 def test_sort_by_class_run(tmp_path):
     paths = make_images(tmp_path, ["a.png", "b.png"])
-    detector = FakeDetector({"a.png": [((10, 10, 20, 20), 0.8, "Fish")]})
+    detector = FakeDetector({"a.png": [Detection((10, 10, 20, 20), 0.8, "Fish")]})
     output_dir = str(tmp_path / "out")
 
     result = run_batch(paths, detector, confidence=0.5, exposure_correction=False,
@@ -109,7 +110,7 @@ def test_load_failure_skips_image_and_continues(tmp_path):
     paths = make_images(tmp_path, ["good_a.png", "good_b.png"])
     # A nonexistent file makes ImageObject.create raise on the prefetch thread
     paths.insert(1, str(tmp_path / "missing.png"))
-    detector = FakeDetector({"good_a.png": [((10, 10, 20, 20), 0.9, "Fish")]})
+    detector = FakeDetector({"good_a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]})
     output_dir = str(tmp_path / "out")
 
     result = run_batch(paths, detector, confidence=0.5, exposure_correction=False,

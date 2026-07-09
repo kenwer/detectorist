@@ -1,3 +1,4 @@
+import logging
 import time
 from threading import Lock
 
@@ -6,6 +7,8 @@ from PySide6.QtCore import QMetaObject, QObject, Qt, Signal, Slot
 from .detector import Detector
 from .image_cache import CacheEntry, ImageCache
 from .image_object import ImageObject
+
+logger = logging.getLogger(__name__)
 
 
 class DetectionWorker(QObject):
@@ -50,13 +53,13 @@ class DetectionWorker(QObject):
         """Loads a new detection model. Cached results belong to the previous model, so the cache is dropped."""
         self._cache.clear()
         try:
-            self.detector = Detector.create(model_path)
-            print(f"Worker loaded model: {model_path}")
+            self.detector = Detector(model_path)
+            logger.info("Worker loaded model: %s", model_path)
             class_names = sorted(self.detector.class_names.values())
             self.model_loaded.emit(True, f"Loaded model: {model_path}", class_names)
         except Exception as e:
             self.detector = None
-            print(f"Worker error loading model: {e}")
+            logger.error("Worker error loading model: %s", e)
             self.model_loaded.emit(False, f"Error loading model: {e}", [])
 
     @Slot()
@@ -180,7 +183,7 @@ class DetectionWorker(QObject):
             detection_time_ms = (time.perf_counter() - start_time) * 1000
             self._cache.put(image_path, CacheEntry(image, results, detection_time_ms))
         except Exception as e:
-            print(f"Prefetch failed for {image_path}: {e}")
+            logger.warning("Prefetch failed for %s: %s", image_path, e)
 
     def _abandon_prefetch(self, image_path: str) -> bool:
         """

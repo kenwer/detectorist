@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import piexif
 import pillow_heif
@@ -5,6 +7,8 @@ from PIL import Image as PILImage
 
 from . import utils
 from .image_object import ImageMode, ImageObject
+
+logger = logging.getLogger(__name__)
 
 HEIF_EXTENSIONS = ('.heic', '.heics', '.heif', '.heifs', '.hif')
 
@@ -21,7 +25,7 @@ class HeifImageObject(ImageObject):
         if self._file_extension not in HEIF_EXTENSIONS:
             raise ValueError(f"Invalid HEIF file extension \"{self._file_extension}\". Expected {HEIF_EXTENSIONS}")
 
-        print(f"Loading HEIF file: {image_path}")
+        logger.debug("Loading HEIF file: %s", image_path)
         heif_file = pillow_heif.open_heif(self.long_image_path, convert_hdr_to_8bit=False)
 
         if heif_file is None or len(heif_file) == 0:
@@ -37,7 +41,11 @@ class HeifImageObject(ImageObject):
         self._exif = heif_file.info.get('exif')
         self._xmp = heif_file.info.get('xmp')
         self._heif_mode = heif_file[0].mode
-        print(f"  Image\n\tmode: {self._heif_mode}, size: {heif_file[0].size}, stride: {heif_file[0].stride}, data length: {len(heif_file[0].data)}, bits per channel: {self._original_bpc}, chroma: {self._chroma}")
+        logger.debug(
+            "HEIF image mode: %s, size: %s, stride: %s, data length: %s, bits per channel: %s, chroma: %s",
+            self._heif_mode, heif_file[0].size, heif_file[0].stride, len(heif_file[0].data),
+            self._original_bpc, self._chroma,
+        )
 
         # Map pillow_heif modes to our descriptive strings
         if self._heif_mode == 'L':
@@ -61,7 +69,6 @@ class HeifImageObject(ImageObject):
 
         # Initialize EXIF data dictionary using the overwritten _load_exif_data() method
         self._exif_dict = self._load_exif_data()
-        #self._print_exif_data(self._exif_dict)
 
         heif_file = None # Allow the Python GC to free resources
 
@@ -125,7 +132,7 @@ class HeifImageObject(ImageObject):
         Saves a cropped version of the HEIF image, preserving its original
         bit depth, metadata, and HEIF format.
         """
-        print(f"Cropping HEIF image file: {self.image_path}")
+        logger.debug("Cropping HEIF image file: %s", self.image_path)
 
         # Use stored metadata
         bit_depth = self._original_bpc
@@ -136,7 +143,7 @@ class HeifImageObject(ImageObject):
 
         orientation = self._get_exif_orientation(exif)
         orientation_text = self._get_human_readable_exif_orientation(orientation)
-        print(f"  EXIF orientation: {orientation} ({orientation_text})")
+        logger.debug("EXIF orientation: %s (%s)", orientation, orientation_text)
 
         # The image data in self._image_data is already rotated based on EXIF orientation by pillow-heif
         rotated_np_array = self._image_data
@@ -196,7 +203,7 @@ class HeifImageObject(ImageObject):
                 self._neutralize_exposure_bias(exif_dict)
                 updated_exif = piexif.dump(exif_dict)
             except Exception as e:
-                print(f"  Could not update EXIF data: {e}")
+                logger.warning("Could not update EXIF data: %s", e)
                 updated_exif = exif # fallback to original exif
         else:
             updated_exif = None
@@ -206,4 +213,3 @@ class HeifImageObject(ImageObject):
         #  For images with >8 bit, it knows the in-memory data is 16-bit and it knows the desired output is e.g. 10-bit.
         #  It scales the pixel values back down from the [0, 65535] range to the [0, 1023] range before encoding and saving the file.
         new_heif_image.save(utils.long_path(output_path), format="HEIF", quality=quality, bit_depth=bit_depth, chroma=chroma, nclx_profile=nclx_profile, exif=updated_exif, xmp=xmp)
-        #print(f"Cropped image to {w}x{h} at ({x},{y}) and saved to {output_path}")

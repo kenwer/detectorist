@@ -1,3 +1,4 @@
+import logging
 from collections import Counter
 
 import numpy as np
@@ -6,6 +7,8 @@ from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel, QRubberBand, QToolTip
 
 from .image_object import ImageObject
+
+logger = logging.getLogger(__name__)
 
 DETECTION_BORDER_COLOR_RGB = (0, 255, 0)
 DETECTION_FILL_COLOR_RGB = (0, 255, 0)
@@ -291,11 +294,11 @@ class ImageLabel(QLabel):
             image_data = (image_data >> 8).astype(np.uint8)
 
         if image_data.dtype != np.uint8:
-            print(f"Warning: setImageData received unsupported dtype: {image_data.dtype}")
+            logger.warning("setImageData received unsupported dtype: %s", image_data.dtype)
             return
 
         if len(image_data.shape) != 3 or image_data.shape[2] != 3:
-            print(f"Warning: setImageData expects a 3-channel RGB image, but got shape {image_data.shape}")
+            logger.warning("setImageData expects a 3-channel RGB image, but got shape %s", image_data.shape)
             # Handle other cases or return
             return
 

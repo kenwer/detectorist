@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import tempfile
@@ -8,6 +9,10 @@ from detectorist.detectorist_app import DetectoristApp
 
 
 def main():
+    # Handlers are configured only here at the entry point; library modules
+    # just create loggers so embedding or testing them stays quiet.
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
     app = QApplication(sys.argv)
     app.setApplicationName("detectorist")
     window = DetectoristApp()

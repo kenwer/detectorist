@@ -1,9 +1,12 @@
+import logging
 import os
 
 import cv2
 import numpy as np
 
 from .utils import long_path
+
+logger = logging.getLogger(__name__)
 
 
 def imread(path: str, flags: int = cv2.IMREAD_UNCHANGED) -> np.ndarray:
@@ -101,13 +104,11 @@ def adjust_exposure_inplace(image_data: np.ndarray, exposure_compensation: float
         elif image_data.dtype == np.uint16:
             bpc = 16  # Assume 16 if not specified for uint16 data (but it could be 10 or 12 - we just don't know)
         else:
-            print(f"Warning: Cannot determine bits per channel for dtype {image_data.dtype}.\nReturning original image data.")
+            logger.warning("Cannot determine bits per channel for dtype %s. Returning original image data.", image_data.dtype)
             return
 
     if bpc not in [8, 10, 12, 16]:
-        print(
-            f"Warning: Unsupported bits per channel ({bpc}) for exposure adjustment.\nReturning original image data."
-        )
+        logger.warning("Unsupported bits per channel (%s) for exposure adjustment. Returning original image data.", bpc)
         return
 
     # Note on Gamma (see: https://en.wikipedia.org/wiki/Gamma_correction:
@@ -183,32 +184,3 @@ def convert_16bit_to_8bit(image_16bit: np.ndarray) -> np.ndarray:
     # convert 16-bit image data to 8-bit, preserving the most significant bits.
     image_8bit = (image_16bit >> 8).astype(np.uint8)
     return image_8bit
-
-def save_16bit_image(image_16bit: np.ndarray, output_path: str):
-    """
-    Save a 16-bit image to the specified path (PNG or TIFF).
-    The file format is inferred from the output_path extension.
-
-    Args:
-        image_16bit (np.ndarray): The 16-bit image data to save (dtype must be uint16).
-        output_path (str): The path where the image will be saved.
-    """
-    if image_16bit.dtype != np.uint16:
-        raise TypeError(f"Input image must be of dtype uint16, but got {image_16bit.dtype}.")
-
-    file_format = os.path.splitext(output_path)[1].lower()
-    if file_format.lower() not in ('.png', '.tiff'):
-        raise ValueError(f"Unknown file format for saving 16-bit image: {file_format}")
-
-    # Convert the image from RGB to BGR format for OpenCV by reversing the order of its color channels
-    # using a NumPy array slicing operation that reverses the order of the last dimension.
-    # The processed_image has shape (height, width, 3), where the last dimension represents RGB channels (Red, Green, Blue)
-    # then [...,::-1] will reverse this to BGR order (Blue, Green, Red).
-    bgr_image = image_16bit[...,::-1]
-
-    # Set parameters based on file format
-    if file_format.lower() == '.tiff':
-        params = [cv2.IMWRITE_TIFF_COMPRESSION, 8]  # DEFLATE compression
-        cv2.imwrite(output_path, bgr_image, params)
-    else:  # PNG
-        cv2.imwrite(output_path, bgr_image)

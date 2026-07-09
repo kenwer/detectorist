@@ -57,6 +57,8 @@ get_app_version = { shell = "python -c 'import importlib.metadata; print(importl
 
 clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
 
+bench = { cmd = "python benchmarks/bench_conversions.py", help = "Time the image conversion hot paths" }
+
 lint = { cmd = "ruff check src tests", help = "Run ruff linter" }
 fmt = { cmd = "ruff format src tests", help = "Run ruff formatter" }
 

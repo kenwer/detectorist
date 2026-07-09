@@ -1,4 +1,5 @@
 import html
+import logging
 import os
 import subprocess
 import sys
@@ -33,15 +34,18 @@ from .crop_planner import CropMode, CropSettings, plan_crops
 from .detector import Detector
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
-from .image_object import ImageObject
+from .image_object import ImageObject, filter_out_appledouble_files, list_supported_images, supported_extensions
 from .manage_models import ManageModelsDialog
 from .model_downloader import ModelDownloader
 from .settings import Settings
+from .structures import Detection
 from .toasts import show_error_toast, show_success_toast, show_warning_toast
 from .ui_about_dialog import Ui_AboutDialog
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
 from .utils import contract_user_path, get_model_path, strip_model_ext
 from .worker import DetectionWorker
+
+logger = logging.getLogger(__name__)
 
 
 class DetectoristApp(QMainWindow):
@@ -262,7 +266,7 @@ class DetectoristApp(QMainWindow):
         self.ui.detection_info_label.setText(detection_info)
 
     def _load_images_from_paths(self, file_paths: list[str]):
-        supported_files = sorted({f for f in file_paths if f.lower().endswith(ImageObject.get_supported_extensions())})
+        supported_files = sorted({f for f in file_paths if f.lower().endswith(supported_extensions())})
 
         if not supported_files:
             # Handle UI state for no images
@@ -302,14 +306,14 @@ class DetectoristApp(QMainWindow):
             self.ui.image_list_view.setCurrentIndex(self.model.index(index))
             self.on_image_selected(self.model.index(index))
         except ValueError:
-            print(f"Error: Could not find {first_file_path} in the list.")
+            logger.error("Could not find %s in the list.", first_file_path)
             self.ui.image_label.setText(f"Error: Could not find {os.path.basename(first_file_path)} in the list.")
     def open_images(self):
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Open Image(s)",
             self.settings.last_directory,
-            f"Images ({' '.join(['*' + ext for ext in ImageObject.get_supported_extensions()])})"
+            f"Images ({' '.join(['*' + ext for ext in supported_extensions()])})"
         )
         if file_paths:
             self.settings.add_recent_directory(os.path.dirname(file_paths[0]))
@@ -325,7 +329,7 @@ class DetectoristApp(QMainWindow):
         """Open a folder and load its images."""
         self.settings.add_recent_directory(folder_path)
         self._update_recent_folders_menu()
-        image_files_basenames = ImageObject.list_supported_images(folder_path)
+        image_files_basenames = list_supported_images(folder_path)
         full_paths = [os.path.join(folder_path, f) for f in image_files_basenames]
         self._load_images_from_paths(full_paths)
 
@@ -533,7 +537,7 @@ class DetectoristApp(QMainWindow):
         self.ui.class_filter_combo_box.blockSignals(False)
         self._all_detection_results = []
         if success:
-            print(message)
+            logger.info(message)
             # If an image is currently displayed, trigger a new detection with the new model.
             if self.current_image_path:
                 self.trigger_processing()
@@ -541,7 +545,7 @@ class DetectoristApp(QMainWindow):
             self.ui.image_label.hide_bands()
             self.ui.image_label.setText(message)
             self._update_detection_info()
-            print(message)
+            logger.error(message)
 
     def handle_image_loaded(self, image_path: str, image_object: ImageObject):
         """Handles the image_loaded signal from the worker."""
@@ -580,18 +584,18 @@ class DetectoristApp(QMainWindow):
     def _filtered_results(self) -> list:
         """Returns detection results filtered by the current confidence and class filter selections."""
         confidence = self.ui.confidence_slider.value() / 100.0
-        results = [d for d in self._all_detection_results if d[1] >= confidence]
+        results = [d for d in self._all_detection_results if d.score >= confidence]
         if self.ui.class_filter_combo_box.currentIndex() <= 0:
             return results
         selected = self.ui.class_filter_combo_box.currentText()
-        return [d for d in results if d[2] == selected]
+        return [d for d in results if d.class_name == selected]
 
     def _display_filtered_results(self):
         """Updates the UI with detection results filtered by the current class selection."""
         filtered = self._filtered_results()
         self._update_detection_info(
             objects=len(filtered),
-            confidence=f"{max((det[1] for det in filtered), default=0):.4f}",
+            confidence=f"{max((det.score for det in filtered), default=0):.4f}",
             time=f"{self._last_detection_time_ms:.2f} ms"
         )
         self.ui.image_label.set_detection_boxes(filtered)
@@ -607,7 +611,7 @@ class DetectoristApp(QMainWindow):
             return  # Stale error for a different image (ignored)
 
         self._loading_indicator_timer.stop()
-        print(f"Worker error for {image_path}: {message}")
+        logger.error("Worker error for %s: %s", image_path, message)
         self.ui.image_label.setText(f"Error: {message}")
         self._update_detection_info()
         self.ui.status_bar.clearMessage()
@@ -739,14 +743,14 @@ class DetectoristApp(QMainWindow):
             elif os.path.isfile(path):
                 files_to_load.add(path)
 
-        files_to_load = set(ImageObject.filter_out_appledouble_files(list(files_to_load)))
+        files_to_load = set(filter_out_appledouble_files(list(files_to_load)))
 
         if folders_to_scan:
             # Scan the first folder for images
             first_folder = folders_to_scan[0]
             folder_images = {
                 os.path.join(first_folder, f)
-                for f in ImageObject.list_supported_images(first_folder)
+                for f in list_supported_images(first_folder)
             }
             files_to_load.update(folder_images)
 
@@ -791,7 +795,7 @@ class DetectoristApp(QMainWindow):
                 aspect_ratio = (ratio_w, ratio_h)
             except ValueError:
                 # Fallback for any unexpected format
-                print(f"Warning: Could not parse aspect ratio '{ratio_str}'. Defaulting to 1:1.")
+                logger.warning("Could not parse aspect ratio '%s'. Defaulting to 1:1.", ratio_str)
                 aspect_ratio = (1, 1)
 
         return CropSettings(mode=crop_mode, padding=padding_percentage, aspect=aspect_ratio)
@@ -801,11 +805,11 @@ class DetectoristApp(QMainWindow):
             self.ui.image_label.hide_bands()
             return
 
-        # The detections in image_label are (QRect, score, class_id)
-        # convert them to ((x,y,w,h), score, class_id) for calculate_crop_rect
+        # The detections in image_label are (QRect, score, class_name);
+        # convert them back to Detection for plan_crops
         detections = [
-            ((d[0].x(), d[0].y(), d[0].width(), d[0].height()), d[1], d[2])
-            for d in self.ui.image_label.orig_detection_rects
+            Detection((rect.x(), rect.y(), rect.width(), rect.height()), score, class_name)
+            for rect, score, class_name in self.ui.image_label.orig_detection_rects
         ]
 
         crop_settings = self._get_current_crop_settings()
@@ -875,7 +879,7 @@ class DetectoristApp(QMainWindow):
 
             # The detector lives in the worker thread. We can't access it directly.
             # For batch processing, we need a separate detector instance.
-            batch_detector = Detector.create(os.path.join(self.models_dir, model_filename))
+            batch_detector = Detector(os.path.join(self.models_dir, model_filename))
 
             total_files = len(image_full_paths)
             progress_dialog = QProgressDialog(f"{process_name}...", "Cancel", 0, total_files, self)
@@ -930,7 +934,7 @@ class DetectoristApp(QMainWindow):
             return not result.cancelled
 
         except Exception as e:
-            print(f"Error during {process_name}: {e}")
+            logger.exception("Error during %s", process_name)
             self.ui.status_bar.showMessage(f"Error during {process_name}: {e}", 5000)
             return False
         finally:
@@ -1121,7 +1125,7 @@ class DetectoristApp(QMainWindow):
         # Save settings before closing
         self._save_settings()
         # Clean up resources, if any
-        print("Closing application...")
+        logger.info("Closing application...")
         self._worker_thread.quit()
         self._worker_thread.wait()
         super().closeEvent(event)

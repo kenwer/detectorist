@@ -4,13 +4,14 @@
 import pytest
 
 from detectorist.crop_planner import CropMode, CropSettings, plan_crops
+from detectorist.structures import Detection
 
-# Detections are ((x, y, w, h), score, class_name); the planner reads box and score.
-# Class names come from the model's metadata (e.g. 'Fish', 'Apoidea') and are all
-# alike within one run, since the specialized models are single-class.
-D1 = ((100, 200, 50, 80), 0.9, "Fish")
-D2 = ((400, 100, 120, 60), 0.7, "Fish")
-D3 = ((300, 300, 40, 40), 0.95, "Fish")
+# The planner reads only a Detection's box and score. Class names come from
+# the model's metadata (e.g. 'Fish', 'Apoidea') and are all alike within one
+# run, since the specialized models are single-class.
+D1 = Detection((100, 200, 50, 80), 0.9, "Fish")
+D2 = Detection((400, 100, 120, 60), 0.7, "Fish")
+D3 = Detection((300, 300, 40, 40), 0.95, "Fish")
 DETECTIONS = [D1, D2, D3]
 
 HEIGHT, WIDTH = 400, 600
@@ -61,22 +62,22 @@ def test_each_object_yields_one_crop_per_detection():
 
 def test_crop_is_translated_back_inside_the_image():
     # Padding pushes the box past the top-left corner; it gets moved to (0, 0)
-    assert plan([((0, 0, 60, 60), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.5, (1, 1)) == [(0, 0, 120, 120)]
+    assert plan([Detection((0, 0, 60, 60), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.5, (1, 1)) == [(0, 0, 120, 120)]
 
 
 def test_crop_larger_than_image_is_scaled_down():
-    assert plan([((10, 10, 500, 350), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.5, (1, 1)) == [(60, 0, 400, 400)]
+    assert plan([Detection((10, 10, 500, 350), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.5, (1, 1)) == [(60, 0, 400, 400)]
 
 
 def test_wide_box_with_tall_target_ratio():
-    assert plan([((50, 50, 300, 30), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.0, (9, 16)) == [(87, 0, 225, 400)]
+    assert plan([Detection((50, 50, 300, 30), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.0, (9, 16)) == [(87, 0, 225, 400)]
 
 
 def test_zero_area_detection_still_crashes():
     # Wart inherited from the original implementation: a zero-height box reaches
     # the aspect-fit division. Pinned so a future fix is a deliberate change.
     with pytest.raises(ZeroDivisionError):
-        plan([((50, 50, 0, 0), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.0, "detection_frame")
+        plan([Detection((50, 50, 0, 0), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.0, "detection_frame")
 
 
 class TestCropModeFromSetting:

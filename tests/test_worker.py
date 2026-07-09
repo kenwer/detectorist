@@ -11,6 +11,7 @@ import os
 from PIL import Image
 from PySide6.QtCore import QCoreApplication
 
+from detectorist.structures import Detection
 from detectorist.worker import DetectionWorker
 
 
@@ -23,7 +24,7 @@ class FakeDetector:
 
     def detect(self, image):
         self.detected_paths.append(os.path.basename(image.image_path))
-        return [((1, 1, 5, 5), 0.9, "Fish")]
+        return [Detection((1, 1, 5, 5), 0.9, "Fish")]
 
 
 def make_images(dir_path, names, size=(32, 24)):

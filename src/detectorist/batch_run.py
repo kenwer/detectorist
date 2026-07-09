@@ -8,6 +8,7 @@ or Sort by Class), so the whole run can be exercised headless.
 """
 
 import csv
+import logging
 import os
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -16,7 +17,10 @@ from typing import Protocol
 
 from .crop_planner import CropSettings, plan_crops
 from .image_object import ImageObject
+from .structures import Detection
 from .utils import long_path, strip_model_ext
+
+logger = logging.getLogger(__name__)
 
 # Called before each image as (index, total, filename); returning False cancels the run.
 ProgressFn = Callable[[int, int, str], bool]
@@ -39,7 +43,7 @@ class BatchAction(Protocol):
         """Create whatever directories the action needs inside output_dir."""
         ...
 
-    def process(self, image: ImageObject, detections: list) -> CsvRow | None:
+    def process(self, image: ImageObject, detections: list[Detection]) -> CsvRow | None:
         """Handle one image and its confidence-filtered detections."""
         ...
 
@@ -133,13 +137,13 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
                 try:
                     image = future.result()
                 except Exception as e:
-                    print(f"Warning {file_name}: could not load image: {e}")
+                    logger.warning("%s: could not load image: %s", file_name, e)
                     row = (file_name, 0, "load-error", 0, "")
                     csv_writer.writerow(row)
                     rows.append(row)
                     continue
 
-                detections = [d for d in detector.detect(image) if d[1] >= confidence]
+                detections = [d for d in detector.detect(image) if d.score >= confidence]
 
                 row = action.process(image, detections)
                 if row:
@@ -174,7 +178,7 @@ class CropExportAction:
         os.makedirs(long_path(self.cropped_dir), exist_ok=True)
         os.makedirs(long_path(self.not_cropped_dir), exist_ok=True)
 
-    def process(self, image: ImageObject, detections: list) -> CsvRow:
+    def process(self, image: ImageObject, detections: list[Detection]) -> CsvRow:
         """
         Save one crop per planned rectangle into cropped/, named
         <stem>_crop<ext>, or <stem>_crop_<i><ext> when an image yields several
@@ -189,14 +193,14 @@ class CropExportAction:
             image.copy_image(self.not_cropped_dir)
             return file_name, 0, "N/A", 0, os.path.basename(self.not_cropped_dir)
 
-        top_detection = max(detections, key=lambda d: d[1])
-        confidence_score = top_detection[1]
-        class_name = top_detection[2]
+        top_detection = max(detections, key=lambda d: d.score)
+        confidence_score = top_detection.score
+        class_name = top_detection.class_name
 
         crop_tuples = plan_crops(detections, image.height, image.width, self.crop_settings)
 
         if not crop_tuples:
-            print(f"Warning {file_name}: invalid crop rectangle, crop_tuples: {crop_tuples}")
+            logger.warning("%s: invalid crop rectangle, crop_tuples: %s", file_name, crop_tuples)
             image.copy_image(self.not_cropped_dir)
             return file_name, confidence_score, class_name, len(detections), os.path.basename(self.not_cropped_dir)
 
@@ -222,7 +226,7 @@ class SortByClassAction:
         """
         self._output_dir = output_dir
 
-    def process(self, image: ImageObject, detections: list) -> CsvRow:
+    def process(self, image: ImageObject, detections: list[Detection]) -> CsvRow:
         """
         Copy the image (never move it) into a folder named after its top
         detection's class, creating the folder on first use. Images without
@@ -232,12 +236,12 @@ class SortByClassAction:
         """
         file_name = os.path.basename(image.image_path)
         if detections:
-            top_detection = max(detections, key=lambda d: d[1])
-            class_name = top_detection[2]
+            top_detection = max(detections, key=lambda d: d.score)
+            class_name = top_detection.class_name
             class_dir = os.path.join(self._output_dir, class_name)
             os.makedirs(long_path(class_dir), exist_ok=True)
             image.copy_image(class_dir)
-            return file_name, top_detection[1], class_name, len(detections), class_name
+            return file_name, top_detection.score, class_name, len(detections), class_name
         else:
             no_detection_dir = os.path.join(self._output_dir, "no-detection")
             os.makedirs(long_path(no_detection_dir), exist_ok=True)

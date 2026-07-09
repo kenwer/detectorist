@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
 
+from .structures import Detection
+
 # A crop rectangle as (x, y, w, h) in image pixel space.
 Rect = tuple[int, int, int, int]
 
@@ -41,13 +43,12 @@ class CropSettings:
     aspect: tuple[int, int] | Literal["detection_frame"]
 
 
-def plan_crops(detections: list, image_height: int, image_width: int, settings: CropSettings) -> list[Rect]:
+def plan_crops(detections: list[Detection], image_height: int, image_width: int, settings: CropSettings) -> list[Rect]:
     """
     Plans crop rectangles based on detections and crop settings.
 
     Args:
-        detections: A list of detections, where each detection is a tuple
-            ((x, y, w, h), score, class_name). Only the box and score are read.
+        detections: The detections to frame. Only the box and score are read.
         image_height: The height of the image.
         image_width: The width of the image.
         settings: Crop mode, padding and aspect ratio to apply.
@@ -71,7 +72,7 @@ def plan_crops(detections: list, image_height: int, image_width: int, settings: 
         return [rect] if rect else []
 
 
-def _plan_single_crop(detections: list, image_height: int, image_width: int, mode: CropMode, padding_percentage: float, aspect_ratio: tuple[int, int] | str) -> Rect | None:
+def _plan_single_crop(detections: list[Detection], image_height: int, image_width: int, mode: CropMode, padding_percentage: float, aspect_ratio: tuple[int, int] | str) -> Rect | None:
     """
     Calculates a single crop rectangle based on detections and parameters.
 
@@ -83,13 +84,13 @@ def _plan_single_crop(detections: list, image_height: int, image_width: int, mod
 
     # The detection boxes are tuples of (x, y, w, h)
     if mode == CropMode.TOP_CONFIDENCE:
-        top_detection = max(detections, key=lambda d: d[1])
-        x, y, w, h = top_detection[0]
+        top_detection = max(detections, key=lambda d: d.score)
+        x, y, w, h = top_detection.box
     elif mode == CropMode.UNION:
-        left = min(d[0][0] for d in detections)
-        top = min(d[0][1] for d in detections)
-        right = max(d[0][0] + d[0][2] for d in detections)
-        bottom = max(d[0][1] + d[0][3] for d in detections)
+        left = min(d.box[0] for d in detections)
+        top = min(d.box[1] for d in detections)
+        right = max(d.box[0] + d.box[2] for d in detections)
+        bottom = max(d.box[1] + d.box[3] for d in detections)
         x, y, w, h = left, top, right - left, bottom - top
     elif mode == CropMode.MOST_CENTERED:
         image_center_x = image_width / 2
@@ -101,7 +102,7 @@ def _plan_single_crop(detections: list, image_height: int, image_width: int, mod
         # Iterate through each detected object to find the one closest to the image center
         for detection in detections:
             # Bounding box coordinates and dimensions for the current detection
-            det_x, det_y, det_w, det_h = detection[0]
+            det_x, det_y, det_w, det_h = detection.box
             # Calculate the center coordinates of the current detection's bounding box
             det_center_x = det_x + det_w / 2
             det_center_y = det_y + det_h / 2
@@ -116,7 +117,7 @@ def _plan_single_crop(detections: list, image_height: int, image_width: int, mod
 
         # If a most centered detection was found, use its bounding box for cropping
         if most_centered_detection:
-            x, y, w, h = most_centered_detection[0]
+            x, y, w, h = most_centered_detection.box
         else:
             return None # No centered detection found
     else:
