@@ -32,6 +32,7 @@ from detectorist import __version__
 from .batch_run import CropExportAction, SortByClassAction, output_dir_name, run_batch
 from .crop_planner import CropMode, CropSettings, plan_crops
 from .detector import Detector
+from .image_cache import PrefetchPlanner
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
 from .image_object import ImageObject, filter_out_appledouble_files, list_supported_images, supported_extensions
@@ -56,7 +57,7 @@ class DetectoristApp(QMainWindow):
         super().__init__()
 
         self.current_image_path = None
-        self._previous_row: int | None = None
+        self._prefetch_planner = PrefetchPlanner()
         self._all_detection_results: list = []
         self._last_detection_time_ms: float = 0.0
         self._last_output_dir: str | None = None
@@ -284,7 +285,7 @@ class DetectoristApp(QMainWindow):
         # Clear existing list and main image
         self.model.clear()
         self.current_image_path = None
-        self._previous_row = None
+        self._prefetch_planner.reset()
         self.ui.image_label.clear()
         # Files on disk may have changed, so cached decodes are not trustworthy.
         # The queued invocation runs clear_cache on the worker thread, which is
@@ -453,11 +454,6 @@ class DetectoristApp(QMainWindow):
         if new_image_path == self.current_image_path:
             return  # No need to reload the same image
 
-        try:
-            self._previous_row = self.model.imagePaths().index(self.current_image_path)
-        except ValueError:
-            self._previous_row = None
-
         self.current_image_path = new_image_path
         self._all_detection_results = []
 
@@ -497,36 +493,8 @@ class DetectoristApp(QMainWindow):
             return
 
         exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
-        self.request_processing.emit(self.current_image_path, exposure_correction, self._prefetch_hints())
-
-    def _prefetch_hints(self) -> list[str]:
-        """
-        Returns paths to decode ahead of time. In both directions: protect the
-        from-image (so it survives the upcoming evictions) then prefetch 3 in the
-        direction of travel, giving 3 instant steps ahead and 1 instant step back.
-        Falls back to 2 ahead and 2 behind (n+1, n-1, n+2, n-2) for the first
-        selection or a jump.
-        """
-        paths = self.model.imagePaths()
-        try:
-            row = paths.index(self.current_image_path)
-        except ValueError:
-            return []
-
-        prev_row = self._previous_row
-        if prev_row is not None and abs(row - prev_row) == 1:
-            if row > prev_row:
-                # Promote the from-image first so it survives the forward loads.
-                return [paths[prev_row]] + paths[row + 1:row + 4]
-            else:
-                # Same pattern as forward: protect the from-image first, then
-                # prefetch 3 in the direction of travel.
-                return [paths[prev_row]] + list(reversed(paths[max(0, row - 3):row]))
-
-        # No clear direction: nearest 2 in each direction, alternating so the
-        # closest neighbors are always decoded first.
-        return [paths[i] for i in [row + 1, row - 1, row + 2, row - 2]
-                if 0 <= i < len(paths)]
+        prefetch_hints = self._prefetch_planner.hints(self.model.imagePaths(), self.current_image_path)
+        self.request_processing.emit(self.current_image_path, exposure_correction, prefetch_hints)
 
     def handle_model_loaded(self, success: bool, message: str, class_names: list):
         """Handles the result of loading a model in the worker."""

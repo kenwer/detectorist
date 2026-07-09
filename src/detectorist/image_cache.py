@@ -62,3 +62,78 @@ class ImageCache:
     def clear(self) -> None:
         """Drops all entries."""
         self._entries.clear()
+
+
+class PrefetchPlanner:
+    """
+    Tracks navigation direction across image selections and decides which
+    paths to prefetch next. Owned by the GUI thread (DetectoristApp) and
+    never shared with ImageCache's worker-owned instance: this is why it is
+    a separate class rather than state on ImageCache, despite living in the
+    same module.
+
+    A single step continuing the established direction of travel prefetches
+    3 images ahead (protecting the from-image so it survives the upcoming
+    evictions), giving 3 instant steps ahead and 1 instant step back. A
+    single step that reverses the previous direction is treated as a probe:
+    it only prefetches 2 in the new direction and protects the 2 nearest
+    images in the old direction, so a quick bounce back stays instant. A
+    second consecutive step in that new direction confirms the reversal and
+    escalates back to the full 3-ahead prefetch.
+
+    Falls back to 2 ahead and 2 behind (n+1, n-1, n+2, n-2) for the first
+    selection or a jump, and resets the tracked direction.
+    """
+
+    def __init__(self) -> None:
+        self._previous_path: str | None = None
+        self._last_direction: str | None = None
+
+    def reset(self) -> None:
+        """Call when the image list changes (folder load) to drop stale history."""
+        self._previous_path = None
+        self._last_direction = None
+
+    def hints(self, paths: list[str], current_path: str) -> list[str]:
+        """Returns paths to decode ahead of time for current_path within paths."""
+        try:
+            row = paths.index(current_path)
+        except ValueError:
+            self._previous_path = current_path
+            return []
+
+        prev_row = None
+        if self._previous_path is not None:
+            try:
+                prev_row = paths.index(self._previous_path)
+            except ValueError:
+                prev_row = None
+
+        self._previous_path = current_path
+
+        if prev_row is not None and abs(row - prev_row) == 1:
+            direction = "forward" if row > prev_row else "backward"
+            confirmed = self._last_direction is None or self._last_direction == direction
+            self._last_direction = direction
+
+            if direction == "forward":
+                if confirmed:
+                    # Promote the from-image first so it survives the forward loads.
+                    return [paths[prev_row]] + paths[row + 1:row + 4]
+                # Probe: protect the 2 nearest images behind, prefetch 2 ahead.
+                behind = [paths[i] for i in (prev_row, prev_row - 1) if 0 <= i < len(paths)]
+                return behind + paths[row + 1:row + 3]
+            else:
+                if confirmed:
+                    # Same pattern as forward: protect the from-image first, then
+                    # prefetch 3 in the direction of travel.
+                    return [paths[prev_row]] + list(reversed(paths[max(0, row - 3):row]))
+                # Probe: protect the 2 nearest images ahead, prefetch 2 behind.
+                ahead = [paths[i] for i in (prev_row, prev_row + 1) if 0 <= i < len(paths)]
+                return ahead + list(reversed(paths[max(0, row - 2):row]))
+
+        # No clear direction: nearest 2 in each direction, alternating so the
+        # closest neighbors are always decoded first.
+        self._last_direction = None
+        return [paths[i] for i in [row + 1, row - 1, row + 2, row - 2]
+                if 0 <= i < len(paths)]

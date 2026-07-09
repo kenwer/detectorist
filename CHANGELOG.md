@@ -5,6 +5,7 @@
 - Images already analyzed (and instantly available from the cache) are now shown in dark green in the image list.
 ### Changed
 - Faster image display and detection preprocessing as the 8-bit conversion now goes directly from the source color layout and skips redundant full-frame copies.
+- Improved chaching: stepping back one image during forward browsing (or vice versa) no longer discards the cached images ahead, so quickly bouncing back and forth stays instant.
 - Recent folder paths on the welcome screen now show `~` instead of the full home directory path.
 - [Dev] Add logging module.
 - [Dev] Add a `Detection` NamedTuple replacing raw result tuples, and simplify the `Detector` constructor.
