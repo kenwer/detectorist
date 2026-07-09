@@ -43,7 +43,7 @@ from .structures import Detection
 from .toasts import show_error_toast, show_success_toast, show_warning_toast
 from .ui_about_dialog import Ui_AboutDialog
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
-from .utils import contract_user_path, get_model_path, strip_model_ext
+from .utils import contract_user_path, get_model_path, resolve_short_path, strip_model_ext
 from .worker import DetectionWorker
 
 logger = logging.getLogger(__name__)
@@ -703,9 +703,11 @@ class DetectoristApp(QMainWindow):
         folders_to_scan = []
 
         for url in urls:
-            path = url.toLocalFile()
             if not url.isLocalFile():
                 continue
+            # Windows Explorer substitutes 8.3 short names into drag-and-drop
+            # data when the real path exceeds MAX_PATH; resolve it back.
+            path = resolve_short_path(url.toLocalFile())
 
             if os.path.isdir(path):
                 folders_to_scan.append(path)

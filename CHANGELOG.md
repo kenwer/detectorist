@@ -11,7 +11,7 @@
 - [Dev] Add a `Detection` NamedTuple replacing raw result tuples, and simplify the `Detector` constructor.
 - [Dev] Add a simple benchmark (`poe bench`) for the 8-bit conversion pipeline.
 ### Fixed
-- Fix reading and writing on Windows for deeply nested folders or long file names, matching the write-side fix in 0.9.1. Import listing, image decoding (standard, RAW, HEIF), batch export folder/CSV creation, and settings import/export now use Windows extended-length paths.
+- Fix reading, writing, and drag-and-drop on Windows for deeply nested folders or long file names, matching the write-side fix in 0.9.1.
 - Fix the detection model being loaded twice at startup.
 
 ## [0.10.1] - 2026-07-08

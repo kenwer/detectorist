@@ -52,6 +52,25 @@ def long_path(path: str) -> str:
     return "\\\\?\\" + abs_path
 
 
+def resolve_short_path(path: str) -> str:
+    """
+    Resolve a Windows short (8.3) path component back to its real long name.
+
+    Windows Explorer substitutes the 8.3 alias for the final path component
+    in drag-and-drop data (the legacy CF_HDROP format) whenever the real long
+    path would exceed MAX_PATH, so a path handed to us via a drop event can
+    carry a short alias like "HOLOCE~1.HIF" even though the file's actual name
+    on disk is unchanged and long. os.path.realpath() resolves this: opening
+    the short alias itself stays under MAX_PATH, and the resolved path it
+    returns has no MAX_PATH limit.
+
+    On non-Windows platforms the path is returned unchanged.
+    """
+    if sys.platform != "win32":
+        return path
+    return os.path.realpath(path)
+
+
 def strip_model_ext(filename: str) -> str:
     """Strip .onnx or .onnx.gz extension for display."""
     return filename.removesuffix(".gz").removesuffix(".onnx")
