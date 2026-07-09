@@ -51,6 +51,9 @@ class DetectionWorker(QObject):
     @Slot(str)
     def load_model(self, model_path: str):
         """Loads a new detection model. Cached results belong to the previous model, so the cache is dropped."""
+        if self.detector is not None and self.detector.model_path == model_path:
+            logger.debug("Model already loaded, skipping duplicate request: %s", model_path)
+            return
         self._cache.clear()
         try:
             self.detector = Detector(model_path)

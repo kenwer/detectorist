@@ -50,6 +50,8 @@ class Detector:
         except Exception as e:
             raise OSError(f"Error loading ONNX model from '{model_path}': {e}") from e
 
+        self.model_path = model_path
+
         # Get model input details
         self.input_name = self.session.get_inputs()[0].name
         input_shape = self.session.get_inputs()[0].shape
