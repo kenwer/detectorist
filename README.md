@@ -20,6 +20,7 @@
 - [Roadmap/TODOs](#roadmaptodos)
 - [Development](#development)
 - [Acknowledgements](#acknowledgements)
+- [Citation](#citation)
 - [License](#license)
 
 <!--TOC-->
@@ -176,6 +177,20 @@ The author would like to thank the following projects and people that made this 
 * [Dr. Anja Buttstedt](https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/fachbereiche/biologie/institute/evolution-und-oekologie/lehrbereiche/vergleichende-zoologie/gruppe/anja-buttstedt/) for Apoidea images and testing the Windows version.
 * [Qt](https://www.qt.io/) / [PySide6](https://doc.qt.io/qtforpython/) for the application framework.
 * [ONNX Runtime](https://onnxruntime.ai/) for providing a runtime for inference.
+
+## Citation
+
+If you use Detectorist in your work, you can [cite](CITATION.cff). it:
+
+```bibtex
+@software{Werner_Detectorist_2026,
+  author  = {Werner, Ken},
+  title   = {Detectorist},
+  url     = {https://github.com/kenwer/detectorist},
+  version = {0.10.2},
+  year    = {2026}
+}
+```
 
 ## License
 
