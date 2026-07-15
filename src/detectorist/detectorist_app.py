@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
     QMenu,
+    QMessageBox,
     QProgressDialog,
     QRadioButton,
 )
@@ -87,6 +88,16 @@ class DetectoristApp(QMainWindow):
         self.ui.image_label.linkActivated.connect(self._open_recent_folder)
         self.ui.image_label.setAcceptDrops(True) # Enable drag and drop for image_label
 
+        # Snapshot the .ui file's built-in defaults before _load_settings() can override
+        # them, so "Reset Settings to Defaults" has real values to restore.
+        self._default_confidence = self.ui.confidence_slider.value()
+        self._default_padding = self.ui.padding_slider.value()
+        self._default_aspect_ratio_index = self.ui.crop_ratio_combo_box.currentIndex()
+        self._default_auto_correct_exposure = self.ui.cb_comp_cam_exposure.isChecked()
+        self._default_crop_mode = next(
+            mode for mode, radio in self._crop_mode_radios().items() if radio.isChecked()
+        )
+
         self.model = ImageListModel()
         self.ui.image_list_view.setModel(self.model)
         self.ui.image_list_view.setAcceptDrops(True) # Enable drag and drop for imageListView
@@ -120,6 +131,7 @@ class DetectoristApp(QMainWindow):
         self.ui.clear_recent_folders_action.triggered.connect(self._clear_recent_folders)
         self.ui.import_settings_action.triggered.connect(self._import_settings)
         self.ui.export_settings_action.triggered.connect(self._export_settings)
+        self.ui.reset_settings_action.triggered.connect(self._reset_settings)
         self.ui.manage_models_action.triggered.connect(self.show_manage_models_dialog)
         self.ui.open_output_folder_action.triggered.connect(self._open_last_output_folder)
 
@@ -403,6 +415,32 @@ class DetectoristApp(QMainWindow):
             [Settings.GROUP_MODEL, Settings.GROUP_CROP]
         )
         self.ui.status_bar.showMessage("Settings exported.", 3000)
+
+    def _reset_settings(self) -> None:
+        """Reset Model and Crop settings to their defaults after confirmation."""
+        reply = QMessageBox.question(
+            self,
+            "Reset Settings",
+            "Reset Model and Crop settings to their defaults?\n"
+            "Recent folders and window layout are not affected.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self.settings.reset_to_defaults()
+
+        # _load_settings() only overwrites a widget when a persisted value exists, so it
+        # can't restore a value that was just cleared. Re-apply the .ui defaults directly.
+        self.ui.confidence_slider.setValue(self._default_confidence)
+        self.ui.padding_slider.setValue(self._default_padding)
+        self.ui.crop_ratio_combo_box.setCurrentIndex(self._default_aspect_ratio_index)
+        self.ui.cb_comp_cam_exposure.setChecked(self._default_auto_correct_exposure)
+        self._crop_mode_radios()[self._default_crop_mode].setChecked(True)
+
+        self._save_settings()
+        self.ui.status_bar.showMessage("Settings reset to defaults.", 3000)
 
     def _show_welcome_state(self) -> None:
         parts = ['<span style="font-size: large;">Drop images or a folder with images</span><br/>']

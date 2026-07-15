@@ -187,6 +187,13 @@ class Settings:
     def auto_correct_exposure_enabled(self, value: bool) -> None:
         self._set_grouped(self.GROUP_CROP, self.KEY_AUTO_CORRECT_EXPOSURE, value)
 
+    def reset_to_defaults(self) -> None:
+        """Clear Model and Crop settings, leaving recent directories and UI layout untouched."""
+        for group in (self.GROUP_MODEL, self.GROUP_CROP):
+            self._settings.beginGroup(group)
+            self._settings.remove("")
+            self._settings.endGroup()
+
     def export_group(self, group: str) -> dict[str, object]:
         """Export all settings in a group as a dict."""
         data: dict[str, object] = {}

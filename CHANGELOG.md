@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- File menu: `Reset Settings to Defaults` resets Model and Crop settings. Recent folders and window layout remain untouched.
 ### Changed
 - The cropped and sorted images all land in a `processed` subdirectory of the directory that is currently being viewed instead of one named after the confidence and model. Images are no longer split into cropped/non-cropped subfolders. Filenames get `_crop`/`_ncrop` suffixes instead.
 - The detections CSV and settings.json filenames now encode the confidence and model, so multiple runs' summaries can coexist.

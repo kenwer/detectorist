@@ -457,6 +457,7 @@ Highest confidence	: -</string>
     <addaction name="separator"/>
     <addaction name="import_settings_action"/>
     <addaction name="export_settings_action"/>
+    <addaction name="reset_settings_action"/>
     <addaction name="separator"/>
     <addaction name="manage_models_action"/>
     <addaction name="separator"/>
@@ -665,6 +666,14 @@ Highest confidence	: -</string>
    </property>
    <property name="toolTip">
     <string>Export current Model and Crop settings to a JSON file</string>
+   </property>
+  </action>
+  <action name="reset_settings_action">
+   <property name="text">
+    <string>Reset Settings to Defaults</string>
+   </property>
+   <property name="toolTip">
+    <string>Reset Model and Crop settings to their default values</string>
    </property>
   </action>
   <action name="manage_models_action">
