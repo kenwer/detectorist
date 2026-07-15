@@ -18,22 +18,28 @@ set -euo pipefail
 #   5. Increment the version number in pyproject.toml
 #      sed -i "s/version = \"...\"/version = \"...\"/"
 #
-#   6. Regenerate uv.lock so it records the new version
+#   6. Update CITATION.cff (version and date-released)
+#      sed -i "s/^version: .../version: .../; s/^date-released: .../date-released: .../"
+#
+#   7. Update the citation BibTeX block in README.md (version and year)
+#      sed -i "s/version = {...}/version = {...}/; s/year    = {....}/year    = {....}/"
+#
+#   8. Regenerate uv.lock so it records the new version
 #      uv lock
 #
-#   7. Adjust CHANGELOG.md (replace "## [Unreleased]" with the new version and date)
+#   9. Adjust CHANGELOG.md (replace "## [Unreleased]" with the new version and date)
 #      sed -i "s/## \[Unreleased\]/## [X.Y.Z] - YYYY-MM-DD/"
 #
-#   8. Compile QRC files (after changelog is updated, since it's embedded in resources)
+#  10. Compile QRC files (after changelog is updated, since it's embedded in resources)
 #      uv run poe compile-qrc
 #
-#   9. Commit the changes with a message like "Bump version to 0.7.4"
+#  11. Commit the changes with a message like "Bump version to 0.7.4"
 #      git add ... && git commit -m "Bump version to X.Y.Z"
 #
-#  10. Push to remote and wait for GitHub Actions to complete
+#  12. Push to remote and wait for GitHub Actions to complete
 #      git push
 #
-#  11. Tag the release and push the tag to trigger the release workflow
+#  13. Tag the release and push the tag to trigger the release workflow
 #      V="0.7.4"; git tag -a "v${V}" -m "Release version ${V}" && git push -u origin "v${V}"
 #
 # Usage:
@@ -50,6 +56,8 @@ NC='\033[0m' # No Color
 
 # File paths
 VERSION_FILE="pyproject.toml"
+CITATION_FILE="CITATION.cff"
+README_FILE="README.md"
 CHANGELOG_FILE="CHANGELOG.md"
 LOCK_FILE="uv.lock"
 
@@ -211,12 +219,14 @@ done
 echo ""
 info "Release plan:"
 echo -e "  5. Update version: ${CURRENT_VERSION} -> ${GREEN}${NEW_VERSION}${NC} in ${VERSION_FILE}"
-echo -e "  6. Regenerate ${LOCK_FILE} (uv lock)"
-echo -e "  7. Update CHANGELOG.md ([Unreleased] -> [${NEW_VERSION}] - $(date +%Y-%m-%d))"
-echo -e "  8. Compile QRC files (that includes changelog for the about dialog)"
-echo -e "  9. Commit: \"Bump version to ${NEW_VERSION}\""
-echo -e " 10. Push to remote and wait for CI"
-echo " 11. Tag: v${NEW_VERSION}"
+echo -e "  6. Update ${CITATION_FILE} (version and date-released)"
+echo -e "  7. Update citation BibTeX block in ${README_FILE} (version and year)"
+echo -e "  8. Regenerate ${LOCK_FILE} (uv lock)"
+echo -e "  9. Update CHANGELOG.md ([Unreleased] -> [${NEW_VERSION}] - $(date +%Y-%m-%d))"
+echo -e " 10. Compile QRC files (that includes changelog for the about dialog)"
+echo -e " 11. Commit: \"Bump version to ${NEW_VERSION}\""
+echo -e " 12. Push to remote and wait for CI"
+echo " 13. Tag: v${NEW_VERSION}"
 echo ""
 
 if ! confirm "Proceed with release?"; then
@@ -231,27 +241,48 @@ sed -i.bak "s/^version = \"${CURRENT_VERSION}\"/version = \"${NEW_VERSION}\"/" "
 rm -f "${VERSION_FILE}.bak"
 success "Version updated to ${NEW_VERSION}"
 
-# Step 6: Regenerate uv.lock so it records the new project version. Without
+# Step 6: Update CITATION.cff so its version and date-released track the
+# release, instead of drifting from pyproject.toml as an unmaintained copy.
+echo ""
+info "Step 6: Updating ${CITATION_FILE}..."
+TODAY=$(date +%Y-%m-%d)
+sed -i.bak -e "s/^version: .*/version: ${NEW_VERSION}/" -e "s/^date-released: .*/date-released: ${TODAY}/" "$CITATION_FILE"
+rm -f "${CITATION_FILE}.bak"
+success "${CITATION_FILE} updated"
+
+# Step 7: Update the citation BibTeX block in README.md so it doesn't drift
+# from CITATION.cff the way it already had before this step existed.
+echo ""
+info "Step 7: Updating citation block in ${README_FILE}..."
+YEAR="${TODAY:0:4}"
+sed -i.bak \
+    -e "s/^@software{Werner_Detectorist_[0-9]\{4\},/@software{Werner_Detectorist_${YEAR},/" \
+    -e "s/^  version = {[^}]*},/  version = {${NEW_VERSION}},/" \
+    -e "s/^  year    = {[0-9]\{4\}}/  year    = {${YEAR}}/" \
+    "$README_FILE"
+rm -f "${README_FILE}.bak"
+success "${README_FILE} citation block updated"
+
+# Step 8: Regenerate uv.lock so it records the new project version. Without
 # this the lockfile drifts (pyproject says X.Y.Z, lock still says the old
 # version) and the next `uv run` rewrites uv.lock outside of a release commit.
 echo ""
-info "Step 6: Regenerating ${LOCK_FILE}..."
+info "Step 8: Regenerating ${LOCK_FILE}..."
 if ! uv lock; then
     error "uv lock failed. Please resolve before releasing."
 fi
 success "${LOCK_FILE} updated"
 
-# Step 7: Update CHANGELOG.md
+# Step 9: Update CHANGELOG.md
 echo ""
-info "Step 7: Updating CHANGELOG.md..."
-TODAY=$(date +%Y-%m-%d)
+info "Step 9: Updating CHANGELOG.md..."
 sed -i.bak "s/## \[*[Uu]nreleased\]*/## [${NEW_VERSION}] - ${TODAY}/" "$CHANGELOG_FILE"
 rm -f "${CHANGELOG_FILE}.bak"
 success "CHANGELOG.md updated"
 
-# Step 8: Compile QRC files (after changelog is updated, since it's embedded in resources)
+# Step 10: Compile QRC files (after changelog is updated, since it's embedded in resources)
 echo ""
-info "Step 8: Compiling QRC files..."
+info "Step 10: Compiling QRC files..."
 uv run poe compile-qrc
 success "QRC files compiled"
 
@@ -267,7 +298,7 @@ echo ""
 
 if ! confirm "Stage and commit these changes?"; then
     warn "Rolling back file changes..."
-    git checkout -- "$VERSION_FILE" "$CHANGELOG_FILE" "$LOCK_FILE" README.md FAQ.md src/detectorist/resources_rc.py 2>/dev/null || true
+    git checkout -- "$VERSION_FILE" "$CITATION_FILE" "$CHANGELOG_FILE" "$LOCK_FILE" "$README_FILE" FAQ.md src/detectorist/resources_rc.py 2>/dev/null || true
     info "Changes rolled back."
     if ! confirm "Continue with remaining steps (push, tag) using existing commits?"; then
         info "Release cancelled."
@@ -275,10 +306,10 @@ if ! confirm "Stage and commit these changes?"; then
     fi
 fi
 
-# Step 9: Commit changes
+# Step 11: Commit changes
 echo ""
-info "Step 9: Staging and committing changes..."
-git add "$VERSION_FILE" "$CHANGELOG_FILE" "$LOCK_FILE" README.md FAQ.md src/detectorist/resources_rc.py
+info "Step 11: Staging and committing changes..."
+git add "$VERSION_FILE" "$CITATION_FILE" "$CHANGELOG_FILE" "$LOCK_FILE" "$README_FILE" FAQ.md src/detectorist/resources_rc.py
 
 echo ""
 info "Staged files:"
@@ -289,7 +320,7 @@ echo ""
 
 if ! confirm "Create this commit?"; then
     warn "Unstaging changes..."
-    git reset HEAD -- "$VERSION_FILE" "$CHANGELOG_FILE" "$LOCK_FILE" README.md FAQ.md src/detectorist/resources_rc.py
+    git reset HEAD -- "$VERSION_FILE" "$CITATION_FILE" "$CHANGELOG_FILE" "$LOCK_FILE" "$README_FILE" FAQ.md src/detectorist/resources_rc.py
     info "Commit cancelled. Files are still modified but not committed."
     if ! confirm "Continue with remaining steps (push, tag)?"; then
         info "Release cancelled."
@@ -300,11 +331,11 @@ fi
 git commit -m "Bump version to ${NEW_VERSION}"
 success "Changes committed"
 
-# Step 10: Push to remote
+# Step 12: Push to remote
 echo ""
 REMOTE_URL=$(git remote get-url origin)
 CURRENT_BRANCH=$(git branch --show-current)
-info "Step 10: Push to remote"
+info "Step 12: Push to remote"
 echo ""
 info "This will push:"
 echo "  • Branch: ${CURRENT_BRANCH}"
@@ -369,9 +400,9 @@ while true; do
     sleep 30
 done
 
-# Step 11: Create and push tag
+# Step 13: Create and push tag
 echo ""
-info "Step 11: Create and push tag"
+info "Step 13: Create and push tag"
 echo ""
 info "This will create:"
 echo "  • Tag: v${NEW_VERSION}"
