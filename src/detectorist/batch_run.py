@@ -22,13 +22,13 @@ from .utils import long_path, strip_model_ext
 
 logger = logging.getLogger(__name__)
 
-# Called before each image as (index, total, filename); returning False cancels the run.
+# Called before each image as (index, total, filename). Returning False cancels the run.
 ProgressFn = Callable[[int, int, str], bool]
 
-# One detections.csv row; see CSV_HEADER for the columns.
+# One detections.csv row. See CSV_HEADER for the columns.
 CsvRow = tuple[str, float, str, int, str]
 
-CSV_HEADER = ["Filename", "Highest confidence score", "Class name", "Number of detected objects", "Subdirectory"]
+CSV_HEADER = ["Filename", "Highest confidence score", "Class name", "Number of detected objects", "cropped"]
 
 
 class BatchAction(Protocol):
@@ -70,19 +70,62 @@ def _load_image(image_path: str, exposure_correction: bool) -> ImageObject:
     return image
 
 
-def output_dir_name(confidence: int, model_filename: str) -> str:
+def _read_existing_csv(csv_path: str) -> dict[str, CsvRow]:
     """
-    The name of a Batch Run's output directory, encoding the confidence level
-    and the model used (like: detectorist_conf-75_fish-seg-transformer-2026-02-24).
+    Loads a prior run's CSV into a dict keyed by filename, so this run can
+    update just the rows it touches and leave the rest as they were. Missing
+    file or a header that doesn't match CSV_HEADER (e.g. an older app version)
+    is treated as "no prior data" rather than migrated or merged column-wise.
     """
-    return f"detectorist_conf-{confidence}_{strip_model_ext(model_filename or '')}"
+    if not os.path.isfile(long_path(csv_path)):
+        return {}
+    with open(long_path(csv_path), newline="") as f:
+        reader = csv.reader(f)
+        header = next(reader, None)
+        if header != CSV_HEADER:
+            logger.warning("%s: header does not match CSV_HEADER, ignoring prior contents", csv_path)
+            return {}
+        return {row[0]: tuple(row) for row in reader}
+
+
+def _run_suffix(confidence: int, model_filename: str) -> str:
+    """The confidence+model fragment shared by detections_csv_name() and settings_json_name()."""
+    return f"conf-{confidence}-{strip_model_ext(model_filename or '')}"
+
+
+def detections_csv_name(confidence: int, model_filename: str) -> str:
+    """
+    The name of a Batch Run's detections CSV file, encoding the confidence
+    level and the model used (like:
+    detectorist-detections-conf-75-fish-seg-transformer-2026-02-24.csv).
+    Every run shares the same output directory, so this is what keeps runs
+    with different settings from overwriting each other's CSV. A re-run with
+    the same confidence and model overwrites its own prior CSV instead.
+    """
+    return f"detectorist-detections-{_run_suffix(confidence, model_filename)}.csv"
+
+
+def settings_json_name(confidence: int, model_filename: str) -> str:
+    """
+    The name of the settings snapshot exported alongside a Batch Run's CSV,
+    encoding the same confidence level and model (like:
+    detectorist-settings-conf-75-fish-seg-transformer-2026-02-24.json), so the
+    two files pair up at a glance and a re-run overwrites its own prior copy.
+    """
+    return f"detectorist-settings-{_run_suffix(confidence, model_filename)}.json"
 
 
 def run_batch(image_paths: list[str], detector, confidence: float, exposure_correction: bool,
-              output_dir: str, action: BatchAction, progress: ProgressFn) -> BatchResult:
+              output_dir: str, csv_filename: str, action: BatchAction, progress: ProgressFn) -> BatchResult:
     """
     Runs the detector over the given images, delegating each one to the action
-    and writing a row per image to detections.csv in the output directory.
+    and updating csv_filename in the output directory with a row per image.
+
+    A filename already present in csv_filename from a prior run keeps its row
+    unless this run processes that same image again, in which case the row is
+    replaced. Filenames untouched by this run are left as they were. This
+    lets the CSV reflect the latest known state across repeated runs even
+    though the underlying image files themselves get overwritten.
 
     While an image runs detection and the action, the next image is already
     decoding on a background thread (pillow-heif and ONNX both release the
@@ -97,13 +140,15 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
         detector: Anything with detect(image) -> list of detections.
         confidence: Minimum score a detection must have to be kept.
         exposure_correction: Apply the camera exposure bias when loading images.
-        output_dir: Created if missing. Receives detections.csv and the action's output.
+        output_dir: Created if missing. Shared across runs. Receives the
+            action's output alongside csv_filename.
+        csv_filename: Name of the CSV written into output_dir (see detections_csv_name()).
         action: The per-image behaviour (e.g. CropExportAction, SortByClassAction).
-        progress: Called before each image; returning False cancels the run.
+        progress: Called before each image. Returning False cancels the run.
 
     Returns:
         A BatchResult with the output directory, whether the run was cancelled,
-        and the rows written to detections.csv.
+        and the rows this run produced (not the full merged CSV contents).
     """
     os.makedirs(long_path(output_dir), exist_ok=True)
     action.prepare(output_dir)
@@ -112,11 +157,10 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
     rows: list[CsvRow] = []
     cancelled = False
 
-    detections_csv_path = os.path.join(output_dir, "detections.csv")
-    with open(long_path(detections_csv_path), "w", newline="") as csv_file:
-        csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(CSV_HEADER)
+    detections_csv_path = os.path.join(output_dir, csv_filename)
+    rows_by_filename = _read_existing_csv(detections_csv_path)
 
+    try:
         # The context manager drains any in-flight load on exit (bounded by
         # one decode), so cancellation and errors cannot leak a thread.
         with ThreadPoolExecutor(max_workers=1) as executor:
@@ -138,17 +182,22 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
                     image = future.result()
                 except Exception as e:
                     logger.warning("%s: could not load image: %s", file_name, e)
-                    row = (file_name, 0, "load-error", 0, "")
-                    csv_writer.writerow(row)
+                    row = (file_name, 0, "load-error", 0, "n/a")
                     rows.append(row)
+                    rows_by_filename[file_name] = row
                     continue
 
                 detections = [d for d in detector.detect(image) if d.score >= confidence]
 
                 row = action.process(image, detections)
                 if row:
-                    csv_writer.writerow(row)
                     rows.append(row)
+                    rows_by_filename[row[0]] = row
+    finally:
+        with open(long_path(detections_csv_path), "w", newline="") as csv_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow(CSV_HEADER)
+            csv_writer.writerows(rows_by_filename.values())
 
     return BatchResult(output_dir=output_dir, cancelled=cancelled, rows=rows)
 
@@ -156,42 +205,37 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
 @dataclass
 class CropExportAction:
     """
-    Crops each image around its detections into cropped/. Images without
-    usable detections are copied to not-cropped/.
+    Crops each image around its detections into the output directory,
+    named <stem>_crop<ext>. Images without usable detections are just
+    copied, renamed <stem>_ncrop<ext>, so every input image is accounted
+    for in the output.
     """
 
     crop_settings: CropSettings
-    # Both dirs are derived from the output directory once run_batch calls
-    # prepare(). Until then they are unset, so a premature process() fails
-    # loudly with an AttributeError. This is by design.
-    cropped_dir: str = field(init=False)
-    not_cropped_dir: str = field(init=False)
+    # Derived from the output directory once run_batch calls prepare().
+    # Unset until then, so a premature process() fails loudly with an
+    # AttributeError. This is by design.
+    output_dir: str = field(init=False)
 
     def prepare(self, output_dir: str) -> None:
-        """
-        Create cropped/ and not-cropped/ inside the output directory. Both are
-        created eagerly so every finished run has the same folder layout, even
-        when one of them stays empty.
-        """
-        self.cropped_dir = os.path.join(output_dir, "cropped")
-        self.not_cropped_dir = os.path.join(output_dir, "not-cropped")
-        os.makedirs(long_path(self.cropped_dir), exist_ok=True)
-        os.makedirs(long_path(self.not_cropped_dir), exist_ok=True)
+        """Remember the output directory. Every file lands directly inside it."""
+        self.output_dir = output_dir
 
     def process(self, image: ImageObject, detections: list[Detection]) -> CsvRow:
         """
-        Save one crop per planned rectangle into cropped/, named
-        <stem>_crop<ext>, or <stem>_crop_<i><ext> when an image yields several
-        crops (the EACH_OBJECT crop mode). Images with no detections, or whose
-        detections produce no usable crop rectangle, are copied unchanged to
-        not-cropped/ so every input image is accounted for in the output.
-        The returned row reports the top detection and the subdirectory the
-        image landed in.
+        Save one crop per planned rectangle, named <stem>_crop<ext>, or
+        <stem>_crop_<i><ext> when an image yields several crops (the
+        EACH_OBJECT crop mode). Images with no detections, or whose
+        detections produce no usable crop rectangle, are copied in renamed to
+        <stem>_ncrop<ext>. The returned row reports the top detection and
+        whether a crop was produced.
         """
         file_name = os.path.basename(image.image_path)
+        base, ext = os.path.splitext(file_name)
+
         if not detections:
-            image.copy_image(self.not_cropped_dir)
-            return file_name, 0, "N/A", 0, os.path.basename(self.not_cropped_dir)
+            image.copy_image(self.output_dir, f"{base}_ncrop{ext}")
+            return file_name, 0, "N/A", 0, "no"
 
         top_detection = max(detections, key=lambda d: d.score)
         confidence_score = top_detection.score
@@ -201,18 +245,17 @@ class CropExportAction:
 
         if not crop_tuples:
             logger.warning("%s: invalid crop rectangle, crop_tuples: %s", file_name, crop_tuples)
-            image.copy_image(self.not_cropped_dir)
-            return file_name, confidence_score, class_name, len(detections), os.path.basename(self.not_cropped_dir)
+            image.copy_image(self.output_dir, f"{base}_ncrop{ext}")
+            return file_name, confidence_score, class_name, len(detections), "no"
 
-        base, ext = os.path.splitext(file_name)
         for i, crop_tuple in enumerate(crop_tuples):
             if len(crop_tuples) > 1:
                 crop_name = f"{base}_crop_{i}{ext}"
             else:
                 crop_name = f"{base}_crop{ext}"
-            image.save_cropped(crop_tuple, os.path.join(self.cropped_dir, crop_name))
+            image.save_cropped(crop_tuple, os.path.join(self.output_dir, crop_name))
 
-        return file_name, confidence_score, class_name, len(detections), os.path.basename(self.cropped_dir)
+        return file_name, confidence_score, class_name, len(detections), "yes"
 
 
 class SortByClassAction:
@@ -231,8 +274,9 @@ class SortByClassAction:
         Copy the image (never move it) into a folder named after its top
         detection's class, creating the folder on first use. Images without
         detections go to no-detection/ so every input image is accounted for
-        in the output. The returned row reports the top detection and the
-        folder the image landed in.
+        in the output. This action never crops, so the returned row always
+        reports "no" in the cropped column. The class name is already in the
+        Class name column.
         """
         file_name = os.path.basename(image.image_path)
         if detections:
@@ -241,9 +285,9 @@ class SortByClassAction:
             class_dir = os.path.join(self._output_dir, class_name)
             os.makedirs(long_path(class_dir), exist_ok=True)
             image.copy_image(class_dir)
-            return file_name, top_detection.score, class_name, len(detections), class_name
+            return file_name, top_detection.score, class_name, len(detections), "no"
         else:
             no_detection_dir = os.path.join(self._output_dir, "no-detection")
             os.makedirs(long_path(no_detection_dir), exist_ok=True)
             image.copy_image(no_detection_dir)
-            return file_name, 0, "no-detection", 0, "no-detection"
+            return file_name, 0, "no-detection", 0, "no"

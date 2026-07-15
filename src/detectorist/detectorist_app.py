@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 
 from detectorist import __version__
 
-from .batch_run import CropExportAction, SortByClassAction, output_dir_name, run_batch
+from .batch_run import CropExportAction, SortByClassAction, detections_csv_name, run_batch, settings_json_name
 from .crop_planner import CropMode, CropSettings, plan_crops
 from .detector import Detector
 from .image_cache import PrefetchPlanner
@@ -47,6 +47,9 @@ from .utils import contract_user_path, get_model_path, long_path, resolve_short_
 from .worker import DetectionWorker
 
 logger = logging.getLogger(__name__)
+
+# Every Batch Run writes into this same folder, regardless of model or confidence.
+OUTPUT_DIR_NAME = "processed"
 
 
 class DetectoristApp(QMainWindow):
@@ -846,7 +849,8 @@ class DetectoristApp(QMainWindow):
         progress_dialog = None
         try:
             model_filename = self.ui.model_select_combo_box.currentData()
-            output_dir = os.path.join(output_base_dir, output_dir_name(self.ui.confidence_slider.value(), model_filename))
+            output_dir = os.path.join(output_base_dir, OUTPUT_DIR_NAME)
+            csv_filename = detections_csv_name(self.ui.confidence_slider.value(), model_filename)
 
             # The detector lives in the worker thread. We can't access it directly.
             # For batch processing, we need a separate detector instance.
@@ -873,13 +877,15 @@ class DetectoristApp(QMainWindow):
                 confidence=self.ui.confidence_slider.value() / 100.0,
                 exposure_correction=self.ui.cb_comp_cam_exposure.isChecked(),
                 output_dir=output_dir,
+                csv_filename=csv_filename,
                 action=action,
                 progress=progress,
             )
 
             # Export Model & Crop settings to JSON alongside the CSV
             self._save_settings()
-            settings_file_path = Path(result.output_dir) / "settings.json"
+            settings_filename = settings_json_name(self.ui.confidence_slider.value(), model_filename)
+            settings_file_path = Path(result.output_dir) / settings_filename
             self.settings.export_to_file(
                 settings_file_path,
                 [Settings.GROUP_MODEL, Settings.GROUP_CROP]

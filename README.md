@@ -75,8 +75,9 @@ Download the binary for your operating system and start the application.
     * The Confidence threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
 *   You can sort the images into sub folders that are named after the detected object class using the corresponding item in the Actions menu. The images are copied, not moved.
 *   Optionally configure the crop & padding settings, then start cropping via the Actions menu.
-    * The cropped images will be placed in a subdirectory of the directory that is currently being viewed.
-    * The name of the output directory encodes the confidence level and the model used (like: `detectorist_conf-75_fish-seg-transformer-2026-02-24`).
+    * The cropped and sorted images all land in a `processed` subdirectory of the directory that is currently being viewed.
+    * Cropped images keep their original filename with a `_crop` suffix. Images without a usable detection are copied in with a `_ncrop` suffix instead.
+    * The accompanying detections CSV and exported settings JSON encode the confidence level and model used in their filenames (like: `detectorist-detections-conf-75-fish-seg-transformer-2026-02-24.csv`).
 
 ### Keyboard shortcuts
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+### Changed
+- The cropped and sorted images all land in a `processed` subdirectory of the directory that is currently being viewed instead of one named after the confidence and model. Images are no longer split into cropped/non-cropped subfolders. Filenames get `_crop`/`_ncrop` suffixes instead.
+- The detections CSV and settings.json filenames now encode the confidence and model, so multiple runs' summaries can coexist.
+- The detections CSV's last column is renamed "Subdirectory" -> "cropped" (yes/no).
+
 ## [0.10.2] - 2026-07-09
 ### Added
 - Images already analyzed (and instantly available from the cache) are now shown in dark green in the image list.

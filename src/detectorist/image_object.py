@@ -635,10 +635,10 @@ class ImageObject (ABC):
         print(f"  color depth (based on numpy array): {numpy_bits_per_channel * num_channels} bpp")
         print(f"  color depth (based on original bit depth): {self.original_bpc * num_channels} bpp")
 
-    def copy_image(self, target_dir_path):
-        """Copies the original image file to the specified output directory preserving its file name."""
-        input_file_name = os.path.basename(self._image_path)
-        output_path = os.path.join(target_dir_path, input_file_name)
+    def copy_image(self, target_dir_path, dest_file_name=None):
+        """Copies the original image file to the specified output directory, preserving its file name unless dest_file_name is given."""
+        output_name = dest_file_name or os.path.basename(self._image_path)
+        output_path = os.path.join(target_dir_path, output_name)
         shutil.copy2(self.long_image_path, utils.long_path(output_path))
 
     @abstractmethod
