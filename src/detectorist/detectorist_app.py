@@ -902,9 +902,6 @@ class DetectoristApp(QMainWindow):
                     link_text="Show in file manager",
                     on_link=lambda: self._open_native_file_manager(out_dir),
                 )
-                # Skip openening the file manager for single-image runs (avoids stealing focus)
-                if total_files > 1:
-                    self._open_native_file_manager(result.output_dir)
             else:
                 self.ui.status_bar.showMessage(f"{process_name} cancelled.", 5000)
 
