@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.11.0] - 2026-07-16
 ### Added
 - File menu: `Reset Settings to Defaults` resets Model and Crop settings. Recent folders and window layout remain untouched.
 ### Changed
