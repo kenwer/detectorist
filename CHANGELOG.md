@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- The EXIF panel now includes Orientation info.
+  - Note: If a HEIF file lacks a standard EXIF Orientation tag (e.g., Sony’s in-camera encoder), orientation is derived from the HEIF container’s rotation metadata.
+
 ## [0.11.0] - 2026-07-16
 ### Added
 - File menu: `Reset Settings to Defaults` resets Model and Crop settings. Recent folders and window layout remain untouched.

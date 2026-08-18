@@ -1,4 +1,5 @@
 import logging
+import struct
 
 import numpy as np
 import piexif
@@ -11,6 +12,150 @@ from .image_object import ImageMode, ImageObject
 logger = logging.getLogger(__name__)
 
 HEIF_EXTENSIONS = ('.heic', '.heics', '.heif', '.heifs', '.hif')
+
+# How much of the file to read when looking for the "meta" box. Camera and
+# encoder output always places "meta" before "mdat" so the metadata can be
+# read without downloading the (potentially huge) pixel payload; a few MB is
+# generous headroom even for files with several embedded thumbnails.
+_HEIF_METADATA_SCAN_BYTES = 4 * 1024 * 1024
+
+# Maps an "irot" box value (number of 90 degree steps rotated anti-clockwise,
+# per ISO/IEC 23008-12) to the classic EXIF orientation value that describes
+# the same result, so display code can treat both sources the same way.
+_IROT_TO_EXIF_ORIENTATION = {0: 1, 1: 8, 2: 3, 3: 6}
+
+
+def _iter_isobmff_boxes(data: bytes, start: int, end: int):
+    """
+    Walks a sequence of ISO Base Media File Format boxes (ISO/IEC 14496-12),
+    the generic container structure every HEIF-family file is built from,
+    regardless of which vendor's encoder produced it.
+
+    Yields (box_type, payload_start, box_end) tuples for each box found in
+    data[start:end].
+    """
+    pos = start
+    while pos + 8 <= end:
+        size = struct.unpack_from(">I", data, pos)[0]
+        box_type = data[pos + 4:pos + 8]
+        header_len = 8
+        if size == 1:
+            if pos + 16 > end:
+                break
+            size = struct.unpack_from(">Q", data, pos + 8)[0]
+            header_len = 16
+        elif size == 0:
+            size = end - pos
+        if size < header_len:
+            break
+        yield box_type, pos + header_len, pos + size
+        pos += size
+
+
+def _find_isobmff_box(data: bytes, start: int, end: int, box_type: bytes):
+    """Returns (payload_start, box_end) for the first child box of box_type, or None."""
+    for found_type, payload_start, box_end in _iter_isobmff_boxes(data, start, end):
+        if found_type == box_type:
+            return payload_start, box_end
+    return None
+
+
+def _get_heif_container_orientation(file_path: str) -> int | None:
+    """
+    Reads the primary image's rotation from the HEIF container's own "irot"
+    property box and returns it as a classic EXIF orientation value (1-8).
+
+    Some HEIF encoders, including Sony's in-camera HEIF ("HIF") encoder,
+    record rotation only in this container-level box and never write the
+    classic EXIF Orientation tag (0x0112). This is display-only: it is not
+    used for cropping, since libheif already applies "irot" automatically
+    while decoding pixel data, and nothing re-adds a rotation box or tag
+    when a cropped HEIF file is saved, so treating this value as something
+    to "reverse" before saving would rotate the output the wrong way.
+
+    Returns None if the box structure can't be parsed, no "irot" property
+    is associated with the primary item, or the item also carries a mirror
+    ("imir") property, since combining mirror and rotation isn't handled
+    here.
+    """
+    try:
+        with open(utils.long_path(file_path), "rb") as f:
+            data = f.read(_HEIF_METADATA_SCAN_BYTES)
+    except OSError:
+        return None
+
+    meta = _find_isobmff_box(data, 0, len(data), b'meta')
+    if meta is None:
+        return None
+    meta_payload_start, meta_end = meta
+    inner_start = meta_payload_start + 4  # skip the "meta" FullBox version/flags
+
+    pitm = _find_isobmff_box(data, inner_start, meta_end, b'pitm')
+    iprp = _find_isobmff_box(data, inner_start, meta_end, b'iprp')
+    if pitm is None or iprp is None:
+        return None
+    pitm_payload, _ = pitm
+    pitm_version = data[pitm_payload]
+    if pitm_version == 0:
+        primary_item_id = struct.unpack_from(">H", data, pitm_payload + 4)[0]
+    else:
+        primary_item_id = struct.unpack_from(">I", data, pitm_payload + 4)[0]
+
+    iprp_payload, iprp_end = iprp
+    ipco = _find_isobmff_box(data, iprp_payload, iprp_end, b'ipco')
+    ipma = _find_isobmff_box(data, iprp_payload, iprp_end, b'ipma')
+    if ipco is None or ipma is None:
+        return None
+    ipco_payload, ipco_end = ipco
+    properties = list(_iter_isobmff_boxes(data, ipco_payload, ipco_end))
+
+    ipma_payload, _ = ipma
+    ipma_version = data[ipma_payload]
+    ipma_flags = struct.unpack_from(">I", data, ipma_payload)[0] & 0xFFFFFF
+    pos = ipma_payload + 4
+    entry_count = struct.unpack_from(">I", data, pos)[0]
+    pos += 4
+    property_indices = None
+    for _ in range(entry_count):
+        if ipma_version < 1:
+            item_id = struct.unpack_from(">H", data, pos)[0]
+            pos += 2
+        else:
+            item_id = struct.unpack_from(">I", data, pos)[0]
+            pos += 4
+        assoc_count = data[pos]
+        pos += 1
+        indices = []
+        for _ in range(assoc_count):
+            if ipma_flags & 1:
+                raw = struct.unpack_from(">H", data, pos)[0]
+                pos += 2
+                indices.append(raw & 0x7FFF)
+            else:
+                raw = data[pos]
+                pos += 1
+                indices.append(raw & 0x7F)
+        if item_id == primary_item_id:
+            property_indices = indices
+            break
+
+    if not property_indices:
+        return None
+
+    rotation = None
+    mirrored = False
+    for index in property_indices:
+        if index < 1 or index > len(properties):
+            continue
+        prop_type, prop_payload_start, _ = properties[index - 1]
+        if prop_type == b'irot':
+            rotation = data[prop_payload_start] & 0x3
+        elif prop_type == b'imir':
+            mirrored = True
+
+    if rotation is None or mirrored:
+        return None
+    return _IROT_TO_EXIF_ORIENTATION[rotation]
 
 
 # Ensure the HEIF Pillow plugin is registered
@@ -60,8 +205,9 @@ class HeifImageObject(ImageObject):
         # Initialize the image data by copying the pixel data from the heif file. A HEIF container could
         # hold multiple images, but we only load the first. We make a copy to ensure we have our own data
         # as the underlying buffer may be freed when heif_file is closed.
-        # Note: pillow-heif appears to rotate the image data based on EXIF orientation automatically. It
-        # helps when displaying the image, but we need to be aware of this when cropping and saving later.
+        # Note: pillow-heif (via libheif) rotates the image data automatically based on the container's
+        # own "irot" property box, not the classic EXIF Orientation tag. It helps when displaying the
+        # image, but we need to be aware of this when cropping and saving later.
         self._image_data = np.asarray(heif_file[0]).copy()
 
         if self._image_data is None:
@@ -106,26 +252,23 @@ class HeifImageObject(ImageObject):
         exif_obj.load(exif)
         return exif_obj.get(0x0112, 1)
 
-    def _get_human_readable_exif_orientation(self, orientation):
+    def get_exif_summary(self) -> str:
         """
-        Returns a human-readable string for an EXIF orientation value.
+        Returns the EXIF summary, adding an Orientation line derived from
+        this file's HEIF container "irot" box when the classic EXIF
+        Orientation tag is absent, as with Sony's in-camera HEIF encoder.
+        """
+        summary = super().get_exif_summary()
+        classic_orientation = (self.exif_data or {}).get('0th', {}).get(piexif.ImageIFD.Orientation)
+        if classic_orientation:
+            return summary  # base class already added an Orientation line
 
-        Args:
-            orientation (int): The EXIF orientation value (1-8).
-        Returns:
-            str: A human-readable description of the orientation.
-        """
-        orientation_map = {
-            1: "Normal",
-            2: "Mirrored horizontal",
-            3: "Rotated 180",
-            4: "Mirrored vertical",
-            5: "Mirrored horizontal then rotated 90 CCW",
-            6: "Rotated 90 CW",
-            7: "Mirrored horizontal then rotated 90 CW",
-            8: "Rotated 90 CCW"
-        }
-        return orientation_map.get(orientation, "Unknown")
+        container_orientation = _get_heif_container_orientation(self.long_image_path)
+        if container_orientation is None:
+            return summary
+
+        line = f"Orientation\t: {self._get_human_readable_exif_orientation(container_orientation)}"
+        return f"{summary}\n{line}" if summary else line
 
     def save_cropped(self, rect: tuple[int, int, int, int], output_path: str, quality=80):
         """

@@ -217,6 +217,27 @@ class ImageObject (ABC):
             logger.error("Error loading EXIF data for %s: %s", self._image_path, e)
             return {}
 
+    def _get_human_readable_exif_orientation(self, orientation: int) -> str:
+        """
+        Returns a human-readable string for a classic EXIF orientation value.
+
+        Args:
+            orientation (int): The EXIF orientation value (1-8).
+        Returns:
+            str: A human-readable description of the orientation.
+        """
+        orientation_map = {
+            1: "Normal",
+            2: "Mirrored horizontal",
+            3: "Rotated 180",
+            4: "Mirrored vertical",
+            5: "Mirrored horizontal then rotated 90 CCW",
+            6: "Rotated 90 CW",
+            7: "Mirrored horizontal then rotated 90 CW",
+            8: "Rotated 90 CCW"
+        }
+        return orientation_map.get(orientation, "Unknown")
+
     def _print_exif_data(self, exif_dict: dict):
         """
         Utility function to print out EXIF data of the given exif_dict.
@@ -330,6 +351,10 @@ class ImageObject (ABC):
         # Exposure Compensation
         exposure_comp = rational_to_float(exif_ifd.get(piexif.ExifIFD.ExposureBiasValue))
 
+        # Orientation
+        orientation_raw = exif_0th_ifd.get(piexif.ImageIFD.Orientation)
+        orientation = self._get_human_readable_exif_orientation(orientation_raw) if orientation_raw else None
+
         # Focal Length
         focal_length = rational_to_float(exif_ifd.get(piexif.ExifIFD.FocalLength))
 
@@ -350,7 +375,8 @@ class ImageObject (ABC):
             ("Exposure\t", exposure_time),
             ("Exp. comp.\t", exposure_comp),
             ("Focal length\t", focal_length),
-            ("Focal len. FF\t", focal_length_ff)
+            ("Focal len. FF\t", focal_length_ff),
+            ("Orientation\t", orientation)
         ]
         return "\n".join(f"{k}: {v}" for k, v in items if v)
 
