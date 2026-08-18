@@ -539,6 +539,7 @@ class DetectoristApp(QMainWindow):
 
     def handle_model_loaded(self, success: bool, message: str, class_names: list):
         """Handles the result of loading a model in the worker."""
+        self.ui.image_label.set_class_color_map(class_names)
         self.ui.class_filter_combo_box.blockSignals(True)
         self.ui.class_filter_combo_box.clear()
         self.ui.class_filter_combo_box.addItem("All classes")

@@ -1,5 +1,4 @@
 import logging
-from collections import Counter
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, Qt
@@ -15,29 +14,28 @@ DETECTION_FILL_COLOR_RGB = (0, 255, 0)
 CROP_BORDER_COLOR_RGB = (255, 165, 0)
 CROP_FILL_COLOR_RGBA = (255, 165, 0, 5)
 
-# 12 visually distinct colors for instance segmentation masks. Color is assigned
-# per class name by detection frequency, so all instances of the same class share
-# a color. The most frequently detected class always gets MASK_COLORS[0] (green).
+# 12 visually distinct segmentation-mask colors for the instance segmentation masks.
+# Assigned to class names in sorted order, so each class keeps the same color across every image.
+# Each color is the hue-complement of its partner and pairs are ordered so inter-pair jumps are >= 90°.
 MASK_COLORS = [
-    (50, 180, 50),   # green
-    (220, 50, 50),   # red
-    (50, 100, 220),  # blue
-    (220, 180, 50),  # yellow
-    (180, 50, 220),  # purple
-    (50, 200, 200),  # cyan
-    (220, 120, 50),  # orange
-    (50, 220, 120),  # mint
-    (220, 50, 150),  # pink
-    (100, 50, 220),  # indigo
-    (50, 150, 220),  # sky
-    (150, 220, 50),  # lime
+    (  0, 230,   0),   #  0  green       (120°)
+    (230,   0, 230),   #  1  magenta     (300°)
+    (115, 230,   0),   #  2  chartreuse  ( 90°)
+    (115,   0, 230),   #  3  purple      (270°)
+    (  0, 230, 230),   #  4  cyan        (180°)
+    (230,   0,   0),   #  5  red         (  0°)
+    (  0,   0, 230),   #  6  blue        (240°)
+    (230, 230,   0),   #  7  yellow      ( 60°)
+    (  0, 115, 230),   #  8  blue-violet (210°)
+    (230, 115,   0),   #  9  orange      ( 30°)
+    (  0, 230, 115),   # 10  teal        (150°)
+    (230,   0, 115),   # 11  rose / pink (330°)
 ]
 
 
-def _build_class_color_map(class_names: list[str]) -> dict[str, tuple]:
-    """Assigns colors by detection count: the most detected class gets MASK_COLORS[0] (green)."""
-    ranked = [name for name, _ in Counter(class_names).most_common()]
-    return {name: MASK_COLORS[i % len(MASK_COLORS)] for i, name in enumerate(ranked)}
+def build_class_color_map(class_names: list[str]) -> dict[str, tuple]:
+    """Assigns each class name a fixed color from MASK_COLORS, in the given order."""
+    return {name: MASK_COLORS[i % len(MASK_COLORS)] for i, name in enumerate(class_names)}
 
 
 class CustomRubberBand(QRubberBand):
@@ -97,6 +95,7 @@ class ImageLabel(QLabel):
         self.orig_detection_rects = [] # stores the original detection data—a list of QRect, score and class_id tuples—in the image's original coordinate system
         self.orig_detection_masks = []  # parallel to orig_detection_rects; each entry is a uint8 mask array or None
         self._mask_overlay_pixmap: QPixmap | None = None
+        self.class_color_map: dict[str, tuple] = {}
         self.crop_bands = []
         self._pixmap = QPixmap()
         self.image = None
@@ -104,6 +103,10 @@ class ImageLabel(QLabel):
         self.setMouseTracking(True)
         self._tooltip_filter = TooltipEventFilter(self)
         self.installEventFilter(self._tooltip_filter)
+
+    def set_class_color_map(self, class_names: list[str]):
+        """Fixes each class's mask color for the lifetime of the loaded model."""
+        self.class_color_map = build_class_color_map(class_names)
 
     def _map_rect_from_image_to_widget(self, image_rect):
         if self._pixmap.isNull() or self.image is None:
@@ -138,11 +141,15 @@ class ImageLabel(QLabel):
             return QPoint(int(img_x), int(img_y))
         return None
 
-    def _clear_detection_bands(self):
-        for band in self.detection_bands:
+    @staticmethod
+    def _destroy_bands(bands):
+        for band in bands:
             band.hide()
             band.setParent(None)
             band.deleteLater()
+
+    def _clear_detection_bands(self):
+        self._destroy_bands(self.detection_bands)
         self.detection_bands = []
         self.orig_detection_rects = []
         self.orig_detection_masks = []
@@ -169,12 +176,14 @@ class ImageLabel(QLabel):
                 self.orig_detection_masks.append(mask)
 
         has_masks = any(m is not None for m in self.orig_detection_masks)
-        class_names = [class_name for _, _, class_name in self.orig_detection_rects]
-        color_map = _build_class_color_map(class_names) if has_masks else {}
+        color_map = self.class_color_map if has_masks else {}
+        fallback_color = MASK_COLORS[0] if has_masks else DETECTION_BORDER_COLOR_RGB
+
         for rect, score, class_name in self.orig_detection_rects:
-            alpha = int(10 + (score * (255-10))) # Scale score (0.0-1.0) to alpha (10-255)
-            alpha_fill = 0 if has_masks else int(score * 20) # Suppress fill when masks are present — the mask is a better region indicator
-            color_rgb = color_map.get(class_name, MASK_COLORS[0]) if has_masks else DETECTION_BORDER_COLOR_RGB
+            alpha = int(10 + score * (255 - 10))  # Scale score (0.0-1.0) to alpha (10-255)
+            alpha_fill = 0 if has_masks else int(score * 20)
+            color_rgb = color_map.get(class_name, fallback_color)
+
             band = CustomRubberBand(QRubberBand.Shape.Rectangle, border_color=QColor(*color_rgb, alpha), fill_color=QColor(*color_rgb, alpha_fill), score=score, class_name=class_name, parent=self)
             widget_rect = self._map_rect_from_image_to_widget(rect)
             band.setGeometry(widget_rect)
@@ -212,11 +221,7 @@ class ImageLabel(QLabel):
 
     def set_crop_boxes(self, image_rects):
         self.last_crop_rects = image_rects
-        # Clear existing crop bands
-        for band in self.crop_bands:
-            band.hide()
-            band.setParent(None)
-            band.deleteLater()
+        self._destroy_bands(self.crop_bands)
         self.crop_bands = []
 
         for image_rect in image_rects:
@@ -228,10 +233,7 @@ class ImageLabel(QLabel):
 
     def hide_bands(self):
         self._clear_detection_bands()
-        for band in self.crop_bands:
-            band.hide()
-            band.setParent(None)
-            band.deleteLater()
+        self._destroy_bands(self.crop_bands)
         self.crop_bands = []
         self.last_crop_rects = None
 
