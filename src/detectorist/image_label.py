@@ -97,6 +97,7 @@ class ImageLabel(QLabel):
         self._mask_overlay_pixmap: QPixmap | None = None
         self.class_color_map: dict[str, tuple] = {}
         self.crop_bands = []
+        self._detection_overlay_visible = True
         self._pixmap = QPixmap()
         self.image = None
         self.last_crop_rects = None
@@ -187,7 +188,7 @@ class ImageLabel(QLabel):
             band = CustomRubberBand(QRubberBand.Shape.Rectangle, border_color=QColor(*color_rgb, alpha), fill_color=QColor(*color_rgb, alpha_fill), score=score, class_name=class_name, parent=self)
             widget_rect = self._map_rect_from_image_to_widget(rect)
             band.setGeometry(widget_rect)
-            band.show()
+            band.setVisible(self._detection_overlay_visible)
             self.detection_bands.append(band)
 
         self._build_mask_overlay_pixmap(color_map if has_masks else None)
@@ -230,6 +231,13 @@ class ImageLabel(QLabel):
             crop_band.setGeometry(widget_rect)
             crop_band.show()
             self.crop_bands.append(crop_band)
+
+    def set_detection_overlay_visible(self, visible: bool):
+        """Shows or hides the bounding boxes and segmentation masks, independent of the crop bands."""
+        self._detection_overlay_visible = visible
+        for band in self.detection_bands:
+            band.setVisible(visible)
+        self.update()
 
     def hide_bands(self):
         self._clear_detection_bands()
@@ -324,7 +332,7 @@ class ImageLabel(QLabel):
             point = QPoint((size.width() - scaled_pixmap.width()) // 2, (size.height() - scaled_pixmap.height()) // 2)
             painter = QPainter(self)
             painter.drawPixmap(point, scaled_pixmap)
-            if self._mask_overlay_pixmap is not None:
+            if self._detection_overlay_visible and self._mask_overlay_pixmap is not None:
                 painter.drawPixmap(self._get_displayed_image_rect(), self._mask_overlay_pixmap)
 
     def resizeEvent(self, event):

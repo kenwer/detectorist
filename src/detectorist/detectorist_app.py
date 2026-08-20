@@ -151,6 +151,7 @@ class DetectoristApp(QMainWindow):
         self.ui.padding_slider.valueChanged.connect(self.update_crop_bands)
 
         self.ui.cb_comp_cam_exposure.toggled.connect(self.on_exposure_compensation_toggled)
+        self.ui.toggle_detection_overlay_action.toggled.connect(self.ui.image_label.set_detection_overlay_visible)
 
         # Connect model signals
         self.model.modelReset.connect(self._update_clear_image_list_action_state)

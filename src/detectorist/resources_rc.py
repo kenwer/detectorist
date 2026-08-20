@@ -1225,7 +1225,7 @@ an ONNX model.\x0a-\
 /HEIF, and Sony \
 RAW (.ARW) image\
 s.\
-\x00\x00\x09\xfe\
+\x00\x00\x0a\xcf\
 #\
 #\x0a# Global short\
 cuts\x0a| Windows/L\
@@ -1271,122 +1271,135 @@ mages** | Starts\
  that crops and \
 exports all load\
 ed images into a\
- subfolder |\x0a\x0a##\
-\x0a# Image navigat\
-ion shortcuts\x0a| \
-Windows/Linux | \
-macOS | Action |\
- Decription |\x0a| \
---- | --- | --- \
-| --- |\x0a| Right \
-     | \xe2\x9e\xa1\xef\xb8\x8e  |\
- **Next Image** \
-| Jumps to the n\
-ext image in the\
- list, same as D\
-own / \xe2\xac\x87\xef\xb8\x8e |\x0a|\
- Left       | \xe2\xac\
-\x85\xef\xb8\x8e  | **Previo\
-us Image** | Jum\
-ps to the previo\
-us image in the \
-list, same as Up\
- / \xe2\xac\x86\xef\xb8\x8e |\x0a| Ct\
-rl+Right | \xe2\x8c\x98\xe2\x9e\
-\xa1\xef\xb8\x8e | **Last Im\
-age** | Jumps to\
- the last image \
-in the list, sam\
-e as Ctrl+Down /\
- \xe2\x8c\x98\xe2\xac\x87\xef\xb8\x8e |\x0a| C\
-trl+Left  | \xe2\x8c\x98\xe2\
-\xac\x85\xef\xb8\x8e | **First \
-Image** | Jumps \
-to the first ima\
-ge in the list, \
-same as Ctrl+Up \
-/ \xe2\x8c\x98\xe2\xac\x86\xef\xb8\x8e |\x0a| \
-Down       | \xe2\xac\x87\
-\xef\xb8\x8e  | **Next Im\
-age** | Jumps to\
- the next image \
-in the list, sam\
-e as Right / \xe2\x9e\xa1\
-\xef\xb8\x8e |\x0a| Up      \
-   | \xe2\xac\x86\xef\xb8\x8e  | *\
-*Previous Image*\
-* | Jumps to the\
- previous image \
-in the list, sam\
-e as Left / \xe2\xac\x85\xef\
-\xb8\x8e |\x0a| Ctrl+Down\
-  | \xe2\x8c\x98\xe2\xac\x87\xef\xb8\x8e | \
-**Last Image** |\
- Jumps to the la\
-st image in the \
-list, same as Ct\
-rl+Right / \xe2\x8c\x98\xe2\x9e\
-\xa1\xef\xb8\x8e |\x0a| Ctrl+Up\
-    | \xe2\x8c\x98\xe2\xac\x86\xef\xb8\x8e \
-| **First Image*\
-* | Jumps to the\
- first image in \
-the list, same a\
-s Ctrl+Left / \xe2\x8c\
-\x98\xe2\xac\x85\xef\xb8\x8e |\x0a\x0a##\x0a# \
-Shortcuts that o\
-perate on a set \
-of selected imag\
-es\x0a| Windows/Lin\
-ux | macOS | Act\
-ion | Decription\
- |\x0a| --- | --- |\
- --- | --- |\x0a| C\
-trl+L    | \xe2\x8c\x98L \
-| **Locate Image\
- in Filemanager*\
-* | Locates the \
-image in your fi\
-lemanager |\x0a| Ct\
-rl+C    | \xe2\x8c\x98C |\
- **Copy selected\
- Filenames to Cl\
-ipboard**| Puts \
-the filenames of\
- the selected im\
-age(s) into your\
- clipboard |\x0a| C\
-trl+E    | \xe2\x8c\x98E \
-| **Crop & Expor\
-t selected Image\
-s** | Starts a b\
-atch process tha\
-t crops and expo\
-rts the selected\
- images into a s\
-ubfolder |\x0a| Alt\
-+E     | \xe2\x8c\xa5E | \
-**Crop & Export \
-& Remove selecte\
-d Images from Li\
-st** | Starts a \
+ subfolder |\x0a| H\
+               |\
+ H   | **Show/Hi\
+de Bounding Boxe\
+s & Masks** | To\
+ggles the boundi\
+ng boxes and seg\
+mentation masks \
+of detected obje\
+cts, so you can \
+see the object m\
+ore clearly. The\
+ crop preview st\
+ays visible |\x0a\x0a#\
+#\x0a# Image naviga\
+tion shortcuts\x0a|\
+ Windows/Linux |\
+ macOS | Action \
+| Decription |\x0a|\
+ --- | --- | ---\
+ | --- |\x0a| Right\
+      | \xe2\x9e\xa1\xef\xb8\x8e  \
+| **Next Image**\
+ | Jumps to the \
+next image in th\
+e list, same as \
+Down / \xe2\xac\x87\xef\xb8\x8e |\x0a\
+| Left       | \xe2\
+\xac\x85\xef\xb8\x8e  | **Previ\
+ous Image** | Ju\
+mps to the previ\
+ous image in the\
+ list, same as U\
+p / \xe2\xac\x86\xef\xb8\x8e |\x0a| C\
+trl+Right | \xe2\x8c\x98\xe2\
+\x9e\xa1\xef\xb8\x8e | **Last I\
+mage** | Jumps t\
+o the last image\
+ in the list, sa\
+me as Ctrl+Down \
+/ \xe2\x8c\x98\xe2\xac\x87\xef\xb8\x8e |\x0a| \
+Ctrl+Left  | \xe2\x8c\x98\
+\xe2\xac\x85\xef\xb8\x8e | **First\
+ Image** | Jumps\
+ to the first im\
+age in the list,\
+ same as Ctrl+Up\
+ / \xe2\x8c\x98\xe2\xac\x86\xef\xb8\x8e |\x0a|\
+ Down       | \xe2\xac\
+\x87\xef\xb8\x8e  | **Next I\
+mage** | Jumps t\
+o the next image\
+ in the list, sa\
+me as Right / \xe2\x9e\
+\xa1\xef\xb8\x8e |\x0a| Up     \
+    | \xe2\xac\x86\xef\xb8\x8e  | \
+**Previous Image\
+** | Jumps to th\
+e previous image\
+ in the list, sa\
+me as Left / \xe2\xac\x85\
+\xef\xb8\x8e |\x0a| Ctrl+Dow\
+n  | \xe2\x8c\x98\xe2\xac\x87\xef\xb8\x8e |\
+ **Last Image** \
+| Jumps to the l\
+ast image in the\
+ list, same as C\
+trl+Right / \xe2\x8c\x98\xe2\
+\x9e\xa1\xef\xb8\x8e |\x0a| Ctrl+U\
+p    | \xe2\x8c\x98\xe2\xac\x86\xef\xb8\x8e\
+ | **First Image\
+** | Jumps to th\
+e first image in\
+ the list, same \
+as Ctrl+Left / \xe2\
+\x8c\x98\xe2\xac\x85\xef\xb8\x8e |\x0a\x0a##\x0a#\
+ Shortcuts that \
+operate on a set\
+ of selected ima\
+ges\x0a| Windows/Li\
+nux | macOS | Ac\
+tion | Decriptio\
+n |\x0a| --- | --- \
+| --- | --- |\x0a| \
+Ctrl+L    | \xe2\x8c\x98L\
+ | **Locate Imag\
+e in Filemanager\
+** | Locates the\
+ image in your f\
+ilemanager |\x0a| C\
+trl+C    | \xe2\x8c\x98C \
+| **Copy selecte\
+d Filenames to C\
+lipboard**| Puts\
+ the filenames o\
+f the selected i\
+mage(s) into you\
+r clipboard |\x0a| \
+Ctrl+E    | \xe2\x8c\x98E\
+ | **Crop & Expo\
+rt selected Imag\
+es** | Starts a \
 batch process th\
 at crops and exp\
 orts the selecte\
-d image(s) into \
-a subfolder and \
-also removes the\
- image(s) from t\
-he list |\x0a| Back\
-space | \xe2\x8c\xab  | *\
-*Remove selected\
- Image from List\
-** | Removes the\
- selected image(\
-s) from the list\
- (not deleted, j\
-ust removed from\
- the view) |\x0a\
+d images into a \
+subfolder |\x0a| Al\
+t+E     | \xe2\x8c\xa5E |\
+ **Crop & Export\
+ & Remove select\
+ed Images from L\
+ist** | Starts a\
+ batch process t\
+hat crops and ex\
+ports the select\
+ed image(s) into\
+ a subfolder and\
+ also removes th\
+e image(s) from \
+the list |\x0a| Bac\
+kspace | \xe2\x8c\xab  | \
+**Remove selecte\
+d Image from Lis\
+t** | Removes th\
+e selected image\
+(s) from the lis\
+t (not deleted, \
+just removed fro\
+m the view) |\x0a\
 \x00\x00v\x07\
 \x89\
 PNG\x0d\x0a\x1a\x0a\x00\x00\x00\x0dIHDR\x00\
@@ -3307,7 +3320,7 @@ qt_resource_struct = b"\
 \x00\x00\x00\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00\x01\
 \x00\x00\x00\x10\x00\x02\x00\x00\x00\x02\x00\x00\x00\x04\
 \x00\x00\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x03\
-\x00\x00\x00Z\x00\x00\x00\x00\x00\x01\x00\x00V\x09\
+\x00\x00\x00Z\x00\x00\x00\x00\x00\x01\x00\x00V\xda\
 \x00\x00\x00<\x00\x00\x00\x00\x00\x01\x00\x00L\x07\
 \x00\x00\x00\x1e\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\
 "

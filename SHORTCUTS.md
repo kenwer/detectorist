@@ -7,6 +7,7 @@
 | Ctrl+Backspace | ⌘⌫  | **Clear Image List** | Clears the list of loaded images |
 | Shift+Ctrl+G    | ⇧⌘G | **Group Images into Folders** | Starts a batch process that groups all images by its detected object classes into individual sub folders |
 | Shift+Ctrl+E    | ⇧⌘E | **Crop & Export all Images** | Starts a batch process that crops and exports all loaded images into a subfolder |
+| H               | H   | **Show/Hide Bounding Boxes & Masks** | Toggles the bounding boxes and segmentation masks of detected objects. The crop preview stays visible |
 
 ##
 # Image navigation shortcuts
