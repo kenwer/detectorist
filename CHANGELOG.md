@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 ### Added
+- New help menu entry `Keyboard Shortcuts` that shows the list of shortcuts.
 - The EXIF panel now includes Orientation info.
   - Note: If a HEIF file lacks a standard EXIF Orientation tag (e.g., Sony’s in-camera encoder), orientation is derived from the HEIF container’s rotation metadata.
 ### Changed

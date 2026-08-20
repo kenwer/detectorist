@@ -4,5 +4,6 @@
   </qresource>
   <qresource prefix="docs">
     <file alias="CHANGELOG.md">../../CHANGELOG.md</file>
+    <file alias="SHORTCUTS.md">../../SHORTCUTS.md</file>
   </qresource>
 </RCC>

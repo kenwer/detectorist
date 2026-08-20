@@ -29,6 +29,7 @@ dist/
 !CHANGELOG.md
 !DEVELOPMENT.md
 !FAQ.md
+!SHORTCUTS.md
 
 # PyQt/PySide generated files
 ui_*.py

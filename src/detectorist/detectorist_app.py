@@ -40,6 +40,7 @@ from .image_object import ImageObject, filter_out_appledouble_files, list_suppor
 from .manage_models import ManageModelsDialog
 from .model_downloader import ModelDownloader
 from .settings import Settings
+from .shortcuts_dialog import ShortcutsDialog
 from .structures import Detection
 from .toasts import show_error_toast, show_success_toast, show_warning_toast
 from .ui_about_dialog import Ui_AboutDialog
@@ -68,6 +69,7 @@ class DetectoristApp(QMainWindow):
         # When the Manage Models dialog is open it reports download progress
         # itself, so app-level toasts are suppressed to avoid double feedback.
         self._models_dialog_open = False
+        self._shortcuts_dialog: ShortcutsDialog | None = None
 
         # Ensure opener is registered (otherwise the native code will segfault)
         pillow_heif.register_heif_opener()
@@ -123,6 +125,7 @@ class DetectoristApp(QMainWindow):
         self.ui.crop_and_export_selected_images_action.triggered.connect(self.crop_and_export_selected_images)
         self.ui.image_list_view.selectionModel().selectionChanged.connect(self._update_selection_dependent_actions_state)
         self.ui.about_action.triggered.connect(self.show_about_dialog)
+        self.ui.shortcuts_action.triggered.connect(self.show_shortcuts_dialog)
         self.ui.group_images_by_object_class_action.triggered.connect(self.sort_images_by_class_into_folders)
         self.ui.locate_image_in_filemanager_action.triggered.connect(self._locate_selected_image_in_file_manager)
         self.ui.copy_filenames_to_clipboard_action.triggered.connect(self._copy_selected_filenames_to_clipboard)
@@ -655,6 +658,14 @@ class DetectoristApp(QMainWindow):
             changelog_file.close()
 
         about_dialog.exec()
+
+    def show_shortcuts_dialog(self):
+        if self._shortcuts_dialog is None or not self._shortcuts_dialog.isVisible():
+            self._shortcuts_dialog = ShortcutsDialog(self)
+
+        self._shortcuts_dialog.show()
+        self._shortcuts_dialog.raise_()
+        self._shortcuts_dialog.activateWindow()
 
     def show_manage_models_dialog(self):
         dialog = ManageModelsDialog(self._model_downloader, self.models_dir, self)

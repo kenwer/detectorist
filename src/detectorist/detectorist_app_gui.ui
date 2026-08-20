@@ -478,6 +478,7 @@ Highest confidence	: -</string>
     <property name="title">
      <string>Help</string>
     </property>
+    <addaction name="shortcuts_action"/>
     <addaction name="about_action"/>
    </widget>
    <addaction name="menu_file"/>
@@ -546,6 +547,14 @@ Highest confidence	: -</string>
   <action name="about_action">
    <property name="text">
     <string>About</string>
+   </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
+   </property>
+  </action>
+  <action name="shortcuts_action">
+   <property name="text">
+    <string>Keyboard Shortcuts</string>
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>
