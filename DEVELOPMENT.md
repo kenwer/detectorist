@@ -23,7 +23,7 @@ To run the application from source code, I recommend to use `Python 3.14` and `u
     uv run poe run
     ```
 
-    To run it directly:
+    The compiled `ui_*.py` and `*_rc.py` files are not checked in, so on a fresh clone run `uv run poe compile-ui` and `uv run poe compile-qrc` (or `uv run poe run`) once before running it directly:
     ```shell
     uv run detectorist
     # or
