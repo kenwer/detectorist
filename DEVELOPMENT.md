@@ -1,6 +1,6 @@
 ## Development
 
-To run the application from source code, I recommend to use `Python 3.13` and `uv`.
+To run the application from source code, I recommend to use `Python 3.14` and `uv`.
 
 1.  **Clone the repository:**
     ```shell
@@ -42,12 +42,12 @@ Make sure you have a python3 and uv installed.
 On macOS:
 1.  **Install the prerequisites on macOS:**
     ```shell
-    brew install uv python@3.13
+    brew install uv python@3.14
     ```
 
 2.  **Set up the build environment and run the build:**
     ```shell
-    uv venv -p "$HOMEBREW_PREFIX/bin/python3.13" .venv
+    uv venv -p "$HOMEBREW_PREFIX/bin/python3.14" .venv
     uv sync --group dev
     source .venv/bin/activate
     poe build-mac
@@ -60,12 +60,12 @@ On Windows:
 1.  **Install the prerequisites on Windows:**
     ```shell
     winget install Microsoft.VisualStudio.2022.Community --silent --override "--wait --quiet --addProductLang En-us --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended"
-    winget install astral-sh.uv Python.Python.3.13 --scope user
+    winget install astral-sh.uv Python.Python.3.14 --scope user
     ```
 
 2.  **Set up the build environment and run the build:**
     ```shell
-    uv venv -p 3.13 .venv
+    uv venv -p 3.14 .venv
     uv sync --group dev
     .venv\Scripts\activate
     poe build-windows

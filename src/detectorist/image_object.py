@@ -381,7 +381,7 @@ class ImageObject (ABC):
         return "\n".join(f"{k}: {v}" for k, v in items if v)
 
     @classmethod
-    def create(cls, image_path: str) -> 'ImageObject':
+    def create(cls, image_path: str) -> ImageObject:
         """
         Factory method to create the appropriate ImageObject based on file extension.
 

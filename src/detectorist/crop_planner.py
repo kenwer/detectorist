@@ -22,7 +22,7 @@ class CropMode(StrEnum):
     EACH_OBJECT = "all_detected_objects"  # one crop per detection
 
     @classmethod
-    def from_setting(cls, value: str | None) -> "CropMode | None":
+    def from_setting(cls, value: str | None) -> CropMode | None:
         """Parse a persisted mode name, or None if missing/unknown."""
         if value == "largest_area":  # persisted name before the UNION rename
             return cls.UNION

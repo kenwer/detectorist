@@ -9,7 +9,8 @@
   - Note: If a HEIF file lacks a standard EXIF Orientation tag (e.g., Sony’s in-camera encoder), orientation is derived from the HEIF container’s rotation metadata.
 ### Changed
 - Segmentation mask colors are now assigned per class name in a fixed order instead of by per-image detection frequency, so a class keeps the same color across every image.
-- [Dev] Upgrade dependencies.
+- Drop Intel Mac (macOS x86_64) support as `onnxruntime` and `rawpy` stopped shipping macOS x86_64 wheels.
+- [Dev] Upgrade dependencies and upgrade Python to 3.14.
 
 ## [0.11.0] - 2026-07-16
 ### Added

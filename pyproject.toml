@@ -8,18 +8,13 @@ version = "0.11.0"
 
 description = "A desktop application for sorting and cropping photos using a machine learning for object detection."
 readme = "README.md"
-# Capped below 3.14 until Nuitka has non-experimental 3.14 support
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.14,<3.15"
 dependencies = [
-    # onnxruntime dropped macOS x86_64 wheels in v1.24.0, so pin to the last supported version for Intel Macs
-    "onnxruntime>=1.24 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    "onnxruntime<=1.23.2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "onnxruntime",
     "opencv-python",
     "pillow-heif",
     "pyside6",
-    # rawpy dropped macOS x86_64 wheels in v0.26.0, so pin to the last supported version for Intel Macs
-    "rawpy>=0.26 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    "rawpy<=0.25.1 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "rawpy",
     "numpy",
     "piexif",
     # Pinned: the success-toast link reaches a private label attr (_Toast__text_label);
