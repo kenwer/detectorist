@@ -145,8 +145,20 @@ The author would like to thank the following projects and people that made this 
 * [RF-DETR](https://github.com/roboflow/rf-detr) (Robinson et al., [arXiv:2511.09554](https://arxiv.org/abs/2511.09554), 2025) for powering object detection.
 * [Prof. Dr. Nico Michiels](https://uni-tuebingen.de/en/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/fachbereiche/biologie/institute/evolution-und-oekologie/lehrbereiche/animal-evolutionary-ecology/people/nico-michiels/) (University of Tübingen) for providing thousands of images used for training the fish models.
 * [Dr. Anja Buttstedt](https://uni-tuebingen.de/fakultaeten/mathematisch-naturwissenschaftliche-fakultaet/fachbereiche/biologie/institute/evolution-und-oekologie/lehrbereiche/vergleichende-zoologie/gruppe/anja-buttstedt/) for Apoidea images and testing the Windows version.
-* [Qt](https://www.qt.io/) / [PySide6](https://doc.qt.io/qtforpython/) for the application framework.
-* [ONNX Runtime](https://onnxruntime.ai/) for providing a runtime for inference.
+
+Many thanks also to the people behind the projects Detectorist builds on:
+
+* [ONNX Runtime](https://onnxruntime.ai/)
+* [Qt](https://www.qt.io/) / [PySide6](https://doc.qt.io/qtforpython/)
+* [Python](https://www.python.org)
+* [OpenCV](https://opencv.org)
+* [NumPy](https://numpy.org)
+* [Pillow](https://python-pillow.org) / [pillow-heif](https://github.com/bigcat88/pillow_heif) / [libheif](https://github.com/strukturag/libheif)
+* [rawpy](https://github.com/letmaik/rawpy) / [LibRaw](https://www.libraw.org)
+* [piexif](https://github.com/hMatoba/Piexif)
+* [pyqt-toast-notification](https://github.com/niklashenning/pyqttoast)
+* [Nuitka](https://nuitka.net)
+* [uv](https://docs.astral.sh/uv/)
 
 ## Citation
 

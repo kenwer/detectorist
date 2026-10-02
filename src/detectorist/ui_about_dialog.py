@@ -16,8 +16,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
-    QHBoxLayout, QLabel, QSizePolicy, QTextBrowser,
-    QVBoxLayout, QWidget)
+    QHBoxLayout, QLabel, QSizePolicy, QTabWidget,
+    QTextBrowser, QVBoxLayout, QWidget)
 from . import resources_rc
 
 class Ui_AboutDialog(object):
@@ -78,10 +78,34 @@ class Ui_AboutDialog(object):
 
         self.verticalLayout.addLayout(self.horizontalLayout)
 
-        self.changelog_text_browser = QTextBrowser(AboutDialog)
+        self.tab_widget = QTabWidget(AboutDialog)
+        self.tab_widget.setObjectName(u"tab_widget")
+        self.changelog_tab = QWidget()
+        self.changelog_tab.setObjectName(u"changelog_tab")
+        self.changelog_tab_layout = QVBoxLayout(self.changelog_tab)
+        self.changelog_tab_layout.setObjectName(u"changelog_tab_layout")
+        self.changelog_tab_layout.setContentsMargins(4, 4, 4, 4)
+        self.changelog_text_browser = QTextBrowser(self.changelog_tab)
         self.changelog_text_browser.setObjectName(u"changelog_text_browser")
+        self.changelog_text_browser.setOpenExternalLinks(True)
 
-        self.verticalLayout.addWidget(self.changelog_text_browser)
+        self.changelog_tab_layout.addWidget(self.changelog_text_browser)
+
+        self.tab_widget.addTab(self.changelog_tab, "")
+        self.acknowledgements_tab = QWidget()
+        self.acknowledgements_tab.setObjectName(u"acknowledgements_tab")
+        self.acknowledgements_tab_layout = QVBoxLayout(self.acknowledgements_tab)
+        self.acknowledgements_tab_layout.setObjectName(u"acknowledgements_tab_layout")
+        self.acknowledgements_tab_layout.setContentsMargins(4, 4, 4, 4)
+        self.acknowledgements_text_browser = QTextBrowser(self.acknowledgements_tab)
+        self.acknowledgements_text_browser.setObjectName(u"acknowledgements_text_browser")
+        self.acknowledgements_text_browser.setOpenExternalLinks(True)
+
+        self.acknowledgements_tab_layout.addWidget(self.acknowledgements_text_browser)
+
+        self.tab_widget.addTab(self.acknowledgements_tab, "")
+
+        self.verticalLayout.addWidget(self.tab_widget)
 
         self.button_box = QDialogButtonBox(AboutDialog)
         self.button_box.setObjectName(u"button_box")
@@ -95,6 +119,9 @@ class Ui_AboutDialog(object):
         self.button_box.accepted.connect(AboutDialog.accept)
         self.button_box.rejected.connect(AboutDialog.reject)
 
+        self.tab_widget.setCurrentIndex(0)
+
+
         QMetaObject.connectSlotsByName(AboutDialog)
     # setupUi
 
@@ -103,7 +130,9 @@ class Ui_AboutDialog(object):
         self.icon_label.setText("")
         self.app_name_label.setText(QCoreApplication.translate("AboutDialog", u"Detectorist", None))
         self.version_label.setText(QCoreApplication.translate("AboutDialog", u"Version: ", None))
-        self.author_label.setText(QCoreApplication.translate("AboutDialog", u"Author: Ken Werner", None))
+        self.author_label.setText(QCoreApplication.translate("AboutDialog", u"Ken Werner", None))
         self.link_label.setText(QCoreApplication.translate("AboutDialog", u"<a href=\"https://github.com/kenwer/detectorist\">https://github.com/kenwer/detectorist</a>", None))
+        self.tab_widget.setTabText(self.tab_widget.indexOf(self.changelog_tab), QCoreApplication.translate("AboutDialog", u"Changelog", None))
+        self.tab_widget.setTabText(self.tab_widget.indexOf(self.acknowledgements_tab), QCoreApplication.translate("AboutDialog", u"Acknowledgements", None))
     # retranslateUi
 

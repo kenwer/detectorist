@@ -82,7 +82,7 @@
        <item>
         <widget class="QLabel" name="author_label">
          <property name="text">
-          <string>Author: Ken Werner</string>
+          <string>Ken Werner</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -107,7 +107,63 @@
     </layout>
    </item>
    <item>
-    <widget class="QTextBrowser" name="changelog_text_browser"/>
+    <widget class="QTabWidget" name="tab_widget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="changelog_tab">
+      <attribute name="title">
+       <string>Changelog</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="changelog_tab_layout">
+       <property name="leftMargin">
+        <number>4</number>
+       </property>
+       <property name="topMargin">
+        <number>4</number>
+       </property>
+       <property name="rightMargin">
+        <number>4</number>
+       </property>
+       <property name="bottomMargin">
+        <number>4</number>
+       </property>
+       <item>
+        <widget class="QTextBrowser" name="changelog_text_browser">
+         <property name="openExternalLinks">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="acknowledgements_tab">
+      <attribute name="title">
+       <string>Acknowledgements</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="acknowledgements_tab_layout">
+       <property name="leftMargin">
+        <number>4</number>
+       </property>
+       <property name="topMargin">
+        <number>4</number>
+       </property>
+       <property name="rightMargin">
+        <number>4</number>
+       </property>
+       <property name="bottomMargin">
+        <number>4</number>
+       </property>
+       <item>
+        <widget class="QTextBrowser" name="acknowledgements_text_browser">
+         <property name="openExternalLinks">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
    </item>
    <item>
     <widget class="QDialogButtonBox" name="button_box">

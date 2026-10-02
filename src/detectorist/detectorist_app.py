@@ -8,8 +8,6 @@ from pathlib import Path
 import pillow_heif
 from PySide6.QtCore import (
     Q_ARG,
-    QFile,
-    QIODeviceBase,
     QMetaObject,
     QRect,
     Qt,
@@ -19,7 +17,6 @@ from PySide6.QtCore import (
 )
 from PySide6.QtWidgets import (
     QApplication,
-    QDialog,
     QFileDialog,
     QMainWindow,
     QMenu,
@@ -30,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from detectorist import __version__
 
+from .about_dialog import show_about_dialog
 from .batch_run import CropExportAction, SortByClassAction, detections_csv_name, run_batch, settings_json_name
 from .crop_planner import CropMode, CropSettings, plan_crops
 from .detector import Detector
@@ -43,7 +41,6 @@ from .settings import Settings
 from .shortcuts_dialog import ShortcutsDialog
 from .structures import Detection
 from .toasts import show_error_toast, show_success_toast, show_warning_toast
-from .ui_about_dialog import Ui_AboutDialog
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
 from .utils import contract_user_path, get_model_path, long_path, resolve_short_path, strip_model_ext
 from .worker import DetectionWorker
@@ -646,19 +643,7 @@ class DetectoristApp(QMainWindow):
             self.ui.image_label.refresh_pixmap()
 
     def show_about_dialog(self):
-        about_dialog = QDialog(self)
-        about_ui = Ui_AboutDialog()
-        about_ui.setupUi(about_dialog)
-        about_ui.version_label.setText(f"Version: {__version__}")
-
-        # Load changelog programmatically from the qrc to render markdown as QTextBrowser.source only handles HTML
-        changelog_file = QFile(":docs/CHANGELOG.md")
-        if changelog_file.open(QIODeviceBase.OpenModeFlag.ReadOnly | QIODeviceBase.OpenModeFlag.Text):
-            changelog_text = changelog_file.readAll().data().decode("utf-8")
-            about_ui.changelog_text_browser.setMarkdown(changelog_text)
-            changelog_file.close()
-
-        about_dialog.exec()
+        show_about_dialog(self)
 
     def show_shortcuts_dialog(self):
         if self._shortcuts_dialog is None:
