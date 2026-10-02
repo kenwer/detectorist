@@ -661,7 +661,7 @@ class DetectoristApp(QMainWindow):
         about_dialog.exec()
 
     def show_shortcuts_dialog(self):
-        if self._shortcuts_dialog is None or not self._shortcuts_dialog.isVisible():
+        if self._shortcuts_dialog is None:
             self._shortcuts_dialog = ShortcutsDialog(self)
 
         self._shortcuts_dialog.show()

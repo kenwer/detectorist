@@ -1,4 +1,4 @@
-from PySide6.QtCore import QFile, QIODeviceBase, Qt
+from PySide6.QtCore import QFile, QIODeviceBase
 from PySide6.QtGui import QTextDocument, QTextLength, QTextTable
 from PySide6.QtWidgets import QDialog, QWidget
 
@@ -12,7 +12,6 @@ _COLUMN_WIDTH_PERCENTAGES = [12, 8, 28, 52]
 class ShortcutsDialog(QDialog):
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
         self.ui = Ui_ShortcutsDialog()
         self.ui.setupUi(self)
