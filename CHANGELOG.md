@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 ### Added
+- New `Fish Segmentation (Focus-Aware)` and `Apoidea Segmentation (Focus-Aware)` models that detect in-focus and/or out-of-focus species.
 - New help menu entry `Keyboard Shortcuts` that shows the list of shortcuts.
 - New `H` shortcut to toggle visiblity of bounding boxes and/or segmentation masks.
 - The EXIF panel now includes Orientation info.
