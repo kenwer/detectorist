@@ -48,7 +48,8 @@ run-app = { cmd = "uv run src/detectorist/main.py", help = "Run the application"
 run = { sequence = ["compile-ui", "compile-qrc", "run-app"], help = "Compile UI and resource files and run the application" }
 test = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest" }], help = "Compile UI/resources, then run all tests" }
 
-get_app_version = { shell = "python -c 'import importlib.metadata; print(importlib.metadata.version(\"detectorist\"))'", help = "Get the application version" }
+# Read from pyproject.toml instead of the installed metadata, which can be shadowed by a stale egg-info in the repo root.
+get_app_version = { shell = "python -c 'import tomllib; print(tomllib.load(open(\"pyproject.toml\", \"rb\"))[\"project\"][\"version\"])'", help = "Get the application version" }
 
 clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
 
