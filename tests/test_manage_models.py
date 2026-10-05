@@ -159,6 +159,68 @@ def test_manifest_fetch_failure_is_shown(qtbot, make_downloader, tmp_path, remot
     qtbot.waitUntil(lambda: dialog.ui.status_label.text().startswith("Error: Failed to fetch manifest"))
 
 
+def test_manifest_fetch_failure_lists_cached_and_installed_models(qtbot, make_downloader, tmp_path, remote):
+    models = tmp_path / "models"
+    models.mkdir()
+    # The manifest an earlier, successful fetch left behind
+    (models / "models.json").write_text((remote / "models.json").read_text())
+    (remote / "models.json").unlink()
+    for filename in ("a.onnx", "mine.onnx"):
+        (models / filename).write_bytes(b"installed")
+
+    dialog = ManageModelsDialog(make_downloader(models), str(models))
+    qtbot.addWidget(dialog)
+    qtbot.waitUntil(lambda: len(dialog._rows) > 0)
+
+    assert states(dialog) == {
+        "a.onnx": "downloaded",
+        "b.onnx": "available",
+        "c-v2.onnx": "available",
+        "mine.onnx": "local_only",
+    }
+    status = dialog.ui.status_label.text()
+    assert status.startswith("Error: Failed to fetch manifest")
+    assert status.endswith("Showing the last known model list.")
+    assert button(dialog, "a.onnx").text() == "Remove"
+
+
+def test_reopening_while_the_list_loads_shows_each_model_once(qtbot, make_downloader, monkeypatch, tmp_path, remote, gated_server):
+    gated_server.body = (remote / "models.json").read_bytes()
+    monkeypatch.setattr(model_downloader, "MANIFEST_URL", f"{gated_server.url}/models.json")
+    models = tmp_path / "models"
+    models.mkdir()
+    # The app keeps one downloader for all dialogs
+    downloader = make_downloader(models)
+
+    first = ManageModelsDialog(downloader, str(models))
+    qtbot.addWidget(first)
+    qtbot.waitUntil(lambda: gated_server.requests == 1)
+    # What Esc or the window's close button does to a dialog that is shown
+    first.reject()
+    second = ManageModelsDialog(downloader, str(models))
+    qtbot.addWidget(second)
+    gated_server.gate.set()
+    qtbot.waitUntil(lambda: len(second._rows) > 0)
+    qtbot.wait(100)
+
+    assert sorted(states(second)) == ["a.onnx", "b.onnx", "c-v2.onnx"]
+    assert len(second._rows) == 3
+    assert first._rows == []
+
+
+def test_manifest_failure_does_not_mark_a_downloaded_model_as_failed(qtbot, open_dialog, remote):
+    dialog, _ = open_dialog()
+    button(dialog, "b.onnx").click()
+    qtbot.waitUntil(lambda: states(dialog)["b.onnx"] == "downloaded")
+
+    # A later fetch of the model list fails while b.onnx is the last download
+    (remote / "models.json").unlink()
+    dialog._downloader.fetch_manifest()
+    qtbot.waitUntil(lambda: dialog.ui.status_label.text().startswith("Error: Failed to fetch manifest"))
+
+    assert states(dialog) == {"a.onnx": "available", "b.onnx": "downloaded", "c-v2.onnx": "available"}
+
+
 def test_cancelling_a_download_makes_the_model_available_again(qtbot, open_dialog, remote, stalled_server):
     manifest = [{"name": "Slow", "url": f"{stalled_server.url}/slow.onnx", "size_mb": 1, "release_date": "2026-01-01"}]
     (remote / "models.json").write_text(json.dumps(manifest))

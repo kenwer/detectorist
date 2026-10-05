@@ -51,6 +51,8 @@ class ManageModelsDialog(QDialog):
     """Dialog for browsing, downloading, and removing models.
 
     Fetches the remote manifest on open and renders one row per model.
+    If the fetch fails, the rows are built from the manifest of the last
+    successful fetch, so installed models can still be seen and removed.
     Models already on disk but absent from the manifest are shown as
     "local only" with a Remove button. Downloads are delegated to the
     shared ModelDownloader so they survive the dialog being closed.
@@ -73,6 +75,7 @@ class ManageModelsDialog(QDialog):
         self.ui.scroll_contents_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self._downloader.manifest_loaded.connect(self._on_manifest_loaded)
+        self._downloader.manifest_error.connect(self._on_manifest_error)
         self._downloader.download_started.connect(self._on_download_started)
         self._downloader.download_progress.connect(self._on_download_progress)
         self._downloader.download_finished.connect(self._on_download_finished)
@@ -87,6 +90,7 @@ class ManageModelsDialog(QDialog):
     def done(self, result):
         """Disconnect all downloader signals to prevent stale callbacks after close."""
         self._downloader.manifest_loaded.disconnect(self._on_manifest_loaded)
+        self._downloader.manifest_error.disconnect(self._on_manifest_error)
         self._downloader.download_started.disconnect(self._on_download_started)
         self._downloader.download_progress.disconnect(self._on_download_progress)
         self._downloader.download_finished.disconnect(self._on_download_finished)
@@ -120,9 +124,33 @@ class ManageModelsDialog(QDialog):
         return header_widget, progress_bar, status_label
 
     def _on_manifest_loaded(self, manifest: list[dict]):
-        """Populate the scroll area with a row for each manifest entry and any local-only models."""
-        self._manifest = manifest
+        """Show the freshly fetched manifest."""
         self.ui.status_label.setText("")
+        self._populate_rows(manifest)
+
+    def _on_manifest_error(self, error_message: str):
+        """
+        Fall back to the manifest of the last successful fetch. Download
+        buttons stay enabled, as one failed request does not prove that the
+        model files are out of reach too.
+        """
+        self._populate_rows(self._downloader.cached_manifest)
+        hint = " Showing the last known model list." if self._rows else ""
+        self.ui.status_label.setText(f"Error: {error_message}.{hint}")
+
+    def _clear_rows(self):
+        """Remove every row and separator from the scroll area."""
+        layout = self.ui.scroll_contents_layout
+        while layout.count():
+            widget = layout.takeAt(0).widget()
+            if widget is not None:
+                widget.deleteLater()
+        self._rows = []
+
+    def _populate_rows(self, manifest: list[dict]):
+        """Rebuild the scroll area with a row for each manifest entry and any local-only models."""
+        self._clear_rows()
+        self._manifest = manifest
 
         existing_models = {f for f in os.listdir(self._models_dir) if f.endswith(".onnx") or f.endswith(".onnx.gz")}
         active_filenames = set()
@@ -386,7 +414,7 @@ class ManageModelsDialog(QDialog):
         self._update_download_all_button_state()
 
     def _on_download_error(self, error_message: str):
-        """Mark the active row as errored and surface the message in the status bar."""
+        """Mark the row of the failed download as errored and surface the message in the status bar."""
         filename = self._downloader.current_filename
         row = self._find_row(filename)
         if row:

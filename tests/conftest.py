@@ -158,6 +158,47 @@ def window(make_window):
 
 
 @pytest.fixture
+def gated_server():
+    """A local HTTP server that answers every request only once gate is set.
+
+    Stands in for a slow network: a request stays in flight for as long as a
+    test needs. body is what it then sends. With drop set it closes the
+    connection instead, which the client sees as a failed request. requests
+    counts the requests received so far, and url is the server's base URL.
+    """
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            server.requests += 1
+            server.gate.wait(10)
+            if server.drop:
+                self.connection.close()
+                return
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(server.body)))
+            self.end_headers()
+            self.wfile.write(server.body)
+
+        def log_message(self, *args):
+            pass
+
+    class Server(socketserver.ThreadingTCPServer):
+        # See stalled_server for why this is not http.server.HTTPServer
+        daemon_threads = True
+
+    server = Server(("127.0.0.1", 0), Handler)
+    server.gate = threading.Event()
+    server.body = b"[]"
+    server.drop = False
+    server.requests = 0
+    threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
+    server.url = f"http://127.0.0.1:{server.server_address[1]}"
+    yield server
+    server.gate.set()
+    server.shutdown()
+    server.server_close()
+
+
+@pytest.fixture
 def stalled_server():
     """A local HTTP server that sends the start of a file and then stalls.
 

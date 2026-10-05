@@ -6,6 +6,7 @@ from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequ
 
 MANIFEST_URL = "https://raw.githubusercontent.com/kenwer/detectorist/main/models/models.json"
 MANIFEST_FILENAME = MANIFEST_URL.rsplit("/", 1)[-1]
+MANIFEST_TIMEOUT_MS = 15000  # Without a limit a stalled connection would leave the Manage Models dialog loading forever
 
 
 def model_filename_from_url(url: str) -> str:
@@ -18,14 +19,16 @@ class ModelDownloader(QObject):
 
     Signals:
         manifest_loaded(list):              Emitted after a successful manifest fetch with the parsed list.
+        manifest_error(str):                Emitted when the manifest cannot be fetched or parsed (message).
         download_started(str):              Emitted when a file download begins (filename).
         download_progress(str, int, int):   Emitted periodically during download (filename, received, total).
         download_finished(str):             Emitted when a file has been saved successfully (filename).
-        download_error(str):                Emitted on any network or parse error (message).
+        download_error(str):                Emitted when a model download fails (message).
         all_downloads_finished():           Emitted when the download queue is drained.
     """
 
     manifest_loaded = Signal(list)
+    manifest_error = Signal(str)           # error message
     download_started = Signal(str)         # filename
     download_progress = Signal(str, int, int)  # filename, bytes_received, bytes_total
     download_finished = Signal(str)        # filename
@@ -36,6 +39,7 @@ class ModelDownloader(QObject):
         super().__init__(parent)
         self._models_dir = models_dir
         self._nam = QNetworkAccessManager(self)
+        self._manifest_reply: QNetworkReply | None = None
         self._current_reply: QNetworkReply | None = None
         self._current_file = None
         self._current_filename = ""
@@ -66,6 +70,11 @@ class ModelDownloader(QObject):
         return [model_filename_from_url(m["url"]) for m in self._download_queue]
 
     @property
+    def cached_manifest(self) -> list[dict]:
+        """The manifest of the last successful fetch, in this or an earlier session. Empty if there was none."""
+        return list(self._manifest)
+
+    @property
     def filename_to_name(self) -> dict[str, str]:
         """Map of filename to human-readable name built from the cached manifest.
 
@@ -94,7 +103,16 @@ class ModelDownloader(QObject):
         return None
 
     def fetch_manifest(self):
-        """Fetch manifest from the local models dir if available, otherwise fetch from the network."""
+        """
+        Fetch manifest from the local models dir if available, otherwise fetch from the network.
+
+        A fetch that is already running is not repeated. Its result goes to
+        whoever listens when it arrives, so a dialog that is closed and
+        reopened while the list loads gets exactly one answer.
+        """
+        if self._manifest_reply is not None:
+            return
+
         local_models_dir = os.path.realpath(os.path.normpath(os.path.join(os.getcwd(), "models")))
         manifest_path = os.path.join(self._models_dir, MANIFEST_FILENAME)
         if os.path.realpath(self._models_dir) == local_models_dir and os.path.isfile(manifest_path):
@@ -104,24 +122,32 @@ class ModelDownloader(QObject):
 
         # async: when the reply is ready _on_manifest_finished is called
         # The lambda captures `reply` so it can be passed to the callback (finished carries no arguments)
-        reply = self._nam.get(QNetworkRequest(url))
+        request = QNetworkRequest(url)
+        request.setTransferTimeout(MANIFEST_TIMEOUT_MS)
+        reply = self._nam.get(request)
+        self._manifest_reply = reply
         reply.finished.connect(lambda: self._on_manifest_finished(reply))
 
     def _on_manifest_finished(self, reply: QNetworkReply):
         """Handle the manifest reply: cache it to disk (network only), parse it, and emit manifest_loaded."""
         manifest_path = os.path.join(self._models_dir, MANIFEST_FILENAME)
+        self._manifest_reply = None
         try:
             if reply.error() != QNetworkReply.NetworkError.NoError:
-                self.download_error.emit(f"Failed to fetch manifest: {reply.errorString()}")
+                self.manifest_error.emit(f"Failed to fetch manifest: {reply.errorString()}")
                 return
             data = bytes(reply.readAll())
+            manifest = json.loads(data)
+            if not isinstance(manifest, list):
+                raise ValueError("not a list of models")
+
             if not reply.url().isLocalFile():
                 with open(manifest_path, "wb") as f:
                     f.write(data)
-            self._manifest = json.loads(data)
+            self._manifest = manifest
             self.manifest_loaded.emit(self._manifest)
-        except (OSError, json.JSONDecodeError) as e:
-            self.download_error.emit(f"Invalid manifest: {e}")
+        except (OSError, ValueError) as e:
+            self.manifest_error.emit(f"Invalid manifest: {e}")
         finally:
             reply.deleteLater()
 

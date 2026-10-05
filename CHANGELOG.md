@@ -29,6 +29,8 @@
 - Fix HEIF images with an alpha channel being displayed garbled and failing detection.
 - Fix a batch run aborting when one image fails during detection, cropping or copying. The image is skipped and recorded as "process-error" in the detections CSV. A notification that stays open reports how many images failed.
 - Fix a batch run on Windows failing at the very end when a filename has non-Latin characters. A detections CSV that is locked by another program is now reported before the run starts.
+- Fix the Manage Models dialog listing every model twice when it is closed and reopened while the list is still loading.
+- The Manage Models dialog now lists the last known and the installed models when the model list cannot be fetched, e.g. when offline, so models can still be removed.
 - Fix loading images on Windows from deeply nested folders or with long file names. Cropped JPEGs of such images now also keep their camera info (EXIF).
 
 ## [0.11.0] - 2026-07-16

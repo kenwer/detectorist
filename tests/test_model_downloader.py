@@ -115,7 +115,7 @@ def test_fetch_manifest_reports_a_missing_manifest(qtbot, make_downloader, targe
     # The autouse _no_network fixture points MANIFEST_URL at a missing file
     downloader = make_downloader(target)
 
-    with qtbot.waitSignal(downloader.download_error) as failed:
+    with qtbot.waitSignal(downloader.manifest_error) as failed:
         downloader.fetch_manifest()
 
     assert failed.args[0].startswith("Failed to fetch manifest")
@@ -126,10 +126,71 @@ def test_fetch_manifest_reports_invalid_json(qtbot, make_downloader, monkeypatch
     monkeypatch.setattr(model_downloader, "MANIFEST_URL", file_url(remote / "models.json"))
     downloader = make_downloader(target)
 
-    with qtbot.waitSignal(downloader.download_error) as failed:
+    with qtbot.waitSignal(downloader.manifest_error) as failed:
         downloader.fetch_manifest()
 
     assert failed.args[0].startswith("Invalid manifest")
+
+
+def test_manifest_failure_is_not_reported_as_a_download_error(qtbot, make_downloader, target):
+    downloader = make_downloader(target)
+    events = record_events(downloader)
+
+    with qtbot.waitSignal(downloader.manifest_error):
+        downloader.fetch_manifest()
+
+    assert events == []
+
+
+def test_fetch_manifest_joins_a_fetch_that_is_still_running(qtbot, make_downloader, monkeypatch, gated_server, target):
+    gated_server.body = json.dumps([{"name": "A", "url": "https://example.org/a.onnx"}]).encode()
+    monkeypatch.setattr(model_downloader, "MANIFEST_URL", f"{gated_server.url}/models.json")
+    downloader = make_downloader(target)
+    loaded = []
+    downloader.manifest_loaded.connect(loaded.append)
+
+    downloader.fetch_manifest()
+    qtbot.waitUntil(lambda: gated_server.requests == 1)
+    downloader.fetch_manifest()
+    gated_server.gate.set()
+    qtbot.waitUntil(lambda: len(loaded) == 1)
+    qtbot.wait(100)
+
+    assert len(loaded) == 1
+    assert gated_server.requests == 1
+    # Once it is answered, a new fetch goes out again
+    with qtbot.waitSignal(downloader.manifest_loaded):
+        downloader.fetch_manifest()
+    assert gated_server.requests == 2
+
+
+def test_manifest_fetch_gives_up_on_a_server_that_does_not_answer(qtbot, make_downloader, monkeypatch, gated_server, target):
+    monkeypatch.setattr(model_downloader, "MANIFEST_URL", f"{gated_server.url}/models.json")
+    monkeypatch.setattr(model_downloader, "MANIFEST_TIMEOUT_MS", 200)
+    downloader = make_downloader(target)
+
+    # The gate stays closed, so only the timeout can end the request
+    with qtbot.waitSignal(downloader.manifest_error, timeout=3000) as failed:
+        downloader.fetch_manifest()
+
+    assert failed.args[0].startswith("Failed to fetch manifest")
+
+
+@pytest.mark.parametrize("body", [b"not json", b'{"name": "not a list"}'])
+def test_unusable_manifest_from_the_network_keeps_the_cached_one(qtbot, make_downloader, monkeypatch, gated_server, target, body):
+    cached = [{"name": "A", "url": "https://example.org/a.onnx"}]
+    (target / "models.json").write_text(json.dumps(cached))
+    gated_server.body = body
+    gated_server.gate.set()
+    monkeypatch.setattr(model_downloader, "MANIFEST_URL", f"{gated_server.url}/models.json")
+    downloader = make_downloader(target)
+
+    with qtbot.waitSignal(downloader.manifest_error) as failed:
+        downloader.fetch_manifest()
+
+    assert failed.args[0].startswith("Invalid manifest")
+    assert downloader.cached_manifest == cached
+    assert json.loads((target / "models.json").read_text()) == cached
 
 
 def test_queued_models_download_in_order(qtbot, make_downloader, remote, target):
