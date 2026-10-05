@@ -42,6 +42,33 @@ def imwrite(path: str, image: np.ndarray, params: list[int] | None = None) -> No
         f.write(buffer)
 
 
+def apply_exif_orientation(image_data: np.ndarray, orientation: int) -> np.ndarray:
+    """
+    Returns the image data turned upright according to an EXIF Orientation
+    value (1-8). Cameras store the sensor readout as is and only record how it
+    has to be rotated or mirrored for display in this tag.
+
+    Values 1 and anything unknown return the data unchanged. The cv2
+    operations work on any channel count and dtype and return contiguous
+    arrays, unlike the stride-based views of np.rot90.
+    """
+    if orientation == 2:  # Mirrored horizontal
+        return cv2.flip(image_data, 1)
+    if orientation == 3:  # Rotated 180
+        return cv2.rotate(image_data, cv2.ROTATE_180)
+    if orientation == 4:  # Mirrored vertical
+        return cv2.flip(image_data, 0)
+    if orientation == 5:  # Mirrored along the top-left to bottom-right diagonal
+        return cv2.transpose(image_data)
+    if orientation == 6:  # Needs a 90 degree clockwise turn
+        return cv2.rotate(image_data, cv2.ROTATE_90_CLOCKWISE)
+    if orientation == 7:  # Mirrored along the top-right to bottom-left diagonal
+        return cv2.flip(cv2.transpose(image_data), -1)
+    if orientation == 8:  # Needs a 90 degree counterclockwise turn
+        return cv2.rotate(image_data, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    return image_data
+
+
 def adjust_exposure(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int = None) -> np.ndarray:
     """
     Adjusts the exposure of the image data by the given exposure compensation value. It creates a copy and doesn't modify the given image_data.

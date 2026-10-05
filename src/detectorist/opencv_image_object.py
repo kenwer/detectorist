@@ -53,6 +53,13 @@ class OpencvImageObject(ImageObject):
         if cv_image is None:
             raise OSError(f"Error: Could not read image from '{self.image_path}'")
 
+        # IMREAD_UNCHANGED skips the EXIF orientation, so a portrait shot would
+        # be displayed and analyzed sideways. HEIF and RAW decoders turn their
+        # images upright themselves.
+        self._exif_dict = self._load_exif_data()
+        orientation = self._exif_dict.get('0th', {}).get(piexif.ImageIFD.Orientation, 1)
+        cv_image = image_utils.apply_exif_orientation(cv_image, orientation)
+
         # Determine original bits per channel based on image dtype
         if cv_image.dtype == np.uint16:
             self._original_bpc = 16
@@ -77,8 +84,6 @@ class OpencvImageObject(ImageObject):
             else:
                 raise ValueError(f"Unsupported Pillow image mode in StandardImageObject: {pil_image.mode}")
 
-        self._exif_dict = self._load_exif_data()
-
     def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
         """Saves a cropped version of the image, preserving original format and EXIF data."""
         logger.debug("Cropping image file: %s", self.image_path)
@@ -100,6 +105,9 @@ class OpencvImageObject(ImageObject):
                 exif_dict = copy.deepcopy(self._exif_dict)
                 self._update_exif_dimensions(exif_dict, w, h)
                 self._neutralize_exposure_bias(exif_dict)
+                if piexif.ImageIFD.Orientation in exif_dict.get('0th', {}):
+                    # The pixels were turned upright on load. Keeping the tag would make viewers rotate the crop a second time
+                    exif_dict['0th'][piexif.ImageIFD.Orientation] = 1
 
                 exif_bytes = piexif.dump(exif_dict)
                 piexif.insert(exif_bytes, output_path)
