@@ -911,7 +911,8 @@ class DetectoristApp(QMainWindow):
         reveals the output directory.
 
         Returns:
-            bool: True if the process completed, False if it was cancelled or an error occurred.
+            bool: True if every image was processed, False if the run was
+                cancelled, an error occurred or some images failed.
         """
         if self.model.rowCount() == 0:
             return False # No images loaded at all
@@ -973,21 +974,34 @@ class DetectoristApp(QMainWindow):
                 self.ui.status_bar.showMessage(f"Finished {process_name.lower()}.", 5000)
                 self._set_last_output_dir(result.output_dir)
                 out_dir = result.output_dir
-                show_success_toast(
-                    self,
-                    "Detectorist",
-                    f"Finished {process_name.lower()}.",
-                    link_text="Show in file manager",
-                    on_link=lambda: self._open_native_file_manager(out_dir),
-                )
+                if result.failed:
+                    count = len(result.failed)
+                    show_warning_toast(
+                        self,
+                        "Detectorist",
+                        f"Finished {process_name.lower()}, but {count} image{'s' if count != 1 else ''} failed. "
+                        f"See {csv_filename} for details.",
+                        link_text="Show in file manager",
+                        on_link=lambda: self._open_native_file_manager(out_dir),
+                        duration=0,  # keep the toast up, as the user may not be watching a long run
+                    )
+                else:
+                    show_success_toast(
+                        self,
+                        "Detectorist",
+                        f"Finished {process_name.lower()}.",
+                        link_text="Show in file manager",
+                        on_link=lambda: self._open_native_file_manager(out_dir),
+                    )
             else:
                 self.ui.status_bar.showMessage(f"{process_name} cancelled.", 5000)
 
-            return not result.cancelled
+            return not result.cancelled and not result.failed
 
         except Exception as e:
             logger.exception("Error during %s", process_name)
             self.ui.status_bar.showMessage(f"Error during {process_name}: {e}", 5000)
+            show_error_toast(self, f"{process_name} failed", str(e), duration=0)
             return False
         finally:
             if progress_dialog is not None:

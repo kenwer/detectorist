@@ -27,6 +27,7 @@
 - Fix updating the selected model switching the selection to the first model in the list instead of the updated one.
 - Fix HEIF images without EXIF data failing to display and crop when the camera exposure correction is enabled.
 - Fix HEIF images with an alpha channel being displayed garbled and failing detection.
+- Fix a batch run aborting when one image fails during detection, cropping or copying. The image is skipped and recorded as "process-error" in the detections CSV. A notification that stays open reports how many images failed.
 
 ## [0.11.0] - 2026-07-16
 ### Added

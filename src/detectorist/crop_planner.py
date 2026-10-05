@@ -56,6 +56,8 @@ def plan_crops(detections: list[Detection], image_height: int, image_width: int,
     Returns:
         A list of tuples (x, y, w, h) for the crop rectangles.
     """
+    # A box without area cannot be framed and would divide by zero in the aspect fit
+    detections = [d for d in detections if d.box[2] > 0 and d.box[3] > 0]
     if not detections:
         return []
 

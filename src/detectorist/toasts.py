@@ -117,7 +117,17 @@ def show_warning_toast(
     title: str,
     text: str,
     *,
+    link_text: str | None = None,
+    on_link: Callable[[], None] | None = None,
     duration: int | None = None,
 ) -> Toast:
-    """Show a non-blocking warning toast."""
-    return _show_toast(parent, title, text, ToastPreset.WARNING, duration=duration)
+    """Show a non-blocking warning toast, optionally ending in a clickable link."""
+    return _show_toast(
+        parent,
+        title,
+        text,
+        ToastPreset.WARNING,
+        link_text=link_text,
+        on_link=on_link,
+        duration=duration,
+    )

@@ -30,7 +30,16 @@ def test_error_toast(toasts):
 def test_warning_toast_forwards_the_duration(toasts):
     show_warning_toast(None, "Careful", "Folder missing.", duration=0)
 
-    assert toasts == [("warning", "Careful", "Folder missing.", {"duration": 0})]
+    assert toasts == [("warning", "Careful", "Folder missing.", {"link_text": None, "on_link": None, "duration": 0})]
+
+
+def test_warning_toast_forwards_the_link(toasts):
+    def on_link():
+        pass
+
+    show_warning_toast(None, "Careful", "Some failed.", link_text="Show", on_link=on_link)
+
+    assert toasts == [("warning", "Careful", "Some failed.", {"link_text": "Show", "on_link": on_link, "duration": None})]
 
 
 def test_pyqttoast_still_has_the_text_label_the_link_needs(qtbot):

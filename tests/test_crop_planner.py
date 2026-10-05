@@ -81,11 +81,15 @@ def test_source_image_aspect_follows_each_image():
     assert plan(box, CropMode.TOP_CONFIDENCE, 0.0, "source_image", height=600, width=400) == [(100, 90, 40, 60)]
 
 
-def test_zero_area_detection_still_crashes():
-    # Wart inherited from the original implementation: a zero-height box reaches
-    # the aspect-fit division. Pinned so a future fix is a deliberate change.
-    with pytest.raises(ZeroDivisionError):
-        plan([Detection((50, 50, 0, 0), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.0, "detection_frame")
+@pytest.mark.parametrize("box", [(50, 50, 0, 0), (50, 50, 20, 0), (50, 50, 0, 20)])
+def test_zero_area_detection_yields_no_crop(box):
+    assert plan([Detection(box, 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.0, "detection_frame") == []
+
+
+def test_zero_area_detection_is_ignored_next_to_usable_ones():
+    # The empty box scores highest, yet the crop frames the best box with an area
+    empty = Detection((50, 50, 20, 0), 0.99, "c")
+    assert plan([empty, D3], CropMode.TOP_CONFIDENCE, 0.0, (1, 1)) == [(300, 300, 40, 40)]
 
 
 class TestCropModeFromSetting:

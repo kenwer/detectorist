@@ -61,6 +61,7 @@ class BatchResult:
     output_dir: str
     cancelled: bool
     rows: list[CsvRow]
+    failed: list[str] = field(default_factory=list)  # Filenames of the images that could not be loaded or processed
 
 
 def _load_image(image_path: str, exposure_correction: bool) -> ImageObject:
@@ -135,6 +136,8 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
 
     An image whose load fails is skipped with a "load-error" row instead of
     aborting the run, so one corrupt file cannot end a batch of thousands.
+    The same goes for an image whose detection or action fails. It gets a
+    "process-error" row. Both kinds are listed in the result's failed.
 
     Args:
         image_paths: Full paths of the images to process.
@@ -159,6 +162,7 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
 
     total = len(image_paths)
     rows: list[CsvRow] = []
+    failed: list[str] = []
     cancelled = False
 
     detections_csv_path = os.path.join(output_dir, csv_filename)
@@ -189,12 +193,18 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
                     row = (file_name, 0, "load-error", 0, "n/a")
                     rows.append(row)
                     rows_by_filename[file_name] = row
+                    failed.append(file_name)
                     continue
 
-                detections = [d for d in detector.detect(image)
-                              if d.score >= confidence and class_filter in (None, d.class_name)]
+                try:
+                    detections = [d for d in detector.detect(image)
+                                  if d.score >= confidence and class_filter in (None, d.class_name)]
+                    row = action.process(image, detections)
+                except Exception:
+                    logger.exception("%s: could not process image", file_name)
+                    row = (file_name, 0, "process-error", 0, "n/a")
+                    failed.append(file_name)
 
-                row = action.process(image, detections)
                 if row:
                     rows.append(row)
                     rows_by_filename[row[0]] = row
@@ -204,7 +214,7 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
             csv_writer.writerow(CSV_HEADER)
             csv_writer.writerows(rows_by_filename.values())
 
-    return BatchResult(output_dir=output_dir, cancelled=cancelled, rows=rows)
+    return BatchResult(output_dir=output_dir, cancelled=cancelled, rows=rows, failed=failed)
 
 
 @dataclass

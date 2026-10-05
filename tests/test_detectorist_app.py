@@ -398,6 +398,39 @@ def test_actions_are_disabled_while_a_batch_runs(qtbot, window, folder, monkeypa
     assert all(action.isEnabled() for action in guarded)
 
 
+def fail_detection_of(detector_factory, bad_name):
+    """Makes the detector of the next batch run raise for one image."""
+    def on_detect(name):
+        if name == bad_name:
+            raise ValueError("boom")
+    detector_factory.on_detect = on_detect
+
+
+def test_batch_with_a_failing_image_finishes_and_warns(qtbot, window, folder, monkeypatch, detector_factory, toasts):
+    output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    fail_detection_of(detector_factory, "a.png")
+
+    window.ui.crop_and_export_all_images_action.trigger()
+
+    # The image after the failing one is still exported
+    assert (output / "b_ncrop.png").is_file()
+    kind, title, text, kwargs = toasts[-1]
+    csv_name = detections_csv_name(50, MODEL_FILENAME)
+    assert (kind, text) == ("warning", f"Finished cropping images, but 1 image failed. See {csv_name} for details.")
+    assert kwargs["duration"] == 0
+    assert kwargs["link_text"] == "Show in file manager"
+
+
+def test_copy_export_remove_keeps_the_images_when_one_failed(qtbot, window, folder, monkeypatch, detector_factory):
+    open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    fail_detection_of(detector_factory, "a.png")
+    window.ui.image_list_view.selectAll()
+
+    window.ui.copy_export_remove_action.trigger()
+
+    assert listed(window) == ["a.png", "b.png"]
+
+
 def test_batch_whose_model_fails_to_load_reports_it_and_restores_the_actions(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     detector_factory.error = OSError("boom")
@@ -406,7 +439,7 @@ def test_batch_whose_model_fails_to_load_reports_it_and_restores_the_actions(qtb
 
     assert window.ui.status_bar.currentMessage() == "Error during Cropping images: boom"
     assert not output.exists()
-    assert toasts == []
+    assert [toast[:3] for toast in toasts] == [("error", "Cropping images failed", "boom")]
     assert window.ui.crop_and_export_all_images_action.isEnabled()
     assert window.ui.open_folder_action.isEnabled()
 

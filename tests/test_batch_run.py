@@ -154,8 +154,48 @@ def test_load_failure_skips_image_and_continues(tmp_path):
         ("missing.png", 0, "load-error", 0, "n/a"),
         ("good_b.png", 0, "N/A", 0, "no"),
     ]
+    assert result.failed == ["missing.png"]
     assert os.path.isfile(os.path.join(output_dir, "good_a_crop.png"))
     assert os.path.isfile(os.path.join(output_dir, "good_b_ncrop.png"))
+
+
+def test_processing_failure_skips_image_and_continues(tmp_path):
+    paths = make_images(tmp_path, ["good_a.png", "bad.png", "good_b.png"])
+
+    def fail_on_bad(name):
+        if name == "bad.png":
+            raise ValueError("boom")
+
+    detector = FakeDetector({"good_a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]}, on_detect=fail_on_bad)
+    output_dir = str(tmp_path / "out")
+
+    result = run_batch(paths, detector, confidence=0.5, exposure_correction=False,
+                       output_dir=output_dir, csv_filename=CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                       progress=always_continue)
+
+    assert not result.cancelled
+    assert result.rows == [
+        ("good_a.png", 0.9, "Fish", 1, "yes"),
+        ("bad.png", 0, "process-error", 0, "n/a"),
+        ("good_b.png", 0, "N/A", 0, "no"),
+    ]
+    assert result.failed == ["bad.png"]
+    assert read_csv_rows(output_dir)[2] == ["bad.png", "0", "process-error", "0", "n/a"]
+    assert os.path.isfile(os.path.join(output_dir, "good_b_ncrop.png"))
+
+
+def test_detection_without_area_is_exported_uncropped(tmp_path):
+    paths = make_images(tmp_path, ["flat.png"])
+    detector = FakeDetector({"flat.png": [Detection((10, 10, 20, 0), 0.9, "Fish")]})
+    output_dir = str(tmp_path / "out")
+
+    result = run_batch(paths, detector, confidence=0.5, exposure_correction=False,
+                       output_dir=output_dir, csv_filename=CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                       progress=always_continue)
+
+    assert result.rows == [("flat.png", 0.9, "Fish", 1, "no")]
+    assert result.failed == []
+    assert os.path.isfile(os.path.join(output_dir, "flat_ncrop.png"))
 
 
 def test_progress_can_cancel_the_run(tmp_path):
