@@ -222,12 +222,17 @@ class HeifImageObject(ImageObject):
     def _load_exif_data(self) -> dict:
         """
         Loads EXIF dict from the raw EXIF that we extracted from the HEIF image file using
-        pillow_heif. Returns a `dict` or `None` if no EXIF data is found.
+        pillow_heif. Returns an empty dict if there is no EXIF data or it cannot be parsed,
+        like the base class does, so callers never have to handle None.
         """
-        if self._exif: # self._exif holds the raw EXIF bytes we've got from pillow_heif
-            exif_dict = piexif.load(self._exif)
-            return exif_dict
-        return None
+        if not self._exif: # self._exif holds the raw EXIF bytes we've got from pillow_heif
+            return {}
+        try:
+            return piexif.load(self._exif)
+        except Exception as e:
+            # Unreadable metadata is no reason to refuse an image that decoded fine
+            logger.warning("Could not parse EXIF data of %s: %s", self._image_path, e)
+            return {}
 
     def _get_exif_orientation(self, exif):
         """

@@ -25,6 +25,7 @@
 - Fix the camera exposure correction being applied to only the first crop of a JPEG when an image yields several crops.
 - Fix JPEG images with an EXIF orientation (e.g. portrait shots) being displayed and analyzed sideways. Their crops are now saved upright.
 - Fix updating the selected model switching the selection to the first model in the list instead of the updated one.
+- Fix HEIF images without EXIF data failing to display and crop when the camera exposure correction is enabled.
 
 ## [0.11.0] - 2026-07-16
 ### Added

@@ -122,6 +122,32 @@ def test_uncorrected_heif_crop_keeps_exposure_bias(tmp_path):
     assert exposure_bias_of(output) == MINUS_ONE_EV
 
 
+def make_heif(path, exif=None):
+    heif = pillow_heif.from_pillow(Image.new("RGB", (64, 48), color=(60, 70, 80)))
+    heif.save(str(path), exif=exif)
+    return str(path)
+
+
+def test_heif_without_exif_supports_exposure_correction(tmp_path):
+    image = ImageObject.create(make_heif(tmp_path / "plain.heic"))
+    output = str(tmp_path / "plain_crop.heic")
+    image.exposure_correction = True
+
+    # No stored bias means there is nothing to correct, not an error
+    assert image.exif_data == {}
+    np.testing.assert_array_equal(image.image_data_rgb_8bit_display, image.image_data_rgb_8bit)
+    image.save_cropped(CROP_RECT, output)
+    assert ImageObject.create(output).width == 32
+
+
+def test_heif_with_unreadable_exif_still_loads(tmp_path):
+    image = ImageObject.create(make_heif(tmp_path / "broken.heic", exif=b"Exif\x00\x00not a tiff structure"))
+
+    assert image.exif_data == {}
+    assert image.get_exif_summary() == ""
+    assert (image.width, image.height) == (64, 48)
+
+
 def test_correction_policy_negates_the_stored_bias(tmp_path):
     image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
     image.exposure_correction = True
