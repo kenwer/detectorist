@@ -808,12 +808,7 @@ class DetectoristApp(QMainWindow):
         ratio_str = self.ui.crop_ratio_combo_box.currentText()
 
         if ratio_str == "aspect ratio: same as source image":
-            if self.ui.image_label.image:
-                height, width = self.ui.image_label.image.height, self.ui.image_label.image.width
-                aspect_ratio = (width, height)
-            else:
-                # Default to something sensible if no image, though this path is unlikely
-                aspect_ratio = (1, 1)
+            aspect_ratio = 'source_image'
         elif ratio_str == "aspect ratio: same as detection frame":
             aspect_ratio = 'detection_frame'
         else:

@@ -40,7 +40,7 @@ class CropSettings:
 
     mode: CropMode
     padding: float  # fraction of the detection box, e.g. 0.1 for 10%
-    aspect: tuple[int, int] | Literal["detection_frame"]
+    aspect: tuple[int, int] | Literal["detection_frame", "source_image"]
 
 
 def plan_crops(detections: list[Detection], image_height: int, image_width: int, settings: CropSettings) -> list[Rect]:
@@ -138,8 +138,9 @@ def _plan_single_crop(detections: list[Detection], image_height: int, image_widt
     # Increase the height of the bounding box by `2 * padding_y` (top and bottom)
     h += 2 * padding_y
 
-    # Handle aspect ratio for "detection_frame"
-    if isinstance(aspect_ratio, str):
+    if aspect_ratio == "source_image":
+        final_aspect_ratio = (image_width, image_height)
+    elif isinstance(aspect_ratio, str):
         if detection_w > 0 and detection_h > 0:
             final_aspect_ratio = (detection_w, detection_h)
         else:

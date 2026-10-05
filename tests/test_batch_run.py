@@ -8,6 +8,8 @@ pipeline runs headless with no Qt and no ONNX model.
 import csv
 import os
 
+from PIL import Image
+
 from detectorist.batch_run import (
     CSV_HEADER,
     CropExportAction,
@@ -64,6 +66,24 @@ def test_crop_export_run(tmp_path):
         ["with_fish.png", "0.9", "Fish", "1", "yes"],
         ["empty.png", "0", "N/A", "0", "no"],
     ]
+
+
+def test_source_image_aspect_is_resolved_per_image(tmp_path):
+    landscape = make_images(tmp_path, ["landscape.png"], size=(60, 40))
+    portrait = make_images(tmp_path, ["portrait.png"], size=(40, 60))
+    box = [Detection((10, 10, 20, 20), 0.9, "Fish")]
+    detector = FakeDetector({"landscape.png": box, "portrait.png": box})
+    output_dir = str(tmp_path / "out")
+    settings = CropSettings(mode=CropMode.TOP_CONFIDENCE, padding=0.0, aspect="source_image")
+
+    run_batch(landscape + portrait, detector, confidence=0.5, exposure_correction=False,
+              output_dir=output_dir, csv_filename=CSV_FILENAME, action=CropExportAction(settings),
+              progress=always_continue)
+
+    with Image.open(os.path.join(output_dir, "landscape_crop.png")) as crop:
+        assert crop.size == (30, 20)
+    with Image.open(os.path.join(output_dir, "portrait_crop.png")) as crop:
+        assert crop.size == (20, 30)
 
 
 def test_detections_below_confidence_are_dropped(tmp_path):

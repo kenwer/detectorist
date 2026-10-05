@@ -73,6 +73,14 @@ def test_wide_box_with_tall_target_ratio():
     assert plan([Detection((50, 50, 300, 30), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.0, (9, 16)) == [(87, 0, 225, 400)]
 
 
+def test_source_image_aspect_follows_each_image():
+    # The same box and settings yield a landscape crop in a landscape image
+    # and a portrait crop in a portrait image
+    box = [Detection((100, 100, 40, 40), 0.5, "c")]
+    assert plan(box, CropMode.TOP_CONFIDENCE, 0.0, "source_image", height=400, width=600) == [(90, 100, 60, 40)]
+    assert plan(box, CropMode.TOP_CONFIDENCE, 0.0, "source_image", height=600, width=400) == [(100, 90, 40, 60)]
+
+
 def test_zero_area_detection_still_crashes():
     # Wart inherited from the original implementation: a zero-height box reaches
     # the aspect-fit division. Pinned so a future fix is a deliberate change.
