@@ -195,10 +195,11 @@ class HeifImageObject(ImageObject):
         # Map pillow_heif modes to our descriptive strings
         if self._heif_mode == 'L':
             self._mode = ImageMode.GRAY
-        elif self._heif_mode.startswith('RGB'):
-            self._mode = ImageMode.RGB
+        # RGBA before RGB, as "RGBA" and "RGBA;16" also start with "RGB"
         elif self._heif_mode.startswith('RGBA'):
             self._mode = ImageMode.RGBA
+        elif self._heif_mode.startswith('RGB'):
+            self._mode = ImageMode.RGB
         else:
             raise ValueError(f"Unsupported HEIF image mode: {self._heif_mode}")
 
