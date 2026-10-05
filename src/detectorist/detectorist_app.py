@@ -239,7 +239,7 @@ class DetectoristApp(QMainWindow):
         if self.settings.model:
             combo = self.ui.model_select_combo_box
             combo.blockSignals(True)
-            idx = combo.findData(self.settings.model)
+            idx = self._find_model_index(self.settings.model)
             if idx >= 0:
                 combo.setCurrentIndex(idx)
             combo.blockSignals(False)
@@ -724,7 +724,7 @@ class DetectoristApp(QMainWindow):
             combo.addItem(display_name, filename)
 
         # Restore previous selection by filename
-        idx = combo.findData(previous_filename)
+        idx = self._find_model_index(previous_filename)
         if idx >= 0:
             combo.setCurrentIndex(idx)
         combo.blockSignals(False)
@@ -736,6 +736,20 @@ class DetectoristApp(QMainWindow):
             self.on_model_selected(combo.currentIndex())
 
         self._on_model_availability_changed()
+
+    def _find_model_index(self, filename: str | None) -> int:
+        """
+        Combo box index of the given model file, or -1. A file that is gone
+        resolves to the model that supersedes it, so the selection follows a
+        model across an update instead of jumping to the first one in the list.
+        """
+        combo = self.ui.model_select_combo_box
+        idx = combo.findData(filename)
+        if idx < 0 and filename:
+            successor = self._model_downloader.successor_of(filename)
+            if successor:
+                idx = combo.findData(successor)
+        return idx
 
     def _on_model_availability_changed(self):
         """React to the model combo box becoming empty or populated."""

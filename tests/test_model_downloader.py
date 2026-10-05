@@ -75,6 +75,22 @@ def test_superseded_name_never_replaces_a_current_file_name(make_downloader, tar
     assert make_downloader(target).filename_to_name["kept.onnx"] == "Kept"
 
 
+def test_successor_of_names_the_model_that_supersedes_a_file(make_downloader, target):
+    (target / "models.json").write_text(json.dumps([
+        {"name": "Fish", "url": "https://example.org/fish-v2.onnx", "supersedes": ["fish-v1.onnx"]},
+        {"name": "Kept", "url": "https://example.org/kept.onnx"},
+        {"name": "New", "url": "https://example.org/new.onnx", "supersedes": ["kept.onnx"]},
+    ]))
+
+    downloader = make_downloader(target)
+
+    assert downloader.successor_of("fish-v1.onnx") == "fish-v2.onnx"
+    assert downloader.successor_of("fish-v2.onnx") is None
+    assert downloader.successor_of("unknown.onnx") is None
+    # A file the manifest still offers is current, whatever else claims to supersede it
+    assert downloader.successor_of("kept.onnx") is None
+
+
 def test_missing_or_corrupt_cached_manifest_gives_no_names(make_downloader, target):
     assert make_downloader(target).filename_to_name == {}
 

@@ -79,6 +79,20 @@ class ModelDownloader(QObject):
                 result.setdefault(fname, m["name"])
         return result
 
+    def successor_of(self, filename: str) -> str | None:
+        """
+        Filename of the model that supersedes the given one according to the
+        cached manifest, or None. A file the manifest still offers itself has
+        no successor.
+        """
+        entries = {model_filename_from_url(m["url"]): m for m in self._manifest}
+        if filename in entries:
+            return None
+        for current_filename, model in entries.items():
+            if filename in model.get("supersedes", []):
+                return current_filename
+        return None
+
     def fetch_manifest(self):
         """Fetch manifest from the local models dir if available, otherwise fetch from the network."""
         local_models_dir = os.path.realpath(os.path.normpath(os.path.join(os.getcwd(), "models")))

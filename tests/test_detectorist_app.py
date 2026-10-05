@@ -449,6 +449,38 @@ def test_saved_model_is_selected_again(make_window, settings, models_dir):
     assert window.ui.model_select_combo_box.count() == 2
 
 
+def write_manifest_superseding(models_dir, new_filename, old_filename):
+    (models_dir / "models.json").write_text(json.dumps([
+        {"name": "Tiny Detect", "url": f"https://example.invalid/{new_filename}", "supersedes": [old_filename]},
+    ]))
+
+
+def test_selection_follows_a_model_across_its_update(make_window, qtbot, models_dir, detector_factory):
+    # Sorts before both versions, so it is what a lost selection would fall back to
+    (models_dir / "another.onnx").write_bytes(b"model")
+    write_manifest_superseding(models_dir, "tiny-detect-v2.onnx", MODEL_FILENAME)
+    window = make_window()
+    window.ui.model_select_combo_box.setCurrentIndex(window.ui.model_select_combo_box.findData(MODEL_FILENAME))
+
+    # What a finished update download leaves behind
+    (models_dir / "tiny-detect-v2.onnx").write_bytes(b"model")
+    (models_dir / MODEL_FILENAME).unlink()
+    window._refresh_model_list()
+
+    assert window.ui.model_select_combo_box.currentData() == "tiny-detect-v2.onnx"
+    qtbot.waitUntil(lambda: os.path.basename(detector_factory.created[-1].model_path) == "tiny-detect-v2.onnx")
+
+
+def test_saved_model_that_was_superseded_selects_its_successor(make_window, settings, models_dir):
+    (models_dir / "another.onnx").write_bytes(b"model")
+    write_manifest_superseding(models_dir, MODEL_FILENAME, "tiny-detect-v0.onnx")
+    settings.model = "tiny-detect-v0.onnx"
+
+    window = make_window()
+
+    assert window.ui.model_select_combo_box.currentData() == MODEL_FILENAME
+
+
 def test_saved_model_that_is_gone_falls_back_to_an_available_one(make_window, settings, models_dir, detector_factory):
     (models_dir / "another.onnx").write_bytes(b"model")
     settings.model = "deleted-model.onnx"
