@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 
@@ -95,10 +96,12 @@ class OpencvImageObject(ImageObject):
         # Handle EXIF data using piexif
         if self._exif_dict and os.path.splitext(output_path)[1].lower() in ('.jpg', '.jpeg'):
             try:
-                self._update_exif_dimensions(self._exif_dict, w, h)
-                self._neutralize_exposure_bias(self._exif_dict)
+                # Copy, as later crops of this image still need the original exposure bias
+                exif_dict = copy.deepcopy(self._exif_dict)
+                self._update_exif_dimensions(exif_dict, w, h)
+                self._neutralize_exposure_bias(exif_dict)
 
-                exif_bytes = piexif.dump(self._exif_dict)
+                exif_bytes = piexif.dump(exif_dict)
                 piexif.insert(exif_bytes, output_path)
                 logger.debug("Updated EXIF data for %s", output_path)
             except Exception as e:

@@ -73,6 +73,21 @@ def test_corrected_jpeg_crop_brightens_underexposed_pixels(tmp_path):
     assert corrected_mean > original_mean + 10
 
 
+def test_every_corrected_jpeg_crop_of_an_image_is_brightened(tmp_path):
+    # One image yields several crops in the "all detected objects" crop mode
+    image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
+    image.exposure_correction = True
+    outputs = [str(tmp_path / f"biased_crop_{i}.jpg") for i in range(2)]
+
+    for output in outputs:
+        image.save_cropped(CROP_RECT, output)
+
+    first_mean, second_mean = (ImageObject.create(output).image_data.mean() for output in outputs)
+    assert second_mean == first_mean
+    assert second_mean > image.image_data.mean() + 10
+    assert image.get_exposure_compensation() == -1.0
+
+
 def test_uncorrected_jpeg_crop_keeps_exposure_bias(tmp_path):
     source = make_image(tmp_path / "biased.jpg")
     output = str(tmp_path / "biased_crop.jpg")

@@ -21,6 +21,7 @@
 - Fix `Crop & Export selected Images` and the other selection actions staying enabled after clearing the image list.
 - Fix `aspect ratio: same as source image` cropping every image of a batch to the aspect ratio of the displayed image instead of its own.
 - Fix `Import Settings` showing the imported model as selected while detection kept using the previous one. It also no longer resets the window size and layout.
+- Fix the camera exposure correction being applied to only the first crop of a JPEG when an image yields several crops.
 
 ## [0.11.0] - 2026-07-16
 ### Added
