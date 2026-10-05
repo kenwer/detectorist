@@ -11,7 +11,7 @@ from .structures import ImageMode
 
 logger = logging.getLogger(__name__)
 
-RAW_EXTENSIONS = ('.arw', '.nef', '.cwr', '.cr2', '.cr3', '.orf', '.pef')
+RAW_EXTENSIONS = ('.arw', '.nef', '.crw', '.cr2', '.cr3', '.orf', '.pef')
 
 
 class RawImageObject(ImageObject):
