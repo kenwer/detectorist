@@ -39,6 +39,7 @@
 - Fix recent folders with an `&` in their name being listed without it in the `Recent Folders` menu.
 - Fix 1-bit black and white PNG/BMP images and 16-bit grayscale PNG images failing to load.
 - Opening or dropping a folder that cannot be read (e.g. missing permission) now shows an error message.
+- Fix `Open Image(s)` on Linux not listing files with an upper case extension such as `.JPG` or `.HIF`.
 
 ## [0.11.0] - 2026-07-16
 ### Added

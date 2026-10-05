@@ -52,6 +52,27 @@ logger = logging.getLogger(__name__)
 OUTPUT_DIR_NAME = "processed"
 
 
+def image_name_filter(platform: str = sys.platform) -> str:
+    """
+    The name filter of the Open Image(s) dialog.
+
+    The native dialogs of macOS and Windows match the patterns ignoring case.
+    The GTK dialog of Linux desktops does not, and cameras write upper case
+    extensions. There each letter is spelled as a character class, like
+    *.[jJ][pP][gG], which also covers mixed case. Windows would take the
+    brackets literally, hence the platform switch.
+    """
+    extensions = supported_extensions()
+    if platform in ("win32", "darwin"):
+        patterns = ["*" + ext for ext in extensions]
+    else:
+        patterns = [
+            "*" + "".join(f"[{char}{char.upper()}]" if char.isalpha() else char for char in ext)
+            for ext in extensions
+        ]
+    return f"Images ({' '.join(patterns)})"
+
+
 class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
     request_processing = Signal(str, bool, list)  # image_path, exposure_correction, prefetch_paths
@@ -351,7 +372,9 @@ class DetectoristApp(QMainWindow):
             self,
             "Open Image(s)",
             self.settings.last_directory,
-            f"Images ({' '.join(['*' + ext for ext in supported_extensions()])})"
+            image_name_filter(),
+            # Qt's own dialog would otherwise spell out all the patterns in its filter box
+            options=QFileDialog.Option.HideNameFilterDetails,
         )
         if file_paths:
             self.settings.add_recent_directory(os.path.dirname(file_paths[0]))
