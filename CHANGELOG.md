@@ -37,6 +37,7 @@
 - Fix Canon `.crw` raw files not being recognized as images.
 - Fix recent folders next to the home folder being shown with a wrong `~` abbreviation.
 - Fix recent folders with an `&` in their name being listed without it in the `Recent Folders` menu.
+- Fix 1-bit black and white PNG/BMP images and 16-bit grayscale PNG images failing to load.
 
 ## [0.11.0] - 2026-07-16
 ### Added

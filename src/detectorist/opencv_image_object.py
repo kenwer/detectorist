@@ -78,6 +78,9 @@ class OpencvImageObject(ImageObject):
             elif pil_image.mode == 'RGBA':
                 self._mode = ImageMode.BGRA # OpenCV loads as BGRA
                 self._image_data = cv_image
+            elif pil_image.mode in ('1', 'I', 'I;16', 'I;16B', 'I;16L') and cv_image.ndim == 2:
+                self._mode = ImageMode.GRAY
+                self._image_data = cv_image
             elif pil_image.mode == 'P':
                 # This should not be reached because of the factory logic
                 raise ValueError("Paletted images should be handled by PalettedImageObject.")
