@@ -17,7 +17,7 @@ from PySide6.QtCore import QMimeData, QPointF, QRect, Qt, QUrl
 from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressDialog
 
-from detectorist import __version__
+from detectorist import __version__, detectorist_app
 from detectorist.batch_run import detections_csv_name, settings_json_name
 from detectorist.detector import Detector
 from detectorist.image_object import APPLEDOUBLE_MAGIC
@@ -110,6 +110,44 @@ def test_dropping_a_folder_loads_its_images(window, folder):
     drop(window, [folder])
 
     assert listed(window) == ["a.png", "b.png"]
+
+
+@pytest.fixture
+def unreadable(monkeypatch, tmp_path):
+    """A folder whose listing fails the way it does without read permission."""
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    real_listing = detectorist_app.list_supported_images
+
+    def listing(folder_path):
+        if folder_path == str(locked):
+            raise PermissionError(13, "Permission denied", folder_path)
+        return real_listing(folder_path)
+
+    monkeypatch.setattr(detectorist_app, "list_supported_images", listing)
+    return locked
+
+
+def test_opening_an_unreadable_folder_warns_and_keeps_the_image_list(window, folder, unreadable, monkeypatch, settings, toasts):
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
+
+    open_folder(window, unreadable, monkeypatch)
+
+    kind, title, text, _ = toasts[-1]
+    assert (kind, title) == ("warning", "Could not open folder")
+    assert text.endswith("Permission denied")
+    assert listed(window) == ["a.png"]
+    assert settings.recent_directories == [str(folder)]
+
+
+def test_dropping_an_unreadable_folder_warns_and_still_loads_dropped_files(window, folder, unreadable, toasts):
+    paths = make_images(folder, ["a.png"], IMAGE_SIZE)
+
+    drop(window, [unreadable, paths[0]])
+
+    assert toasts[-1][:2] == ("warning", "Could not open folder")
+    assert listed(window) == ["a.png"]
 
 
 def test_dropping_files_skips_sidecars_and_unsupported_files(window, folder):

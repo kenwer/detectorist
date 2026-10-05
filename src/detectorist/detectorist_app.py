@@ -363,12 +363,30 @@ class DetectoristApp(QMainWindow):
         if folder_path:
             self._open_folder_by_path(folder_path)
 
+    def _list_folder_images(self, folder_path: str) -> list[str] | None:
+        """
+        Full paths of the supported images in a folder. Returns None after
+        telling the user if the folder cannot be read, e.g. for lack of
+        permission or because a network share or drive went away.
+        """
+        try:
+            return [os.path.join(folder_path, f) for f in list_supported_images(folder_path)]
+        except OSError as e:
+            logger.warning("Could not read folder %s: %s", folder_path, e)
+            show_warning_toast(
+                self,
+                "Could not open folder",
+                f"{contract_user_path(folder_path)}:\n{e.strerror or e}",
+            )
+            return None
+
     def _open_folder_by_path(self, folder_path: str) -> None:
-        """Open a folder and load its images."""
+        """Open a folder and load its images. An unreadable folder leaves the current image list as it is."""
+        full_paths = self._list_folder_images(folder_path)
+        if full_paths is None:
+            return
         self.settings.add_recent_directory(folder_path)
         self._update_recent_folders_menu()
-        image_files_basenames = list_supported_images(folder_path)
-        full_paths = [os.path.join(folder_path, f) for f in image_files_basenames]
         self._load_images_from_paths(full_paths)
 
     def _update_recent_folders_menu(self) -> None:
@@ -805,11 +823,8 @@ class DetectoristApp(QMainWindow):
         if folders_to_scan:
             # Scan the first folder for images
             first_folder = folders_to_scan[0]
-            folder_images = {
-                os.path.join(first_folder, f)
-                for f in list_supported_images(first_folder)
-            }
-            files_to_load.update(folder_images)
+            # Files dropped along with an unreadable folder are still loaded
+            files_to_load.update(self._list_folder_images(first_folder) or [])
 
         if files_to_load:
             self._load_images_from_paths(list(files_to_load))
