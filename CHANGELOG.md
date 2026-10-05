@@ -13,6 +13,7 @@
 - [Dev] Upgrade dependencies and upgrade Python to 3.14.
 - [Dev] Add a `pytest-qt` test suite covering the main window, dialogs, model downloader and detector.
 - [Dev] Add a separate Test workflow, a pre-push hook (`poe install-hooks`) and the `poe test-fast`/`poe test-slow` tasks.
+- [Dev] Upgrade GitHub Actions, test on Ubuntu 26.04 and pin the Linux builds to Ubuntu 24.04.
 ### Fixed
 - Fix the Manage Models dialog not showing the error when a download or the model list fetch fails.
 - Fix a cancelled model download being shown as failed.
