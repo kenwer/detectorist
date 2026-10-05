@@ -119,8 +119,9 @@ def contract_user_path(path: str) -> str:
     else:
         starts_with_home = path.startswith(home)
 
-    if starts_with_home:
-        path = "~" + path[len(home):]
+    rest = path[len(home):]
+    if starts_with_home and (not rest or rest.startswith(os.sep)):
+        path = "~" + rest
 
     return path
 

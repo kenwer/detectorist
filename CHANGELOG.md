@@ -35,6 +35,7 @@
 - Fix the EXIF panel staying empty for images whose GPS data is invalid, as written by some cameras without a GPS fix.
 - Fix the previous image reappearing when the camera exposure correction is toggled after clearing the image list.
 - Fix Canon `.crw` raw files not being recognized as images.
+- Fix recent folders next to the home folder being shown with a wrong `~` abbreviation.
 
 ## [0.11.0] - 2026-07-16
 ### Added
