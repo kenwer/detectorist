@@ -45,7 +45,7 @@ class ModelDownloader(QObject):
         manifest_path = os.path.join(models_dir, "models.json")
         if os.path.isfile(manifest_path):
             try:
-                with open(manifest_path) as f:
+                with open(manifest_path, encoding="utf-8") as f:
                     self._manifest = json.load(f)
             except (json.JSONDecodeError, OSError):
                 pass

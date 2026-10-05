@@ -8,6 +8,7 @@ or Sort by Class), so the whole run can be exercised headless.
 """
 
 import csv
+import locale
 import logging
 import os
 from collections.abc import Callable
@@ -29,6 +30,7 @@ ProgressFn = Callable[[int, int, str], bool]
 CsvRow = tuple[str, float, str, int, str]
 
 CSV_HEADER = ["Filename", "Highest confidence score", "Class name", "Number of detected objects", "cropped"]
+CSV_ENCODING = "utf-8-sig"
 
 
 class BatchAction(Protocol):
@@ -77,16 +79,40 @@ def _read_existing_csv(csv_path: str) -> dict[str, CsvRow]:
     update just the rows it touches and leave the rest as they were. Missing
     file or a header that doesn't match CSV_HEADER (e.g. an older app version)
     is treated as "no prior data" rather than migrated or merged column-wise.
+    So is a file that cannot be decoded.
     """
     if not os.path.isfile(long_path(csv_path)):
         return {}
-    with open(long_path(csv_path), newline="") as f:
-        reader = csv.reader(f)
-        header = next(reader, None)
-        if header != CSV_HEADER:
-            logger.warning("%s: header does not match CSV_HEADER, ignoring prior contents", csv_path)
-            return {}
-        return {row[0]: tuple(row) for row in reader}
+
+    for encoding in (CSV_ENCODING, locale.getencoding()):
+        try:
+            with open(long_path(csv_path), newline="", encoding=encoding) as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                if header != CSV_HEADER:
+                    logger.warning("%s: header does not match CSV_HEADER, ignoring prior contents", csv_path)
+                    return {}
+                # Skip blank lines, which a hand-edited file may contain
+                return {row[0]: tuple(row) for row in reader if row}
+        except UnicodeDecodeError:
+            continue
+    logger.warning("%s: cannot be decoded, ignoring prior contents", csv_path)
+    return {}
+
+
+def _ensure_csv_is_writable(csv_path: str) -> None:
+    """
+    Fails before the run starts if the CSV cannot be written, e.g. because
+    another program holds it locked. Otherwise the error would only surface
+    after every image was processed. Append mode probes without truncating.
+    """
+    try:
+        with open(long_path(csv_path), "a"):
+            pass
+    except OSError as e:
+        raise OSError(
+            f"Cannot write {os.path.basename(csv_path)}. Close it if it is open in another program."
+        ) from e
 
 
 def _run_suffix(confidence: int, model_filename: str) -> str:
@@ -167,6 +193,7 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
 
     detections_csv_path = os.path.join(output_dir, csv_filename)
     rows_by_filename = _read_existing_csv(detections_csv_path)
+    _ensure_csv_is_writable(detections_csv_path)
 
     try:
         # The context manager drains any in-flight load on exit (bounded by
@@ -209,7 +236,7 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
                     rows.append(row)
                     rows_by_filename[row[0]] = row
     finally:
-        with open(long_path(detections_csv_path), "w", newline="") as csv_file:
+        with open(long_path(detections_csv_path), "w", newline="", encoding=CSV_ENCODING) as csv_file:
             csv_writer = csv.writer(csv_file)
             csv_writer.writerow(CSV_HEADER)
             csv_writer.writerows(rows_by_filename.values())

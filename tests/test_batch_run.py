@@ -5,12 +5,15 @@ PNGs written per test, and progress is a recording callback, so the whole
 pipeline runs headless with no Qt and no ONNX model.
 """
 
+import codecs
 import csv
 import os
 
+import pytest
 from PIL import Image
 
 from detectorist.batch_run import (
+    CSV_ENCODING,
     CSV_HEADER,
     CropExportAction,
     SortByClassAction,
@@ -33,7 +36,7 @@ CSV_FILENAME = "detections.csv"
 
 
 def read_csv_rows(output_dir):
-    with open(os.path.join(output_dir, CSV_FILENAME), newline="") as f:
+    with open(os.path.join(output_dir, CSV_FILENAME), newline="", encoding=CSV_ENCODING) as f:
         return list(csv.reader(f))
 
 
@@ -259,3 +262,66 @@ def test_mismatched_header_in_existing_csv_is_ignored(tmp_path):
         CSV_HEADER,
         ["a.png", "0", "N/A", "0", "no"],
     ]
+
+
+def test_csv_is_utf8_with_bom_and_keeps_non_latin_filenames(tmp_path):
+    # Names outside the Windows cp1252 code page, which the CSV used to be written in there
+    first = make_images(tmp_path, ["рыба.png"])
+    second = make_images(tmp_path, ["魚.png"])
+    output_dir = str(tmp_path / "out")
+
+    for paths in (first, second):
+        run_batch(paths, FakeDetector(), confidence=0.5, exposure_correction=False,
+                  output_dir=output_dir, csv_filename=CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                  progress=always_continue)
+
+    with open(os.path.join(output_dir, CSV_FILENAME), "rb") as f:
+        raw = f.read()
+    # The byte order mark is what lets Excel detect UTF-8
+    assert raw.startswith(codecs.BOM_UTF8)
+    # The second run read the first run's row back and kept it
+    assert [row[0] for row in read_csv_rows(output_dir)] == ["Filename", "рыба.png", "魚.png"]
+
+
+def test_blank_lines_in_existing_csv_are_skipped(tmp_path):
+    paths = make_images(tmp_path, ["new.png"])
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    lines = [",".join(CSV_HEADER), "old.png,0.9,Fish,1,yes", "", ""]
+    (output_dir / CSV_FILENAME).write_text("\n".join(lines), encoding=CSV_ENCODING)
+
+    run_batch(paths, FakeDetector(), confidence=0.5, exposure_correction=False,
+              output_dir=str(output_dir), csv_filename=CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+              progress=always_continue)
+
+    assert [row[0] for row in read_csv_rows(str(output_dir))] == ["Filename", "old.png", "new.png"]
+
+
+def test_undecodable_existing_csv_is_ignored(tmp_path):
+    paths = make_images(tmp_path, ["new.png"])
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    # 0x81 is invalid as UTF-8 and unassigned in cp1252
+    (output_dir / CSV_FILENAME).write_bytes(",".join(CSV_HEADER).encode() + b"\nold\x81.png,0.9,Fish,1,yes\n")
+
+    run_batch(paths, FakeDetector(), confidence=0.5, exposure_correction=False,
+              output_dir=str(output_dir), csv_filename=CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+              progress=always_continue)
+
+    assert [row[0] for row in read_csv_rows(str(output_dir))] == ["Filename", "new.png"]
+
+
+def test_unwritable_csv_fails_before_any_image_is_processed(tmp_path):
+    paths = make_images(tmp_path, ["a.png"])
+    output_dir = tmp_path / "out"
+    # A directory in the CSV's place cannot be opened for writing on any platform
+    (output_dir / CSV_FILENAME).mkdir(parents=True)
+    detector = FakeDetector()
+
+    with pytest.raises(OSError, match="Cannot write detections.csv"):
+        run_batch(paths, detector, confidence=0.5, exposure_correction=False,
+                  output_dir=str(output_dir), csv_filename=CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                  progress=always_continue)
+
+    assert detector.detected == []
+    assert not (output_dir / "a_ncrop.png").exists()

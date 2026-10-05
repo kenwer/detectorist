@@ -221,7 +221,7 @@ class Settings:
             "app_version": __version__,
             "groups": {g: self.export_group(g) for g in groups},
         }
-        with open(utils.long_path(str(path)), "w") as f:
+        with open(utils.long_path(str(path)), "w", encoding="utf-8") as f:
             f.write(json.dumps(data, indent=2))
 
     def import_from_file(self, path: Path, groups: list[str] | None = None) -> None:
@@ -232,7 +232,7 @@ class Settings:
             ValueError: If the file is not JSON or not shaped like an export.
                 Nothing is imported in that case.
         """
-        with open(utils.long_path(str(path))) as f:
+        with open(utils.long_path(str(path)), encoding="utf-8") as f:
             data = json.loads(f.read())
         # Checked in full before the first write, so a bad file changes nothing
         file_groups = data.get("groups", {}) if isinstance(data, dict) else None
