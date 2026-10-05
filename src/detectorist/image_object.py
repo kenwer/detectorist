@@ -258,12 +258,26 @@ class ImageObject (ABC):
                 else:
                     print(f"      Note: {ifd_name} contains non-dictionary data: {exif_dict[ifd_name]}")
 
+    @staticmethod
+    def _gps_to_decimal_degrees(coordinate) -> float | None:
+        """
+        Converts an EXIF GPS coordinate, a (degrees, minutes, seconds) tuple of
+        (numerator, denominator) rationals, to decimal degrees. Returns None
+        for a malformed value, e.g. the 0/0 rationals some cameras write when
+        they have no GPS fix.
+        """
+        try:
+            degrees, minutes, seconds = (numerator / denominator for numerator, denominator in coordinate)
+        except (TypeError, ValueError, ZeroDivisionError):
+            return None
+        return degrees + minutes / 60 + seconds / 3600
+
     def get_gps_coordinates_from_exif(self) -> str:
         """
         Utility function to extract GPS coordinates from the EXIF data of the image.
         Returns:
             A string representation of the GPS coordinates in decimal degrees
-            or an empty string if no GPS data is found.
+            or an empty string if no usable GPS data is found.
         """
         if not self._exif_dict:
             return ""
@@ -277,17 +291,10 @@ class ImageObject (ABC):
         if not (latitude and longitude):
             return ""
 
-        # Unpack the coordinate tuples
-        lat_degrees = latitude[0][0] / latitude[0][1]
-        lat_minutes = latitude[1][0] / latitude[1][1]
-        lat_seconds = latitude[2][0] / latitude[2][1]
-        lon_degrees = longitude[0][0] / longitude[0][1]
-        lon_minutes = longitude[1][0] / longitude[1][1]
-        lon_seconds = longitude[2][0] / longitude[2][1]
-
-        # Calculate decimal degrees
-        lat_decimal_degrees = lat_degrees + (lat_minutes / 60) + (lat_seconds / 3600)
-        lon_decimal_degrees = lon_degrees + (lon_minutes / 60) + (lon_seconds / 3600)
+        lat_decimal_degrees = self._gps_to_decimal_degrees(latitude)
+        lon_decimal_degrees = self._gps_to_decimal_degrees(longitude)
+        if lat_decimal_degrees is None or lon_decimal_degrees is None:
+            return ""
 
         # Determine cardinal directions for display, defaulting to 'N' and 'E' if refs are missing
         lat_direction_char = latitude_ref.decode('utf-8') if latitude_ref else 'N'
