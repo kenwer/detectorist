@@ -381,7 +381,8 @@ class DetectoristApp(QMainWindow):
             no_recent.setEnabled(False)
         else:
             for path in recent:
-                action = self.ui.recent_folders_menu.addAction(contract_user_path(path))
+                # Qt reads a single "&" in a menu text as mnemonic marker and hides it ("R&D" is shown as "RD"), "&&" is shown as "&".
+                action = self.ui.recent_folders_menu.addAction(contract_user_path(path).replace("&", "&&"))
                 action.triggered.connect(lambda checked, p=path: self._open_recent_folder(p))
 
         # Re-add the separator and Clear Recent action (defined in .ui, removed by clear())
