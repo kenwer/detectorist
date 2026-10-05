@@ -114,7 +114,7 @@ class ImageObject (ABC):
         Initializes the ImageObject with an image path.
         Image data loading is handled by subclasses.
         """
-        if not os.path.exists(image_path):
+        if not os.path.exists(utils.long_path(image_path)):
             raise FileNotFoundError(f"Error: Image file not found at '{image_path}'")
 
         self._image_path = image_path
@@ -209,7 +209,7 @@ class ImageObject (ABC):
         Loads EXIF data from the image file using piexif.
         """
         try:
-            return piexif.load(self._image_path)
+            return piexif.load(self.long_image_path)
         except piexif.InvalidImageDataError:
             logger.warning("No EXIF data found in %s.", self._image_path)
             return {}

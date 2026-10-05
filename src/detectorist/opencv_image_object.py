@@ -7,7 +7,7 @@ import numpy as np
 import piexif
 from PIL import Image as PILImage
 
-from . import image_utils
+from . import image_utils, utils
 from .image_object import ImageObject
 from .pillow_image_object import STANDARD_IMG_EXTENSIONS
 from .structures import ImageMode
@@ -110,7 +110,7 @@ class OpencvImageObject(ImageObject):
                     exif_dict['0th'][piexif.ImageIFD.Orientation] = 1
 
                 exif_bytes = piexif.dump(exif_dict)
-                piexif.insert(exif_bytes, output_path)
+                piexif.insert(exif_bytes, utils.long_path(output_path))
                 logger.debug("Updated EXIF data for %s", output_path)
             except Exception as e:
                 logger.warning("Could not update EXIF data for %s: %s", output_path, e)
