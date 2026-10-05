@@ -7,9 +7,10 @@ developer machine and headless CI behave the same.
 import json
 import os
 import shutil
+import socketserver
 import subprocess
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 
 import pytest
 from PySide6.QtCore import QCoreApplication, QEvent, QSettings, Qt, QUrl
@@ -181,7 +182,13 @@ def stalled_server():
         def log_message(self, *args):
             pass
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    class Server(socketserver.ThreadingTCPServer):
+        # Not http.server.HTTPServer: on bind it resolves its own host name,
+        # a reverse DNS query that took 35 s on the GitHub macOS runner. The
+        # handler does not need the name.
+        daemon_threads = True
+
+    server = Server(("127.0.0.1", 0), Handler)
     # The default poll interval of 0.5 s is how long shutdown() would block
     threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
     server.requested = requested

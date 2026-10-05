@@ -8,6 +8,7 @@ files it leaves behind.
 
 import json
 import os
+import socket
 
 import pytest
 from PySide6.QtCore import QUrl
@@ -189,3 +190,15 @@ def test_cancel_stops_the_download_and_drops_the_queue(qtbot, make_downloader, s
     assert os.listdir(target) == []  # the partial file is removed
     # A cancel the user asked for is not a failed download
     assert events == [("started", "a.onnx")]
+
+
+def test_stalled_server_starts_without_a_hostname_lookup(monkeypatch, request):
+    # http.server.HTTPServer resolves its own host name on bind. That reverse
+    # DNS query took 35 s on the GitHub macOS runner, so the fixture must not
+    # be built on it.
+    def fail(*args):
+        raise AssertionError("the stalled_server fixture looked up a host name")
+
+    monkeypatch.setattr(socket, "getfqdn", fail)
+
+    request.getfixturevalue("stalled_server")
