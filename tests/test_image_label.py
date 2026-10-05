@@ -28,6 +28,16 @@ def label(qtbot, tmp_path):
     return label
 
 
+@pytest.mark.parametrize("replace", [lambda label: label.clear(), lambda label: label.setText("Loading image...")])
+def test_image_is_forgotten_once_it_is_no_longer_shown(label, replace):
+    replace(label)
+
+    assert label.image is None
+    # Nothing left that a refresh could bring back
+    label.refresh_pixmap()
+    assert label.pixmap().isNull()
+
+
 def test_detection_band_is_mapped_into_the_scaled_image(label):
     label.set_detection_boxes([FISH])
 

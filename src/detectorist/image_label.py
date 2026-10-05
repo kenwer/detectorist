@@ -280,11 +280,13 @@ class ImageLabel(QLabel):
         return self._pixmap
 
     def clear(self):
+        self.image = None
         self._pixmap = QPixmap()
         super().clear()
         self.update()
 
     def setText(self, text):
+        self.image = None
         self._pixmap = QPixmap()
         super().setText(text)
         self.update()

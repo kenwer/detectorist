@@ -711,6 +711,18 @@ def test_clear_list_returns_to_the_welcome_state(window, folder, monkeypatch):
     assert object_count(window) == "-"
 
 
+def test_toggling_exposure_correction_after_clear_list_keeps_the_welcome_state(qtbot, window, folder, monkeypatch):
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
+    qtbot.waitUntil(lambda: not window.ui.image_label.pixmap().isNull())
+    window.ui.clear_image_list_action.trigger()
+
+    window.ui.cb_comp_cam_exposure.toggle()
+
+    assert window.ui.image_label.pixmap().isNull()
+    assert "Drop images" in window.ui.image_label.text()
+
+
 def test_clear_list_disables_the_actions_that_need_a_selection(window, folder, monkeypatch):
     make_images(folder, ["a.png", "b.png"], IMAGE_SIZE)
     open_folder(window, folder, monkeypatch)
