@@ -467,6 +467,34 @@ def test_import_settings_applies_them_to_the_controls(window, tmp_path, monkeypa
     assert window.ui.status_bar.currentMessage() == "Settings imported."
 
 
+def test_import_settings_loads_the_imported_model(window, qtbot, tmp_path, monkeypatch, models_dir, detector_factory):
+    (models_dir / "another.onnx").write_bytes(b"model")
+    window._refresh_model_list()
+    assert window.ui.model_select_combo_box.currentData() == MODEL_FILENAME
+    source = tmp_path / "import.json"
+    source.write_text(json.dumps({"groups": {"model": {"path": "another.onnx"}}}))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
+
+    window.ui.import_settings_action.trigger()
+
+    assert window.ui.model_select_combo_box.currentData() == "another.onnx"
+    # The combo box alone is not enough, the worker has to switch models too
+    qtbot.waitUntil(lambda: os.path.basename(detector_factory.created[-1].model_path) == "another.onnx")
+
+
+def test_import_settings_keeps_the_window_layout(window, tmp_path, monkeypatch):
+    window.resize(900, 700)
+    window._save_settings()
+    window.resize(1000, 800)
+    source = tmp_path / "import.json"
+    source.write_text(json.dumps({"groups": {"model": {"confidence": 33}}}))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
+
+    window.ui.import_settings_action.trigger()
+
+    assert (window.width(), window.height()) == (1000, 800)
+
+
 @pytest.mark.parametrize("content", ["this is not json", "[]"])
 def test_importing_a_file_that_is_not_a_settings_file_reports_an_error(window, tmp_path, monkeypatch, toasts, content):
     source = tmp_path / "import.json"

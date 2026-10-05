@@ -210,6 +210,7 @@ class DetectoristApp(QMainWindow):
         self._refresh_model_list()
 
         # Load settings (must be after UI setup and before triggering model load)
+        self._restore_window_layout()
         self._load_settings()
         self._update_recent_folders_menu()
         self._show_welcome_state()
@@ -221,14 +222,19 @@ class DetectoristApp(QMainWindow):
         if self.ui.model_select_combo_box.count() == 0:
             QTimer.singleShot(0, self.show_manage_models_dialog)
 
-    def _load_settings(self):
-        """Apply the persistent settings to the UI."""
-        # Window geometry and splitter state
+    def _restore_window_layout(self):
+        """Apply the persisted window geometry and splitter state."""
         if self.settings.window_geometry:
             self.restoreGeometry(self.settings.window_geometry)
         if self.settings.splitter_state:
             self.ui.splitter.restoreState(self.settings.splitter_state)
 
+    def _load_settings(self):
+        """
+        Apply the persistent Model and Crop settings to the UI. The model combo
+        box is set with its signals blocked, so the caller has to follow up
+        with on_model_selected() to load the selected model in the worker.
+        """
         # Model selection
         if self.settings.model:
             combo = self.ui.model_select_combo_box
@@ -416,6 +422,7 @@ class DetectoristApp(QMainWindow):
             show_error_toast(self, "Could not import settings", f"{os.path.basename(file_path)}: {e}")
             return
         self._load_settings()
+        self.on_model_selected(self.ui.model_select_combo_box.currentIndex())
         self.ui.status_bar.showMessage("Settings imported.", 3000)
 
     def _export_settings(self) -> None:
