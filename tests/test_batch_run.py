@@ -8,8 +8,6 @@ pipeline runs headless with no Qt and no ONNX model.
 import csv
 import os
 
-from PIL import Image
-
 from detectorist.batch_run import (
     CSV_HEADER,
     CropExportAction,
@@ -20,27 +18,9 @@ from detectorist.batch_run import (
 )
 from detectorist.crop_planner import CropMode, CropSettings
 from detectorist.structures import Detection
+from tests.fakes import FakeDetector, make_images
 
 CROP_SETTINGS = CropSettings(mode=CropMode.TOP_CONFIDENCE, padding=0.0, aspect=(1, 1))
-
-
-class FakeDetector:
-    """detect() returns canned detections keyed by image filename."""
-
-    def __init__(self, detections_by_file):
-        self.detections_by_file = detections_by_file
-
-    def detect(self, image):
-        return self.detections_by_file.get(os.path.basename(image.image_path), [])
-
-
-def make_images(dir_path, names, size=(64, 48)):
-    paths = []
-    for name in names:
-        path = str(dir_path / name)
-        Image.new("RGB", size, color=(120, 130, 140)).save(path)
-        paths.append(path)
-    return paths
 
 
 def always_continue(index, total, filename):

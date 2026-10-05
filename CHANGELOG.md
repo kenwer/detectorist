@@ -11,6 +11,13 @@
 - Segmentation mask colors are now assigned per class name in a fixed order instead of by per-image detection frequency, so a class keeps the same color across every image.
 - Drop Intel Mac (macOS x86_64) support as `onnxruntime` and `rawpy` stopped shipping macOS x86_64 wheels.
 - [Dev] Upgrade dependencies and upgrade Python to 3.14.
+- [Dev] Add a `pytest-qt` test suite covering the main window, dialogs, model downloader and detector.
+- [Dev] Add a separate Test workflow, a pre-push hook (`poe install-hooks`) and the `poe test-fast`/`poe test-slow` tasks.
+### Fixed
+- Fix the Manage Models dialog not showing the error when a download or the model list fetch fails.
+- Fix a cancelled model download being shown as failed.
+- Fix importing a file that is not a settings file doing nothing without an error message.
+- Fix `Crop & Export selected Images` and the other selection actions staying enabled after clearing the image list.
 
 ## [0.11.0] - 2026-07-16
 ### Added

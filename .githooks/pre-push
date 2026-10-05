@@ -1,0 +1,3 @@
+#!/bin/sh
+# Runs the fast test suite before allowing a push.
+uv run poe test-fast

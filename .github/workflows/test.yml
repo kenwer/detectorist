@@ -1,0 +1,42 @@
+name: Test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing must not hide the result on the others
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: macOS (arm64)
+          - os: windows-latest
+            name: Windows (x86_64)
+          - os: ubuntu-latest
+            name: Linux (x86_64)
+          - os: ubuntu-24.04-arm
+            name: Linux (arm64)
+
+    steps:
+      # No LFS fetch: the slow tests skip themselves without the model files
+      - uses: actions/checkout@v6
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-env
+
+      - name: Lint
+        run: uv run poe lint
+
+      - name: Test
+        timeout-minutes: 15
+        run: uv run poe test

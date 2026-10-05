@@ -31,6 +31,28 @@ To run the application from source code, I recommend to use `Python 3.14` and `u
     ```
 
 
+## Testing
+
+The tests use `pytest` with `pytest-qt` and run headless on Qt's offscreen platform.
+
+```shell
+uv run poe test        # everything
+uv run poe test-fast   # skips the slow tier, takes a few seconds
+uv run poe test-slow   # only the slow tier
+uv run poe lint
+```
+
+The fast tier needs no model files. `Detector` is tested against two tiny ONNX models in `tests/data`, whose outputs are fixed values defined in `tests/tiny_models.py`. After changing those values, regenerate the files with `uv run --script scripts/make_test_models.py`.
+
+The slow tier loads every model listed in `models/models.json` from `./models`. A model whose Git LFS file has not been fetched is skipped, which is why this tier does nothing in CI.
+
+To run the fast tier before every push, enable the tracked git hook once per clone:
+
+```shell
+uv run poe install-hooks
+```
+
+
 ## Building distributables
 
 You can build standalone executables for macOS and Windows. The build process uses `poethepoet` to run scripts defined in `pyproject.toml`.

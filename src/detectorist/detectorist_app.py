@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pillow_heif
@@ -55,9 +56,23 @@ class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
     request_processing = Signal(str, bool, list)  # image_path, exposure_correction, prefetch_paths
 
-    def __init__(self):
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        models_dir: str | None = None,
+        detector_factory: Callable[[str], Detector] = Detector,
+    ):
+        """
+        Args:
+            settings: Persistent settings store. Defaults to the per-user store.
+            models_dir: Folder scanned for model files. Defaults to get_model_path().
+            detector_factory: Called with a model path to build a detector, by
+                the worker for interactive use and here for each batch run.
+        """
         super().__init__()
 
+        self.settings = settings if settings is not None else Settings()
+        self._detector_factory = detector_factory
         self.current_image_path = None
         self._prefetch_planner = PrefetchPlanner()
         self._all_detection_results: list = []
@@ -152,8 +167,9 @@ class DetectoristApp(QMainWindow):
 
         # Connect model signals
         self.model.modelReset.connect(self._update_clear_image_list_action_state)
+        self.model.modelReset.connect(self._update_selection_dependent_actions_state)
 
-        self.models_dir = get_model_path()
+        self.models_dir = models_dir if models_dir is not None else get_model_path()
 
         # Shared model downloader (lives for the app's lifetime so downloads survive dialog close)
         self._model_downloader = ModelDownloader(self.models_dir, self)
@@ -171,7 +187,7 @@ class DetectoristApp(QMainWindow):
 
         # Setup worker thread, to offload image loading and detection, so the GUI remains responsive.
         self._worker_thread = QThread()
-        self.worker = DetectionWorker()
+        self.worker = DetectionWorker(self._detector_factory)
         self.worker.moveToThread(self._worker_thread)
 
         # Connect signals/slots for worker
@@ -206,9 +222,7 @@ class DetectoristApp(QMainWindow):
             QTimer.singleShot(0, self.show_manage_models_dialog)
 
     def _load_settings(self):
-        """Load persistent settings and apply to UI."""
-        self.settings = Settings()
-
+        """Apply the persistent settings to the UI."""
         # Window geometry and splitter state
         if self.settings.window_geometry:
             self.restoreGeometry(self.settings.window_geometry)
@@ -288,7 +302,7 @@ class DetectoristApp(QMainWindow):
 
         if not supported_files:
             # Handle UI state for no images
-            # (Selection-dependent actions are handled via selectionChanged signal from model.clear())
+            # (Selection-dependent actions are handled via the modelReset signal from model.clear())
             self.ui.image_label.set_detection_boxes([])
             self.ui.image_label.hide_bands()
             self._update_detection_info()
@@ -392,10 +406,15 @@ class DetectoristApp(QMainWindow):
         if not file_path:
             return
 
-        self.settings.import_from_file(
-            Path(file_path),
-            [Settings.GROUP_MODEL, Settings.GROUP_CROP]
-        )
+        try:
+            self.settings.import_from_file(
+                Path(file_path),
+                [Settings.GROUP_MODEL, Settings.GROUP_CROP]
+            )
+        except (OSError, ValueError) as e:
+            logger.error("Could not import settings from %s: %s", file_path, e)
+            show_error_toast(self, "Could not import settings", f"{os.path.basename(file_path)}: {e}")
+            return
         self._load_settings()
         self.ui.status_bar.showMessage("Settings imported.", 3000)
 
@@ -445,7 +464,7 @@ class DetectoristApp(QMainWindow):
 
     def _show_welcome_state(self) -> None:
         parts = ['<span style="font-size: large;">Drop images or a folder with images</span><br/>']
-        recents = self.settings.recent_directories if hasattr(self, "settings") else []
+        recents = self.settings.recent_directories
         if recents:
             parts.append('<span style="color: #000000;"><br/>You can also use File menu<br/><br/><br/><br/>Recent Folders:</span><br/>')
             for path in recents:
@@ -477,7 +496,7 @@ class DetectoristApp(QMainWindow):
         self.ui.status_bar.clearMessage()
 
         # Disable actions that depend on images being loaded
-        # (Selection-dependent actions are handled via selectionChanged signal)
+        # (Selection-dependent actions are handled via the modelReset signal)
         self.ui.crop_and_export_all_images_action.setEnabled(False)
         self.ui.group_images_by_object_class_action.setEnabled(False)
 
@@ -890,7 +909,7 @@ class DetectoristApp(QMainWindow):
 
             # The detector lives in the worker thread. We can't access it directly.
             # For batch processing, we need a separate detector instance.
-            batch_detector = Detector(os.path.join(self.models_dir, model_filename))
+            batch_detector = self._detector_factory(os.path.join(self.models_dir, model_filename))
 
             total_files = len(image_full_paths)
             progress_dialog = QProgressDialog(f"{process_name}...", "Cancel", 0, total_files, self)

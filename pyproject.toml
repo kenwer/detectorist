@@ -30,6 +30,7 @@ dev = [
     "poethepoet",
     "md-toc",
     "pytest>=9.1.1",
+    "pytest-qt>=4.5",
 ]
 
 [project.scripts]
@@ -47,6 +48,9 @@ compile-qrc = { shell = "for f in src/detectorist/*.qrc; do pyside6-rcc --format
 run-app = { cmd = "uv run src/detectorist/main.py", help = "Run the application" }
 run = { sequence = ["compile-ui", "compile-qrc", "run-app"], help = "Compile UI and resource files and run the application" }
 test = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest" }], help = "Compile UI/resources, then run all tests" }
+test-fast = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest -m 'not slow'" }], help = "Compile UI/resources, then run only the fast tests" }
+test-slow = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest -m slow" }], help = "Compile UI/resources, then run only the slow tests that load the real models from ./models" }
+install-hooks = { cmd = "git config core.hooksPath .githooks", help = "Point git at the repo's tracked hooks (pre-push runs test-fast)" }
 
 # Read from pyproject.toml instead of the installed metadata, which can be shadowed by a stale egg-info in the repo root.
 get_app_version = { shell = "python -c 'import tomllib; print(tomllib.load(open(\"pyproject.toml\", \"rb\"))[\"project\"][\"version\"])'", help = "Get the application version" }
@@ -185,5 +189,15 @@ select = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra -q"
+# --no-qt-log: pytest-qt swaps a Python Qt message handler in and out per test.
+# PySide6 can segfault when a non-Python thread logs through that handler while
+# it is being removed. Qt messages go to stderr instead.
+addopts = "-ra -q --no-qt-log"
 pythonpath = ["src"]
+# Dump all-thread tracebacks to stderr when a single test exceeds this many
+# seconds, so a hang identifies itself in CI logs (it does not kill the test).
+faulthandler_timeout = 120
+qt_api = "pyside6"
+markers = [
+    "slow: opt-in tests that load the real models from ./models (run with: pytest -m slow)",
+]

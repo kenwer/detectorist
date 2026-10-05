@@ -1,5 +1,6 @@
 import logging
 import time
+from collections.abc import Callable
 from threading import Lock
 
 from PySide6.QtCore import QMetaObject, QObject, Qt, Signal, Slot
@@ -31,8 +32,14 @@ class DetectionWorker(QObject):
     error = Signal(str, str)  # image_path, error_message
     cache_updated = Signal(list)  # paths currently held in the cache
 
-    def __init__(self):
+    def __init__(self, detector_factory: Callable[[str], Detector] = Detector):
+        """
+        Args:
+            detector_factory: Called with a model path to build the detector
+                on each model load. Defaults to the Detector class.
+        """
         super().__init__()
+        self._detector_factory = detector_factory
         self.detector = None
         self._lock = Lock()
         self._latest_request_params = None
@@ -59,7 +66,7 @@ class DetectionWorker(QObject):
         self._cache.clear()
         self._notify_cache_updated()
         try:
-            self.detector = Detector(model_path)
+            self.detector = self._detector_factory(model_path)
             logger.info("Worker loaded model: %s", model_path)
             class_names = sorted(self.detector.class_names.values())
             self.model_loaded.emit(True, f"Loaded model: {model_path}", class_names)

@@ -196,8 +196,12 @@ class ModelDownloader(QObject):
     def cancel(self):
         """Abort the active download and clear the queue. Removes any partial file."""
         self._download_queue.clear()
-        if self._current_reply:
-            self._current_reply.abort()
+        # Detach the reply before aborting it as abort() emits finished, and _on_download_finished would report a cancel the user asked for as a failed download
+        reply = self._current_reply
+        self._current_reply = None
+        if reply:
+            reply.abort()
+            reply.deleteLater()
         if self._current_file:
             self._current_file.close()
             self._current_file = None

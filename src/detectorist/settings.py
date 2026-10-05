@@ -45,8 +45,13 @@ class Settings:
     KEY_PADDING = "padding"
     KEY_AUTO_CORRECT_EXPOSURE = "auto_correct_exposure"
 
-    def __init__(self):
-        self._settings = QSettings(self.ORGANIZATION, self.APPLICATION)
+    def __init__(self, qsettings: QSettings | None = None):
+        """
+        Args:
+            qsettings: The store to read and write. Defaults to the per-user
+                native store for this application.
+        """
+        self._settings = qsettings if qsettings is not None else QSettings(self.ORGANIZATION, self.APPLICATION)
 
     def _get_grouped(self, group: str, key: str, type_hint: type[T]) -> T | None:
         """Get a typed setting value from a group, or None if the key doesn't exist."""
@@ -220,9 +225,19 @@ class Settings:
             f.write(json.dumps(data, indent=2))
 
     def import_from_file(self, path: Path, groups: list[str] | None = None) -> None:
-        """Import groups from a JSON file. If groups is None, import all."""
+        """Import groups from a JSON file. If groups is None, import all.
+
+        Raises:
+            OSError: If the file cannot be read.
+            ValueError: If the file is not JSON or not shaped like an export.
+                Nothing is imported in that case.
+        """
         with open(utils.long_path(str(path))) as f:
             data = json.loads(f.read())
-        for group, settings in data.get("groups", {}).items():
+        # Checked in full before the first write, so a bad file changes nothing
+        file_groups = data.get("groups", {}) if isinstance(data, dict) else None
+        if not isinstance(file_groups, dict) or not all(isinstance(v, dict) for v in file_groups.values()):
+            raise ValueError(f"{path.name} is not a settings file")
+        for group, settings in file_groups.items():
             if groups is None or group in groups:
                 self.import_group(group, settings)

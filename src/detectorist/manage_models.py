@@ -393,7 +393,7 @@ class ManageModelsDialog(QDialog):
             self._set_row_state(row, "error")
             row.status_label.setToolTip(error_message)
         self.ui.status_label.setText(f"Error: {error_message}")
-        self._on_all_downloads_finished()
+        self._update_download_all_button_state()
 
     def _on_all_downloads_finished(self):
         """Clear the status label and refresh the Download All button when the queue drains."""
