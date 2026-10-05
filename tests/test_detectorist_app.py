@@ -347,6 +347,24 @@ def test_sort_by_class_copies_images_into_class_folders(qtbot, window, folder, m
     assert toasts[-1][2] == "Finished sorting images."
 
 
+def test_batch_runs_respect_the_class_filter(qtbot, window, folder, monkeypatch, detector_factory):
+    make_images(folder, ["a.png", "b.png"], IMAGE_SIZE)
+    detector_factory.detections_by_file["a.png"] = [FISH, CRAB]
+    detector_factory.detections_by_file["b.png"] = [FISH]
+    window.ui.confidence_slider.setValue(50)
+    open_folder(window, folder, monkeypatch)
+    qtbot.waitUntil(lambda: object_count(window) == "2")
+    window.ui.class_filter_combo_box.setCurrentText("Crab")
+
+    window.ui.group_images_by_object_class_action.trigger()
+
+    # Without the filter the higher scoring fish would put both images into Fish/
+    output = folder / "processed"
+    assert (output / "Crab" / "a.png").is_file()
+    assert (output / "no-detection" / "b.png").is_file()
+    assert not (output / "Fish").exists()
+
+
 def test_cancelling_a_batch_stops_it_without_a_success_toast(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     # The batch detector runs on the GUI thread, so cancelling from inside

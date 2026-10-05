@@ -619,13 +619,19 @@ class DetectoristApp(QMainWindow):
         self._last_detection_time_ms = detection_time_ms
         self._display_filtered_results()
 
+    def _selected_class_filter(self) -> str | None:
+        """The class name chosen in the class filter, or None for "All classes"."""
+        if self.ui.class_filter_combo_box.currentIndex() <= 0:
+            return None
+        return self.ui.class_filter_combo_box.currentText()
+
     def _filtered_results(self) -> list:
         """Returns detection results filtered by the current confidence and class filter selections."""
         confidence = self.ui.confidence_slider.value() / 100.0
         results = [d for d in self._all_detection_results if d.score >= confidence]
-        if self.ui.class_filter_combo_box.currentIndex() <= 0:
+        selected = self._selected_class_filter()
+        if selected is None:
             return results
-        selected = self.ui.class_filter_combo_box.currentText()
         return [d for d in results if d.class_name == selected]
 
     def _display_filtered_results(self):
@@ -937,6 +943,7 @@ class DetectoristApp(QMainWindow):
                 csv_filename=csv_filename,
                 action=action,
                 progress=progress,
+                class_filter=self._selected_class_filter(),
             )
 
             # Export Model & Crop settings to JSON alongside the CSV

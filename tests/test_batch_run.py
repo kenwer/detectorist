@@ -99,6 +99,27 @@ def test_detections_below_confidence_are_dropped(tmp_path):
     assert os.path.isfile(os.path.join(output_dir, "faint_ncrop.png"))
 
 
+def test_class_filter_drops_detections_of_other_classes(tmp_path):
+    paths = make_images(tmp_path, ["both.png", "fish_only.png"])
+    fish = Detection((10, 10, 20, 20), 0.9, "Fish")
+    crab = Detection((30, 20, 10, 10), 0.8, "Crab")
+    detector = FakeDetector({"both.png": [fish, crab], "fish_only.png": [fish]})
+    output_dir = str(tmp_path / "out")
+
+    result = run_batch(paths, detector, confidence=0.5, exposure_correction=False,
+                       output_dir=output_dir, csv_filename=CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                       progress=always_continue, class_filter="Crab")
+
+    # The crab wins although the fish scores higher. An image without a crab counts as empty
+    assert result.rows == [
+        ("both.png", 0.8, "Crab", 1, "yes"),
+        ("fish_only.png", 0, "N/A", 0, "no"),
+    ]
+    with Image.open(os.path.join(output_dir, "both_crop.png")) as crop:
+        assert crop.size == (10, 10)
+    assert os.path.isfile(os.path.join(output_dir, "fish_only_ncrop.png"))
+
+
 def test_sort_by_class_run(tmp_path):
     paths = make_images(tmp_path, ["a.png", "b.png"])
     detector = FakeDetector({"a.png": [Detection((10, 10, 20, 20), 0.8, "Fish")]})

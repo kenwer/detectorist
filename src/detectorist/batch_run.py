@@ -116,7 +116,8 @@ def settings_json_name(confidence: int, model_filename: str) -> str:
 
 
 def run_batch(image_paths: list[str], detector, confidence: float, exposure_correction: bool,
-              output_dir: str, csv_filename: str, action: BatchAction, progress: ProgressFn) -> BatchResult:
+              output_dir: str, csv_filename: str, action: BatchAction, progress: ProgressFn,
+              class_filter: str | None = None) -> BatchResult:
     """
     Runs the detector over the given images, delegating each one to the action
     and updating csv_filename in the output directory with a row per image.
@@ -145,6 +146,9 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
         csv_filename: Name of the CSV written into output_dir (see detections_csv_name()).
         action: The per-image behaviour (e.g. CropExportAction, SortByClassAction).
         progress: Called before each image. Returning False cancels the run.
+        class_filter: Keep only detections of this class name. None keeps all
+            classes. An image left without detections is handled by the
+            action like one where nothing was detected.
 
     Returns:
         A BatchResult with the output directory, whether the run was cancelled,
@@ -187,7 +191,8 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
                     rows_by_filename[file_name] = row
                     continue
 
-                detections = [d for d in detector.detect(image) if d.score >= confidence]
+                detections = [d for d in detector.detect(image)
+                              if d.score >= confidence and class_filter in (None, d.class_name)]
 
                 row = action.process(image, detections)
                 if row:

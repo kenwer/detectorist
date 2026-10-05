@@ -48,7 +48,7 @@ Download the binary for your operating system and start the application.
 *   **Image Browser:** Load and browse images from a local folder using drag & drop.
 *   **Detect, segment, and crop objects using AI:** Run object detection or instance segmentation using ONNX models.
 *   **Adjustable Confidence Threshold:** Interactively change confidence to see the effect on detections in real-time.
-*   **Filter by object class:** Filter displayed detections by object class using.
+*   **Filter by object class:** Filter detections by object class. The filter applies to the displayed detections and to cropping and sorting.
 *   **Multiple Image Formats:** Supports common image formats like PNG, JPG, BMP, and also 10 bit HEIC/HEIF or Sony RAW (.ARW).
 *   **EXIF Data Viewer:** Displays selected EXIF metadata for the current image.
 *   **Save cropped copies:** Automatically isolate detected objects in all loaded images.
