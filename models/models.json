@@ -46,8 +46,11 @@
     "name": "Apoidea Segmentation (Focus-Aware)",
     "size_mb": 115,
     "description": "Locates bees, wasps, and related Apoidea species using a transformer-based instance segmentation model with two classes that separate in-focus from out-of-focus individuals.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-focus-seg-transformer-2026-09-17.onnx.gz",
-    "release_date": "2026-09-17"
+    "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-focus-seg-transformer-2026-10-05.onnx.gz",
+    "release_date": "2026-10-05",
+    "supersedes": [
+      "apoidea-focus-seg-transformer-2026-09-17.onnx.gz"
+    ]
   },
   {
     "name": "Generic Object Detection",
