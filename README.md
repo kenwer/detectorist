@@ -32,7 +32,7 @@ Detectorist is a multi platform desktop application that uses machine learning f
 ## Download
 
 Download the binary for your operating system and start the application.
-* macOS (Apple Silicon): [Detectorist-macos-arm64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-macos-arm64.zip)
+* macOS (Apple Silicon with macOS >=26): [Detectorist-macos-arm64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-macos-arm64.zip)
   * Note: The macOS app is not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
   * Note: Intel Macs are no longer supported. The last release with an Intel build is [v0.11.0](https://github.com/kenwer/detectorist/releases/tag/v0.11.0).
 * Windows (x86_64): [Detectorist-windows-x86_64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-windows-x86_64.zip)

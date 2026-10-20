@@ -3,6 +3,8 @@
 ## [Unreleased]
 ### Changed
 - Disable onnxruntime telemetry.
+- App requires macOS 26 or later.
+- [Dev] Upgrade dependencies.
 
 ## [0.12.0] - 2026-10-08
 ### Added

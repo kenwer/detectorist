@@ -13,7 +13,7 @@ dependencies = [
     "onnxruntime",
     "opencv-python",
     "pillow-heif",
-    "pyside6",
+    "PySide6-Essentials>=6.12",
     "rawpy",
     "numpy",
     "piexif",
