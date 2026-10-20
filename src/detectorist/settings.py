@@ -130,6 +130,7 @@ class Settings:
     # GROUP_UI settings
     @property
     def window_geometry(self) -> QByteArray | None:
+        """Main window size and position, as saved by QWidget.saveGeometry()."""
         return self._get_grouped(self.GROUP_UI, self.KEY_WINDOW_GEOMETRY, QByteArray)
 
     @window_geometry.setter
@@ -138,6 +139,7 @@ class Settings:
 
     @property
     def splitter_state(self) -> QByteArray | None:
+        """Sizes of the main splitter's panes, as saved by QSplitter.saveState()."""
         return self._get_grouped(self.GROUP_UI, self.KEY_WINDOW_SPLITTER, QByteArray)
 
     @splitter_state.setter
@@ -147,6 +149,7 @@ class Settings:
     # GROUP_MODEL settings
     @property
     def model(self) -> str | None:
+        """Filename of the selected detection model. Stored under KEY_MODEL_PATH despite the name."""
         return self._get_grouped(self.GROUP_MODEL, self.KEY_MODEL_PATH, str)
 
     @model.setter
@@ -155,6 +158,7 @@ class Settings:
 
     @property
     def confidence(self) -> int | None:
+        """Minimum score in percent (1 to 100) a detection must reach to be kept."""
         return self._get_grouped(self.GROUP_MODEL, self.KEY_CONFIDENCE, int)
 
     @confidence.setter
@@ -173,6 +177,10 @@ class Settings:
 
     @property
     def taxon_confidence(self) -> int | None:
+        """
+        Minimum score in percent (1 to 100) a family, genus or species must
+        reach for its name to be shown and written to the classification CSV.
+        """
         return self._get_grouped(self.GROUP_MODEL, self.KEY_TAXON_CONFIDENCE, int)
 
     @taxon_confidence.setter
@@ -182,6 +190,7 @@ class Settings:
     # GROUP_CROP settings
     @property
     def crop_mode(self) -> str | None:
+        """The CropMode value of the selected crop mode. Parse it with CropMode.from_setting()."""
         return self._get_grouped(self.GROUP_CROP, self.KEY_CROP_MODE, str)
 
     @crop_mode.setter
@@ -190,6 +199,7 @@ class Settings:
 
     @property
     def aspect_ratio_index(self) -> int | None:
+        """Position of the selected crop aspect ratio in the aspect ratio combo box."""
         return self._get_grouped(self.GROUP_CROP, self.KEY_ASPECT_RATIO_INDEX, int)
 
     @aspect_ratio_index.setter
@@ -198,6 +208,7 @@ class Settings:
 
     @property
     def padding(self) -> int | None:
+        """Padding added around a crop, in percent."""
         return self._get_grouped(self.GROUP_CROP, self.KEY_PADDING, int)
 
     @padding.setter
@@ -206,6 +217,7 @@ class Settings:
 
     @property
     def auto_correct_exposure_enabled(self) -> bool | None:
+        """Whether images are loaded with the camera's exposure bias corrected."""
         return self._get_grouped(self.GROUP_CROP, self.KEY_AUTO_CORRECT_EXPOSURE, bool)
 
     @auto_correct_exposure_enabled.setter
