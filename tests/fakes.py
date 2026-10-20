@@ -4,6 +4,8 @@ import os
 
 from PIL import Image
 
+from detectorist.structures import RankedName, Taxonomy
+
 
 class FakeDetector:
     """Stands in for Detector, returning canned detections keyed by image basename.
@@ -31,7 +33,8 @@ class FakeDetector:
 class FakeDetectorFactory:
     """Callable that replaces the Detector class wherever one is injected.
 
-    Every detector it creates shares detections_by_file, so a test can fill it
+    Every detector it creates shares detections_by_file and, unless
+    class_names_by_model names its file, class_names, so a test can fill it
     in after the window exists. created keeps the detectors in creation order:
     the worker's first, then one per batch run. Setting error makes the next
     call raise it, which is how a model that fails to load is simulated.
@@ -40,6 +43,8 @@ class FakeDetectorFactory:
     def __init__(self, detections_by_file=None, class_names=None):
         self.detections_by_file = detections_by_file if detections_by_file is not None else {}
         self.class_names = class_names if class_names is not None else {1: "Fish"}
+        # Class names of the models that differ from class_names, keyed by model file name
+        self.class_names_by_model: dict[str, dict] = {}
         self.error: Exception | None = None
         self.on_detect = None
         self.created: list[FakeDetector] = []
@@ -47,7 +52,8 @@ class FakeDetectorFactory:
     def __call__(self, model_path: str) -> FakeDetector:
         if self.error is not None:
             raise self.error
-        detector = FakeDetector(self.detections_by_file, self.class_names, model_path, self.on_detect)
+        class_names = self.class_names_by_model.get(os.path.basename(model_path), self.class_names)
+        detector = FakeDetector(self.detections_by_file, class_names, model_path, self.on_detect)
         self.created.append(detector)
         return detector
 
@@ -60,3 +66,59 @@ def make_images(dir_path, names, size=(64, 48)) -> list[str]:
         Image.new("RGB", size, color=(120, 130, 140)).save(path)
         paths.append(path)
     return paths
+
+
+TAXONOMY = Taxonomy(
+    RankedName("Pomacentridae", 0.99),
+    RankedName("Amphiprion", 0.97),
+    RankedName("Amphiprion_ocellaris", 0.44),
+)
+
+
+class FakeClassifier:
+    """Stands in for Classifier, giving every box the same taxonomy.
+
+    classified lists the boxes of each classify() call, in call order. Setting
+    error makes the next call raise it.
+    """
+
+    def __init__(self, taxonomy=TAXONOMY, model_path="fake-classifier.onnx", error=None, patterns=("*",)):
+        self.taxonomy = taxonomy
+        self.model_path = model_path
+        self.error = error
+        self.patterns = tuple(patterns)
+        self.classified: list[list] = []
+
+    def classify(self, image, boxes):
+        if self.error is not None:
+            raise self.error
+        self.classified.append(list(boxes))
+        return [self.taxonomy for _ in boxes]
+
+
+class FakeClassifierFactory:
+    """Callable that replaces the Classifier class wherever one is injected.
+
+    created keeps the classifiers in creation order. Setting error makes the
+    next call raise it, which is how a classifier that fails to load is
+    simulated. classify_error is handed to every classifier created after it
+    was set.
+    """
+
+    def __init__(self, taxonomy=TAXONOMY):
+        self.taxonomy = taxonomy
+        self.error: Exception | None = None
+        self.classify_error: Exception | None = None
+        self.created: list[FakeClassifier] = []
+
+    def __call__(self, model_path: str, patterns=("*",)) -> FakeClassifier:
+        if self.error is not None:
+            raise self.error
+        classifier = FakeClassifier(self.taxonomy, model_path, self.classify_error, patterns)
+        self.created.append(classifier)
+        return classifier
+
+    @property
+    def classified(self) -> list[list]:
+        """The boxes of every classify() call across all created classifiers."""
+        return [boxes for classifier in self.created for boxes in classifier.classified]

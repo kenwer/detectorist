@@ -1,13 +1,14 @@
-"""LRU cache for viewed images and their detection results.
+"""LRU cache for viewed images and their detection and classification results.
 
 Lets the DetectionWorker serve a re-selected image without decoding or
 running inference again, and gives prefetched images a place to wait.
 Qt-free so it can be unit-tested headless.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .image_object import ImageObject
+from .structures import Box, Taxonomy
 
 
 @dataclass
@@ -17,6 +18,8 @@ class CacheEntry:
     image: ImageObject
     results: list  # unfiltered detections from Detector.detect
     detection_time_ms: float
+    # What the classifier said about some of the results, keyed by their box
+    taxonomy: dict[Box, Taxonomy] = field(default_factory=dict)
 
 
 class ImageCache:
@@ -62,6 +65,11 @@ class ImageCache:
     def clear(self) -> None:
         """Drops all entries."""
         self._entries.clear()
+
+    def clear_taxonomy(self) -> None:
+        """Forgets what the classifier said about every entry, e.g. because another classifier was loaded."""
+        for entry in self._entries.values():
+            entry.taxonomy.clear()
 
 
 class PrefetchPlanner:

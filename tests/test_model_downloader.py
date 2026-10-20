@@ -279,3 +279,23 @@ def test_stalled_server_starts_without_a_hostname_lookup(monkeypatch, request):
     monkeypatch.setattr(socket, "getfqdn", fail)
 
     request.getfixturevalue("stalled_server")
+
+
+def test_classifiers_are_the_entries_of_kind_classifier(make_downloader, target):
+    (target / "models.json").write_text(json.dumps([
+        {"name": "Fish", "url": "https://example.org/fish.onnx"},
+        {"name": "Species", "url": "https://example.org/species-v2.onnx.gz", "kind": "classifier",
+         "classifies": ["Fish*"], "supersedes": ["species-v1.onnx.gz"]},
+        {"name": "Anything", "url": "https://example.org/anything.onnx.gz", "kind": "classifier"},
+    ]))
+
+    assert make_downloader(target).classifier_patterns == {
+        "species-v2.onnx.gz": ["Fish*"],
+        "species-v1.onnx.gz": ["Fish*"],
+        # An entry that does not say is taken to apply to everything
+        "anything.onnx.gz": ["*"],
+    }
+
+
+def test_without_a_manifest_no_file_is_a_classifier(make_downloader, target):
+    assert make_downloader(target).classifier_patterns == {}

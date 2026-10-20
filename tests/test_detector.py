@@ -15,7 +15,14 @@ import pytest
 from detectorist.detector import Detector
 from detectorist.image_object import ImageObject
 from tests.fakes import make_images
-from tests.tiny_models import DETECT_CLASS_NAMES, DETECT_MODEL, INPUT_SIZE, SEG_CLASS_NAMES, SEG_MODEL
+from tests.tiny_models import (
+    CLASSIFY_MODEL,
+    DETECT_CLASS_NAMES,
+    DETECT_MODEL,
+    INPUT_SIZE,
+    SEG_CLASS_NAMES,
+    SEG_MODEL,
+)
 
 
 def load_image(tmp_path, size):
@@ -39,7 +46,8 @@ def test_model_metadata_is_read():
 def test_boxes_are_converted_to_top_left_pixel_coordinates(tmp_path, size, expected_boxes):
     results = Detector(str(DETECT_MODEL)).detect(load_image(tmp_path, size))
 
-    assert [list(detection.box) for detection in results] == expected_boxes
+    # Tuples, as a box keys the names the classifier gives it
+    assert [detection.box for detection in results] == [tuple(box) for box in expected_boxes]
 
 
 def test_scores_are_sigmoid_of_the_best_logit_sorted_descending(tmp_path):
@@ -108,3 +116,8 @@ def test_corrupt_model_file_raises_oserror(tmp_path):
 
     with pytest.raises(OSError, match="Error loading ONNX model"):
         Detector(str(corrupt))
+
+
+def test_a_classifier_file_is_not_a_detector():
+    with pytest.raises(OSError, match="classifier, not a detection model"):
+        Detector(str(CLASSIFY_MODEL))

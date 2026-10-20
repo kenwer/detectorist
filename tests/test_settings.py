@@ -177,3 +177,37 @@ def test_import_of_json_that_is_not_a_settings_file_is_rejected(settings, tmp_pa
         settings.import_from_file(import_path)
 
     assert settings.confidence == 60
+
+
+def test_classifier_settings_are_unset_by_default(settings):
+    assert settings.classifier is None
+    assert settings.taxon_confidence is None
+
+
+def test_classifier_settings_keep_their_type_across_a_reopen(settings, settings_file):
+    settings.classifier = "fish-species.onnx.gz"
+    settings.taxon_confidence = 35
+
+    reopened = reopen(settings_file)
+
+    assert reopened.classifier == "fish-species.onnx.gz"
+    assert reopened.taxon_confidence == 35
+
+
+def test_no_classifier_is_stored_and_read_back_as_none(settings, settings_file):
+    settings.classifier = "fish-species.onnx.gz"
+    settings.classifier = None
+
+    assert reopen(settings_file).classifier is None
+
+
+def test_classifier_settings_are_exported_with_the_model_group_and_reset_with_it(settings):
+    settings.classifier = "fish-species.onnx.gz"
+    settings.taxon_confidence = 35
+
+    assert settings.export_group(Settings.GROUP_MODEL) == {"classifier": "fish-species.onnx.gz", "taxon_confidence": 35}
+
+    settings.reset_to_defaults()
+
+    assert settings.classifier is None
+    assert settings.taxon_confidence is None

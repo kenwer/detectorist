@@ -1,3 +1,4 @@
+import gzip
 import os
 import sys
 
@@ -74,6 +75,15 @@ def resolve_short_path(path: str) -> str:
 def strip_model_ext(filename: str) -> str:
     """Strip .onnx or .onnx.gz extension for display."""
     return filename.removesuffix(".gz").removesuffix(".onnx")
+
+
+def load_model_bytes(model_path: str) -> bytes:
+    """Read an ONNX model file, transparently decompressing gzip if needed."""
+    if model_path.endswith(".gz"):
+        with gzip.open(model_path, 'rb') as f:
+            return f.read()
+    with open(model_path, 'rb') as f:
+        return f.read()
 
 
 def get_base_path():

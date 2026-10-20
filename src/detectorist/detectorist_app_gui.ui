@@ -144,6 +144,70 @@
              </item>
             </widget>
            </item>
+           <item row="3" column="0" colspan="3">
+            <widget class="QComboBox" name="classifier_combo_box">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>Model used to name the family, genus and species of each detection</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="taxon_confidence_label">
+             <property name="toolTip">
+              <string>Names the classifier is less sure of than this are not shown</string>
+             </property>
+             <property name="text">
+              <string>Taxon confidence</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QSlider" name="taxon_confidence_slider">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+               <horstretch>1</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>Names the classifier is less sure of than this are not shown</string>
+             </property>
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>100</number>
+             </property>
+             <property name="singleStep">
+              <number>10</number>
+             </property>
+             <property name="sliderPosition">
+              <number>50</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="2">
+            <widget class="QSpinBox" name="taxon_confidence_spin_box">
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>100</number>
+             </property>
+             <property name="value">
+              <number>50</number>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
@@ -718,6 +782,18 @@ Highest confidence	: -</string>
  </widget>
  <resources/>
  <connections>
+  <connection>
+   <sender>taxon_confidence_spin_box</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>taxon_confidence_slider</receiver>
+   <slot>setValue(int)</slot>
+  </connection>
+  <connection>
+   <sender>taxon_confidence_slider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>taxon_confidence_spin_box</receiver>
+   <slot>setValue(int)</slot>
+  </connection>
   <connection>
    <sender>confidence_spin_box</sender>
    <signal>valueChanged(int)</signal>

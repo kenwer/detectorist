@@ -9,6 +9,7 @@ Tests act through actions and widgets and assert on what the user would see
 dialogs are replaced per test with monkeypatch.
 """
 
+import csv
 import json
 import os
 
@@ -18,7 +19,7 @@ from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressDialog
 
 from detectorist import __version__, detectorist_app
-from detectorist.batch_run import detections_csv_name, settings_json_name
+from detectorist.batch_run import classification_csv_name, detections_csv_name, settings_json_name
 from detectorist.detector import Detector
 from detectorist.image_object import APPLEDOUBLE_MAGIC
 from detectorist.structures import Detection
@@ -800,3 +801,211 @@ def test_copy_export_remove_does_all_three(qtbot, window, folder, monkeypatch, d
     assert QApplication.clipboard().text() == "a.png"
     assert (output / "a_crop.png").is_file()
     assert listed(window) == ["b.png"]
+
+
+def tooltips(window) -> list[str]:
+    return [band.toolTip() for band in window.ui.image_label.detection_bands]
+
+
+def open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, detections):
+    """Open a folder with one image, select the classifier and wait until the top detection is named."""
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    detector_factory.detections_by_file["a.png"] = detections
+    open_folder(window, folder, monkeypatch)
+    qtbot.waitUntil(lambda: object_count(window) != "-")
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(lambda: tooltips(window)[0].startswith("Pomacentridae"))
+
+
+def test_classifier_file_is_offered_apart_from_the_detection_models(species_model, window):
+    models, classifiers = window.ui.model_select_combo_box, window.ui.classifier_combo_box
+
+    assert [models.itemData(i) for i in range(models.count())] == [MODEL_FILENAME]
+    assert [classifiers.itemData(i) for i in range(classifiers.count())] == [None, species_model]
+    assert classifiers.itemText(1) == "Tiny Species"
+    # Having one on disk does not switch it on
+    assert classifiers.currentIndex() == 0
+
+
+def test_selecting_a_classifier_names_the_displayed_detections_in_their_tooltips(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FAINT_FISH, CRAB, FISH])
+
+    # Above the confidence only, the highest scoring first
+    assert classifier_factory.classified == [[FISH.box, CRAB.box]]
+    assert classifier_factory.created[0].model_path == os.path.join(window.models_dir, species_model)
+    # The species scores 0.44, below the default taxon confidence of 0.50
+    assert tooltips(window) == ["Pomacentridae 0.99\nAmphiprion 0.97"] * 2
+
+
+def test_taxon_confidence_restyles_the_names_without_a_new_inference(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH])
+
+    window.ui.taxon_confidence_spin_box.setValue(40)
+
+    assert tooltips(window) == ["Pomacentridae 0.99\nAmphiprion 0.97\nAmphiprion ocellaris 0.44"]
+    assert len(classifier_factory.classified) == 1
+
+
+def test_lowering_the_confidence_names_the_detections_it_reveals(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, FAINT_FISH])
+    assert tooltips(window)[1:] == []
+
+    window.ui.confidence_spin_box.setValue(10)
+
+    qtbot.waitUntil(lambda: len(tooltips(window)) == 2 and tooltips(window)[1].startswith("Pomacentridae"))
+    assert classifier_factory.classified == [[FISH.box], [FAINT_FISH.box]]
+
+
+def test_dragging_the_confidence_asks_for_names_once(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, FAINT_FISH])
+    requests = []
+    window.request_classification.connect(lambda path, min_score: requests.append(min_score))
+
+    for value in (40, 30, 20, 10):
+        window.ui.confidence_slider.setValue(value)
+
+    qtbot.waitUntil(lambda: len(tooltips(window)) == 2 and tooltips(window)[1].startswith("Pomacentridae"))
+    assert requests == [0.10]
+
+
+def test_deselecting_the_classifier_shows_the_detector_class_again(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH])
+
+    window.ui.classifier_combo_box.setCurrentIndex(0)
+
+    qtbot.waitUntil(lambda: tooltips(window) == ["Fish 0.90"])
+
+
+def test_classifier_that_fails_to_load_is_reported(qtbot, species_model, window, classifier_factory, toasts):
+    classifier_factory.error = OSError("not a classifier")
+
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+
+    qtbot.waitUntil(lambda: len(toasts) == 1)
+    assert toasts[0][:3] == ("error", "Classifier error", "Error loading classifier: not a classifier")
+
+
+def test_batch_with_a_classifier_writes_the_classification_csv(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    window.ui.taxon_confidence_spin_box.setValue(50)
+
+    window.ui.group_images_by_object_class_action.trigger()
+
+    with open(output / classification_csv_name(50, species_model), newline="", encoding="utf-8-sig") as f:
+        rows = list(csv.reader(f))
+    # Only a.png has a detection. The species scores below the taxon confidence
+    assert [row[0] for row in rows[1:]] == ["a.png"]
+    assert rows[1][8:] == ["Pomacentridae", "0.99", "Amphiprion", "0.97", "", "", "tiny-classify"]
+    with open(output / detections_csv_name(50, MODEL_FILENAME), newline="", encoding="utf-8-sig") as f:
+        assert len(next(csv.reader(f))) == 5
+
+
+def test_classifier_and_taxon_confidence_are_restored_by_a_new_window(qtbot, species_model, make_window, settings):
+    window = make_window()
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    window.ui.taxon_confidence_spin_box.setValue(30)
+    window.close()
+
+    restored = make_window()
+
+    assert restored.ui.classifier_combo_box.currentData() == species_model
+    assert restored.ui.taxon_confidence_slider.value() == 30
+
+
+def test_saved_classifier_that_is_gone_leaves_none_selected(make_window, settings):
+    settings.classifier = "deleted-classifier.onnx"
+
+    window = make_window()
+
+    assert window.ui.classifier_combo_box.currentData() is None
+
+
+def test_reset_settings_deselects_the_classifier(species_model, window, monkeypatch):
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+
+    window.ui.reset_settings_action.trigger()
+
+    assert window.ui.classifier_combo_box.currentData() is None
+
+
+def set_classifies(models_dir, patterns):
+    """Rewrite the manifest so its classifier names only detections of the given class patterns."""
+    manifest_path = models_dir / "models.json"
+    manifest = json.loads(manifest_path.read_text())
+    for entry in manifest:
+        if entry.get("kind") == "classifier":
+            entry["classifies"] = patterns
+    manifest_path.write_text(json.dumps(manifest))
+
+
+def classifier_items(window) -> list:
+    combo = window.ui.classifier_combo_box
+    return [combo.itemData(i) for i in range(combo.count())]
+
+
+@pytest.fixture
+def bee_model(models_dir, detector_factory) -> str:
+    """Adds a second detection model, one that reports bees. Returns the filename."""
+    filename = "bee.onnx"
+    (models_dir / filename).write_bytes(b"model")
+    detector_factory.class_names_by_model[filename] = {1: "Apoidea"}
+    return filename
+
+
+def select_model(qtbot, window, filename, class_name):
+    """Select a detection model and wait until it reported its classes."""
+    combo = window.ui.model_select_combo_box
+    combo.setCurrentIndex(combo.findData(filename))
+    qtbot.waitUntil(lambda: window.ui.class_filter_combo_box.findText(class_name) >= 0)
+
+
+def test_classifier_for_other_classes_is_not_offered(species_model, models_dir, make_window):
+    set_classifies(models_dir, ["Apoidea"])
+
+    window = make_window()
+
+    assert classifier_items(window) == [None]
+    assert not window.ui.classifier_combo_box.isEnabled()
+
+
+def test_classifier_is_offered_when_a_pattern_matches_one_of_the_classes(species_model, models_dir, make_window):
+    set_classifies(models_dir, ["Apoidea", "Fi*"])
+
+    window = make_window()
+
+    assert classifier_items(window) == [None, species_model]
+    assert window.ui.classifier_combo_box.isEnabled()
+
+
+def test_classifier_is_set_aside_for_a_model_it_does_not_apply_to_and_comes_back(qtbot, species_model, bee_model, models_dir, make_window, settings, classifier_factory):
+    set_classifies(models_dir, ["Fish*"])
+    window = make_window()
+    select_model(qtbot, window, MODEL_FILENAME, "Fish")
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+
+    select_model(qtbot, window, bee_model, "Apoidea")
+    assert classifier_items(window) == [None]
+
+    select_model(qtbot, window, MODEL_FILENAME, "Fish")
+    assert window.ui.classifier_combo_box.currentData() == species_model
+    qtbot.waitUntil(lambda: len(classifier_factory.created) == 2)
+
+    # Closing while it is set aside still saves it as the choice
+    select_model(qtbot, window, bee_model, "Apoidea")
+    window.close()
+    assert settings.classifier == species_model
+
+
+def test_choosing_no_classifier_is_remembered_across_models(qtbot, species_model, bee_model, models_dir, make_window):
+    set_classifies(models_dir, ["Fish*"])
+    window = make_window()
+    select_model(qtbot, window, MODEL_FILENAME, "Fish")
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    window.ui.classifier_combo_box.setCurrentIndex(0)
+
+    select_model(qtbot, window, bee_model, "Apoidea")
+    select_model(qtbot, window, MODEL_FILENAME, "Fish")
+
+    assert window.ui.classifier_combo_box.currentIndex() == 0

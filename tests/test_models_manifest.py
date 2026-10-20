@@ -50,3 +50,20 @@ def test_no_entry_supersedes_a_current_model():
 
     # A download deletes the files it supersedes, so this would delete a live model
     assert not current & superseded
+
+
+def test_kind_is_a_known_value_where_given():
+    # An entry without a kind is a detector
+    for entry in MANIFEST:
+        assert entry.get("kind", "detector") in ("detector", "classifier"), entry["name"]
+
+
+def test_every_classifier_says_which_detection_classes_it_names():
+    # Spelled out even for "*", so that applying to everything is a decision and not an omission
+    for entry in MANIFEST:
+        if entry.get("kind") == "classifier":
+            patterns = entry.get("classifies")
+            assert isinstance(patterns, list) and patterns, entry["name"]
+            assert all(isinstance(pattern, str) and pattern.strip() for pattern in patterns), entry["name"]
+        else:
+            assert "classifies" not in entry, entry["name"]

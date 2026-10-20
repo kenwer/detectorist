@@ -1,10 +1,12 @@
 import logging
+import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from threading import Lock
 
 from PySide6.QtCore import QMetaObject, QObject, Qt, Signal, Slot
 
+from .classifier import Classifier, detections_to_classify
 from .detector import Detector
 from .image_cache import CacheEntry, ImageCache
 from .image_object import ImageObject
@@ -14,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class DetectionWorker(QObject):
     """
-    A worker class that performs image loading and object detection in a background thread.
+    A worker class that performs image loading, object detection and classification in a background thread.
     It is designed to handle a high volume of requests by only processing the most recent one.
 
     Recently viewed images and their detection results are kept in a small LRU
@@ -31,16 +33,25 @@ class DetectionWorker(QObject):
     detection_complete = Signal(str, list, float)  # image_path, results, detection_time_ms
     error = Signal(str, str)  # image_path, error_message
     cache_updated = Signal(list)  # paths currently held in the cache
+    # image_path, {box: Taxonomy}. Sent after detection_complete. The dict goes
+    # as object: as a QVariantMap it would lose its tuple keys.
+    classification_complete = Signal(str, object)
+    classifier_error = Signal(str)  # error_message
 
-    def __init__(self, detector_factory: Callable[[str], Detector] = Detector):
+    def __init__(self, detector_factory: Callable[[str], Detector] = Detector,
+                 classifier_factory: Callable[[str, Sequence[str]], Classifier] = Classifier):
         """
         Args:
             detector_factory: Called with a model path to build the detector
                 on each model load. Defaults to the Detector class.
+            classifier_factory: Called with a model path and the classes it
+                names to build the classifier. Defaults to the Classifier class.
         """
         super().__init__()
         self._detector_factory = detector_factory
+        self._classifier_factory = classifier_factory
         self.detector = None
+        self.classifier = None
         self._lock = Lock()
         self._latest_request_params = None
         self._new_request_pending = False
@@ -75,6 +86,58 @@ class DetectionWorker(QObject):
             logger.error("Worker error loading model: %s", e)
             self.model_loaded.emit(False, f"Error loading model: {e}", [])
 
+    @Slot(str, list)
+    def set_classifier(self, model_path: str, patterns: list):
+        """
+        Loads the classifier at model_path, naming detections whose class
+        matches one of patterns, or unloads it for an empty path. Cached names
+        belong to the previous classifier, so they are dropped. Naming the
+        shown image again is up to the caller, via classify_image.
+        """
+        self.classifier = None
+        self._cache.clear_taxonomy()
+        if model_path:
+            try:
+                self.classifier = self._classifier_factory(model_path, patterns)
+                logger.info("Worker loaded classifier: %s", model_path)
+            except Exception as e:
+                logger.error("Worker error loading classifier: %s", e)
+                self.classifier_error.emit(f"Error loading classifier: {e}")
+
+    @Slot(str, float)
+    def classify_image(self, image_path: str, min_score: float):
+        """
+        Names the boxes of a cached image down to min_score, e.g. after the
+        confidence was lowered, and reports them. Only the boxes without names
+        are classified. An image no longer cached is ignored: the next request
+        for it classifies down to the confidence it carries.
+        """
+        entry = self._cache.get(image_path)
+        if entry is not None:
+            self._classify_and_report(image_path, entry, min_score)
+
+    def _classify_and_report(self, image_path: str, entry: CacheEntry, min_score: float, report: bool = True):
+        """
+        Names the detections picked by detections_to_classify whose boxes the
+        entry has no names for yet, and reports all of the entry's names. A failure leaves
+        the detections shown as they are. A prefetch passes report=False:
+        nothing is emitted and a failure is only logged, so the later real
+        request for the image retries and reports it.
+        """
+        if self.classifier is None:
+            return
+        boxes = [d.box for d in detections_to_classify(entry.results, min_score, self.classifier.patterns)
+                 if d.box not in entry.taxonomy]
+        try:
+            if boxes:
+                entry.taxonomy.update(zip(boxes, self.classifier.classify(entry.image, boxes), strict=True))
+        except Exception as e:
+            logger.exception("Could not classify the detections of %s", image_path)
+            if report:
+                self.classifier_error.emit(f"{os.path.basename(image_path)}: {e}")
+        if report:
+            self.classification_complete.emit(image_path, dict(entry.taxonomy))
+
     @Slot()
     def clear_cache(self):
         """Drops all cached images, e.g. after a new folder was loaded and files may have changed."""
@@ -85,15 +148,16 @@ class DetectionWorker(QObject):
         """Reports the current set of cached paths, e.g. so the image list can highlight them."""
         self.cache_updated.emit(self._cache.paths())
 
-    @Slot(str, bool, list)
-    def process_image(self, image_path: str, exposure_correction: bool, prefetch_paths: list):
+    @Slot(str, bool, list, float)
+    def process_image(self, image_path: str, exposure_correction: bool, prefetch_paths: list, min_score: float):
         """
         Receives a request to process an image. Instead of processing immediately,
         it updates the latest request parameters and ensures the processing loop is running.
         prefetch_paths are images to decode and detect ahead of time while idle.
+        Detections scoring below min_score are not classified, here and in the prefetch.
         """
         with self._lock:
-            self._latest_request_params = (image_path, exposure_correction)
+            self._latest_request_params = (image_path, exposure_correction, min_score)
             self._prefetch_paths = list(prefetch_paths)
             self._new_request_pending = True
             if not self._is_processing:
@@ -109,24 +173,23 @@ class DetectionWorker(QObject):
         while True:
             prefetch_path = None
             with self._lock:
+                params = self._latest_request_params
                 if self._new_request_pending:
-                    params = self._latest_request_params
                     self._new_request_pending = False
-                    assert params is not None  # Guaranteed by process_image setting both together
                 elif self.detector is not None and self._prefetch_paths:
-                    params = None
                     prefetch_path = self._prefetch_paths.pop(0)
                 else:
                     self._is_processing = False
                     return  # No new requests, exit the loop
 
+            assert params is not None
+            image_path, exposure_correction, min_score = params
+
             if prefetch_path is not None:
-                self._prefetch(prefetch_path)
+                self._prefetch(prefetch_path, min_score)
                 continue
 
             # Start of processing for the latest request
-            image_path, exposure_correction = params
-
             if not self.detector:
                 self.error.emit(image_path, "Model not loaded.")
                 continue  # Continue to the next iteration of the loop
@@ -138,6 +201,7 @@ class DetectionWorker(QObject):
                     entry.image.exposure_correction = exposure_correction
                     self.image_loaded.emit(image_path, entry.image)
                     self.detection_complete.emit(image_path, entry.results, entry.detection_time_ms)
+                    self._classify_and_report(image_path, entry, min_score)
                     continue
 
                 # Check for new requests before doing expensive work
@@ -168,7 +232,8 @@ class DetectionWorker(QObject):
 
                 # Cache even if the result turns out stale below; the work is done
                 # and the user may come back to this image.
-                self._cache.put(image_path, CacheEntry(image, results, detection_time_ms))
+                entry = CacheEntry(image, results, detection_time_ms)
+                self._cache.put(image_path, entry)
                 self._notify_cache_updated()
 
                 # After detection, check one last time. If a new request came in,
@@ -177,6 +242,7 @@ class DetectionWorker(QObject):
                     continue
 
                 self.detection_complete.emit(image_path, results, detection_time_ms)
+                self._classify_and_report(image_path, entry, min_score)
 
             except Exception as e:
                 # Only emit error if it's for the request we just tried to process
@@ -184,24 +250,28 @@ class DetectionWorker(QObject):
                     if not self._new_request_pending:
                         self.error.emit(image_path, f"Error processing image: {e}")
 
-    def _prefetch(self, image_path: str):
+    def _prefetch(self, image_path: str, min_score: float):
         """
-        Loads and detects one image into the cache. Emits no signals: a later
-        real request for this path presents the results (or surfaces errors)
-        through the normal path.
+        Loads, detects and classifies one image into the cache. A cached one
+        only gets the names it misses. Emits no signals: a later real request
+        for this path presents the results (or surfaces errors) through the
+        normal path.
         """
-        if self._cache.get(image_path) is not None:
-            # Already cached; get() promotes it to MRU so it survives upcoming evictions.
-            return
+        # get() also promotes a cached entry to MRU so it survives upcoming evictions
+        entry = self._cache.get(image_path)
         try:
-            image = ImageObject.create(image_path)
-            if self._abandon_prefetch(image_path):
-                return
-            start_time = time.perf_counter()
-            results = self.detector.detect(image)
-            detection_time_ms = (time.perf_counter() - start_time) * 1000
-            self._cache.put(image_path, CacheEntry(image, results, detection_time_ms))
-            self._notify_cache_updated()
+            if entry is None:
+                image = ImageObject.create(image_path)
+                if self._abandon_prefetch(image_path):
+                    return
+                start_time = time.perf_counter()
+                results = self.detector.detect(image)
+                detection_time_ms = (time.perf_counter() - start_time) * 1000
+                entry = CacheEntry(image, results, detection_time_ms)
+                self._cache.put(image_path, entry)
+                self._notify_cache_updated()
+            if not self._abandon_prefetch(image_path):
+                self._classify_and_report(image_path, entry, min_score, report=False)
         except Exception as e:
             logger.warning("Prefetch failed for %s: %s", image_path, e)
 

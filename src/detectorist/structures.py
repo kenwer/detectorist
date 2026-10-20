@@ -16,6 +16,10 @@ class ImageMode(Enum):
     PALETTE = "P"
 
 
+# The (x, y, w, h) of a Detection in image pixels, hashable so it can key what is known about it
+Box = tuple[int, int, int, int]
+
+
 class Detection(NamedTuple):
     """
     One object the model found in an image.
@@ -24,7 +28,25 @@ class Detection(NamedTuple):
     The mask is only set by segmentation models: a uint8 array (0 or 255)
     at model input resolution, scaled by the display layer.
     """
-    box: tuple[int, int, int, int]  # (x, y, w, h) in image pixel space
+    box: Box
     score: float
     class_name: str
     mask: np.ndarray | None = None
+
+
+class RankedName(NamedTuple):
+    """The name a classifier chose at one taxonomic rank and its probability."""
+    name: str
+    score: float
+
+
+class Taxonomy(NamedTuple):
+    """
+    What a classifier makes of one detection. The chain is consistent: the
+    genus belongs to the family and the species to the genus, so the scores
+    never rise going down. The species name is in the model's Genus_species
+    form.
+    """
+    family: RankedName
+    genus: RankedName
+    species: RankedName

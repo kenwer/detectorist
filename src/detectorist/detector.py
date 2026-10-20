@@ -1,5 +1,4 @@
 import ast
-import gzip
 
 import cv2
 import numpy as np
@@ -7,15 +6,7 @@ import onnxruntime as ort
 
 from .image_object import ImageObject
 from .structures import Detection
-
-
-def _load_model_bytes(model_path: str) -> bytes:
-    """Read an ONNX model file, transparently decompressing gzip if needed."""
-    if model_path.endswith(".gz"):
-        with gzip.open(model_path, 'rb') as f:
-            return f.read()
-    with open(model_path, 'rb') as f:
-        return f.read()
+from .utils import load_model_bytes
 
 
 class Detector:
@@ -43,8 +34,11 @@ class Detector:
             OSError: If the model file cannot be loaded.
         """
         try:
-            self.session = ort.InferenceSession(_load_model_bytes(model_path))
-            onnx_names_str = self.session.get_modelmeta().custom_metadata_map.get('names', '{}')
+            self.session = ort.InferenceSession(load_model_bytes(model_path))
+            metadata = self.session.get_modelmeta().custom_metadata_map
+            if 'classifier' in metadata:
+                raise ValueError("this is a classifier, not a detection model")
+            onnx_names_str = metadata.get('names', '{}')
             self.class_names = ast.literal_eval(onnx_names_str.strip())
 
         except Exception as e:
@@ -70,7 +64,7 @@ class Detector:
 
         Returns:
             A list of Detection tuples sorted by score descending. Each box is
-            in [x, y, w, h] format (top-left corner + dimensions). mask is a
+            an (x, y, w, h) tuple (top-left corner + dimensions). mask is a
             uint8 array at model input resolution (0 or 255) for segmentation
             models, or None for detection-only models.
         """
@@ -118,7 +112,8 @@ class Detector:
         y = (cy - h / 2) * original_height
         w_scaled = w * original_width
         h_scaled = h * original_height
-        boxes_xywh = np.column_stack((x, y, w_scaled, h_scaled)).astype(int).tolist()
+        # Tuples, so a box can key what the classifier says about it
+        boxes_xywh = [tuple(b) for b in np.column_stack((x, y, w_scaled, h_scaled)).astype(int).tolist()]
 
         # Build final results.
         # The 'names' metadata is keyed by the class ID argmax produces: RF-DETR detection

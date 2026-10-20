@@ -20,8 +20,8 @@ from detectorist import model_downloader
 from detectorist import toasts as toasts_module
 from detectorist.model_downloader import ModelDownloader
 from detectorist.settings import Settings
-from tests.fakes import FakeDetectorFactory
-from tests.tiny_models import DETECT_MODEL
+from tests.fakes import FakeClassifierFactory, FakeDetectorFactory
+from tests.tiny_models import CLASSIFY_MODEL, DETECT_MODEL
 
 # Assigned, not setdefault: on a real platform the window tests would open
 # windows and the clipboard tests would overwrite the developer's clipboard.
@@ -123,7 +123,30 @@ def detector_factory() -> FakeDetectorFactory:
 
 
 @pytest.fixture
-def make_window(qtbot, spawned, settings, models_dir, detector_factory):
+def classifier_factory() -> FakeClassifierFactory:
+    return FakeClassifierFactory()
+
+
+@pytest.fixture
+def species_model(models_dir) -> str:
+    """Adds a classifier file to the models folder and to its manifest. Returns the filename."""
+    filename = "tiny-classify.onnx"
+    shutil.copy(CLASSIFY_MODEL, models_dir / filename)
+    manifest_path = models_dir / "models.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest.append({
+        "name": "Tiny Species",
+        "kind": "classifier",
+        "url": f"https://example.invalid/{filename}",
+        "size_mb": 1,
+        "release_date": "2026-01-01",
+    })
+    manifest_path.write_text(json.dumps(manifest))
+    return filename
+
+
+@pytest.fixture
+def make_window(qtbot, spawned, settings, models_dir, detector_factory, classifier_factory):
     """Build a real DetectoristApp on test doubles.
 
     The worker and its QThread are real. qtbot closes each window on
@@ -135,7 +158,8 @@ def make_window(qtbot, spawned, settings, models_dir, detector_factory):
     windows = []
 
     def _make(*, wait_for_model=True, **overrides):
-        kwargs = {"settings": settings, "models_dir": str(models_dir), "detector_factory": detector_factory}
+        kwargs = {"settings": settings, "models_dir": str(models_dir), "detector_factory": detector_factory,
+                  "classifier_factory": classifier_factory}
         window = DetectoristApp(**(kwargs | overrides))
         qtbot.addWidget(window)
         windows.append(window)

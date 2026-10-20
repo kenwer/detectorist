@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import pillow_heif
@@ -18,6 +18,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtWidgets import (
     QApplication,
+    QComboBox,
     QFileDialog,
     QMainWindow,
     QMenu,
@@ -29,7 +30,15 @@ from PySide6.QtWidgets import (
 from detectorist import __version__
 
 from .about_dialog import show_about_dialog
-from .batch_run import CropExportAction, SortByClassAction, detections_csv_name, run_batch, settings_json_name
+from .batch_run import (
+    CropExportAction,
+    SortByClassAction,
+    classification_csv_name,
+    detections_csv_name,
+    run_batch,
+    settings_json_name,
+)
+from .classifier import Classifier, class_matches, describe
 from .crop_planner import CropMode, CropSettings, plan_crops
 from .detector import Detector
 from .image_cache import PrefetchPlanner
@@ -75,13 +84,16 @@ def image_name_filter(platform: str = sys.platform) -> str:
 
 class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
-    request_processing = Signal(str, bool, list)  # image_path, exposure_correction, prefetch_paths
+    request_processing = Signal(str, bool, list, float)  # image_path, exposure_correction, prefetch_paths, min_score
+    request_classifier = Signal(str, list)  # model_path ("" for none), the classes it names (see class_matches)
+    request_classification = Signal(str, float)  # image_path, min_score
 
     def __init__(
         self,
         settings: Settings | None = None,
         models_dir: str | None = None,
         detector_factory: Callable[[str], Detector] = Detector,
+        classifier_factory: Callable[[str, Sequence[str]], Classifier] = Classifier,
     ):
         """
         Args:
@@ -89,15 +101,24 @@ class DetectoristApp(QMainWindow):
             models_dir: Folder scanned for model files. Defaults to get_model_path().
             detector_factory: Called with a model path to build a detector, by
                 the worker for interactive use and here for each batch run.
+            classifier_factory: Likewise for the classifier.
         """
         super().__init__()
 
         self.settings = settings if settings is not None else Settings()
         self._detector_factory = detector_factory
+        self._classifier_factory = classifier_factory
         self.current_image_path = None
         self._prefetch_planner = PrefetchPlanner()
         self._all_detection_results: list = []
         self._last_detection_time_ms: float = 0.0
+        # What the classifier said about the current image's detections, keyed by box
+        self._taxonomy_by_box: dict = {}
+        # The classifier the user chose, by filename. It stays the choice while a
+        # detection model is loaded that it does not apply to.
+        self._preferred_classifier: str | None = None
+        # Classes of the loaded detection model. They decide which classifiers are offered.
+        self._detector_class_names: list[str] = []
         self._last_output_dir: str | None = None
         # When the Manage Models dialog is open it reports download progress
         # itself, so app-level toasts are suppressed to avoid double feedback.
@@ -126,6 +147,7 @@ class DetectoristApp(QMainWindow):
         # Snapshot the .ui file's built-in defaults before _load_settings() can override
         # them, so "Reset Settings to Defaults" has real values to restore.
         self._default_confidence = self.ui.confidence_slider.value()
+        self._default_taxon_confidence = self.ui.taxon_confidence_slider.value()
         self._default_padding = self.ui.padding_slider.value()
         self._default_aspect_ratio_index = self.ui.crop_ratio_combo_box.currentIndex()
         self._default_auto_correct_exposure = self.ui.cb_comp_cam_exposure.isChecked()
@@ -174,6 +196,15 @@ class DetectoristApp(QMainWindow):
         # Confidence slider/spinbox update the display filter only (no re-inference)
         self.ui.confidence_slider.valueChanged.connect(self._display_filtered_results)
         self.ui.confidence_spin_box.valueChanged.connect(self._display_filtered_results)
+        # The worker only names boxes at or above the confidence, so a lower one asks for the rest.
+        # Debounced: the worker handles one request at a time, and the ticks of a drag queued
+        # up there would delay the next image.
+        self._classification_timer = QTimer(self)
+        self._classification_timer.setSingleShot(True)
+        self._classification_timer.setInterval(200)
+        self._classification_timer.timeout.connect(self._request_classification)
+        self.ui.confidence_slider.valueChanged.connect(self._classification_timer.start)
+        self.ui.taxon_confidence_slider.valueChanged.connect(self._display_filtered_results)
 
         # Connect crop controls
         self.ui.rb_crop_to_top_conf.toggled.connect(self.update_crop_bands)
@@ -208,7 +239,7 @@ class DetectoristApp(QMainWindow):
 
         # Setup worker thread, to offload image loading and detection, so the GUI remains responsive.
         self._worker_thread = QThread()
-        self.worker = DetectionWorker(self._detector_factory)
+        self.worker = DetectionWorker(self._detector_factory, self._classifier_factory)
         self.worker.moveToThread(self._worker_thread)
 
         # Connect signals/slots for worker
@@ -221,7 +252,12 @@ class DetectoristApp(QMainWindow):
         self.worker.detection_complete.connect(self.handle_detection_complete)
         self.worker.error.connect(self.handle_worker_error)
         self.worker.cache_updated.connect(self.model.setCachedPaths)
+        self.worker.classification_complete.connect(self.handle_classification_complete)
+        self.worker.classifier_error.connect(self.handle_classifier_error)
+        self.request_classifier.connect(self.worker.set_classifier)
+        self.request_classification.connect(self.worker.classify_image)
         self.ui.model_select_combo_box.currentIndexChanged.connect(self.on_model_selected)
+        self.ui.classifier_combo_box.currentIndexChanged.connect(self._on_classifier_chosen)
         self.ui.class_filter_combo_box.currentIndexChanged.connect(self.on_class_filter_changed)
 
         # Start the thread
@@ -254,20 +290,31 @@ class DetectoristApp(QMainWindow):
         """
         Apply the persistent Model and Crop settings to the UI. The model combo
         box is set with its signals blocked, so the caller has to follow up
-        with on_model_selected() to load the selected model in the worker.
+        with on_model_selected() to load the selected model in the worker. The
+        classifier is selected once a model it applies to has loaded.
         """
         # Model selection
         if self.settings.model:
             combo = self.ui.model_select_combo_box
             combo.blockSignals(True)
-            idx = self._find_model_index(self.settings.model)
+            idx = self._find_model_index(combo, self.settings.model)
             if idx >= 0:
                 combo.setCurrentIndex(idx)
             combo.blockSignals(False)
 
+        # Classifier choice. At startup no detection model has loaded yet, so the
+        # list stays at "No classifier" until handle_model_loaded refreshes it.
+        # After Import Settings, the refresh selects the imported choice.
+        self._preferred_classifier = self.settings.classifier
+        self._refresh_classifier_list()
+
         # Confidence (slider and spinbox are linked)
         if (confidence := self.settings.confidence) is not None:
             self.ui.confidence_slider.setValue(confidence)
+
+        # Taxon confidence (slider and spinbox are linked)
+        if (taxon_confidence := self.settings.taxon_confidence) is not None:
+            self.ui.taxon_confidence_slider.setValue(taxon_confidence)
 
         # Crop mode
         if (crop_mode := CropMode.from_setting(self.settings.crop_mode)) is not None:
@@ -296,6 +343,10 @@ class DetectoristApp(QMainWindow):
 
         # Model selection
         self.settings.model = self.ui.model_select_combo_box.currentData()
+
+        # Classifier selection and taxon confidence
+        self.settings.classifier = self._preferred_classifier
+        self.settings.taxon_confidence = self.ui.taxon_confidence_slider.value()
 
         # Confidence
         self.settings.confidence = self.ui.confidence_slider.value()
@@ -503,6 +554,9 @@ class DetectoristApp(QMainWindow):
         # _load_settings() only overwrites a widget when a persisted value exists, so it
         # can't restore a value that was just cleared. Re-apply the .ui defaults directly.
         self.ui.confidence_slider.setValue(self._default_confidence)
+        self.ui.taxon_confidence_slider.setValue(self._default_taxon_confidence)
+        self._preferred_classifier = None
+        self.ui.classifier_combo_box.setCurrentIndex(0)
         self.ui.padding_slider.setValue(self._default_padding)
         self.ui.crop_ratio_combo_box.setCurrentIndex(self._default_aspect_ratio_index)
         self.ui.cb_comp_cam_exposure.setChecked(self._default_auto_correct_exposure)
@@ -604,7 +658,8 @@ class DetectoristApp(QMainWindow):
 
         exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
         prefetch_hints = self._prefetch_planner.hints(self.model.imagePaths(), self.current_image_path)
-        self.request_processing.emit(self.current_image_path, exposure_correction, prefetch_hints)
+        min_score = self.ui.confidence_slider.value() / 100.0
+        self.request_processing.emit(self.current_image_path, exposure_correction, prefetch_hints, min_score)
 
     def handle_model_loaded(self, success: bool, message: str, class_names: list):
         """Handles the result of loading a model in the worker."""
@@ -616,6 +671,8 @@ class DetectoristApp(QMainWindow):
             self.ui.class_filter_combo_box.addItem(name)
         self.ui.class_filter_combo_box.blockSignals(False)
         self._all_detection_results = []
+        self._detector_class_names = class_names
+        self._refresh_classifier_list()
         if success:
             logger.info(message)
             # If an image is currently displayed, trigger a new detection with the new model.
@@ -659,7 +716,25 @@ class DetectoristApp(QMainWindow):
 
         self._all_detection_results = results
         self._last_detection_time_ms = detection_time_ms
+        # The names follow with classification_complete
+        self._taxonomy_by_box = {}
         self._display_filtered_results()
+
+    def handle_classification_complete(self, image_path: str, taxonomy_by_box: dict):
+        """Handles the classification_complete signal from the worker."""
+        if image_path != self.current_image_path:
+            return
+        self._taxonomy_by_box = taxonomy_by_box
+        self._display_filtered_results()
+
+    def _request_classification(self):
+        """Asks the worker to name the shown image's boxes down to the current confidence."""
+        if self.current_image_path and self.ui.classifier_combo_box.currentData():
+            self.request_classification.emit(self.current_image_path, self.ui.confidence_slider.value() / 100.0)
+
+    def handle_classifier_error(self, message: str):
+        """Handles the classifier_error signal from the worker. The detections stay as they are."""
+        show_error_toast(self, "Classifier error", message)
 
     def _selected_class_filter(self) -> str | None:
         """The class name chosen in the class filter, or None for "All classes"."""
@@ -684,7 +759,9 @@ class DetectoristApp(QMainWindow):
             confidence=f"{max((det.score for det in filtered), default=0):.4f}",
             time=f"{self._last_detection_time_ms:.2f} ms"
         )
-        self.ui.image_label.set_detection_boxes(filtered)
+        threshold = self.ui.taxon_confidence_slider.value() / 100.0
+        tooltips = {box: describe(taxonomy, threshold) for box, taxonomy in self._taxonomy_by_box.items()}
+        self.ui.image_label.set_detection_boxes(filtered, tooltips)
         self.update_crop_bands()
 
     def on_class_filter_changed(self):
@@ -750,14 +827,19 @@ class DetectoristApp(QMainWindow):
         show_error_toast(self, "Model download failed", message)
 
     def _refresh_model_list(self):
-        """Re-scan the models directory and update the combo box."""
+        """
+        Re-scan the models directory and update the model and classifier
+        combo boxes. Which files are classifiers is the manifest's call.
+        """
         previous_filename = self.ui.model_select_combo_box.currentData()
         self.ui.model_select_combo_box.clear()
 
         name_map = self._model_downloader.filename_to_name
+        classifiers = self._model_downloader.classifier_patterns
 
         onnx_files = sorted(f for f in os.listdir(self.models_dir)
-                            if f.endswith(".onnx") or f.endswith(".onnx.gz"))
+                            if (f.endswith(".onnx") or f.endswith(".onnx.gz")) and f not in classifiers)
+        self._refresh_classifier_list()
 
         combo = self.ui.model_select_combo_box
         combo.blockSignals(True)
@@ -766,7 +848,7 @@ class DetectoristApp(QMainWindow):
             combo.addItem(display_name, filename)
 
         # Restore previous selection by filename
-        idx = self._find_model_index(previous_filename)
+        idx = self._find_model_index(combo, previous_filename)
         if idx >= 0:
             combo.setCurrentIndex(idx)
         combo.blockSignals(False)
@@ -779,13 +861,58 @@ class DetectoristApp(QMainWindow):
 
         self._on_model_availability_changed()
 
-    def _find_model_index(self, filename: str | None) -> int:
+    def _refresh_classifier_list(self):
         """
-        Combo box index of the given model file, or -1. A file that is gone
-        resolves to the model that supersedes it, so the selection follows a
-        model across an update instead of jumping to the first one in the list.
+        Update the classifier combo box with the classifiers in the models
+        directory that name at least one class of the loaded detection model,
+        and select the user's choice if it is among them.
         """
-        combo = self.ui.model_select_combo_box
+        combo = self.ui.classifier_combo_box
+        previous_filename = combo.currentData()
+        name_map = self._model_downloader.filename_to_name
+        on_disk = set(os.listdir(self.models_dir))
+        applicable = sorted(
+            filename for filename, patterns in self._model_downloader.classifier_patterns.items()
+            if filename in on_disk and any(class_matches(patterns, name) for name in self._detector_class_names)
+        )
+
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem("No classifier", None)
+        for filename in applicable:
+            combo.addItem(name_map.get(filename) or strip_model_ext(filename), filename)
+        combo.setCurrentIndex(max(self._find_model_index(combo, self._preferred_classifier), 0))
+        combo.blockSignals(False)
+        combo.setEnabled(combo.count() > 1)
+
+        # Signals were blocked, so the change is loaded here without becoming the user's choice
+        if combo.currentData() != previous_filename:
+            self._load_selected_classifier()
+
+    def _on_classifier_chosen(self):
+        """Remembers the classifier picked in the combo box as the user's choice and loads it."""
+        self._preferred_classifier = self.ui.classifier_combo_box.currentData()
+        self._load_selected_classifier()
+
+    def _load_selected_classifier(self):
+        """
+        Loads the classifier selected in the combo box in the worker, or
+        unloads it for "No classifier", and has the shown image named again.
+        """
+        filename = self.ui.classifier_combo_box.currentData()
+        model_path = os.path.join(self.models_dir, filename) if filename else ""
+        self.request_classifier.emit(model_path, self._model_downloader.classifier_patterns.get(filename, []))
+        self._taxonomy_by_box = {}
+        self._display_filtered_results()
+        self._request_classification()
+
+    def _find_model_index(self, combo: QComboBox, filename: str | None) -> int:
+        """
+        Index of the given model file in the combo box, or -1. A file that is
+        gone resolves to the model that supersedes it, so the selection
+        follows a model across an update instead of jumping to the first one
+        in the list.
+        """
         idx = combo.findData(filename)
         if idx < 0 and filename:
             successor = self._model_downloader.successor_of(filename)
@@ -967,20 +1094,26 @@ class DetectoristApp(QMainWindow):
         try:
             model_filename = self.ui.model_select_combo_box.currentData()
             output_dir = os.path.join(output_base_dir, OUTPUT_DIR_NAME)
-            csv_filename = detections_csv_name(self.ui.confidence_slider.value(), model_filename)
-
-            # The detector lives in the worker thread. We can't access it directly.
-            # For batch processing, we need a separate detector instance.
-            batch_detector = self._detector_factory(os.path.join(self.models_dir, model_filename))
+            detections_csv_filename = detections_csv_name(self.ui.confidence_slider.value(), model_filename)
 
             total_files = len(image_full_paths)
-            progress_dialog = QProgressDialog(f"{process_name}...", "Cancel", 0, total_files, self)
+            progress_dialog = QProgressDialog("Loading models...", "Cancel", 0, total_files, self)
             progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
             progress_dialog.setAutoClose(True)
             # Default minimumDuration is 4s, during which the dialog is invisible
             # but the window underneath stays fully clickable. Show it immediately
             # so the batch-actions guard below has a visible reason to exist.
             progress_dialog.setMinimumDuration(0)
+            # Shown before the models load, which takes seconds for a classifier
+            progress_dialog.show()
+            QApplication.processEvents()
+
+            # The models of the worker live in its thread. A Batch Run builds its own.
+            batch_detector = self._detector_factory(os.path.join(self.models_dir, model_filename))
+            classifier_filename = self.ui.classifier_combo_box.currentData()
+            batch_classifier = (self._classifier_factory(os.path.join(self.models_dir, classifier_filename),
+                                                         self._model_downloader.classifier_patterns[classifier_filename])
+                                if classifier_filename else None)
 
             def progress(index: int, total: int, file_name: str) -> bool:
                 progress_dialog.setValue(index)
@@ -991,13 +1124,17 @@ class DetectoristApp(QMainWindow):
             result = run_batch(
                 image_full_paths,
                 batch_detector,
-                confidence=self.ui.confidence_slider.value() / 100.0,
+                detection_confidence=self.ui.confidence_slider.value() / 100.0,
                 exposure_correction=self.ui.cb_comp_cam_exposure.isChecked(),
                 output_dir=output_dir,
-                csv_filename=csv_filename,
+                detections_csv_filename=detections_csv_filename,
                 action=action,
                 progress=progress,
                 class_filter=self._selected_class_filter(),
+                classifier=batch_classifier,
+                taxon_confidence=self.ui.taxon_confidence_slider.value() / 100.0,
+                classification_csv_filename=classification_csv_name(self.ui.taxon_confidence_slider.value(),
+                                                                    classifier_filename),
             )
 
             # Export Model & Crop settings to JSON alongside the CSV
@@ -1019,7 +1156,7 @@ class DetectoristApp(QMainWindow):
                         self,
                         "Detectorist",
                         f"Finished {process_name.lower()}, but {count} image{'s' if count != 1 else ''} failed. "
-                        f"See {csv_filename} for details.",
+                        f"See {detections_csv_filename} for details.",
                         link_text="Show in file manager",
                         on_link=lambda: self._open_native_file_manager(out_dir),
                         duration=0,  # keep the toast up, as the user may not be watching a long run

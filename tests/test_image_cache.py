@@ -4,7 +4,8 @@ The cache never touches the stored objects, so plain strings stand in for
 the heavyweight CacheEntry payloads.
 """
 
-from detectorist.image_cache import ImageCache, PrefetchPlanner
+from detectorist.image_cache import CacheEntry, ImageCache, PrefetchPlanner
+from tests.fakes import TAXONOMY
 
 
 def test_put_get_roundtrip():
@@ -128,3 +129,16 @@ def test_reset_clears_tracked_direction():
     planner.reset()
     # With state cleared, even an adjacent step falls back to the no-direction shape.
     assert planner.hints(PATHS, "12") == ["13", "11", "14", "10"]
+
+
+def test_clear_taxonomy_keeps_images_and_detections():
+    cache = ImageCache()
+    cache.put("a", CacheEntry("image-a", ["detection"], 1.0, {(0, 0, 5, 5): TAXONOMY}))
+    cache.put("b", CacheEntry("image-b", [], 2.0, {(1, 1, 5, 5): TAXONOMY}))
+
+    cache.clear_taxonomy()
+
+    assert cache.paths() == ["a", "b"]
+    assert cache.get("a").taxonomy == {}
+    assert cache.get("b").taxonomy == {}
+    assert cache.get("a").results == ["detection"]

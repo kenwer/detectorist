@@ -13,6 +13,7 @@ a project dependency, so it is declared inline above and installed into a
 throwaway environment for this script only.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -52,9 +53,46 @@ def build(path: Path, logits: list, class_names: dict, masks: list | None = None
     print(f"wrote {path} ({path.stat().st_size} bytes)")
 
 
+def build_classifier(path: Path) -> None:
+    """Write a classifier shaped like a species_export.py export, with a free batch size."""
+    size = tiny_models.CLASSIFY_SIZE
+    species = len(tiny_models.CLASSIFY_SPECIES)
+    pixels = helper.make_tensor_value_info("pixels", TensorProto.FLOAT, ["batch", 3, size, size])
+    probs = helper.make_tensor_value_info("probs", TensorProto.FLOAT, ["batch", species])
+
+    weights = numpy_helper.from_array(np.asarray(tiny_models.CLASSIFY_WEIGHTS, dtype=np.float32), "weights")
+    bias = numpy_helper.from_array(np.asarray(tiny_models.CLASSIFY_BIAS, dtype=np.float32), "bias")
+    nodes = [
+        helper.make_node("ReduceMean", ["pixels"], ["channel_means"], axes=[2, 3], keepdims=0),
+        helper.make_node("MatMul", ["channel_means", "weights"], ["scores"]),
+        helper.make_node("Add", ["scores", "bias"], ["logits"]),
+        helper.make_node("Softmax", ["logits"], ["probs"], axis=1),
+    ]
+
+    graph = helper.make_graph(nodes, "tiny-classify", [pixels], [probs], initializer=[weights, bias])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 8
+    model.metadata_props.add(key="names", value=repr(tiny_models.CLASSIFY_SPECIES))
+    model.metadata_props.add(key="classifier", value=json.dumps({
+        "size": size,
+        "margin": tiny_models.CLASSIFY_MARGIN,
+        "fill": tiny_models.CLASSIFY_FILL,
+        "input": "RGB 0..1 NCHW",
+        "genera": tiny_models.CLASSIFY_GENERA,
+        "families": tiny_models.CLASSIFY_FAMILIES,
+        "genus_of": tiny_models.CLASSIFY_GENUS_OF,
+        "family_of": tiny_models.CLASSIFY_FAMILY_OF,
+    }))
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    onnx.save(model, str(path))
+    print(f"wrote {path} ({path.stat().st_size} bytes)")
+
+
 def main() -> None:
     build(tiny_models.DETECT_MODEL, tiny_models.DETECT_LOGITS, tiny_models.DETECT_CLASS_NAMES)
     build(tiny_models.SEG_MODEL, tiny_models.SEG_LOGITS, tiny_models.SEG_CLASS_NAMES, masks=tiny_models.mask_logits())
+    build_classifier(tiny_models.CLASSIFY_MODEL)
 
 
 if __name__ == "__main__":

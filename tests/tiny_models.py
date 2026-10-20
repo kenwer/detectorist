@@ -15,6 +15,7 @@ from pathlib import Path
 DATA_DIR = Path(__file__).parent / "data"
 DETECT_MODEL = DATA_DIR / "tiny-detect.onnx"
 SEG_MODEL = DATA_DIR / "tiny-seg.onnx"
+CLASSIFY_MODEL = DATA_DIR / "tiny-classify.onnx"
 
 INPUT_SIZE = 32
 MASK_SIZE = 8
@@ -56,3 +57,30 @@ def mask_logits() -> list[list[list[float]]]:
             if row < half:
                 masks[1][row][col] = MASK_LOGIT
     return masks
+
+
+# The classifier does depend on its input, unlike the detectors above: it
+# averages each colour channel of a crop and scores the species from those
+# three numbers. A red crop gives species 0, a green one species 1, a blue one
+# species 2 and a dark one species 3, so a test can tell which crop produced
+# which answer.
+CLASSIFY_SIZE = 16
+CLASSIFY_MARGIN = 0.05
+CLASSIFY_FILL = "crop-mean"
+CLASSIFY_SPECIES = {
+    0: "Amphiprion_ocellaris",
+    1: "Amphiprion_clarkii",
+    2: "Halichoeres_hortulanus",
+    3: "Halichoeres_marginatus",
+}
+CLASSIFY_GENERA = ["Amphiprion", "Halichoeres"]
+CLASSIFY_FAMILIES = ["Pomacentridae", "Labridae"]
+CLASSIFY_GENUS_OF = [0, 0, 1, 1]
+CLASSIFY_FAMILY_OF = [0, 0, 1, 1]
+# Rows are the red, green and blue channel means, columns the species.
+CLASSIFY_WEIGHTS = [
+    [8.0, 0.0, 0.0, 0.0],
+    [0.0, 8.0, 0.0, 0.0],
+    [0.0, 0.0, 8.0, 0.0],
+]
+CLASSIFY_BIAS = [0.0, 0.0, 0.0, 2.0]

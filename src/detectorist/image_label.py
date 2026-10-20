@@ -39,12 +39,10 @@ def build_class_color_map(class_names: list[str]) -> dict[str, tuple]:
 
 
 class CustomRubberBand(QRubberBand):
-    def __init__(self, shape, border_color, fill_color, score=None, class_name=None, parent=None):
+    def __init__(self, shape, border_color, fill_color, parent=None):
         super().__init__(shape, parent)
         self.border_color = border_color
         self.fill_color = fill_color
-        self.score = score
-        self.class_name = class_name
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -77,11 +75,11 @@ class TooltipEventFilter(QObject):
                     mx = int(img_point.x() * mask.shape[1] / self.parent_label.image.width)
                     my = int(img_point.y() * mask.shape[0] / self.parent_label.image.height)
                     if 0 <= my < mask.shape[0] and 0 <= mx < mask.shape[1] and mask[my, mx] > 128:
-                        QToolTip.showText(event.globalPos(), f"{band.class_name} {band.score:.2f}", band)
+                        QToolTip.showText(event.globalPos(), band.toolTip(), band)
                         return True
                 else:
                     if band.geometry().contains(event.pos()):
-                        QToolTip.showText(event.globalPos(), f"{band.class_name} {band.score:.2f}", band)
+                        QToolTip.showText(event.globalPos(), band.toolTip(), band)
                         return True
             QToolTip.hideText()
         return super().eventFilter(watched, event)
@@ -157,13 +155,21 @@ class ImageLabel(QLabel):
         self._mask_overlay_pixmap = None
         self.update()
 
-    def set_detection_boxes(self, detections):
+    def set_detection_boxes(self, detections, tooltips: dict | None = None):
+        """
+        Shows the given detections. tooltips maps a detection's box to the text
+        shown on hovering it, in place of its class and score.
+        """
         self._clear_detection_bands()
+        tooltips = tooltips or {}
 
         if self.image is None or self.image.image_data is None:
             return
 
         image_height, image_width = self.image.height, self.image.width
+        has_masks = any(mask is not None for *_, mask in detections)
+        color_map = self.class_color_map if has_masks else {}
+        fallback_color = MASK_COLORS[0] if has_masks else DETECTION_BORDER_COLOR_RGB
 
         # Clamp boxes to image bounds and store as QRects so we always have a
         # reference to the original bounding box coordinates in image space.
@@ -172,22 +178,21 @@ class ImageLabel(QLabel):
             x2, y2 = min(x + w, image_width), min(y + h, image_height)
 
             # Ensure the box has a non-zero area
-            if x2 > x1 and y2 > y1:
-                self.orig_detection_rects.append((QRect(x1, y1, x2 - x1, y2 - y1), score, class_name))
-                self.orig_detection_masks.append(mask)
+            if not (x2 > x1 and y2 > y1):
+                continue
+            rect = QRect(x1, y1, x2 - x1, y2 - y1)
+            self.orig_detection_rects.append((rect, score, class_name))
+            self.orig_detection_masks.append(mask)
 
-        has_masks = any(m is not None for m in self.orig_detection_masks)
-        color_map = self.class_color_map if has_masks else {}
-        fallback_color = MASK_COLORS[0] if has_masks else DETECTION_BORDER_COLOR_RGB
-
-        for rect, score, class_name in self.orig_detection_rects:
             alpha = int(10 + score * (255 - 10))  # Scale score (0.0-1.0) to alpha (10-255)
             alpha_fill = 0 if has_masks else int(score * 20)
             color_rgb = color_map.get(class_name, fallback_color)
 
-            band = CustomRubberBand(QRubberBand.Shape.Rectangle, border_color=QColor(*color_rgb, alpha), fill_color=QColor(*color_rgb, alpha_fill), score=score, class_name=class_name, parent=self)
-            widget_rect = self._map_rect_from_image_to_widget(rect)
-            band.setGeometry(widget_rect)
+            band = CustomRubberBand(QRubberBand.Shape.Rectangle, border_color=QColor(*color_rgb, alpha), fill_color=QColor(*color_rgb, alpha_fill), parent=self)
+            band.setGeometry(self._map_rect_from_image_to_widget(rect))
+            # Only stored here. QRubberBand ignores the mouse, so TooltipEventFilter
+            # shows it, and only over the mask for a segmentation model.
+            band.setToolTip(tooltips.get((x, y, w, h), f"{class_name} {score:.2f}"))
             band.setVisible(self._detection_overlay_visible)
             self.detection_bands.append(band)
 
@@ -195,7 +200,7 @@ class ImageLabel(QLabel):
         self.update()
 
     def _build_mask_overlay_pixmap(self, color_map: dict | None):
-        if color_map is None:
+        if color_map is None or not self.orig_detection_masks:
             self._mask_overlay_pixmap = None
             return
 

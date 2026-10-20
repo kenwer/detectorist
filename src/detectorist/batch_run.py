@@ -1,10 +1,11 @@
-"""The Batch Run: one pass of a detector over a set of images.
+"""The Batch Run: one pass of a detector (and a classifier) over a set of images.
 
-Owns the pipeline (load, detect, filter, act, log) plus cancellation and
-the detections.csv summary. Loading runs one image ahead on a background
-thread so decode overlaps detection. Qt-free: progress crosses a callback
-seam, and the per-image behaviour is a BatchAction adapter (Crop & Export
-or Sort by Class), so the whole run can be exercised headless.
+Owns the pipeline (load, detect, filter, act, classify, log) plus
+cancellation, the detections.csv summary and, with a classifier, the
+classification.csv. Loading runs one image ahead on a background thread so
+decode overlaps detection. Qt-free: progress crosses a callback seam, and the
+per-image behaviour is a BatchAction adapter (Crop & Export or Sort by
+Class), so the whole run can be exercised headless.
 """
 
 import csv
@@ -16,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from .classifier import Classifier, detections_to_classify, identified_ranks
 from .crop_planner import CropSettings, plan_crops
 from .image_object import ImageObject
 from .structures import Detection
@@ -26,11 +28,52 @@ logger = logging.getLogger(__name__)
 # Called before each image as (index, total, filename). Returning False cancels the run.
 ProgressFn = Callable[[int, int, str], bool]
 
-# One detections.csv row. See CSV_HEADER for the columns.
-CsvRow = tuple[str, float, str, int, str]
+# One detections.csv row. See DETECTIONS_CSV_HEADER for the columns.
+DetectionsRow = tuple[str, float, str, int, str]
 
-CSV_HEADER = ["Filename", "Highest confidence score", "Class name", "Number of detected objects", "cropped"]
+DETECTIONS_CSV_HEADER = ["Filename", "Highest confidence score", "Class name", "Number of detected objects", "cropped"]
 CSV_ENCODING = "utf-8-sig"
+
+# One classification.csv row. See CLASSIFICATION_CSV_HEADER for the columns.
+ClassificationRow = tuple[str, int, str, float, int, int, int, int,
+                          str, float | str, str, float | str, str, float | str, str]
+
+CLASSIFICATION_CSV_HEADER = ["Filename", "Detection", "Class name", "Confidence score", "x", "y", "w", "h",
+                             "Family", "Family score", "Genus", "Genus score", "Species", "Species score",
+                             "Classifier model"]
+
+
+def classify_detections(classifier: Classifier, taxon_confidence: float, image: ImageObject,
+                        detections: list[Detection]) -> list[ClassificationRow]:
+    """
+    Runs the classifier over the detections of one image and returns their
+    classification CSV rows.
+
+    One row per detection the classifier names (see detections_to_classify),
+    numbered from 1 in that order. A rank scoring below taxon_confidence is
+    left empty, and so is every rank below it, as in the tooltip (see
+    identified_ranks). A detection without any identified rank still gets
+    its row, so it is counted.
+
+    The box is clamped to the image: the detector does not clamp its boxes.
+    """
+    to_classify = detections_to_classify(detections, 0.0, classifier.patterns)
+    if not to_classify:
+        return []
+    taxonomies = classifier.classify(image, [d.box for d in to_classify])
+    file_name = os.path.basename(image.image_path)
+    model_name = strip_model_ext(os.path.basename(classifier.model_path))
+
+    rows = []
+    for number, (detection, taxonomy) in enumerate(zip(to_classify, taxonomies, strict=True), start=1):
+        x, y, w, h = detection.box
+        x1, y1 = min(max(x, 0), image.width), min(max(y, 0), image.height)
+        x2, y2 = min(max(x + w, 0), image.width), min(max(y + h, 0), image.height)
+        ranks = identified_ranks(taxonomy, taxon_confidence)
+        names = [value for rank in ranks for value in rank] + ["", ""] * (len(taxonomy) - len(ranks))
+        rows.append((file_name, number, detection.class_name, detection.score, x1, y1, x2 - x1, y2 - y1,
+                     *names, model_name))
+    return rows
 
 
 class BatchAction(Protocol):
@@ -45,7 +88,7 @@ class BatchAction(Protocol):
         """Create whatever directories the action needs inside output_dir."""
         ...
 
-    def process(self, image: ImageObject, detections: list[Detection]) -> CsvRow | None:
+    def process(self, image: ImageObject, detections: list[Detection]) -> DetectionsRow | None:
         """Handle one image and its confidence-filtered detections."""
         ...
 
@@ -57,13 +100,14 @@ class BatchResult:
     re-reading the output directory. DetectoristApp uses it to export the
     settings alongside the CSV, reveal output_dir, and show finished vs.
     cancelled (a cancelled crop & export also keeps the images in the image
-    list). Tests assert on rows instead of parsing detections.csv.
+    list). Tests assert on the rows instead of parsing the CSV files.
     """
 
     output_dir: str
     cancelled: bool
-    rows: list[CsvRow]
+    detections_rows: list[DetectionsRow]
     failed: list[str] = field(default_factory=list)  # Filenames of the images that could not be loaded or processed
+    classification_rows: list[ClassificationRow] = field(default_factory=list)
 
 
 def _load_image(image_path: str, exposure_correction: bool) -> ImageObject:
@@ -73,54 +117,74 @@ def _load_image(image_path: str, exposure_correction: bool) -> ImageObject:
     return image
 
 
-def _read_existing_csv(csv_path: str) -> dict[str, CsvRow]:
+class _CsvTable:
     """
-    Loads a prior run's CSV into a dict keyed by filename, so this run can
-    update just the rows it touches and leave the rest as they were. Missing
-    file or a header that doesn't match CSV_HEADER (e.g. an older app version)
-    is treated as "no prior data" rather than migrated or merged column-wise.
-    So is a file that cannot be decoded.
+    A Batch Run's CSV file as rows grouped by the image filename in their
+    first column. Starts with a prior run's rows, so this run replaces the
+    rows of the images it processes again and leaves the rest as they were.
     """
-    if not os.path.isfile(long_path(csv_path)):
-        return {}
 
-    for encoding in (CSV_ENCODING, locale.getencoding()):
+    def __init__(self, path: str, header: list[str]):
+        """
+        Reads the prior rows and fails before the run starts if the file
+        cannot be written, e.g. because another program holds it locked.
+        Otherwise the error would only surface after every image was processed.
+        """
+        self._path = path
+        self._header = header
+        self._rows_by_filename: dict[str, list[tuple]] = {}
+        for row in self._read_prior_rows():
+            self._rows_by_filename.setdefault(row[0], []).append(row)
+
         try:
-            with open(long_path(csv_path), newline="", encoding=encoding) as f:
-                reader = csv.reader(f)
-                header = next(reader, None)
-                if header != CSV_HEADER:
-                    logger.warning("%s: header does not match CSV_HEADER, ignoring prior contents", csv_path)
-                    return {}
-                # Skip blank lines, which a hand-edited file may contain
-                return {row[0]: tuple(row) for row in reader if row}
-        except UnicodeDecodeError:
-            continue
-    logger.warning("%s: cannot be decoded, ignoring prior contents", csv_path)
-    return {}
+            # Append mode probes without truncating
+            with open(long_path(path), "a"):
+                pass
+        except OSError as e:
+            raise OSError(
+                f"Cannot write {os.path.basename(path)}. Close it if it is open in another program."
+            ) from e
 
+    def _read_prior_rows(self) -> list[tuple]:
+        """
+        A missing file, a header other than this table's (e.g. from an older
+        app version), or a file that cannot be decoded is treated as "no prior
+        data" rather than migrated.
+        """
+        if not os.path.isfile(long_path(self._path)):
+            return []
 
-def _ensure_csv_is_writable(csv_path: str) -> None:
-    """
-    Fails before the run starts if the CSV cannot be written, e.g. because
-    another program holds it locked. Otherwise the error would only surface
-    after every image was processed. Append mode probes without truncating.
-    """
-    try:
-        with open(long_path(csv_path), "a"):
-            pass
-    except OSError as e:
-        raise OSError(
-            f"Cannot write {os.path.basename(csv_path)}. Close it if it is open in another program."
-        ) from e
+        for encoding in (CSV_ENCODING, locale.getencoding()):
+            try:
+                with open(long_path(self._path), newline="", encoding=encoding) as f:
+                    reader = csv.reader(f)
+                    if next(reader, None) != self._header:
+                        logger.warning("%s: header does not match, ignoring prior contents", self._path)
+                        return []
+                    # Skip blank lines, which a hand-edited file may contain
+                    return [tuple(row) for row in reader if row]
+            except UnicodeDecodeError:
+                continue
+        logger.warning("%s: cannot be decoded, ignoring prior contents", self._path)
+        return []
+
+    def replace(self, file_name: str, rows: list[tuple]) -> None:
+        """Replaces all rows of an image. No rows drops the image from the file."""
+        self._rows_by_filename[file_name] = rows
+
+    def write(self) -> None:
+        with open(long_path(self._path), "w", newline="", encoding=CSV_ENCODING) as csv_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow(self._header)
+            csv_writer.writerows(row for rows in self._rows_by_filename.values() for row in rows)
 
 
 def _run_suffix(confidence: int, model_filename: str) -> str:
-    """The confidence+model fragment shared by detections_csv_name() and settings_json_name()."""
+    """The confidence+model fragment shared by the CSV and settings file names."""
     return f"conf-{confidence}-{strip_model_ext(model_filename or '')}"
 
 
-def detections_csv_name(confidence: int, model_filename: str) -> str:
+def detections_csv_name(detection_confidence: int, model_filename: str) -> str:
     """
     The name of a Batch Run's detections CSV file, encoding the confidence
     level and the model used (like:
@@ -129,31 +193,46 @@ def detections_csv_name(confidence: int, model_filename: str) -> str:
     with different settings from overwriting each other's CSV. A re-run with
     the same confidence and model overwrites its own prior CSV instead.
     """
-    return f"detectorist-detections-{_run_suffix(confidence, model_filename)}.csv"
+    return f"detectorist-detections-{_run_suffix(detection_confidence, model_filename)}.csv"
 
 
-def settings_json_name(confidence: int, model_filename: str) -> str:
+def classification_csv_name(taxon_confidence: int, classifier_filename: str) -> str:
+    """
+    The name of a Batch Run's classification CSV file, encoding the taxon
+    confidence and the classifier used (like:
+    detectorist-classification-conf-73-sulawesi-fish-classification-2026-10-17.csv),
+    for the same reason as detections_csv_name().
+    """
+    return f"detectorist-classification-{_run_suffix(taxon_confidence, classifier_filename)}.csv"
+
+
+def settings_json_name(detection_confidence: int, model_filename: str) -> str:
     """
     The name of the settings snapshot exported alongside a Batch Run's CSV,
     encoding the same confidence level and model (like:
     detectorist-settings-conf-75-fish-seg-transformer-2026-02-24.json), so the
     two files pair up at a glance and a re-run overwrites its own prior copy.
     """
-    return f"detectorist-settings-{_run_suffix(confidence, model_filename)}.json"
+    return f"detectorist-settings-{_run_suffix(detection_confidence, model_filename)}.json"
 
 
-def run_batch(image_paths: list[str], detector, confidence: float, exposure_correction: bool,
-              output_dir: str, csv_filename: str, action: BatchAction, progress: ProgressFn,
-              class_filter: str | None = None) -> BatchResult:
+def run_batch(image_paths: list[str], detector, detection_confidence: float, exposure_correction: bool,
+              output_dir: str, detections_csv_filename: str, action: BatchAction, progress: ProgressFn,
+              class_filter: str | None = None, classifier: Classifier | None = None,
+              taxon_confidence: float = 0.0, classification_csv_filename: str = "") -> BatchResult:
     """
-    Runs the detector over the given images, delegating each one to the action
-    and updating csv_filename in the output directory with a row per image.
+    Runs the detector (and the classifier) over the given images, delegating each one to the action
+    and updating detections_csv_filename in the output directory with a row per image.
+    With a classifier, classification_csv_filename gets a row per named
+    detection too (see classify_detections).
 
-    A filename already present in csv_filename from a prior run keeps its row
+    A filename already present in detections_csv_filename from a prior run keeps its row
     unless this run processes that same image again, in which case the row is
     replaced. Filenames untouched by this run are left as they were. This
     lets the CSV reflect the latest known state across repeated runs even
-    though the underlying image files themselves get overwritten.
+    though the underlying image files themselves get overwritten. The
+    classification CSV is updated the same way, with all rows of an image
+    replaced together.
 
     While an image runs detection and the action, the next image is already
     decoding on a background thread (pillow-heif and ONNX both release the
@@ -163,21 +242,30 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
     An image whose load fails is skipped with a "load-error" row instead of
     aborting the run, so one corrupt file cannot end a batch of thousands.
     The same goes for an image whose detection or action fails. It gets a
-    "process-error" row. Both kinds are listed in the result's failed.
+    "process-error" row. Both kinds are listed in the result's failed. A
+    failing classification is only logged and leaves the image without
+    classification rows: the action has already handled it.
 
     Args:
         image_paths: Full paths of the images to process.
         detector: Anything with detect(image) -> list of detections.
-        confidence: Minimum score a detection must have to be kept.
+        detection_confidence: Minimum score a detection must have to be kept.
         exposure_correction: Apply the camera exposure bias when loading images.
         output_dir: Created if missing. Shared across runs. Receives the
-            action's output alongside csv_filename.
-        csv_filename: Name of the CSV written into output_dir (see detections_csv_name()).
+            action's output alongside the CSV files.
+        detections_csv_filename: Name of the detections CSV written into output_dir
+            (see detections_csv_name()).
         action: The per-image behaviour (e.g. CropExportAction, SortByClassAction).
         progress: Called before each image. Returning False cancels the run.
         class_filter: Keep only detections of this class name. None keeps all
             classes. An image left without detections is handled by the
             action like one where nothing was detected.
+        classifier: Names the detections of each image. None writes no
+            classification CSV.
+        taxon_confidence: Minimum score of a rank for its name to be written.
+        classification_csv_filename: Name of the classification CSV written
+            into output_dir (see classification_csv_name()). Only used with a
+            classifier.
 
     Returns:
         A BatchResult with the output directory, whether the run was cancelled,
@@ -187,13 +275,15 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
     action.prepare(output_dir)
 
     total = len(image_paths)
-    rows: list[CsvRow] = []
+    new_detections_rows: list[DetectionsRow] = []
+    new_classification_rows: list[ClassificationRow] = []
     failed: list[str] = []
     cancelled = False
 
-    detections_csv_path = os.path.join(output_dir, csv_filename)
-    rows_by_filename = _read_existing_csv(detections_csv_path)
-    _ensure_csv_is_writable(detections_csv_path)
+    detections_table = _CsvTable(os.path.join(output_dir, detections_csv_filename), DETECTIONS_CSV_HEADER)
+    classification_table = (_CsvTable(os.path.join(output_dir, classification_csv_filename),
+                                      CLASSIFICATION_CSV_HEADER)
+                            if classifier is not None else None)
 
     try:
         # The context manager drains any in-flight load on exit (bounded by
@@ -217,31 +307,44 @@ def run_batch(image_paths: list[str], detector, confidence: float, exposure_corr
                     image = future.result()
                 except Exception as e:
                     logger.warning("%s: could not load image: %s", file_name, e)
-                    row = (file_name, 0, "load-error", 0, "n/a")
-                    rows.append(row)
-                    rows_by_filename[file_name] = row
+                    detections_row = (file_name, 0, "load-error", 0, "n/a")
+                    new_detections_rows.append(detections_row)
+                    detections_table.replace(file_name, [detections_row])
                     failed.append(file_name)
+                    if classification_table is not None:
+                        # Rows of a prior run would contradict the load-error row
+                        classification_table.replace(file_name, [])
                     continue
 
                 try:
                     detections = [d for d in detector.detect(image)
-                                  if d.score >= confidence and class_filter in (None, d.class_name)]
-                    row = action.process(image, detections)
+                                  if d.score >= detection_confidence and class_filter in (None, d.class_name)]
+                    detections_row = action.process(image, detections)
                 except Exception:
                     logger.exception("%s: could not process image", file_name)
-                    row = (file_name, 0, "process-error", 0, "n/a")
+                    detections_row = (file_name, 0, "process-error", 0, "n/a")
+                    detections = []
                     failed.append(file_name)
 
-                if row:
-                    rows.append(row)
-                    rows_by_filename[row[0]] = row
-    finally:
-        with open(long_path(detections_csv_path), "w", newline="", encoding=CSV_ENCODING) as csv_file:
-            csv_writer = csv.writer(csv_file)
-            csv_writer.writerow(CSV_HEADER)
-            csv_writer.writerows(rows_by_filename.values())
+                if detections_row:
+                    new_detections_rows.append(detections_row)
+                    detections_table.replace(file_name, [detections_row])
 
-    return BatchResult(output_dir=output_dir, cancelled=cancelled, rows=rows, failed=failed)
+                if classification_table is not None:
+                    image_classification_rows = []
+                    try:
+                        image_classification_rows = classify_detections(classifier, taxon_confidence, image, detections)
+                    except Exception:
+                        logger.exception("%s: could not classify the detections", file_name)
+                    new_classification_rows += image_classification_rows
+                    classification_table.replace(file_name, image_classification_rows)
+    finally:
+        detections_table.write()
+        if classification_table is not None:
+            classification_table.write()
+
+    return BatchResult(output_dir=output_dir, cancelled=cancelled, detections_rows=new_detections_rows,
+                       failed=failed, classification_rows=new_classification_rows)
 
 
 @dataclass
@@ -263,7 +366,7 @@ class CropExportAction:
         """Remember the output directory. Every file lands directly inside it."""
         self.output_dir = output_dir
 
-    def process(self, image: ImageObject, detections: list[Detection]) -> CsvRow:
+    def process(self, image: ImageObject, detections: list[Detection]) -> DetectionsRow:
         """
         Save one crop per planned rectangle, named <stem>_crop<ext>, or
         <stem>_crop_<i><ext> when an image yields several crops (the
@@ -311,7 +414,7 @@ class SortByClassAction:
         """
         self._output_dir = output_dir
 
-    def process(self, image: ImageObject, detections: list[Detection]) -> CsvRow:
+    def process(self, image: ImageObject, detections: list[Detection]) -> DetectionsRow:
         """
         Copy the image (never move it) into a folder named after its top
         detection's class, creating the folder on first use. Images without

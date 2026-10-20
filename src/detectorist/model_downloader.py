@@ -88,6 +88,23 @@ class ModelDownloader(QObject):
                 result.setdefault(fname, m["name"])
         return result
 
+    @property
+    def classifier_patterns(self) -> dict[str, list[str]]:
+        """
+        The classifiers of the cached manifest (kind "classifier"), each with
+        the patterns of the detection classes it names (its "classifies", see
+        class_matches). The files an entry supersedes get the same patterns.
+        An entry that does not say is taken to name every class.
+        """
+        result: dict[str, list[str]] = {}
+        for m in self._manifest:
+            if m.get("kind") == "classifier":
+                patterns = list(m.get("classifies", ["*"]))
+                result[model_filename_from_url(m["url"])] = patterns
+                for fname in m.get("supersedes", []):
+                    result.setdefault(fname, patterns)
+        return result
+
     def successor_of(self, filename: str) -> str | None:
         """
         Filename of the model that supersedes the given one according to the

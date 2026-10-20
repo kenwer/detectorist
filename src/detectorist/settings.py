@@ -37,6 +37,8 @@ class Settings:
 
     # Model settings
     KEY_MODEL_PATH = "path"
+    KEY_CLASSIFIER = "classifier"
+    KEY_TAXON_CONFIDENCE = "taxon_confidence"
 
     # Crop settings
     KEY_CONFIDENCE = "confidence"
@@ -158,6 +160,24 @@ class Settings:
     @confidence.setter
     def confidence(self, value: int) -> None:
         self._set_grouped(self.GROUP_MODEL, self.KEY_CONFIDENCE, value)
+
+    @property
+    def classifier(self) -> str | None:
+        """Filename of the selected classifier, or None when none is selected."""
+        return self._get_grouped(self.GROUP_MODEL, self.KEY_CLASSIFIER, str) or None
+
+    @classifier.setter
+    def classifier(self, value: str | None) -> None:
+        # Stored as an empty string: QSettings has no portable way to store None in an INI file
+        self._set_grouped(self.GROUP_MODEL, self.KEY_CLASSIFIER, value or "")
+
+    @property
+    def taxon_confidence(self) -> int | None:
+        return self._get_grouped(self.GROUP_MODEL, self.KEY_TAXON_CONFIDENCE, int)
+
+    @taxon_confidence.setter
+    def taxon_confidence(self, value: int) -> None:
+        self._set_grouped(self.GROUP_MODEL, self.KEY_TAXON_CONFIDENCE, value)
 
     # GROUP_CROP settings
     @property
