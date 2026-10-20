@@ -52,7 +52,14 @@ from .shortcuts_dialog import ShortcutsDialog
 from .structures import Detection
 from .toasts import show_error_toast, show_success_toast, show_warning_toast
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
-from .utils import contract_user_path, get_model_path, long_path, resolve_short_path, strip_model_ext
+from .utils import (
+    SharedFactory,
+    contract_user_path,
+    get_model_path,
+    long_path,
+    resolve_short_path,
+    strip_model_ext,
+)
 from .worker import DetectionWorker
 
 logger = logging.getLogger(__name__)
@@ -101,13 +108,15 @@ class DetectoristApp(QMainWindow):
             models_dir: Folder scanned for model files. Defaults to get_model_path().
             detector_factory: Called with a model path to build a detector, by
                 the worker for interactive use and here for each batch run.
-            classifier_factory: Likewise for the classifier.
+            classifier_factory: Likewise for the classifier. The worker and the
+                batch runs share the classifier it builds, as it takes
+                hundreds of MB.
         """
         super().__init__()
 
         self.settings = settings if settings is not None else Settings()
         self._detector_factory = detector_factory
-        self._classifier_factory = classifier_factory
+        self._classifier_factory = SharedFactory(classifier_factory)
         self.current_image_path = None
         self._prefetch_planner = PrefetchPlanner()
         self._all_detection_results: list = []
@@ -901,6 +910,9 @@ class DetectoristApp(QMainWindow):
         """
         filename = self.ui.classifier_combo_box.currentData()
         model_path = os.path.join(self.models_dir, filename) if filename else ""
+        if not filename:
+            # The worker drops its reference, so this frees the model
+            self._classifier_factory.release()
         self.request_classifier.emit(model_path, self._model_downloader.classifier_patterns.get(filename, []))
         self._taxonomy_by_box = {}
         self._display_filtered_results()
@@ -1108,7 +1120,8 @@ class DetectoristApp(QMainWindow):
             progress_dialog.show()
             QApplication.processEvents()
 
-            # The models of the worker live in its thread. A Batch Run builds its own.
+            # The batch run builds its own detector, as the worker's lives in its thread. The
+            # classifier is the worker's (see SharedFactory), or waits for the worker to load it.
             batch_detector = self._detector_factory(os.path.join(self.models_dir, model_filename))
             classifier_filename = self.ui.classifier_combo_box.currentData()
             batch_classifier = (self._classifier_factory(os.path.join(self.models_dir, classifier_filename),

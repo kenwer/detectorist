@@ -91,3 +91,37 @@ def test_long_path_adds_the_extended_length_prefix():
 def test_long_path_handles_unc_and_already_prefixed_paths():
     assert utils.long_path("\\\\server\\share\\a.jpg") == "\\\\?\\UNC\\server\\share\\a.jpg"
     assert utils.long_path("\\\\?\\C:\\photos\\a.jpg") == "\\\\?\\C:\\photos\\a.jpg"
+
+
+def test_shared_factory_hands_out_one_instance_per_model():
+    built = []
+    factory = utils.SharedFactory(lambda path, patterns: built.append((path, patterns)) or object())
+
+    first = factory("a.onnx", ["Fish"])
+
+    assert factory("a.onnx", ["Fish"]) is first
+    assert factory("b.onnx", ["Fish"]) is not first
+    assert built == [("a.onnx", ["Fish"]), ("b.onnx", ["Fish"])]
+
+
+def test_shared_factory_builds_again_after_release():
+    factory = utils.SharedFactory(lambda path: object())
+    first = factory("a.onnx")
+
+    factory.release()
+
+    assert factory("a.onnx") is not first
+
+
+def test_shared_factory_keeps_nothing_after_a_failing_load():
+    def build(path):
+        if path == "broken.onnx":
+            raise OSError("not a model")
+        return object()
+
+    factory = utils.SharedFactory(build)
+    factory("a.onnx")
+
+    with pytest.raises(OSError):
+        factory("broken.onnx")
+    assert factory._instance is None

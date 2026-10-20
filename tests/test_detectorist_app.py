@@ -901,6 +901,15 @@ def test_batch_with_a_classifier_writes_the_classification_csv(qtbot, species_mo
         assert len(next(csv.reader(f))) == 5
 
 
+def test_batch_shares_the_classifier_of_the_worker(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+
+    window.ui.group_images_by_object_class_action.trigger()
+
+    assert len(classifier_factory.created) == 1
+
+
 def test_classifier_and_taxon_confidence_are_restored_by_a_new_window(qtbot, species_model, make_window, settings):
     window = make_window()
     window.ui.classifier_combo_box.setCurrentIndex(1)

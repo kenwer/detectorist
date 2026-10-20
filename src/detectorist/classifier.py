@@ -157,6 +157,10 @@ class Classifier:
     normalisation is inside the graph) and returns one probability per
     species. How to cut the crops and how species map to genera and families
     is in the model's metadata, so a retrained model brings its own framing.
+
+    classify() may run on several threads at once (the worker and a batch
+    run share one instance): it only reads the attributes, and an ONNX
+    Runtime session can run concurrently.
     """
 
     def __init__(self, model_path: str, patterns: Sequence[str] = ("*",)):

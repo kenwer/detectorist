@@ -1,8 +1,44 @@
 import gzip
 import os
 import sys
+from collections.abc import Callable
+from threading import Lock
 
 from PySide6.QtCore import QStandardPaths
+
+
+class SharedFactory[T]:
+    """
+    Wraps a model factory so callers asking for the same model share one
+    instance instead of each loading their own. Only the last instance is
+    kept: asking for another model drops it before loading the new one, so
+    two large models are never held at once.
+
+    Thread-safe. A caller asking while another one loads the same model waits
+    for that load instead of starting a second one. The instance itself must
+    be safe to use from several threads.
+    """
+
+    def __init__(self, factory: Callable[..., T]):
+        self._factory = factory
+        self._lock = Lock()
+        self._args: tuple | None = None
+        self._instance: T | None = None
+
+    def __call__(self, *args) -> T:
+        with self._lock:
+            # Compared with ==, not hashed: the arguments may contain lists
+            if self._instance is None or args != self._args:
+                # Dropped before the load, so a failing one leaves nothing behind either
+                self._instance = None
+                self._instance = self._factory(*args)
+                self._args = args
+            return self._instance
+
+    def release(self) -> None:
+        """Drops the shared instance, e.g. when no caller uses it anymore."""
+        with self._lock:
+            self._instance = None
 
 
 def get_model_path() -> str:
