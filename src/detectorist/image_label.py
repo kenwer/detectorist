@@ -5,6 +5,7 @@ from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel, QRubberBand, QToolTip
 
+from .detection_style import MASK_COLORS, DetectionStyle, build_class_color_map
 from .image_object import ImageObject
 from .structures import clamp_box
 
@@ -15,37 +16,16 @@ DETECTION_FILL_COLOR_RGB = (0, 255, 0)
 CROP_BORDER_COLOR_RGB = (255, 165, 0)
 CROP_FILL_COLOR_RGBA = (255, 165, 0, 5)
 
-# 12 visually distinct segmentation-mask colors for the instance segmentation masks.
-# Assigned to class names in sorted order, so each class keeps the same color across every image.
-# Each color is the hue-complement of its partner and pairs are ordered so inter-pair jumps are >= 90°.
-MASK_COLORS = [
-    (  0, 230,   0),   #  0  green       (120°)
-    (230,   0, 230),   #  1  magenta     (300°)
-    (115, 230,   0),   #  2  chartreuse  ( 90°)
-    (115,   0, 230),   #  3  purple      (270°)
-    (  0, 230, 230),   #  4  cyan        (180°)
-    (230,   0,   0),   #  5  red         (  0°)
-    (  0,   0, 230),   #  6  blue        (240°)
-    (230, 230,   0),   #  7  yellow      ( 60°)
-    (  0, 115, 230),   #  8  blue-violet (210°)
-    (230, 115,   0),   #  9  orange      ( 30°)
-    (  0, 230, 115),   # 10  teal        (150°)
-    (230,   0, 115),   # 11  rose / pink (330°)
-]
-
-
-def build_class_color_map(class_names: list[str]) -> dict[str, tuple]:
-    """Assigns each class name a fixed color from MASK_COLORS, in the given order."""
-    return {name: MASK_COLORS[i % len(MASK_COLORS)] for i, name in enumerate(class_names)}
-
 
 class CustomRubberBand(QRubberBand):
-    def __init__(self, shape, border_color, fill_color, parent=None, box: tuple | None = None):
+    def __init__(self, shape, border_color, fill_color, parent=None, box: tuple | None = None,
+                 detection_style: DetectionStyle | None = None):
         super().__init__(shape, parent)
         self.border_color = border_color
         self.fill_color = fill_color
-        # The detection's box, as given to ImageLabel.set_detection_boxes
+        # The detection's box and style, as given to ImageLabel.set_detection_boxes
         self.box = box
+        self.detection_style = detection_style
         self.highlighted = False
 
     def set_highlighted(self, highlighted: bool):
@@ -85,6 +65,7 @@ class ImageLabel(QLabel):
         self._hovered_box = None
         self._highlighted_box = None
         self._masks_visible = True
+        self._labels_visible = True
         self._pixmap = QPixmap()
         self.image = None
         self.last_crop_rects = None
@@ -182,13 +163,16 @@ class ImageLabel(QLabel):
         self._mask_overlay_pixmap = None
         self.update()
 
-    def set_detection_boxes(self, detections, tooltips: dict | None = None):
+    def set_detection_boxes(self, detections, tooltips: dict | None = None, styles: dict | None = None):
         """
         Shows the given detections. tooltips maps a detection's box to the text
-        shown on hovering it, in place of its class and score.
+        shown on hovering it, in place of its class and score. styles maps a
+        box to its DetectionStyle (see taxon_styles), in place of the color of
+        its class and its detection score.
         """
         self._clear_detection_bands()
         tooltips = tooltips or {}
+        styles = styles or {}
 
         if self.image is None or self.image.image_data is None:
             self._set_hovered_box(None)
@@ -205,14 +189,16 @@ class ImageLabel(QLabel):
             if not (x2 > x1 and y2 > y1):
                 continue
             rect = QRect(x1, y1, x2 - x1, y2 - y1)
+            style = styles.get(box) or DetectionStyle(color_map.get(class_name, fallback_color), score)
             self.orig_detection_rects.append((rect, score, class_name))
             self.orig_detection_masks.append(mask)
 
-            alpha = int(10 + score * (255 - 10))  # Scale score (0.0-1.0) to alpha (10-255)
-            alpha_fill = 0 if has_masks else int(score * 20)
-            color_rgb = color_map.get(class_name, fallback_color)
+            alpha = int(10 + style.score * (255 - 10))  # Scale score (0.0-1.0) to alpha (10-255)
+            alpha_fill = 0 if has_masks else int(style.score * 20)
 
-            band = CustomRubberBand(QRubberBand.Shape.Rectangle, border_color=QColor(*color_rgb, alpha), fill_color=QColor(*color_rgb, alpha_fill), parent=self, box=box)
+            band = CustomRubberBand(QRubberBand.Shape.Rectangle, border_color=QColor(*style.color, alpha),
+                                    fill_color=QColor(*style.color, alpha_fill), parent=self, box=box,
+                                    detection_style=style)
             band.setGeometry(self._map_rect_from_image_to_widget(rect))
             band.set_highlighted(band.box == self._highlighted_box)
             # Only stored here. QRubberBand ignores the mouse, so mouseMoveEvent
@@ -230,20 +216,21 @@ class ImageLabel(QLabel):
         # The hovered detection stays hovered across a refresh, unless it is gone
         if all(band.box != self._hovered_box for band in self.detection_bands):
             self._set_hovered_box(None)
-        self._build_mask_overlay_pixmap(color_map if has_masks else None)
+        if has_masks:
+            self._build_mask_overlay_pixmap()
         self.update()
 
-    def _build_mask_overlay_pixmap(self, color_map: dict | None):
-        if color_map is None or not self.orig_detection_masks:
+    def _build_mask_overlay_pixmap(self):
+        if not self.orig_detection_masks:
             self._mask_overlay_pixmap = None
             return
 
         h, w = self.orig_detection_masks[0].shape[:2]
         rgba = np.zeros((h, w, 4), dtype=np.uint8)
 
-        for (_, score, class_name), mask in zip(self.orig_detection_rects, self.orig_detection_masks, strict=True):
-            r, g, b = color_map.get(class_name, MASK_COLORS[0])
-            rgba[mask > 128] = (r, g, b, int(score * 140))  # alpha scales with confidence
+        for band, mask in zip(self.detection_bands, self.orig_detection_masks, strict=True):
+            style = band.detection_style
+            rgba[mask > 128] = (*style.color, int(style.score * 140))  # alpha scales with confidence
 
         rgba_contiguous = np.ascontiguousarray(rgba)
         qimage = QImage(rgba_contiguous.data, w, h, rgba_contiguous.strides[0], QImage.Format.Format_RGBA8888)
@@ -274,6 +261,11 @@ class ImageLabel(QLabel):
     def set_masks_visible(self, visible: bool):
         """Shows or hides the segmentation masks. Hit-testing still uses a hidden mask."""
         self._masks_visible = visible
+        self.update()
+
+    def set_labels_visible(self, visible: bool):
+        """Shows or hides the labels of the detections (see DetectionStyle)."""
+        self._labels_visible = visible
         self.update()
 
     def hide_bands(self):
@@ -384,6 +376,25 @@ class ImageLabel(QLabel):
             painter.drawPixmap(point, scaled_pixmap)
             if self._masks_visible and self._mask_overlay_pixmap is not None:
                 painter.drawPixmap(self._get_displayed_image_rect(), self._mask_overlay_pixmap)
+            if self._labels_visible:
+                self._draw_labels(painter)
+
+    def _draw_labels(self, painter: QPainter):
+        metrics = painter.fontMetrics()
+        for band in self.detection_bands:
+            style = band.detection_style
+            if style.label is None:
+                continue
+            box = band.geometry()
+            text_rect = metrics.boundingRect(style.label).adjusted(-3, -1, 3, 1)
+            # Above the box, or inside it where the box touches the top of the widget
+            top = box.top() - text_rect.height()
+            text_rect.moveTo(box.left(), top if top >= 0 else box.top())
+            # Text in the box's color would be unreadable on some images, so the color is the background
+            painter.fillRect(text_rect, QColor(*style.color))
+            r, g, b = style.color
+            painter.setPen(Qt.GlobalColor.black if 0.299 * r + 0.587 * g + 0.114 * b > 140 else Qt.GlobalColor.white)
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, style.label)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

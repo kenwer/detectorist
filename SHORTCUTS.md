@@ -8,6 +8,7 @@
 | Shift+Ctrl+G    | ⇧⌘G | **Group Images into Folders** | Starts a batch process that groups all images by its detected object classes into individual sub folders |
 | Shift+Ctrl+E    | ⇧⌘E | **Crop & Export all Images** | Starts a batch process that crops and exports all loaded images into a subfolder |
 | H               | H   | **Show/Hide Masks** | Toggles the segmentation masks of detected objects. |
+| L               | L   | **Show/Hide Labels** | Toggles the labels naming the family, genus or species of classified objects. |
 
 ##
 # Image navigation shortcuts

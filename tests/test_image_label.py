@@ -12,6 +12,7 @@ from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QApplication
 
+from detectorist.detection_style import DetectionStyle
 from detectorist.image_label import ImageLabel
 from detectorist.image_object import ImageObject
 from detectorist.structures import Detection
@@ -225,3 +226,22 @@ def test_highlighting_lasts_across_new_bands(label):
     label.set_detection_boxes([FISH])
 
     assert label.detection_bands[0].highlighted
+
+
+def test_a_given_style_sets_the_band_color_and_opacity(label):
+    label.set_detection_boxes([FISH], styles={FISH.box: DetectionStyle((0, 0, 230), 0.5, "Labridae")})
+
+    color = label.detection_bands[0].border_color
+    assert (color.red(), color.green(), color.blue(), color.alpha()) == (0, 0, 230, int(10 + 0.5 * 245))
+
+
+def test_labels_are_drawn_above_their_box_until_hidden(label):
+    label.set_detection_boxes([FISH], styles={FISH.box: DetectionStyle((0, 0, 230), 0.5, "Labridae")})
+    # In the label's left padding, just above the band at (40, 140)
+    point = QPoint(41, 137)
+
+    assert label.grab().toImage().pixelColor(point).getRgb()[:3] == (0, 0, 230)
+
+    label.set_labels_visible(False)
+
+    assert label.grab().toImage().pixelColor(point).getRgb()[:3] != (0, 0, 230)

@@ -510,6 +510,7 @@
     <addaction name="open_output_folder_action"/>
     <addaction name="separator"/>
     <addaction name="toggle_masks_action"/>
+    <addaction name="toggle_labels_action"/>
    </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
@@ -599,6 +600,29 @@
    </property>
    <property name="shortcut">
     <string>H</string>
+   </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>true</bool>
+   </property>
+  </action>
+  <action name="toggle_labels_action">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show Labels</string>
+   </property>
+   <property name="toolTip">
+    <string>Toggles the labels naming the family, genus or species of each classified object</string>
+   </property>
+   <property name="shortcut">
+    <string>L</string>
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>

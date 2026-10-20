@@ -71,10 +71,18 @@ def describe(taxonomy: Taxonomy, threshold: float) -> str:
         return "Unidentified"
     names = [display_name(ranks[0].name)]
     if len(ranks) > 1:
-        # A genus has no "_", so it comes out unabbreviated
-        genus, _, epithet = ranks[-1].name.partition("_")
-        names.append(f"{genus[:1]}. {display_name(epithet)}" if epithet else display_name(genus))
+        names.append(short_name(ranks[-1].name))
     return f"{' · '.join(names)} {ranks[-1].score:.2f}"
+
+
+def short_name(name: str) -> str:
+    """
+    A taxon name with a species' genus cut to its initial, as in scientific
+    writing, e.g. "A. ocellaris" for "Amphiprion_ocellaris". A genus or
+    family has no "_", so it comes out unabbreviated.
+    """
+    genus, _, epithet = name.partition("_")
+    return f"{genus[:1]}. {display_name(epithet)}" if epithet else display_name(genus)
 
 
 def display_name(name: str) -> str:

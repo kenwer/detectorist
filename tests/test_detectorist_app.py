@@ -20,7 +20,9 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressD
 
 from detectorist import __version__, detectorist_app
 from detectorist.batch_output import classification_csv_name, detections_csv_name, settings_json_name
+from detectorist.detection_style import MASK_COLORS
 from detectorist.detector import Detector
+from detectorist.image_label import DETECTION_BORDER_COLOR_RGB
 from detectorist.image_object import APPLEDOUBLE_MAGIC
 from detectorist.structures import Detection
 from detectorist.utils import contract_user_path
@@ -904,6 +906,29 @@ def test_deselecting_the_classifier_shows_the_detector_class_again(qtbot, specie
     window.ui.classifier_combo_box.setCurrentIndex(0)
 
     qtbot.waitUntil(lambda: tooltips(window) == ["Fish 0.90"])
+
+
+def border_rgb(window) -> list[tuple]:
+    return [band.border_color.getRgb()[:3] for band in window.ui.image_label.detection_bands]
+
+
+def test_a_classifier_colors_the_detections_by_family_and_labels_them(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    labels = window.ui.toggle_labels_action
+    assert not labels.isEnabled()
+
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH])
+
+    # The only family in the image takes the first palette color
+    assert border_rgb(window) == [MASK_COLORS[0]]
+    assert labels.isEnabled()
+    labels.trigger()
+    assert not window.ui.image_label._labels_visible
+
+    window.ui.classifier_combo_box.setCurrentIndex(0)
+
+    qtbot.waitUntil(lambda: tooltips(window) == ["Fish 0.90"])
+    assert border_rgb(window) == [DETECTION_BORDER_COLOR_RGB]
+    assert not labels.isEnabled()
 
 
 def test_results_list_each_detection_with_its_deepest_identified_rank(qtbot, species_model, window, folder, monkeypatch, detector_factory):

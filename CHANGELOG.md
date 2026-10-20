@@ -3,6 +3,10 @@
 ## [Unreleased]
 ### Added
 - New results table below the image that lists all classified detections.
+- With a classifier on:
+  - Classified detections are colored by family, with a lighter or darker shade per genus.
+  - Each detection is labeled with its deepest identified name, e.g. "A. ocellaris" or just the genus or family.
+  - New `Actions > Show Labels` menu entry and `L` shortcut to toggle the labels.
 ### Changed
 - The detection summary moved from the side panel to the status bar.
 - The `H` shortcut now toggles only the segmentation masks. Bounding boxes stay visible.

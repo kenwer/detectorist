@@ -35,6 +35,7 @@ from .batch_output import classification_csv_name, detections_csv_name, settings
 from .batch_run import CropExportAction, SortByClassAction, run_batch
 from .classifier import Classifier, class_matches, describe
 from .crop_planner import CropMode, CropSettings, plan_crops
+from .detection_style import taxon_styles
 from .detector import Detector
 from .image_cache import PrefetchPlanner
 from .image_label import ImageLabel
@@ -261,6 +262,7 @@ class DetectoristApp(QMainWindow):
 
         self.ui.cb_comp_cam_exposure.toggled.connect(self.on_exposure_compensation_toggled)
         self.ui.toggle_masks_action.toggled.connect(self.ui.image_label.set_masks_visible)
+        self.ui.toggle_labels_action.toggled.connect(self.ui.image_label.set_labels_visible)
 
         # Connect model signals
         self.model.modelReset.connect(self._update_clear_image_list_action_state)
@@ -804,7 +806,8 @@ class DetectoristApp(QMainWindow):
         threshold = self.ui.taxon_confidence_slider.value() / 100.0
         self._show_results(filtered, threshold)
         tooltips = {box: describe(taxonomy, threshold) for box, taxonomy in self._taxonomy_by_box.items()}
-        self.ui.image_label.set_detection_boxes(filtered, tooltips)
+        styles = taxon_styles(filtered, self._taxonomy_by_box, threshold)
+        self.ui.image_label.set_detection_boxes(filtered, tooltips, styles)
         self.update_crop_bands()
 
     def on_class_filter_changed(self):
@@ -937,12 +940,13 @@ class DetectoristApp(QMainWindow):
 
     def _update_classifier_controls(self):
         """
-        Greys out the taxon confidence and hides the results' family, genus
-        and species columns for "No classifier", as nothing is classified then.
+        Greys out the taxon confidence and the labels action and hides the
+        results' family, genus and species columns for "No classifier", as
+        nothing is classified then.
         """
         active = self.ui.classifier_combo_box.currentData() is not None
         for widget in (self.ui.taxon_confidence_label, self.ui.taxon_confidence_slider,
-                       self.ui.taxon_confidence_spin_box):
+                       self.ui.taxon_confidence_spin_box, self.ui.toggle_labels_action):
             widget.setEnabled(active)
         self.ui.results_table.set_taxonomy_visible(active)
 
