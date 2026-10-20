@@ -329,10 +329,12 @@ def test_a_classifier_failing_in_the_prefetch_stays_silent_until_the_image_is_re
     worker.cache_updated.connect(cached.append)
 
     worker.process_image(path_a, False, [path_b], 0.5)
-    qtbot.waitUntil(lambda: any(path_b in paths for paths in cached))
+    qtbot.waitUntil(lambda: worker.detector.detected == ["a.png", "b.png"])
 
     assert errors == ["a.png: out of memory"]
     assert named == [(path_a, {})]
+    # Neither image is highlighted, as a request would still have to name its boxes
+    assert cached[-1] == []
 
     # The request retries the classification the prefetch failed
     factory.created[-1].error = None
@@ -350,3 +352,74 @@ def test_a_classifier_that_fails_to_load_is_reported(qapp):
 
     assert errors == ["Error loading classifier: not a classifier"]
     assert worker.classifier is None
+
+
+def test_a_classified_image_is_reported_only_once_its_boxes_are_named(qtbot, tmp_path):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    worker, _, named, _ = make_classifying_worker({"a.png": [FISH]})
+    cached = []
+    worker.cache_updated.connect(cached.append)
+
+    worker.process_image(path_a, False, [], 0.5)
+    qtbot.waitUntil(lambda: len(named) == 1)
+
+    assert [path_a] not in cached[:-1]
+    assert cached[-1] == [path_a]
+
+
+def test_an_image_without_boxes_to_name_is_reported_with_its_detections(qtbot, tmp_path):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    worker, factory, named, _ = make_classifying_worker({"a.png": [CRAB]})
+    cached = []
+    worker.cache_updated.connect(cached.append)
+
+    worker.process_image(path_a, False, [], 0.5)
+    qtbot.waitUntil(lambda: len(named) == 1)
+
+    assert factory.classified == []
+    assert cached[-1] == [path_a]
+
+
+def test_a_lower_confidence_unreports_the_images_with_boxes_left_to_name(qtbot, tmp_path):
+    path_a, path_b = make_images(tmp_path, ["a.png", "b.png"], IMAGE_SIZE)
+    worker, _, _, _ = make_classifying_worker({"a.png": [FISH, FAINT_FISH], "b.png": [FISH, FAINT_FISH]})
+    cached = []
+    worker.cache_updated.connect(cached.append)
+    worker.process_image(path_a, False, [path_b], 0.5)
+    qtbot.waitUntil(lambda: [path_a, path_b] in cached)
+
+    # Names the faint fish of the shown image only
+    worker.classify_image(path_a, 0.1)
+
+    assert cached[-1] == [path_a]
+
+
+def test_another_classifier_unreports_the_cached_images_until_they_are_named_again(qtbot, tmp_path):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    worker, _, named, _ = make_classifying_worker({"a.png": [FISH]})
+    cached = []
+    worker.cache_updated.connect(cached.append)
+    worker.process_image(path_a, False, [], 0.5)
+    qtbot.waitUntil(lambda: len(named) == 1)
+
+    worker.set_classifier("/models/other.onnx", ["Fish"])
+    assert cached[-1] == []
+
+    worker.classify_image(path_a, 0.5)
+    assert cached[-1] == [path_a]
+
+
+def test_unloading_the_classifier_reports_the_detected_images(qtbot, tmp_path):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    worker, factory, _, _ = make_classifying_worker({"a.png": [FISH]})
+    factory.classify_error = RuntimeError("out of memory")
+    worker.set_classifier("/models/broken.onnx", ["Fish"])
+    cached = []
+    worker.cache_updated.connect(cached.append)
+    worker.process_image(path_a, False, [], 0.5)
+    qtbot.waitUntil(lambda: worker.detector.detected == ["a.png"])
+    assert cached[-1] == []
+
+    worker.set_classifier("", [])
+
+    assert cached[-1] == [path_a]

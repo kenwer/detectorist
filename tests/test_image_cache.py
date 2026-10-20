@@ -66,9 +66,9 @@ def test_paths_reflects_current_entries_oldest_first():
     cache = ImageCache(max_entries=2)
     cache.put("a", 1)
     cache.put("b", 2)
-    assert cache.paths() == ["a", "b"]
+    assert [path for path, _ in cache.items()] == ["a", "b"]
     cache.put("c", 3)  # evicts a
-    assert cache.paths() == ["b", "c"]
+    assert [path for path, _ in cache.items()] == ["b", "c"]
 
 
 PATHS = [str(i) for i in range(20)]
@@ -138,7 +138,7 @@ def test_clear_taxonomy_keeps_images_and_detections():
 
     cache.clear_taxonomy()
 
-    assert cache.paths() == ["a", "b"]
+    assert [path for path, _ in cache.items()] == ["a", "b"]
     assert cache.get("a").taxonomy == {}
     assert cache.get("b").taxonomy == {}
     assert cache.get("a").results == ["detection"]
