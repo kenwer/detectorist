@@ -22,7 +22,7 @@ import onnxruntime as ort
 from PIL import Image
 
 from .image_object import ImageObject
-from .structures import Box, Detection, RankedName, Taxonomy
+from .structures import Box, Detection, RankedName, Taxonomy, clamp_box
 from .utils import load_model_bytes
 
 # Most boxes of one image the classifier is run on. A confidence slider pulled
@@ -80,10 +80,8 @@ def classification_window(box: Box, image_width: int, image_height: int, margin:
     Returns:
         (x1, y1, x2, y2) in image pixels, x2 and y2 exclusive.
     """
-    x, y, w, h = box
-    # The detector does not clamp its boxes, and the training boxes never left the image
-    x1, y1 = min(max(x, 0), image_width), min(max(y, 0), image_height)
-    x2, y2 = min(max(x + w, 0), image_width), min(max(y + h, 0), image_height)
+    # The training boxes never left the image
+    x1, y1, x2, y2 = clamp_box(box, image_width, image_height)
 
     # Kept in this exact form: the training code computes it the same way, and
     # its floating point result decides the rounding below

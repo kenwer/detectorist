@@ -6,6 +6,7 @@ from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel, QRubberBand, QToolTip
 
 from .image_object import ImageObject
+from .structures import clamp_box
 
 logger = logging.getLogger(__name__)
 
@@ -166,18 +167,14 @@ class ImageLabel(QLabel):
         if self.image is None or self.image.image_data is None:
             return
 
-        image_height, image_width = self.image.height, self.image.width
         has_masks = any(mask is not None for *_, mask in detections)
         color_map = self.class_color_map if has_masks else {}
         fallback_color = MASK_COLORS[0] if has_masks else DETECTION_BORDER_COLOR_RGB
 
         # Clamp boxes to image bounds and store as QRects so we always have a
         # reference to the original bounding box coordinates in image space.
-        for (x, y, w, h), score, class_name, mask in detections:
-            x1, y1 = max(0, x), max(0, y)
-            x2, y2 = min(x + w, image_width), min(y + h, image_height)
-
-            # Ensure the box has a non-zero area
+        for box, score, class_name, mask in detections:
+            x1, y1, x2, y2 = clamp_box(box, self.image.width, self.image.height)
             if not (x2 > x1 and y2 > y1):
                 continue
             rect = QRect(x1, y1, x2 - x1, y2 - y1)
@@ -192,7 +189,7 @@ class ImageLabel(QLabel):
             band.setGeometry(self._map_rect_from_image_to_widget(rect))
             # Only stored here. QRubberBand ignores the mouse, so TooltipEventFilter
             # shows it, and only over the mask for a segmentation model.
-            band.setToolTip(tooltips.get((x, y, w, h), f"{class_name} {score:.2f}"))
+            band.setToolTip(tooltips.get(tuple(box), f"{class_name} {score:.2f}"))
             band.setVisible(self._detection_overlay_visible)
             self.detection_bands.append(band)
 

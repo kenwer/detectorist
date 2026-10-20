@@ -20,7 +20,7 @@ from typing import Protocol
 from .classifier import Classifier, detections_to_classify, identified_ranks
 from .crop_planner import CropSettings, plan_crops
 from .image_object import ImageObject
-from .structures import Detection
+from .structures import Detection, clamp_box
 from .utils import long_path, strip_model_ext
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ def classify_detections(classifier: Classifier, taxon_confidence: float, image: 
     identified_ranks). A detection without any identified rank still gets
     its row, so it is counted.
 
-    The box is clamped to the image: the detector does not clamp its boxes.
+    The box is clamped to the image (see clamp_box).
     """
     to_classify = detections_to_classify(detections, 0.0, classifier.patterns)
     if not to_classify:
@@ -66,9 +66,7 @@ def classify_detections(classifier: Classifier, taxon_confidence: float, image: 
 
     rows = []
     for number, (detection, taxonomy) in enumerate(zip(to_classify, taxonomies, strict=True), start=1):
-        x, y, w, h = detection.box
-        x1, y1 = min(max(x, 0), image.width), min(max(y, 0), image.height)
-        x2, y2 = min(max(x + w, 0), image.width), min(max(y + h, 0), image.height)
+        x1, y1, x2, y2 = clamp_box(detection.box, image.width, image.height)
         ranks = identified_ranks(taxonomy, taxon_confidence)
         names = [value for rank in ranks for value in rank] + ["", ""] * (len(taxonomy) - len(ranks))
         rows.append((file_name, number, detection.class_name, detection.score, x1, y1, x2 - x1, y2 - y1,
