@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Changed
+- Disable onnxruntime telemetry.
+
 ## [0.12.0] - 2026-10-08
 ### Added
 - New `Fish Segmentation (Focus-Aware)` and `Apoidea Segmentation (Focus-Aware)` models that detect in-focus and/or out-of-focus species.
