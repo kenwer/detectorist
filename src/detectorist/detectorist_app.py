@@ -87,6 +87,23 @@ def image_name_filter(platform: str = sys.platform) -> str:
 
 NO_MODELS_MESSAGE = "No models available<br/>Use File -> Download Models"
 
+# The crop aspect ratio combo box's entries, in order. Settings save the position, not the label.
+ASPECT_RATIOS: list[tuple[str, tuple[int, int] | str]] = [
+    ("Same as source image", "source_image"),
+    ("Same as detection frame", "detection_frame"),
+    ("3:2 (landscape)", (3, 2)),
+    ("4:3 (landscape)", (4, 3)),
+    ("5:4 (landscape)", (5, 4)),
+    ("16:9 (landscape)", (16, 9)),
+    ("21:9 (landscape)", (21, 9)),
+    ("1:1", (1, 1)),
+    ("2:3 (portrait)", (2, 3)),
+    ("3:4 (portrait)", (3, 4)),
+    ("4:5 (portrait)", (4, 5)),
+    ("9:16 (portrait)", (9, 16)),
+    ("9:21 (portrait)", (9, 21)),
+]
+
 
 def _count(number: int, noun: str) -> str:
     """A number with a noun in the matching form, e.g. "1 classification" or "20 classifications"."""
@@ -169,6 +186,8 @@ class DetectoristApp(QMainWindow):
         # The results only describe a shown image, so the welcome and message screens get the full height
         self.ui.results_table.setVisible(False)
         self.ui.image_label.image_shown_changed.connect(self.ui.results_table.setVisible)
+
+        self.ui.crop_ratio_combo_box.addItems([label for label, _ in ASPECT_RATIOS])
 
         # Snapshot the .ui file's built-in defaults before _load_settings() can override
         # them, so "Reset Settings to Defaults" has real values to restore.
@@ -402,7 +421,6 @@ class DetectoristApp(QMainWindow):
 
     def _show_message(self, text: str):
         """Shows text in place of the image, and drops what was detected in it."""
-        self.ui.image_label.hide_bands()
         self.ui.image_label.setText(text)
         self._clear_results()
 
@@ -435,7 +453,6 @@ class DetectoristApp(QMainWindow):
         self.model.clear()
         self.current_image_path = None
         self._prefetch_planner.reset()
-        self.ui.image_label.clear()
         # Files on disk may have changed, so cached decodes are not trustworthy.
         # The queued invocation runs clear_cache on the worker thread, which is
         # the only thread allowed to touch the cache (no lock needed there).
@@ -1032,23 +1049,7 @@ class DetectoristApp(QMainWindow):
             return None
 
         padding_percentage = self.ui.padding_slider.value() / 100.0
-        ratio_str = self.ui.crop_ratio_combo_box.currentText()
-
-        if ratio_str == "Same as source image":
-            aspect_ratio = 'source_image'
-        elif ratio_str == "Same as detection frame":
-            aspect_ratio = 'detection_frame'
-        else:
-            # Handle strings like "3:2 (landscape)"
-            ratio_part = ratio_str.split(' ')[0]
-            try:
-                ratio_w, ratio_h = map(int, ratio_part.split(':'))
-                aspect_ratio = (ratio_w, ratio_h)
-            except ValueError:
-                # Fallback for any unexpected format
-                logger.warning("Could not parse aspect ratio '%s'. Defaulting to 1:1.", ratio_str)
-                aspect_ratio = (1, 1)
-
+        _, aspect_ratio = ASPECT_RATIOS[self.ui.crop_ratio_combo_box.currentIndex()]
         return CropSettings(mode=crop_mode, padding=padding_percentage, aspect=aspect_ratio)
 
     def update_crop_bands(self):
