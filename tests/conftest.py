@@ -46,14 +46,15 @@ def toasts(monkeypatch) -> list[tuple[str, str, str, dict]]:
 
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch, tmp_path) -> None:
-    """Point the manifest URL at a missing local file.
+    """Point both manifest URLs at a missing local file.
 
     A test that forgets to set up its own manifest then gets a quick local
     error instead of a request to GitHub. Only the manifest fetch is covered:
     a test that starts a model download must supply its own local URLs.
     """
     missing = QUrl.fromLocalFile(str(tmp_path / "no-manifest.json")).toString()
-    monkeypatch.setattr(model_downloader, "MANIFEST_URL", missing)
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", missing)
+    monkeypatch.setattr(model_downloader, "CLASSIFICATION_MODELS_MANIFEST_URL", missing)
 
 
 @pytest.fixture
@@ -129,19 +130,17 @@ def classifier_factory() -> FakeClassifierFactory:
 
 @pytest.fixture
 def species_model(models_dir) -> str:
-    """Adds a classifier file to the models folder and to its manifest. Returns the filename."""
+    """Adds a classifier file to the classifiers folder and to its manifest. Returns the filename."""
     filename = "tiny-classify.onnx"
-    shutil.copy(CLASSIFY_MODEL, models_dir / filename)
-    manifest_path = models_dir / "models.json"
-    manifest = json.loads(manifest_path.read_text())
-    manifest.append({
+    classifiers = models_dir / "classifiers"
+    classifiers.mkdir()
+    shutil.copy(CLASSIFY_MODEL, classifiers / filename)
+    (classifiers / "models.json").write_text(json.dumps([{
         "name": "Tiny Species",
-        "kind": "classifier",
         "url": f"https://example.invalid/{filename}",
         "size_mb": 1,
         "release_date": "2026-01-01",
-    })
-    manifest_path.write_text(json.dumps(manifest))
+    }]))
     return filename
 
 

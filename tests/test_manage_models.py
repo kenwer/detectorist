@@ -22,7 +22,7 @@ def file_url(path) -> str:
 
 @pytest.fixture
 def remote(tmp_path, monkeypatch):
-    """The folder playing the download server: three models and their manifest."""
+    """The folder playing the download server: three models, their manifest and an empty classifier manifest."""
     remote = tmp_path / "remote"
     remote.mkdir()
     for filename in ("a.onnx", "b.onnx", "c-v2.onnx"):
@@ -34,19 +34,36 @@ def remote(tmp_path, monkeypatch):
          "supersedes": ["c-v1.onnx"]},
     ]
     (remote / "models.json").write_text(json.dumps(manifest))
-    monkeypatch.setattr(model_downloader, "MANIFEST_URL", file_url(remote / "models.json"))
+    (remote / "classifiers.json").write_text("[]")
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", file_url(remote / "models.json"))
+    monkeypatch.setattr(model_downloader, "CLASSIFICATION_MODELS_MANIFEST_URL", file_url(remote / "classifiers.json"))
     return remote
+
+
+@pytest.fixture
+def species(remote):
+    """Adds a classifier to the download server and its classifier manifest. Returns the filename."""
+    (remote / "species.onnx").write_bytes(b"model species.onnx")
+    (remote / "classifiers.json").write_text(json.dumps([
+        {"name": "Species", "url": file_url(remote / "species.onnx"), "size_mb": 1, "release_date": "2026-01-04",
+         "classifies": ["*"]},
+    ]))
+    return "species.onnx"
 
 
 @pytest.fixture
 def open_dialog(qtbot, make_downloader, tmp_path, remote):
     """Open the dialog on a models folder holding the given installed files."""
 
-    def _open(installed=()):
+    def _open(installed=(), installed_classifiers=()):
         models = tmp_path / "models"
         models.mkdir()
         for filename in installed:
             (models / filename).write_bytes(b"installed")
+        if installed_classifiers:
+            (models / "classifiers").mkdir()
+        for filename in installed_classifiers:
+            (models / "classifiers" / filename).write_bytes(b"installed")
         dialog = ManageModelsDialog(make_downloader(models), str(models))
         qtbot.addWidget(dialog)
         qtbot.waitUntil(lambda: len(dialog._rows) > 0)
@@ -137,6 +154,52 @@ def test_download_all_is_disabled_when_everything_is_installed(open_dialog):
     assert not dialog.ui.download_button.isEnabled()
 
 
+def test_installed_classifier_is_found_in_the_classifiers_folder(open_dialog, species):
+    # The same file at the top level is a detection model the manifest does not know
+    dialog, _ = open_dialog(installed=("loose.onnx",), installed_classifiers=(species, "mine.onnx"))
+
+    assert states(dialog) == {
+        "a.onnx": "available",
+        "b.onnx": "available",
+        "c-v2.onnx": "available",
+        species: "downloaded",
+        "loose.onnx": "local_only",
+        "mine.onnx": "local_only",
+    }
+
+
+def test_classifier_is_downloaded_to_and_removed_from_the_classifiers_folder(qtbot, open_dialog, species):
+    dialog, models = open_dialog()
+
+    button(dialog, species).click()
+    qtbot.waitUntil(lambda: states(dialog)[species] == "downloaded")
+    assert (models / "classifiers" / species).read_bytes() == b"model species.onnx"
+    assert not (models / species).exists()
+
+    with qtbot.waitSignal(dialog.models_changed):
+        button(dialog, species).click()
+    assert not (models / "classifiers" / species).exists()
+    assert states(dialog)[species] == "available"
+
+
+def test_removing_a_local_only_classifier_deletes_it_from_the_classifiers_folder(qtbot, open_dialog):
+    dialog, models = open_dialog(installed_classifiers=("mine.onnx",))
+
+    with qtbot.waitSignal(dialog.models_changed):
+        button(dialog, "mine.onnx").click()
+
+    assert not (models / "classifiers" / "mine.onnx").exists()
+    assert "mine.onnx" not in states(dialog)
+
+
+def test_classifier_manifest_failure_still_lists_the_detection_models(qtbot, open_dialog, remote):
+    (remote / "classifiers.json").unlink()
+    dialog, _ = open_dialog()
+
+    qtbot.waitUntil(lambda: dialog.ui.status_label.text().startswith("Error: Failed to fetch classifier manifest"))
+    assert states(dialog) == {"a.onnx": "available", "b.onnx": "available", "c-v2.onnx": "available"}
+
+
 def test_failed_download_marks_the_row_and_shows_the_error(qtbot, open_dialog, remote):
     (remote / "b.onnx").unlink()
     dialog, _ = open_dialog()
@@ -186,7 +249,7 @@ def test_manifest_fetch_failure_lists_cached_and_installed_models(qtbot, make_do
 
 def test_reopening_while_the_list_loads_shows_each_model_once(qtbot, make_downloader, monkeypatch, tmp_path, remote, gated_server):
     gated_server.body = (remote / "models.json").read_bytes()
-    monkeypatch.setattr(model_downloader, "MANIFEST_URL", f"{gated_server.url}/models.json")
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", f"{gated_server.url}/models.json")
     models = tmp_path / "models"
     models.mkdir()
     # The app keeps one downloader for all dialogs

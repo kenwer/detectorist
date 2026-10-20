@@ -39,6 +39,13 @@ def target(tmp_path):
     return target
 
 
+@pytest.fixture
+def no_classifiers(monkeypatch, remote):
+    """Serve an empty classifier manifest, for tests about the detection model manifest."""
+    (remote / "classifiers.json").write_text("[]")
+    monkeypatch.setattr(model_downloader, "CLASSIFICATION_MODELS_MANIFEST_URL", file_url(remote / "classifiers.json"))
+
+
 def entry(remote, filename, **extra) -> dict:
     return {"name": filename.split(".")[0].upper(), "url": file_url(remote / filename), **extra}
 
@@ -98,10 +105,10 @@ def test_missing_or_corrupt_cached_manifest_gives_no_names(make_downloader, targ
     assert make_downloader(target).filename_to_name == {}
 
 
-def test_fetch_manifest_emits_the_parsed_list(qtbot, make_downloader, monkeypatch, remote, target):
+def test_fetch_manifest_emits_the_parsed_list(qtbot, make_downloader, monkeypatch, remote, target, no_classifiers):
     manifest = [entry(remote, "a.onnx")]
     (remote / "models.json").write_text(json.dumps(manifest))
-    monkeypatch.setattr(model_downloader, "MANIFEST_URL", file_url(remote / "models.json"))
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", file_url(remote / "models.json"))
     downloader = make_downloader(target)
 
     with qtbot.waitSignal(downloader.manifest_loaded) as loaded:
@@ -112,7 +119,7 @@ def test_fetch_manifest_emits_the_parsed_list(qtbot, make_downloader, monkeypatc
 
 
 def test_fetch_manifest_reports_a_missing_manifest(qtbot, make_downloader, target):
-    # The autouse _no_network fixture points MANIFEST_URL at a missing file
+    # The autouse _no_network fixture points DETECTION_MODELS_MANIFEST_URL at a missing file
     downloader = make_downloader(target)
 
     with qtbot.waitSignal(downloader.manifest_error) as failed:
@@ -123,7 +130,7 @@ def test_fetch_manifest_reports_a_missing_manifest(qtbot, make_downloader, targe
 
 def test_fetch_manifest_reports_invalid_json(qtbot, make_downloader, monkeypatch, remote, target):
     (remote / "models.json").write_text("not json")
-    monkeypatch.setattr(model_downloader, "MANIFEST_URL", file_url(remote / "models.json"))
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", file_url(remote / "models.json"))
     downloader = make_downloader(target)
 
     with qtbot.waitSignal(downloader.manifest_error) as failed:
@@ -142,9 +149,9 @@ def test_manifest_failure_is_not_reported_as_a_download_error(qtbot, make_downlo
     assert events == []
 
 
-def test_fetch_manifest_joins_a_fetch_that_is_still_running(qtbot, make_downloader, monkeypatch, gated_server, target):
+def test_fetch_manifest_joins_a_fetch_that_is_still_running(qtbot, make_downloader, monkeypatch, gated_server, target, no_classifiers):
     gated_server.body = json.dumps([{"name": "A", "url": "https://example.org/a.onnx"}]).encode()
-    monkeypatch.setattr(model_downloader, "MANIFEST_URL", f"{gated_server.url}/models.json")
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", f"{gated_server.url}/models.json")
     downloader = make_downloader(target)
     loaded = []
     downloader.manifest_loaded.connect(loaded.append)
@@ -165,7 +172,7 @@ def test_fetch_manifest_joins_a_fetch_that_is_still_running(qtbot, make_download
 
 
 def test_manifest_fetch_gives_up_on_a_server_that_does_not_answer(qtbot, make_downloader, monkeypatch, gated_server, target):
-    monkeypatch.setattr(model_downloader, "MANIFEST_URL", f"{gated_server.url}/models.json")
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", f"{gated_server.url}/models.json")
     monkeypatch.setattr(model_downloader, "MANIFEST_TIMEOUT_MS", 200)
     downloader = make_downloader(target)
 
@@ -182,7 +189,7 @@ def test_unusable_manifest_from_the_network_keeps_the_cached_one(qtbot, make_dow
     (target / "models.json").write_text(json.dumps(cached))
     gated_server.body = body
     gated_server.gate.set()
-    monkeypatch.setattr(model_downloader, "MANIFEST_URL", f"{gated_server.url}/models.json")
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", f"{gated_server.url}/models.json")
     downloader = make_downloader(target)
 
     with qtbot.waitSignal(downloader.manifest_error) as failed:
@@ -281,21 +288,123 @@ def test_stalled_server_starts_without_a_hostname_lookup(monkeypatch, request):
     request.getfixturevalue("stalled_server")
 
 
-def test_classifiers_are_the_entries_of_kind_classifier(make_downloader, target):
-    (target / "models.json").write_text(json.dumps([
-        {"name": "Fish", "url": "https://example.org/fish.onnx"},
-        {"name": "Species", "url": "https://example.org/species-v2.onnx.gz", "kind": "classifier",
-         "classifies": ["Fish*"], "supersedes": ["species-v1.onnx.gz"]},
-        {"name": "Anything", "url": "https://example.org/anything.onnx.gz", "kind": "classifier"},
-    ]))
+def write_classifier_manifest(folder, manifest):
+    (folder / "classifiers").mkdir(exist_ok=True)
+    (folder / "classifiers" / "models.json").write_text(json.dumps(manifest))
 
-    assert make_downloader(target).classifier_patterns == {
+
+def test_classifiers_are_the_entries_of_the_classifier_manifest(make_downloader, target):
+    (target / "models.json").write_text(json.dumps([{"name": "Fish", "url": "https://example.org/fish.onnx"}]))
+    write_classifier_manifest(target, [
+        {"name": "Species", "url": "https://example.org/species-v2.onnx.gz",
+         "classifies": ["Fish*"], "supersedes": ["species-v1.onnx.gz"]},
+        {"name": "Anything", "url": "https://example.org/anything.onnx.gz"},
+    ])
+
+    downloader = make_downloader(target)
+
+    assert downloader.classifier_patterns == {
         "species-v2.onnx.gz": ["Fish*"],
         "species-v1.onnx.gz": ["Fish*"],
         # An entry that does not say is taken to apply to everything
         "anything.onnx.gz": ["*"],
     }
+    assert downloader.filename_to_name == {"fish.onnx": "Fish", "species-v2.onnx.gz": "Species",
+                                           "species-v1.onnx.gz": "Species", "anything.onnx.gz": "Anything"}
 
 
-def test_without_a_manifest_no_file_is_a_classifier(make_downloader, target):
-    assert make_downloader(target).classifier_patterns == {}
+def test_classifier_the_manifest_does_not_know_names_every_class(make_downloader, target):
+    write_classifier_manifest(target, [{"name": "Species", "url": "https://example.org/species.onnx", "classifies": ["Fish*"]}])
+
+    downloader = make_downloader(target)
+
+    assert downloader.classifies("species.onnx") == ["Fish*"]
+    assert downloader.classifies("mine.onnx") == ["*"]
+
+
+def test_entries_are_downloaded_to_the_folder_of_their_manifest(make_downloader, target):
+    (target / "models.json").write_text(json.dumps([{"name": "Fish", "url": "https://example.org/fish.onnx"}]))
+    write_classifier_manifest(target, [{"name": "Species", "url": "https://example.org/species.onnx"}])
+    downloader = make_downloader(target)
+
+    fish, species = downloader.cached_manifest
+
+    assert downloader.model_dir(fish) == str(target)
+    assert downloader.model_dir(species) == str(target / "classifiers")
+    assert downloader.classifiers_dir == str(target / "classifiers")
+
+
+def test_top_level_entries_of_an_unknown_kind_are_left_out(make_downloader, target):
+    # What a later release might add, and this one must not offer as a detection model
+    (target / "models.json").write_text(json.dumps([
+        {"name": "Fish", "url": "https://example.org/fish.onnx"},
+        {"name": "Tracker", "url": "https://example.org/tracker.onnx", "kind": "tracker"},
+        {"name": "Species", "url": "https://example.org/species.onnx", "kind": "classifier"},
+    ]))
+
+    downloader = make_downloader(target)
+
+    assert downloader.filename_to_name == {"fish.onnx": "Fish"}
+    assert downloader.classifier_patterns == {}
+
+
+def test_fetch_manifest_reports_both_manifests_in_one_signal(qtbot, make_downloader, monkeypatch, remote, target):
+    detectors = [entry(remote, "a.onnx")]
+    classifiers = [entry(remote, "b.onnx", classifies=["A*"])]
+    (remote / "models.json").write_text(json.dumps(detectors))
+    (remote / "classifiers.json").write_text(json.dumps(classifiers))
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", file_url(remote / "models.json"))
+    monkeypatch.setattr(model_downloader, "CLASSIFICATION_MODELS_MANIFEST_URL", file_url(remote / "classifiers.json"))
+    downloader = make_downloader(target)
+    loaded = []
+    downloader.manifest_loaded.connect(loaded.append)
+
+    with qtbot.waitSignal(downloader.manifest_loaded):
+        downloader.fetch_manifest()
+    qtbot.wait(100)
+
+    assert loaded == [detectors + [classifiers[0] | {"kind": "classifier"}]]
+    assert downloader.classifier_patterns == {"b.onnx": ["A*"]}
+
+
+def test_failed_classifier_manifest_keeps_the_fresh_detection_models(qtbot, make_downloader, monkeypatch, remote, target):
+    write_classifier_manifest(target, [{"name": "Cached", "url": "https://example.org/cached.onnx"}])
+    (remote / "models.json").write_text(json.dumps([entry(remote, "a.onnx")]))
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", file_url(remote / "models.json"))
+    # The autouse _no_network fixture points CLASSIFICATION_MODELS_MANIFEST_URL at a missing file
+    downloader = make_downloader(target)
+
+    with qtbot.waitSignal(downloader.manifest_error) as failed:
+        downloader.fetch_manifest()
+
+    assert failed.args[0].startswith("Failed to fetch classifier manifest")
+    assert downloader.filename_to_name == {"a.onnx": "A", "cached.onnx": "Cached"}
+
+
+def test_fetched_manifests_are_cached_in_their_folders(qtbot, make_downloader, monkeypatch, gated_server, target):
+    gated_server.body = json.dumps([{"name": "A", "url": "https://example.org/a.onnx"}]).encode()
+    gated_server.gate.set()
+    monkeypatch.setattr(model_downloader, "DETECTION_MODELS_MANIFEST_URL", f"{gated_server.url}/models.json")
+    monkeypatch.setattr(model_downloader, "CLASSIFICATION_MODELS_MANIFEST_URL", f"{gated_server.url}/classifiers/models.json")
+    downloader = make_downloader(target)
+
+    with qtbot.waitSignal(downloader.manifest_loaded):
+        downloader.fetch_manifest()
+
+    assert (target / "models.json").read_bytes() == gated_server.body
+    assert (target / "classifiers" / "models.json").read_bytes() == gated_server.body
+
+
+def test_classifier_download_goes_to_the_classifiers_folder(qtbot, make_downloader, remote, target):
+    write_classifier_manifest(target, [entry(remote, "a.onnx", supersedes=["a-old.onnx"])])
+    (target / "classifiers" / "a-old.onnx").write_bytes(b"old")
+    downloader = make_downloader(target)
+    events = record_events(downloader)
+
+    with qtbot.waitSignal(downloader.all_downloads_finished):
+        downloader.download(downloader.cached_manifest)
+
+    assert events == [("started", "a.onnx"), ("finished", "a.onnx")]
+    assert (target / "classifiers" / "a.onnx").read_bytes() == b"model-a"
+    assert sorted(os.listdir(target / "classifiers")) == ["a.onnx", "models.json"]
+    assert sorted(os.listdir(target)) == ["classifiers"]

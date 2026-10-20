@@ -6,6 +6,8 @@ from threading import Lock
 
 from PySide6.QtCore import QStandardPaths
 
+from .model_downloader import CLASSIFICATION_MODELS_DIRNAME, MANIFEST_FILENAME
+
 
 class SharedFactory[T]:
     """
@@ -45,8 +47,9 @@ def get_model_path() -> str:
     """
     Get the path to the models directory.
 
-    If a local ./models/ directory exists and contains model files and a models.json manifest,
-    use it (covers running from source or a local development checkout).
+    If a local ./models/ directory exists and contains model files, a models.json manifest
+    and a classifiers/models.json manifest, use it (covers running from source or a local
+    development checkout).
     Otherwise, use the platform user data directory (QStandardPaths.AppDataLocation/models).
     The directory is created if it doesn't exist.
 
@@ -55,8 +58,9 @@ def get_model_path() -> str:
     """
     local_models = os.path.realpath(os.path.normpath(os.path.join(os.getcwd(), "models")))
     if (os.path.isdir(local_models)
-            and os.path.isfile(os.path.join(local_models, "models.json"))
-            and any(f.endswith(".onnx") or f.endswith(".onnx.gz") for f in os.listdir(local_models))):
+            and os.path.isfile(os.path.join(local_models, MANIFEST_FILENAME))
+            and os.path.isfile(os.path.join(local_models, CLASSIFICATION_MODELS_DIRNAME, MANIFEST_FILENAME))
+            and list_model_files(local_models)):
         return local_models
 
     # Default: platform user data directory
@@ -106,6 +110,15 @@ def resolve_short_path(path: str) -> str:
     if sys.platform != "win32":
         return path
     return os.path.realpath(path)
+
+
+def list_model_files(folder: str) -> list[str]:
+    """Sorted names of the model files (.onnx, .onnx.gz) in the folder. Empty if it does not exist."""
+    try:
+        entries = os.listdir(folder)
+    except FileNotFoundError:
+        return []
+    return sorted(f for f in entries if f.endswith((".onnx", ".onnx.gz")))
 
 
 def strip_model_ext(filename: str) -> str:

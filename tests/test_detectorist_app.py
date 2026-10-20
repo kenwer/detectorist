@@ -827,12 +827,25 @@ def test_classifier_file_is_offered_apart_from_the_detection_models(species_mode
     assert classifiers.currentIndex() == 0
 
 
+def test_classifier_the_manifest_does_not_know_is_offered_by_its_folder(models_dir, window):
+    # E.g. one copied in by hand. Without a manifest entry it is taken to name every class.
+    (models_dir / "classifiers").mkdir()
+    (models_dir / "classifiers" / "mine.onnx").write_bytes(b"model")
+
+    window._refresh_model_list()
+
+    models, classifiers = window.ui.model_select_combo_box, window.ui.classifier_combo_box
+    assert [models.itemData(i) for i in range(models.count())] == [MODEL_FILENAME]
+    assert [classifiers.itemData(i) for i in range(classifiers.count())] == [None, "mine.onnx"]
+    assert classifiers.itemText(1) == "mine"
+
+
 def test_selecting_a_classifier_names_the_displayed_detections_in_their_tooltips(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
     open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FAINT_FISH, CRAB, FISH])
 
     # Above the confidence only, the highest scoring first
     assert classifier_factory.classified == [[FISH.box, CRAB.box]]
-    assert classifier_factory.created[0].model_path == os.path.join(window.models_dir, species_model)
+    assert classifier_factory.created[0].model_path == os.path.join(window.models_dir, "classifiers", species_model)
     # The species scores 0.44, below the default taxon confidence of 0.50
     assert tooltips(window) == ["Pomacentridae 0.99\nAmphiprion 0.97"] * 2
 
@@ -940,12 +953,11 @@ def test_reset_settings_deselects_the_classifier(species_model, window, monkeypa
 
 
 def set_classifies(models_dir, patterns):
-    """Rewrite the manifest so its classifier names only detections of the given class patterns."""
-    manifest_path = models_dir / "models.json"
+    """Rewrite the classifier manifest so its classifier names only detections of the given class patterns."""
+    manifest_path = models_dir / "classifiers" / "models.json"
     manifest = json.loads(manifest_path.read_text())
     for entry in manifest:
-        if entry.get("kind") == "classifier":
-            entry["classifies"] = patterns
+        entry["classifies"] = patterns
     manifest_path.write_text(json.dumps(manifest))
 
 

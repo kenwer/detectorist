@@ -47,17 +47,22 @@ def test_contract_user_path_leaves_other_paths_absolute(home, tmp_path):
 
 def test_get_model_path_prefers_a_populated_local_models_folder(tmp_path, monkeypatch):
     local = tmp_path / "models"
-    local.mkdir()
+    (local / "classifiers").mkdir(parents=True)
     (local / "models.json").write_text("[]")
+    (local / "classifiers" / "models.json").write_text("[]")
     (local / "fish.onnx.gz").write_bytes(b"x")
     monkeypatch.chdir(tmp_path)
 
     assert utils.get_model_path() == os.path.realpath(local)
 
 
-def test_get_model_path_falls_back_to_the_app_data_folder(tmp_path, monkeypatch):
-    # A models folder without a manifest is not a development checkout
+@pytest.mark.parametrize("manifests", [[], ["models.json"]], ids=["no manifest", "no classifier manifest"])
+def test_get_model_path_falls_back_to_the_app_data_folder(tmp_path, monkeypatch, manifests):
+    # A models folder without both manifests is not a development checkout
     (tmp_path / "models").mkdir()
+    (tmp_path / "models" / "fish.onnx.gz").write_bytes(b"x")
+    for manifest in manifests:
+        (tmp_path / "models" / manifest).write_text("[]")
     monkeypatch.chdir(tmp_path)
     data_dir = tmp_path / "appdata"
 
@@ -72,6 +77,14 @@ def test_get_model_path_falls_back_to_the_app_data_folder(tmp_path, monkeypatch)
 
     assert utils.get_model_path() == os.path.join(str(data_dir), "models")
     assert (data_dir / "models").is_dir()
+
+
+def test_list_model_files_names_only_model_files(tmp_path):
+    for filename in ("b.onnx.gz", "a.onnx", "models.json", "c.onnx.gz.part"):
+        (tmp_path / filename).write_bytes(b"x")
+
+    assert utils.list_model_files(str(tmp_path)) == ["a.onnx", "b.onnx.gz"]
+    assert utils.list_model_files(str(tmp_path / "missing")) == []
 
 
 @not_windows

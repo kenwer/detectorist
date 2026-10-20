@@ -50,6 +50,7 @@ from .utils import (
     SharedFactory,
     contract_user_path,
     get_model_path,
+    list_model_files,
     long_path,
     resolve_short_path,
     strip_model_ext,
@@ -832,16 +833,14 @@ class DetectoristApp(QMainWindow):
     def _refresh_model_list(self):
         """
         Re-scan the models directory and update the model and classifier
-        combo boxes. Which files are classifiers is the manifest's call.
+        combo boxes. Detection models live in the top-level dir (for historical
+        reasons). Classification models live in the "classifiers" subfolder.
         """
         previous_filename = self.ui.model_select_combo_box.currentData()
         self.ui.model_select_combo_box.clear()
 
         name_map = self._model_downloader.filename_to_name
-        classifiers = self._model_downloader.classifier_patterns
-
-        onnx_files = sorted(f for f in os.listdir(self.models_dir)
-                            if (f.endswith(".onnx") or f.endswith(".onnx.gz")) and f not in classifiers)
+        onnx_files = list_model_files(self.models_dir)
         self._refresh_classifier_list()
 
         combo = self.ui.model_select_combo_box
@@ -873,11 +872,10 @@ class DetectoristApp(QMainWindow):
         combo = self.ui.classifier_combo_box
         previous_filename = combo.currentData()
         name_map = self._model_downloader.filename_to_name
-        on_disk = set(os.listdir(self.models_dir))
-        applicable = sorted(
-            filename for filename, patterns in self._model_downloader.classifier_patterns.items()
-            if filename in on_disk and any(class_matches(patterns, name) for name in self._detector_class_names)
-        )
+        applicable = [
+            filename for filename in list_model_files(self._model_downloader.classifiers_dir)
+            if any(class_matches(self._model_downloader.classifies(filename), name) for name in self._detector_class_names)
+        ]
 
         combo.blockSignals(True)
         combo.clear()
@@ -903,11 +901,11 @@ class DetectoristApp(QMainWindow):
         unloads it for "No classifier", and has the shown image named again.
         """
         filename = self.ui.classifier_combo_box.currentData()
-        model_path = os.path.join(self.models_dir, filename) if filename else ""
+        model_path = os.path.join(self._model_downloader.classifiers_dir, filename) if filename else ""
         if not filename:
             # The worker drops its reference, so this frees the model
             self._classifier_factory.release()
-        self.request_classifier.emit(model_path, self._model_downloader.classifier_patterns.get(filename, []))
+        self.request_classifier.emit(model_path, self._model_downloader.classifies(filename) if filename else [])
         self._taxonomy_by_box = {}
         self._display_filtered_results()
         self._request_classification()
@@ -1118,8 +1116,9 @@ class DetectoristApp(QMainWindow):
             # classifier is the worker's (see SharedFactory), or waits for the worker to load it.
             batch_detector = self._detector_factory(os.path.join(self.models_dir, model_filename))
             classifier_filename = self.ui.classifier_combo_box.currentData()
-            batch_classifier = (self._classifier_factory(os.path.join(self.models_dir, classifier_filename),
-                                                         self._model_downloader.classifier_patterns[classifier_filename])
+            batch_classifier = (self._classifier_factory(os.path.join(self._model_downloader.classifiers_dir,
+                                                                      classifier_filename),
+                                                         self._model_downloader.classifies(classifier_filename))
                                 if classifier_filename else None)
 
             def progress(index: int, total: int, file_name: str) -> bool:

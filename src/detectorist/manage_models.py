@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from .model_downloader import ModelDownloader, model_filename_from_url
 from .ui_manage_models_dialog import Ui_ManageModelsDialog
+from .utils import list_model_files
 
 # Row states where the action button triggers a download
 _DOWNLOADABLE_STATES = ("available", "error", "outdated")
@@ -152,7 +153,9 @@ class ManageModelsDialog(QDialog):
         self._clear_rows()
         self._manifest = manifest
 
-        existing_models = {f for f in os.listdir(self._models_dir) if f.endswith(".onnx") or f.endswith(".onnx.gz")}
+        # Model files on disk by folder: detection models at the top, classifiers in their subfolder
+        folders = (self._models_dir, self._downloader.classifiers_dir)
+        files_in = {folder: set(list_model_files(folder)) for folder in folders}
         active_filenames = set()
         if self._downloader.is_downloading:
             active_filenames.add(self._downloader.current_filename)
@@ -173,6 +176,8 @@ class ManageModelsDialog(QDialog):
             grid = QGridLayout(row_widget)
 
             filename = model_filename_from_url(model["url"])
+            folder = self._downloader.model_dir(model)
+            existing_models = files_in[folder]
             is_downloaded = filename in existing_models
             is_active = filename in active_filenames
             superseded_on_disk = not is_downloaded and not is_active and any(f in existing_models for f in model.get("supersedes", []))
@@ -208,7 +213,7 @@ class ManageModelsDialog(QDialog):
             action_button = QPushButton("Download")
             action_button.setFixedWidth(90)
 
-            local_path = os.path.join(self._models_dir, filename) if is_downloaded else ""
+            local_path = os.path.join(folder, filename) if is_downloaded else ""
             row = _ModelRow(model, action_button, progress_bar, status_label, desc_label, local_path)
             action_button.clicked.connect(lambda _checked, r=row: self._on_action_clicked(r))
             self._rows.append(row)
@@ -233,7 +238,8 @@ class ManageModelsDialog(QDialog):
 
         # Add local-only models (on disk but not in manifest, and not superseded by a manifest entry)
         manifest_filenames = {model_filename_from_url(m["url"]) for m in manifest}
-        for filename in existing_models:
+        local_only = [(folder, filename) for folder in folders for filename in sorted(files_in[folder])]
+        for folder, filename in local_only:
             # Skip manifest models, active downloads, and files represented by an "outdated" manifest row
             if filename in manifest_filenames or filename in active_filenames or filename in all_superseded:
                 continue
@@ -263,7 +269,7 @@ class ManageModelsDialog(QDialog):
             action_button = QPushButton("Remove")
             action_button.setFixedWidth(90)
 
-            local_path = os.path.join(self._models_dir, filename)
+            local_path = os.path.join(folder, filename)
             row = _ModelRow(model, action_button, progress_bar, status_label, desc_label, local_path)
             action_button.clicked.connect(lambda _checked, r=row: self._on_action_clicked(r))
             self._rows.append(row)
@@ -328,10 +334,9 @@ class ManageModelsDialog(QDialog):
             self._set_row_state(row, "downloading")
         elif row.state == "downloading":
             self._downloader.cancel()
-            existing_models = {f for f in os.listdir(self._models_dir)
-                               if f.endswith(".onnx") or f.endswith(".onnx.gz")}
             for r in self._rows:
                 if r.state == "downloading":
+                    existing_models = list_model_files(self._downloader.model_dir(r.model))
                     superseded_on_disk = [f for f in r.model.get("supersedes", [])
                                           if f in existing_models]
                     self._set_row_state(r, "outdated" if superseded_on_disk else "available")
@@ -408,7 +413,7 @@ class ManageModelsDialog(QDialog):
         """Mark the row as downloaded and set its local_path when the file has been saved."""
         row = self._find_row(filename)
         if row:
-            row.local_path = os.path.join(self._models_dir, filename)
+            row.local_path = os.path.join(self._downloader.model_dir(row.model), filename)
             self._set_row_state(row, "downloaded")
 
         self._update_download_all_button_state()

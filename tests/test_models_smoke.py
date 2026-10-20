@@ -24,9 +24,10 @@ from tests.fakes import make_images
 pytestmark = pytest.mark.slow
 
 MODELS_DIR = Path(__file__).parent.parent / "models"
-MANIFEST = json.loads((MODELS_DIR / "models.json").read_text())
-FILENAMES = [model_filename_from_url(entry["url"]) for entry in MANIFEST if entry.get("kind") != "classifier"]
-CLASSIFIER_FILENAMES = [model_filename_from_url(entry["url"]) for entry in MANIFEST if entry.get("kind") == "classifier"]
+CLASSIFIERS_DIR = MODELS_DIR / "classifiers"
+FILENAMES = [model_filename_from_url(entry["url"]) for entry in json.loads((MODELS_DIR / "models.json").read_text())]
+CLASSIFIER_FILENAMES = [model_filename_from_url(entry["url"])
+                        for entry in json.loads((CLASSIFIERS_DIR / "models.json").read_text())]
 
 # An LFS pointer file is about 130 bytes, a real model over 100 MB
 MIN_MODEL_BYTES = 1_000_000
@@ -58,7 +59,7 @@ def test_shipped_model_satisfies_the_detector_contract(filename, tmp_path):
 
 @pytest.mark.parametrize("filename", CLASSIFIER_FILENAMES)
 def test_shipped_classifier_satisfies_the_classifier_contract(filename, tmp_path):
-    path = MODELS_DIR / filename
+    path = CLASSIFIERS_DIR / filename
     if not path.is_file() or path.stat().st_size < MIN_MODEL_BYTES:
         pytest.skip(f"{filename} is not present (Git LFS object not fetched)")
 
@@ -84,7 +85,7 @@ def test_shipped_classifier_satisfies_the_classifier_contract(filename, tmp_path
 
 @pytest.mark.parametrize("filename", CLASSIFIER_FILENAMES)
 def test_shipped_classifier_is_rejected_as_a_detection_model(filename):
-    path = MODELS_DIR / filename
+    path = CLASSIFIERS_DIR / filename
     if not path.is_file() or path.stat().st_size < MIN_MODEL_BYTES:
         pytest.skip(f"{filename} is not present (Git LFS object not fetched)")
 

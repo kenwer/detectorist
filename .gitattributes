@@ -1,2 +1,4 @@
 models/*.onnx filter=lfs diff=lfs merge=lfs -text export-ignore
 models/*.onnx.gz filter=lfs diff=lfs merge=lfs -text export-ignore
+models/classifiers/*.onnx filter=lfs diff=lfs merge=lfs -text export-ignore
+models/classifiers/*.onnx.gz filter=lfs diff=lfs merge=lfs -text export-ignore
