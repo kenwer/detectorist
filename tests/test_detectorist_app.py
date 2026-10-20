@@ -274,16 +274,13 @@ def test_crop_bands_follow_the_crop_mode(qtbot, window, folder, monkeypatch, det
     assert len(window.ui.image_label.crop_bands) == len(expected)
 
 
-def test_overlay_action_hides_the_detection_bands(qtbot, window, folder, monkeypatch, detector_factory):
-    make_images(folder, ["a.png"], IMAGE_SIZE)
-    detector_factory.detections_by_file["a.png"] = [FISH]
-    window.ui.confidence_slider.setValue(50)
-    open_folder(window, folder, monkeypatch)
-    qtbot.waitUntil(lambda: object_count(window) == "1")
+@pytest.mark.parametrize("is_segmentation", [True, False])
+def test_mask_action_is_enabled_only_for_segmentation_models(make_window, detector_factory, is_segmentation):
+    detector_factory.is_segmentation = is_segmentation
 
-    window.ui.toggle_detection_overlay_action.setChecked(False)
+    window = make_window()
 
-    assert window.ui.image_label.detection_bands[0].isHidden()
+    assert window.ui.toggle_masks_action.isEnabled() == is_segmentation
 
 
 def test_unreadable_image_reports_an_error(qtbot, window, folder, monkeypatch, toasts):

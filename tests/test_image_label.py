@@ -92,16 +92,23 @@ def test_crop_band_is_mapped_and_replaced(label):
     assert band.geometry() == QRect(0, 100, 200, 200)
 
 
-def test_overlay_toggle_hides_detection_bands_but_not_crop_bands(label):
-    label.set_detection_boxes([FISH])
+def test_mask_toggle_hides_only_the_masks(label):
+    mask = np.full((32, 32), 255, dtype=np.uint8)
+    label.set_detection_boxes([Detection((20, 20, 40, 40), 0.9, "Fish", mask)])
     label.set_crop_boxes([QRect(0, 0, 100, 100)])
+    # Inside the image, which the mask covers, but clear of both bands
+    def pixel():
+        return label.grab().toImage().pixel(300, 250)
+    with_masks = pixel()
 
-    label.set_detection_overlay_visible(False)
-    assert label.detection_bands[0].isHidden()
+    label.set_masks_visible(False)
+
+    assert pixel() != with_masks
+    assert not label.detection_bands[0].isHidden()
     assert not label.crop_bands[0].isHidden()
 
-    label.set_detection_overlay_visible(True)
-    assert not label.detection_bands[0].isHidden()
+    label.set_masks_visible(True)
+    assert pixel() == with_masks
 
 
 def test_hide_bands_removes_everything(label):

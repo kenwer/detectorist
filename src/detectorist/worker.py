@@ -29,7 +29,7 @@ class DetectionWorker(QObject):
     touches lock-protected state); the heavy work always runs on this object's
     thread via the queued _process_loop invocation.
     """
-    model_loaded = Signal(bool, str, list)  # success, message, sorted class names
+    model_loaded = Signal(bool, str, list, bool)  # success, message, sorted class names, is segmentation model
     image_loaded = Signal(str, object)  # image_path, image_object
     detection_complete = Signal(str, list, float)  # image_path, results, detection_time_ms
     error = Signal(str, str)  # image_path, error_message
@@ -85,11 +85,11 @@ class DetectionWorker(QObject):
             self.detector = self._detector_factory(model_path)
             logger.info("Worker loaded model: %s", model_path)
             class_names = sorted(self.detector.class_names.values())
-            self.model_loaded.emit(True, f"Loaded model: {model_path}", class_names)
+            self.model_loaded.emit(True, f"Loaded model: {model_path}", class_names, self.detector.is_segmentation)
         except Exception as e:
             self.detector = None
             logger.error("Worker error loading model: %s", e)
-            self.model_loaded.emit(False, f"Error loading model: {e}", [])
+            self.model_loaded.emit(False, f"Error loading model: {e}", [], False)
 
     @Slot(str, list)
     def set_classifier(self, model_path: str, patterns: list):

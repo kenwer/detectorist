@@ -84,7 +84,7 @@ class ImageLabel(QLabel):
         # Kept across set_detection_boxes, so a refresh of the same detections keeps them
         self._hovered_box = None
         self._highlighted_box = None
-        self._detection_overlay_visible = True
+        self._masks_visible = True
         self._pixmap = QPixmap()
         self.image = None
         self.last_crop_rects = None
@@ -218,7 +218,7 @@ class ImageLabel(QLabel):
             # Only stored here. QRubberBand ignores the mouse, so mouseMoveEvent
             # shows it, and only over the mask for a segmentation model.
             band.setToolTip(tooltips.get(band.box, f"{class_name} {score:.2f}"))
-            band.setVisible(self._detection_overlay_visible)
+            band.show()
             self.detection_bands.append(band)
 
         # Sorted once here rather than on every mouse move, as summing a mask is not cheap.
@@ -271,11 +271,9 @@ class ImageLabel(QLabel):
             crop_band.show()
             self.crop_bands.append(crop_band)
 
-    def set_detection_overlay_visible(self, visible: bool):
-        """Shows or hides the bounding boxes and segmentation masks, independent of the crop bands."""
-        self._detection_overlay_visible = visible
-        for band in self.detection_bands:
-            band.setVisible(visible)
+    def set_masks_visible(self, visible: bool):
+        """Shows or hides the segmentation masks. Hit-testing still uses a hidden mask."""
+        self._masks_visible = visible
         self.update()
 
     def hide_bands(self):
@@ -384,7 +382,7 @@ class ImageLabel(QLabel):
             point = QPoint((size.width() - scaled_pixmap.width()) // 2, (size.height() - scaled_pixmap.height()) // 2)
             painter = QPainter(self)
             painter.drawPixmap(point, scaled_pixmap)
-            if self._detection_overlay_visible and self._mask_overlay_pixmap is not None:
+            if self._masks_visible and self._mask_overlay_pixmap is not None:
                 painter.drawPixmap(self._get_displayed_image_rect(), self._mask_overlay_pixmap)
 
     def resizeEvent(self, event):

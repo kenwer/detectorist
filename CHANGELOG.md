@@ -5,6 +5,7 @@
 - New results table below the image that lists all classified detections.
 ### Changed
 - The detection summary moved from the side panel to the status bar.
+- The `H` shortcut now toggles only the segmentation masks. Bounding boxes stay visible.
 - Disable onnxruntime telemetry.
 - App requires macOS 26 or later.
 - [Dev] Upgrade dependencies.

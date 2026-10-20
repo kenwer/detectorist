@@ -509,7 +509,7 @@
     <addaction name="separator"/>
     <addaction name="open_output_folder_action"/>
     <addaction name="separator"/>
-    <addaction name="toggle_detection_overlay_action"/>
+    <addaction name="toggle_masks_action"/>
    </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
@@ -581,7 +581,10 @@
     <string>Open output folder</string>
    </property>
   </action>
-  <action name="toggle_detection_overlay_action">
+  <action name="toggle_masks_action">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -589,10 +592,10 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Show Bounding Boxes &amp;&amp; Masks</string>
+    <string>Show Masks</string>
    </property>
    <property name="toolTip">
-    <string>Toggles the bounding boxes and segmentation masks of detected objects. The crop preview stays visible</string>
+    <string>Toggles the segmentation masks of detected objects. Hovering over a hidden mask still shows its object</string>
    </property>
    <property name="shortcut">
     <string>H</string>

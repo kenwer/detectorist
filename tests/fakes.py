@@ -15,10 +15,12 @@ class FakeDetector:
     a test can act while a batch run is in flight.
     """
 
-    def __init__(self, detections_by_file=None, class_names=None, model_path="fake.onnx", on_detect=None):
+    def __init__(self, detections_by_file=None, class_names=None, model_path="fake.onnx", on_detect=None,
+                 is_segmentation=False):
         self.detections_by_file = detections_by_file if detections_by_file is not None else {}
         self.class_names = class_names if class_names is not None else {1: "Fish"}
         self.model_path = model_path
+        self.is_segmentation = is_segmentation
         self.on_detect = on_detect
         self.detected: list[str] = []
 
@@ -47,13 +49,14 @@ class FakeDetectorFactory:
         self.class_names_by_model: dict[str, dict] = {}
         self.error: Exception | None = None
         self.on_detect = None
+        self.is_segmentation = False
         self.created: list[FakeDetector] = []
 
     def __call__(self, model_path: str) -> FakeDetector:
         if self.error is not None:
             raise self.error
         class_names = self.class_names_by_model.get(os.path.basename(model_path), self.class_names)
-        detector = FakeDetector(self.detections_by_file, class_names, model_path, self.on_detect)
+        detector = FakeDetector(self.detections_by_file, class_names, model_path, self.on_detect, self.is_segmentation)
         self.created.append(detector)
         return detector
 

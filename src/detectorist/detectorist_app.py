@@ -260,7 +260,7 @@ class DetectoristApp(QMainWindow):
         self.ui.padding_slider.valueChanged.connect(self.update_crop_bands)
 
         self.ui.cb_comp_cam_exposure.toggled.connect(self.on_exposure_compensation_toggled)
-        self.ui.toggle_detection_overlay_action.toggled.connect(self.ui.image_label.set_detection_overlay_visible)
+        self.ui.toggle_masks_action.toggled.connect(self.ui.image_label.set_masks_visible)
 
         # Connect model signals
         self.model.modelReset.connect(self._update_clear_image_list_action_state)
@@ -709,9 +709,10 @@ class DetectoristApp(QMainWindow):
         min_score = self.ui.confidence_slider.value() / 100.0
         self.request_processing.emit(self.current_image_path, exposure_correction, prefetch_hints, min_score)
 
-    def handle_model_loaded(self, success: bool, message: str, class_names: list):
+    def handle_model_loaded(self, success: bool, message: str, class_names: list, is_segmentation: bool):
         """Handles the result of loading a model in the worker."""
         self.ui.image_label.set_class_color_map(class_names)
+        self.ui.toggle_masks_action.setEnabled(is_segmentation)
         self.ui.class_filter_combo_box.blockSignals(True)
         self.ui.class_filter_combo_box.clear()
         self.ui.class_filter_combo_box.addItem("All classes")

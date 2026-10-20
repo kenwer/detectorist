@@ -110,7 +110,7 @@ def test_prefetch_failure_is_swallowed(qtbot, tmp_path):
 def make_loading_worker(factory):
     worker = DetectionWorker(detector_factory=factory)
     loaded = []
-    worker.model_loaded.connect(lambda ok, message, class_names: loaded.append((ok, message, class_names)))
+    worker.model_loaded.connect(lambda ok, message, class_names, _is_segmentation: loaded.append((ok, message, class_names)))
     return worker, loaded
 
 
