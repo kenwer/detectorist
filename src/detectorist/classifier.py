@@ -60,12 +60,26 @@ def identified_ranks(taxonomy: Taxonomy, threshold: float) -> list[RankedName]:
 
 def describe(taxonomy: Taxonomy, threshold: float) -> str:
     """
-    A taxonomy as tooltip text: one line per identified rank (see
-    identified_ranks), or "Unidentified" if there is none.
+    A taxonomy as one line of tooltip text: the family, the deepest
+    identified rank below it and that rank's score (see identified_ranks),
+    e.g. "Pomacentridae · A. ocellaris 0.44". A species carries its genus
+    as the initial, as in scientific writing. "Unidentified" if no rank is
+    identified.
     """
     ranks = identified_ranks(taxonomy, threshold)
-    # The model writes species as Genus_species
-    return "\n".join(f"{rank.name.replace('_', ' ')} {rank.score:.2f}" for rank in ranks) or "Unidentified"
+    if not ranks:
+        return "Unidentified"
+    names = [display_name(ranks[0].name)]
+    if len(ranks) > 1:
+        # A genus has no "_", so it comes out unabbreviated
+        genus, _, epithet = ranks[-1].name.partition("_")
+        names.append(f"{genus[:1]}. {display_name(epithet)}" if epithet else display_name(genus))
+    return f"{' · '.join(names)} {ranks[-1].score:.2f}"
+
+
+def display_name(name: str) -> str:
+    """A taxon name as shown to the user, e.g. "Bombus terrestris" for the model's "Bombus_terrestris"."""
+    return name.replace("_", " ")
 
 
 def classification_window(box: Box, image_width: int, image_height: int, margin: float) -> tuple[int, int, int, int]:

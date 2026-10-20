@@ -28,48 +28,111 @@
         <enum>QAbstractItemView::SelectionMode::ExtendedSelection</enum>
        </property>
       </widget>
-      <widget class="QLabel" name="image_label">
+      <widget class="QSplitter" name="image_splitter">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>2</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
-       <property name="styleSheet">
-        <string>background-color: gray;</string>
+       <property name="orientation">
+        <enum>Qt::Orientation::Vertical</enum>
        </property>
-       <property name="text">
-        <string>Open Folder...</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignmentFlag::AlignCenter</set>
-       </property>
+       <widget class="QLabel" name="image_label">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>1</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="styleSheet">
+         <string>background-color: gray;</string>
+        </property>
+        <property name="text">
+         <string>Open Folder...</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="ResultsTable" name="results_table">
+        <property name="editTriggers">
+         <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+        </property>
+        <property name="alternatingRowColors">
+         <bool>true</bool>
+        </property>
+        <property name="selectionMode">
+         <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
+        </property>
+        <property name="rootIsDecorated">
+         <bool>false</bool>
+        </property>
+        <property name="uniformRowHeights">
+         <bool>true</bool>
+        </property>
+       </widget>
       </widget>
       <widget class="QWidget" name="right_side_widget" native="true">
        <layout class="QVBoxLayout" name="verticalLayout">
         <item>
          <widget class="QGroupBox" name="model_group_box">
-          <property name="enabled">
-           <bool>true</bool>
-          </property>
           <property name="title">
-           <string>Model</string>
+           <string>Object detection model</string>
           </property>
           <layout class="QGridLayout" name="gridLayout_2">
-           <item row="1" column="2">
-            <widget class="QSpinBox" name="confidence_spin_box">
-             <property name="minimum">
-              <number>1</number>
+           <item row="0" column="0" colspan="3">
+            <widget class="QComboBox" name="model_select_combo_box">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
              </property>
-             <property name="maximum">
-              <number>100</number>
-             </property>
-             <property name="value">
-              <number>75</number>
+             <property name="toolTip">
+              <string>Model used for object detection</string>
              </property>
             </widget>
            </item>
-           <item row="1" column="1">
+           <item row="1" column="0">
+            <widget class="QLabel" name="class_filter_label">
+             <property name="toolTip">
+              <string>Select detection class to filter for</string>
+             </property>
+             <property name="text">
+              <string>Show</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1" colspan="2">
+            <widget class="QComboBox" name="class_filter_combo_box">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>Select detection class to filter for</string>
+             </property>
+             <item>
+              <property name="text">
+               <string>All classes</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="confidence_label">
+             <property name="toolTip">
+              <string>The confidence threshold for filtering detections</string>
+             </property>
+             <property name="text">
+              <string>Min. confidence</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
             <widget class="QSlider" name="confidence_slider">
              <property name="enabled">
               <bool>true</bool>
@@ -103,48 +166,29 @@
              </property>
             </widget>
            </item>
+           <item row="2" column="2">
+            <widget class="QSpinBox" name="confidence_spin_box">
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>100</number>
+             </property>
+             <property name="value">
+              <number>75</number>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="classifier_group_box">
+          <property name="title">
+           <string>Classification model</string>
+          </property>
+          <layout class="QGridLayout" name="grdlyt_classifier">
            <item row="0" column="0" colspan="3">
-            <widget class="QComboBox" name="model_select_combo_box">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>Model used for object detection</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="confidence_label">
-             <property name="toolTip">
-              <string>The confidence threshold for filtering detections</string>
-             </property>
-             <property name="text">
-              <string>Confidence</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0" colspan="3">
-            <widget class="QComboBox" name="class_filter_combo_box">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>Select detection class to filter for</string>
-             </property>
-             <item>
-              <property name="text">
-               <string>All classes</string>
-              </property>
-             </item>
-            </widget>
-           </item>
-           <item row="3" column="0" colspan="3">
             <widget class="QComboBox" name="classifier_combo_box">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -157,17 +201,17 @@
              </property>
             </widget>
            </item>
-           <item row="4" column="0">
+           <item row="1" column="0">
             <widget class="QLabel" name="taxon_confidence_label">
              <property name="toolTip">
               <string>Names the classifier is less sure of than this are not shown</string>
              </property>
              <property name="text">
-              <string>Taxon confidence</string>
+              <string>Min. confidence</string>
              </property>
             </widget>
            </item>
-           <item row="4" column="1">
+           <item row="1" column="1">
             <widget class="QSlider" name="taxon_confidence_slider">
              <property name="sizePolicy">
               <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
@@ -195,7 +239,7 @@
              </property>
             </widget>
            </item>
-           <item row="4" column="2">
+           <item row="1" column="2">
             <widget class="QSpinBox" name="taxon_confidence_spin_box">
              <property name="minimum">
               <number>1</number>
@@ -205,24 +249,6 @@
              </property>
              <property name="value">
               <number>50</number>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="detection_info_group_box">
-          <property name="title">
-           <string>Detection</string>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_4">
-           <item>
-            <widget class="QLabel" name="detection_info_label">
-             <property name="text">
-              <string>Objects			: -
-Detection time		: -
-Highest confidence	: -</string>
              </property>
             </widget>
            </item>
@@ -241,7 +267,7 @@ Highest confidence	: -</string>
               <string>Crops all detected objects into individual images</string>
              </property>
              <property name="text">
-              <string>Crop all detected objects individually</string>
+              <string>Each object individually</string>
              </property>
              <property name="checked">
               <bool>true</bool>
@@ -257,7 +283,7 @@ Highest confidence	: -</string>
               <string>Crops to the object with the highest confidence only into a new image</string>
              </property>
              <property name="text">
-              <string>Crop to object with highest confidence</string>
+              <string>Object with highest confidence</string>
              </property>
              <property name="checked">
               <bool>false</bool>
@@ -273,7 +299,7 @@ Highest confidence	: -</string>
               <string>Crops to the most centrally located of all detected objects only into a new image</string>
              </property>
              <property name="text">
-              <string>Crop to object closest to center</string>
+              <string>Object closest to center</string>
              </property>
              <property name="checked">
               <bool>false</bool>
@@ -289,7 +315,7 @@ Highest confidence	: -</string>
               <string>Crops all detected objects into a single image</string>
              </property>
              <property name="text">
-              <string>Crop to union of detected objects</string>
+              <string>Union of all objects</string>
              </property>
              <property name="checked">
               <bool>false</bool>
@@ -299,19 +325,29 @@ Highest confidence	: -</string>
              </attribute>
             </widget>
            </item>
-           <item row="4" column="0" colspan="3">
+           <item row="4" column="0">
+            <widget class="QLabel" name="crop_ratio_label">
+             <property name="toolTip">
+              <string>Aspect ratio for the crop</string>
+             </property>
+             <property name="text">
+              <string>Aspect ratio</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1" colspan="2">
             <widget class="QComboBox" name="crop_ratio_combo_box">
              <property name="toolTip">
               <string>Aspect ratio for the crop</string>
              </property>
              <item>
               <property name="text">
-               <string>aspect ratio: same as source image</string>
+               <string>Same as source image</string>
               </property>
              </item>
              <item>
               <property name="text">
-               <string>aspect ratio: same as detection frame</string>
+               <string>Same as detection frame</string>
               </property>
              </item>
              <item>
@@ -780,6 +816,13 @@ Highest confidence	: -</string>
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ResultsTable</class>
+   <extends>QTreeWidget</extends>
+   <header>.results_table.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>

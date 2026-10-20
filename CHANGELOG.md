@@ -1,7 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- New results table below the image that lists all classified detections.
 ### Changed
+- The detection summary moved from the side panel to the status bar.
 - Disable onnxruntime telemetry.
 - App requires macOS 26 or later.
 - [Dev] Upgrade dependencies.

@@ -20,6 +20,8 @@ class CacheEntry:
     detection_time_ms: float
     # What the classifier said about some of the results, keyed by their box
     taxonomy: dict[Box, Taxonomy] = field(default_factory=dict)
+    # Summed over the classifier runs that filled taxonomy, as each run only names the boxes missing
+    classification_time_ms: float = 0.0
 
 
 class ImageCache:
@@ -70,6 +72,7 @@ class ImageCache:
         """Forgets what the classifier said about every entry, e.g. because another classifier was loaded."""
         for entry in self._entries.values():
             entry.taxonomy.clear()
+            entry.classification_time_ms = 0.0
 
 
 class PrefetchPlanner:

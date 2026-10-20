@@ -14,8 +14,8 @@ import json
 import os
 
 import pytest
-from PySide6.QtCore import QMimeData, QPointF, QRect, Qt, QUrl
-from PySide6.QtGui import QDropEvent
+from PySide6.QtCore import QEvent, QMimeData, QPointF, QRect, Qt, QUrl
+from PySide6.QtGui import QDropEvent, QMouseEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressDialog
 
 from detectorist import __version__, detectorist_app
@@ -49,8 +49,15 @@ def listed(window) -> list[str]:
 
 
 def object_count(window) -> str:
-    """The value of the Objects line in the detection info, "-" while none is shown."""
-    return window.ui.detection_info_label.text().splitlines()[0].split(": ")[1]
+    """The number of objects in the results summary, "-" while none is shown."""
+    return window.ui.results_summary_label.text().split(" ")[0] or "-"
+
+
+def result_rows(window) -> list[list[str]]:
+    """The filled cells of each row of the results table, top to bottom."""
+    table = window.ui.results_table
+    rows = (table.topLevelItem(i) for i in range(table.topLevelItemCount()))
+    return [[item.text(c) for c in range(table.columnCount()) if item.text(c)] for item in rows]
 
 
 def select_row(window, row):
@@ -172,7 +179,7 @@ def test_selected_image_shows_detections_above_the_confidence(qtbot, window, fol
     qtbot.waitUntil(lambda: object_count(window) == "1")
 
     assert len(window.ui.image_label.detection_bands) == 1
-    assert "0.9000" in window.ui.detection_info_label.text()
+    assert result_rows(window) == [["Fish", "0.90"]]
 
 
 def test_lowering_the_confidence_reveals_detections_without_a_new_inference(qtbot, window, folder, monkeypatch, detector_factory):
@@ -257,7 +264,7 @@ def test_crop_bands_follow_the_crop_mode(qtbot, window, folder, monkeypatch, det
     window.ui.confidence_slider.setValue(50)
     # No padding and the detection's own aspect ratio make the crop equal the box
     window.ui.padding_slider.setValue(0)
-    window.ui.crop_ratio_combo_box.setCurrentText("aspect ratio: same as detection frame")
+    window.ui.crop_ratio_combo_box.setCurrentText("Same as detection frame")
     open_folder(window, folder, monkeypatch)
     qtbot.waitUntil(lambda: object_count(window) == "2")
 
@@ -289,6 +296,7 @@ def test_unreadable_image_reports_an_error(qtbot, window, folder, monkeypatch, t
     assert (kind, title) == ("error", "Could not process image")
     assert text.startswith("broken.png: ")
     assert window.ui.image_label.text().startswith("Error: ")
+    assert window.ui.results_table.isHidden()
 
 
 def test_model_that_fails_to_load_is_reported(qtbot, make_window, detector_factory):
@@ -750,6 +758,18 @@ def test_clear_list_returns_to_the_welcome_state(window, folder, monkeypatch):
     assert object_count(window) == "-"
 
 
+def test_results_are_only_shown_alongside_an_image(qtbot, window, folder, monkeypatch):
+    assert window.ui.results_table.isHidden()
+
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
+    qtbot.waitUntil(lambda: not window.ui.results_table.isHidden())
+
+    window.ui.clear_image_list_action.trigger()
+
+    assert window.ui.results_table.isHidden()
+
+
 def test_toggling_exposure_correction_after_clear_list_keeps_the_welcome_state(qtbot, window, folder, monkeypatch):
     make_images(folder, ["a.png"], IMAGE_SIZE)
     open_folder(window, folder, monkeypatch)
@@ -847,7 +867,7 @@ def test_selecting_a_classifier_names_the_displayed_detections_in_their_tooltips
     assert classifier_factory.classified == [[FISH.box, CRAB.box]]
     assert classifier_factory.created[0].model_path == os.path.join(window.models_dir, "classifiers", species_model)
     # The species scores 0.44, below the default taxon confidence of 0.50
-    assert tooltips(window) == ["Pomacentridae 0.99\nAmphiprion 0.97"] * 2
+    assert tooltips(window) == ["Pomacentridae · Amphiprion 0.97"] * 2
 
 
 def test_taxon_confidence_restyles_the_names_without_a_new_inference(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
@@ -855,7 +875,7 @@ def test_taxon_confidence_restyles_the_names_without_a_new_inference(qtbot, spec
 
     window.ui.taxon_confidence_spin_box.setValue(40)
 
-    assert tooltips(window) == ["Pomacentridae 0.99\nAmphiprion 0.97\nAmphiprion ocellaris 0.44"]
+    assert tooltips(window) == ["Pomacentridae · A. ocellaris 0.44"]
     assert len(classifier_factory.classified) == 1
 
 
@@ -887,6 +907,145 @@ def test_deselecting_the_classifier_shows_the_detector_class_again(qtbot, specie
     window.ui.classifier_combo_box.setCurrentIndex(0)
 
     qtbot.waitUntil(lambda: tooltips(window) == ["Fish 0.90"])
+
+
+def test_results_list_each_detection_with_its_deepest_identified_rank(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [CRAB, FISH])
+
+    # The highest score first, down to the deepest rank at or above the taxon confidence
+    assert result_rows(window) == [["Fish", "0.90", "Pomacentridae", "0.99", "Amphiprion", "0.97"],
+                                   ["Crab", "0.80", "Pomacentridae", "0.99", "Amphiprion", "0.97"]]
+
+    window.ui.taxon_confidence_spin_box.setValue(40)
+
+    assert result_rows(window)[0] == ["Fish", "0.90", "Pomacentridae", "0.99", "Amphiprion", "0.97",
+                                      "Amphiprion ocellaris", "0.44"]
+
+    window.ui.taxon_confidence_spin_box.setValue(100)
+
+    assert result_rows(window)[0] == ["Fish", "0.90", "Unidentified"]
+
+
+def test_results_summary_gives_the_detections_and_classifications_with_their_times(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [CRAB, FISH])
+    window._last_detection_time_ms = 220.0
+
+    window.handle_classification_complete(window.current_image_path, window._taxonomy_by_box, 430.0)
+
+    assert window.ui.results_summary_label.text() == "2 objects detected (220 ms). 2 of them classified (430 ms)."
+
+    # Only the shown detections are counted, the time stays that of every name of the image
+    window.ui.class_filter_combo_box.setCurrentText("Fish")
+
+    assert window.ui.results_summary_label.text() == "1 object detected (220 ms). 1 of them classified (430 ms)."
+
+
+def test_hovering_a_detection_shows_its_result_row_in_bold(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [CRAB, FISH])
+    table = window.ui.results_table
+
+    def bold():
+        return [table.topLevelItem(i).font(0).bold() for i in range(table.topLevelItemCount())]
+
+    window.ui.image_label.detection_hovered.emit(CRAB.box)
+    assert bold() == [False, True]
+
+    window.ui.image_label.detection_hovered.emit(None)
+    assert bold() == [False, False]
+
+    # Rebuilds the rows
+    window.ui.image_label.detection_hovered.emit(CRAB.box)
+    window.ui.taxon_confidence_spin_box.setValue(40)
+    assert bold() == [False, True]
+
+
+def test_hovering_a_detection_or_refreshing_the_results_keeps_the_table_scrolled(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    fish = [Detection((10 * i, 10, 5, 5), 0.9 - i / 100, "Fish") for i in range(15)]
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, fish)
+    table = window.ui.results_table
+    # Shown and short, so the rows need a scroll bar
+    table.setFixedHeight(80)
+    window.show()
+    qtbot.waitUntil(lambda: table.verticalScrollBar().maximum() > 0)
+    scroll_bar = table.verticalScrollBar()
+    scroll_bar.setValue(scroll_bar.maximum())
+
+    # The first row is scrolled out of view
+    window.ui.image_label.detection_hovered.emit(fish[0].box)
+    assert scroll_bar.value() == scroll_bar.maximum()
+
+    window.ui.taxon_confidence_spin_box.setValue(40)
+    assert scroll_bar.value() == scroll_bar.maximum()
+
+
+def test_hovering_a_detection_keeps_the_order_of_a_sorted_table(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [CRAB, FISH])
+    table = window.ui.results_table
+    # Both share the family, so the tie keeps the highest score first
+    table.sortByColumn(2, Qt.SortOrder.AscendingOrder)
+    assert [row[0] for row in result_rows(window)] == ["Fish", "Crab"]
+
+    for box in (CRAB.box, FISH.box, None, CRAB.box):
+        window.ui.image_label.detection_hovered.emit(box)
+        assert [row[0] for row in result_rows(window)] == ["Fish", "Crab"]
+
+    table.sortByColumn(2, Qt.SortOrder.DescendingOrder)
+    assert [row[0] for row in result_rows(window)] == ["Fish", "Crab"]
+
+
+def test_hovering_a_result_row_highlights_its_detection_across_a_refresh(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [CRAB, FISH])
+    table = window.ui.results_table
+    viewport = table.viewport()
+
+    def highlighted():
+        return [band.box for band in window.ui.image_label.detection_bands if band.highlighted]
+
+    # Sent directly, as a window that is not shown on screen gets no mouse events
+    point = QPointF(table.visualItemRect(table.topLevelItem(1)).center())
+    QApplication.sendEvent(viewport, QMouseEvent(QEvent.Type.MouseMove, point, point, Qt.MouseButton.NoButton,
+                                                 Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier))
+    assert highlighted() == [CRAB.box]
+
+    # Rebuilds the rows and the boxes
+    window.ui.taxon_confidence_spin_box.setValue(40)
+    assert highlighted() == [CRAB.box]
+
+    QApplication.sendEvent(viewport, QEvent(QEvent.Type.Leave))
+    assert highlighted() == []
+
+
+def test_a_row_moving_under_a_resting_mouse_highlights_its_detection(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [CRAB, FISH])
+    table = window.ui.results_table
+
+    def highlighted():
+        return [band.box for band in window.ui.image_label.detection_bands if band.highlighted]
+
+    point = QPointF(table.visualItemRect(table.topLevelItem(0)).center())
+    QApplication.sendEvent(table.viewport(), QMouseEvent(QEvent.Type.MouseMove, point, point, Qt.MouseButton.NoButton,
+                                                         Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier))
+    assert highlighted() == [FISH.box]
+
+    # The Fish row goes, so the Crab row moves up under the mouse
+    window.ui.class_filter_combo_box.setCurrentText("Crab")
+
+    assert highlighted() == [CRAB.box]
+
+
+def test_classifier_settings_and_columns_are_set_aside_without_a_classifier(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    assert not window.ui.taxon_confidence_slider.isEnabled()
+
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH])
+    assert window.ui.taxon_confidence_slider.isEnabled()
+
+    window.ui.classifier_combo_box.setCurrentIndex(0)
+
+    assert not window.ui.taxon_confidence_slider.isEnabled()
+    qtbot.waitUntil(lambda: result_rows(window) == [["Fish", "0.90"]])
+    table = window.ui.results_table
+    # Only the detector's class and confidence
+    assert [table.isColumnHidden(c) for c in range(table.columnCount())] == [False, False] + [True] * 6
 
 
 def test_classifier_that_fails_to_load_is_reported(qtbot, species_model, window, classifier_factory, toasts):

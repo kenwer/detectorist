@@ -33,9 +33,9 @@ class DetectionWorker(QObject):
     detection_complete = Signal(str, list, float)  # image_path, results, detection_time_ms
     error = Signal(str, str)  # image_path, error_message
     cache_updated = Signal(list)  # paths currently held in the cache
-    # image_path, {box: Taxonomy}. Sent after detection_complete. The dict goes
-    # as object: as a QVariantMap it would lose its tuple keys.
-    classification_complete = Signal(str, object)
+    # image_path, {box: Taxonomy}, classification_time_ms. Sent after detection_complete.
+    # The dict goes as object: as a QVariantMap it would lose its tuple keys.
+    classification_complete = Signal(str, object, float)
     classifier_error = Signal(str)  # error_message
 
     def __init__(self, detector_factory: Callable[[str], Detector] = Detector,
@@ -127,7 +127,10 @@ class DetectionWorker(QObject):
         boxes = [d.box for d in detections_to_classify(entry.results, min_score, self.classifier.patterns)
                  if d.box not in entry.taxonomy]
         if boxes:
-            entry.taxonomy.update(zip(boxes, self.classifier.classify(entry.image, boxes), strict=True))
+            start_time = time.perf_counter()
+            taxonomies = self.classifier.classify(entry.image, boxes)
+            entry.classification_time_ms += (time.perf_counter() - start_time) * 1000
+            entry.taxonomy.update(zip(boxes, taxonomies, strict=True))
 
     def _classify_and_report(self, image_path: str, entry: CacheEntry, min_score: float):
         """
@@ -142,7 +145,7 @@ class DetectionWorker(QObject):
         except Exception as e:
             logger.exception("Could not classify the detections of %s", image_path)
             self.classifier_error.emit(f"{os.path.basename(image_path)}: {e}")
-        self.classification_complete.emit(image_path, dict(entry.taxonomy))
+        self.classification_complete.emit(image_path, dict(entry.taxonomy), entry.classification_time_ms)
 
     @Slot()
     def clear_cache(self):

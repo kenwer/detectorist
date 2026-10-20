@@ -6,6 +6,9 @@ with no real model. The detector is faked, either by assigning
 worker.detector directly or through the injected detector factory.
 """
 
+from types import SimpleNamespace
+
+from detectorist import worker as worker_module
 from detectorist.structures import Detection
 from detectorist.worker import DetectionWorker
 from tests.fakes import TAXONOMY, FakeClassifierFactory, FakeDetector, FakeDetectorFactory, make_images
@@ -188,7 +191,7 @@ def make_classifying_worker(detections_by_file, patterns=("Fish",)):
     worker.detector = FakeDetector(detections_by_file)
     worker.set_classifier("/models/species.onnx", list(patterns))
     named, errors = [], []
-    worker.classification_complete.connect(lambda path, taxonomy: named.append((path, taxonomy)))
+    worker.classification_complete.connect(lambda path, taxonomy, ms: named.append((path, taxonomy)))
     worker.classifier_error.connect(errors.append)
     return worker, factory, named, errors
 
@@ -231,6 +234,27 @@ def test_classify_image_names_the_boxes_a_lower_confidence_reveals(qtbot, tmp_pa
     assert factory.classified == [[FISH.box], [FAINT_FISH.box]]
     assert named[1] == (path_a, {FISH.box: TAXONOMY, FAINT_FISH.box: TAXONOMY})
     assert served == []
+
+
+def test_classification_time_sums_the_runs_until_another_classifier_is_loaded(qtbot, tmp_path, monkeypatch):
+    # Each reading of the clock is 100 ms after the previous one, so a run takes 100 ms
+    ticks = iter(range(1000))
+    # The worker's own time module, as patching time.perf_counter would reach every caller
+    monkeypatch.setattr(worker_module, "time", SimpleNamespace(perf_counter=lambda: next(ticks) / 10))
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    worker, _, _, _ = make_classifying_worker({"a.png": [FISH, FAINT_FISH]})
+    times = []
+    worker.classification_complete.connect(lambda path, taxonomy, ms: times.append(round(ms)))
+    worker.process_image(path_a, False, [], 0.5)
+    qtbot.waitUntil(lambda: len(times) == 1)
+
+    worker.classify_image(path_a, 0.1)
+    # Nothing is left to name
+    worker.classify_image(path_a, 0.1)
+    worker.set_classifier("/models/other.onnx", ["Fish"])
+    worker.classify_image(path_a, 0.1)
+
+    assert times == [100, 200, 200, 100]
 
 
 def test_classify_image_ignores_an_image_that_is_not_cached(tmp_path):

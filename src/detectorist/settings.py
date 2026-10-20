@@ -34,6 +34,7 @@ class Settings:
     # UI settings (not exported)
     KEY_WINDOW_GEOMETRY = "geometry"
     KEY_WINDOW_SPLITTER = "splitter_state"
+    KEY_IMAGE_SPLITTER = "image_splitter_state"
 
     # Model settings
     KEY_MODEL_PATH = "path"
@@ -145,6 +146,15 @@ class Settings:
     @splitter_state.setter
     def splitter_state(self, value: QByteArray) -> None:
         self._set_grouped(self.GROUP_UI, self.KEY_WINDOW_SPLITTER, value)
+
+    @property
+    def image_splitter_state(self) -> QByteArray | None:
+        """Heights of the image and the results below it, as saved by QSplitter.saveState()."""
+        return self._get_grouped(self.GROUP_UI, self.KEY_IMAGE_SPLITTER, QByteArray)
+
+    @image_splitter_state.setter
+    def image_splitter_state(self, value: QByteArray) -> None:
+        self._set_grouped(self.GROUP_UI, self.KEY_IMAGE_SPLITTER, value)
 
     # GROUP_MODEL settings
     @property

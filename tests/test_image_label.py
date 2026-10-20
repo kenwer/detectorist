@@ -8,7 +8,9 @@ and hidden flag, since the label is not shown on screen.
 
 import numpy as np
 import pytest
-from PySide6.QtCore import QPoint, QRect
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt
+from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QApplication
 
 from detectorist.image_label import ImageLabel
 from detectorist.image_object import ImageObject
@@ -30,9 +32,15 @@ def label(qtbot, tmp_path):
 
 @pytest.mark.parametrize("replace", [lambda label: label.clear(), lambda label: label.setText("Loading image...")])
 def test_image_is_forgotten_once_it_is_no_longer_shown(label, replace):
+    label.set_detection_boxes([FISH])
+    label.set_crop_boxes([QRect(0, 0, 100, 100)])
+
     replace(label)
 
     assert label.image is None
+    # Bands only make sense over an image
+    assert label.detection_bands == []
+    assert label.crop_bands == []
     # Nothing left that a refresh could bring back
     label.refresh_pixmap()
     assert label.pixmap().isNull()
@@ -155,6 +163,58 @@ def test_tooltip_of_a_detection_is_its_class_and_score_unless_given(label):
 
 
 def test_a_box_given_as_a_list_is_matched_like_a_tuple(label):
-    label.set_detection_boxes([Detection([20, 20, 40, 40], 0.9, "Fish")], {(20, 20, 40, 40): "Amphiprion"})
+    label.set_detection_boxes([Detection((20, 20, 40, 40), 0.9, "Fish")], {(20, 20, 40, 40): "Amphiprion"})
 
     assert label.detection_bands[0].toolTip() == "Amphiprion"
+
+
+def test_highlighting_marks_the_band_of_the_given_box(label):
+    label.set_detection_boxes([FISH, Detection((60, 60, 80, 80), 0.5, "Fish")])
+
+    label.highlight_box((20, 20, 40, 40))
+    assert [band.highlighted for band in label.detection_bands] == [True, False]
+
+    label.highlight_box(None)
+    assert [band.highlighted for band in label.detection_bands] == [False, False]
+
+
+def move_mouse(label, pos: QPoint):
+    # Sent directly, as a label that is not shown on screen gets no mouse events
+    point = QPointF(pos)
+    QApplication.sendEvent(label, QMouseEvent(QEvent.Type.MouseMove, point, point, Qt.MouseButton.NoButton,
+                                              Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier))
+
+
+def test_moving_the_mouse_over_a_band_reports_its_box(label):
+    label.set_detection_boxes([FISH])
+    hovered = []
+    label.detection_hovered.connect(hovered.append)
+    center = label.detection_bands[0].geometry().center()
+
+    move_mouse(label, center)
+    move_mouse(label, center + QPoint(1, 0))
+    move_mouse(label, QPoint(0, 0))
+
+    # Once per change
+    assert hovered == [FISH.box, None]
+
+
+def test_a_hovered_detection_stays_hovered_until_it_is_gone(label):
+    label.set_detection_boxes([FISH])
+    hovered = []
+    label.detection_hovered.connect(hovered.append)
+    move_mouse(label, label.detection_bands[0].geometry().center())
+
+    label.set_detection_boxes([FISH])
+    assert hovered == [FISH.box]
+
+    label.set_detection_boxes([])
+    assert hovered == [FISH.box, None]
+
+
+def test_highlighting_lasts_across_new_bands(label):
+    label.highlight_box(FISH.box)
+
+    label.set_detection_boxes([FISH])
+
+    assert label.detection_bands[0].highlighted

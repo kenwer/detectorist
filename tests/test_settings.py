@@ -29,6 +29,7 @@ def test_unset_values_read_as_none(settings):
     assert settings.auto_correct_exposure_enabled is None
     assert settings.window_geometry is None
     assert settings.splitter_state is None
+    assert settings.image_splitter_state is None
 
 
 def test_values_keep_their_type_across_a_reopen(settings, settings_file):

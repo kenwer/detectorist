@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QFileDialog,
+    QLabel,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -84,6 +85,14 @@ def image_name_filter(platform: str = sys.platform) -> str:
     return f"Images ({' '.join(patterns)})"
 
 
+NO_MODELS_MESSAGE = "No models available<br/>Use File -> Download Models"
+
+
+def _count(number: int, noun: str) -> str:
+    """A number with a noun in the matching form, e.g. "1 classification" or "20 classifications"."""
+    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
+
+
 class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
     request_processing = Signal(str, bool, list, float)  # image_path, exposure_correction, prefetch_paths, min_score
@@ -116,6 +125,7 @@ class DetectoristApp(QMainWindow):
         self._prefetch_planner = PrefetchPlanner()
         self._all_detection_results: list = []
         self._last_detection_time_ms: float = 0.0
+        self._last_classification_time_ms: float = 0.0
         # What the classifier said about the current image's detections, keyed by box
         self._taxonomy_by_box: dict = {}
         # The classifier the user chose, by filename. It stays the choice while a
@@ -144,9 +154,21 @@ class DetectoristApp(QMainWindow):
         self.ui.image_label = ImageLabel(self, self.ui.central_widget)
         self.ui.image_label.setSizePolicy(sizePolicy)
         self.ui.image_label.setAlignment(alignment)
-        self.ui.splitter.replaceWidget(1, self.ui.image_label)
+        self.ui.image_splitter.replaceWidget(0, self.ui.image_label)
+        # Only the results can be dragged away, the image keeps a minimum height
+        self.ui.image_splitter.setCollapsible(0, False)
         self.ui.image_label.linkActivated.connect(self._open_recent_folder)
         self.ui.image_label.setAcceptDrops(True) # Enable drag and drop for image_label
+        # Hovering a detection marks its results row, as hovering a row highlights its detection
+        self.ui.image_label.detection_hovered.connect(self.ui.results_table.set_bold_box)
+        self.ui.results_table.row_hovered.connect(self.ui.image_label.highlight_box)
+
+        # A permanent widget, so the status bar's messages (the image's name, notices) do not replace it
+        self.ui.results_summary_label = QLabel()
+        self.ui.status_bar.addPermanentWidget(self.ui.results_summary_label)
+        # The results only describe a shown image, so the welcome and message screens get the full height
+        self.ui.results_table.setVisible(False)
+        self.ui.image_label.image_shown_changed.connect(self.ui.results_table.setVisible)
 
         # Snapshot the .ui file's built-in defaults before _load_settings() can override
         # them, so "Reset Settings to Defaults" has real values to restore.
@@ -289,6 +311,8 @@ class DetectoristApp(QMainWindow):
             self.restoreGeometry(self.settings.window_geometry)
         if self.settings.splitter_state:
             self.ui.splitter.restoreState(self.settings.splitter_state)
+        if self.settings.image_splitter_state:
+            self.ui.image_splitter.restoreState(self.settings.image_splitter_state)
 
     def _load_settings(self):
         """
@@ -344,6 +368,7 @@ class DetectoristApp(QMainWindow):
         # Window geometry and splitter state
         self.settings.window_geometry = self.saveGeometry()
         self.settings.splitter_state = self.ui.splitter.saveState()
+        self.settings.image_splitter_state = self.ui.image_splitter.saveState()
 
         # Model selection
         self.settings.model = self.ui.model_select_combo_box.currentData()
@@ -370,14 +395,29 @@ class DetectoristApp(QMainWindow):
         # Auto correct camera exposure bias
         self.settings.auto_correct_exposure_enabled = self.ui.cb_comp_cam_exposure.isChecked()
 
-    def _update_detection_info(self, objects="-", confidence="-", time="-"):
-        detection_info_items = [
-            ("Objects\t\t\t", objects),
-            ("Highest confidence\t", confidence),
-            ("Detection time\t\t", time)
-        ]
-        detection_info = "\n".join(f"{k}: {v}" for k, v in detection_info_items)
-        self.ui.detection_info_label.setText(detection_info)
+    def _clear_results(self):
+        """Empties the results table and its summary, while no detection result is shown."""
+        self.ui.results_table.clear()
+        self.ui.results_summary_label.clear()
+
+    def _show_message(self, text: str):
+        """Shows text in place of the image, and drops what was detected in it."""
+        self.ui.image_label.hide_bands()
+        self.ui.image_label.setText(text)
+        self._clear_results()
+
+    def _show_results(self, detections: list, threshold: float):
+        """
+        Lists the detections in the results table, and sums them up with how
+        many of them are classified, and the time each took.
+        """
+        self.ui.results_table.show_detections(detections, self._taxonomy_by_box, threshold)
+        summary = f"{_count(len(detections), 'object')} detected ({self._last_detection_time_ms:.0f} ms)."
+        if self._taxonomy_by_box:
+            # The time also covers the names of detections the filters hide
+            classified = sum(d.box in self._taxonomy_by_box for d in detections)
+            summary += f" {classified} of them classified ({self._last_classification_time_ms:.0f} ms)."
+        self.ui.results_summary_label.setText(summary)
 
     def _load_images_from_paths(self, file_paths: list[str]):
         supported_files = sorted({f for f in file_paths if f.lower().endswith(supported_extensions())})
@@ -385,12 +425,9 @@ class DetectoristApp(QMainWindow):
         if not supported_files:
             # Handle UI state for no images
             # (Selection-dependent actions are handled via the modelReset signal from model.clear())
-            self.ui.image_label.set_detection_boxes([])
-            self.ui.image_label.hide_bands()
-            self._update_detection_info()
+            self._show_message("No supported images found or selected.")
             self.ui.crop_and_export_all_images_action.setEnabled(False)
             self.ui.group_images_by_object_class_action.setEnabled(False)
-            self.ui.image_label.setText("No supported images found or selected.")
             self.model.clear()
             return
 
@@ -582,7 +619,7 @@ class DetectoristApp(QMainWindow):
                     f'<br/><a href="{href}" style="color: #4b5563; font-weight: bold; text-decoration: none;">{name}</a>'
                     f'<br/><span style="color: #4b5563; font-size: small;">{escaped_path}</span><br>'
                 )
-        self.ui.image_label.setText("".join(parts))
+        self._show_message("".join(parts))
 
     def clear_image_list(self):
         """Clears the image list and resets the application to its initial state."""
@@ -590,14 +627,7 @@ class DetectoristApp(QMainWindow):
         self.current_image_path = None
         self._all_detection_results = []
 
-        # Clear the main image view and reset text
-        self.ui.image_label.clear()
         self._show_welcome_state()
-        self.ui.image_label.set_detection_boxes([])
-        self.ui.image_label.hide_bands()
-
-        # Reset UI elements
-        self._update_detection_info()
         self.ui.image_info_label.setText("")
         self.ui.image_exif_label.setText("")
         self.ui.status_bar.clearMessage()
@@ -626,10 +656,7 @@ class DetectoristApp(QMainWindow):
         self._all_detection_results = []
 
         if self.ui.model_select_combo_box.count() == 0:
-            self.ui.image_label.setText(
-                "No models available<br/>Use File -> Download Models"
-            )
-            self._update_detection_info()
+            self._show_message(NO_MODELS_MESSAGE)
             self.ui.status_bar.clearMessage()
             return
 
@@ -637,7 +664,7 @@ class DetectoristApp(QMainWindow):
         # cache hits do not flash "Loading image..." for a single frame.
         self._loading_indicator_timer.start()
         self.ui.image_label.hide_bands()
-        self._update_detection_info()
+        self._clear_results()
         self.ui.image_exif_label.setText("")
 
         # Request the worker to load and process the image
@@ -683,9 +710,7 @@ class DetectoristApp(QMainWindow):
             if self.current_image_path:
                 self.trigger_processing()
         else:
-            self.ui.image_label.hide_bands()
-            self.ui.image_label.setText(message)
-            self._update_detection_info()
+            self._show_message(message)
             logger.error(message)
 
     def handle_image_loaded(self, image_path: str, image_object: ImageObject):
@@ -696,8 +721,7 @@ class DetectoristApp(QMainWindow):
         self._loading_indicator_timer.stop()
 
         if not image_object:
-            self.ui.image_label.clear()
-            self.ui.image_label.setText(f"Could not load image:\n{image_path}")
+            self._show_message(f"Could not load image:\n{image_path}")
             return
 
         self.ui.image_label.replace_image(image_object)
@@ -724,11 +748,12 @@ class DetectoristApp(QMainWindow):
         self._taxonomy_by_box = {}
         self._display_filtered_results()
 
-    def handle_classification_complete(self, image_path: str, taxonomy_by_box: dict):
+    def handle_classification_complete(self, image_path: str, taxonomy_by_box: dict, classification_time_ms: float):
         """Handles the classification_complete signal from the worker."""
         if image_path != self.current_image_path:
             return
         self._taxonomy_by_box = taxonomy_by_box
+        self._last_classification_time_ms = classification_time_ms
         self._display_filtered_results()
 
     def _request_classification(self):
@@ -758,12 +783,8 @@ class DetectoristApp(QMainWindow):
     def _display_filtered_results(self):
         """Updates the UI with detection results filtered by the current class selection."""
         filtered = self._filtered_results()
-        self._update_detection_info(
-            objects=len(filtered),
-            confidence=f"{max((det.score for det in filtered), default=0):.4f}",
-            time=f"{self._last_detection_time_ms:.2f} ms"
-        )
         threshold = self.ui.taxon_confidence_slider.value() / 100.0
+        self._show_results(filtered, threshold)
         tooltips = {box: describe(taxonomy, threshold) for box, taxonomy in self._taxonomy_by_box.items()}
         self.ui.image_label.set_detection_boxes(filtered, tooltips)
         self.update_crop_bands()
@@ -779,8 +800,7 @@ class DetectoristApp(QMainWindow):
 
         self._loading_indicator_timer.stop()
         logger.error("Worker error for %s: %s", image_path, message)
-        self.ui.image_label.setText(f"Error: {message}")
-        self._update_detection_info()
+        self._show_message(f"Error: {message}")
         self.ui.status_bar.clearMessage()
         show_error_toast(self, "Could not process image", f"{os.path.basename(image_path)}: {message}")
 
@@ -885,6 +905,7 @@ class DetectoristApp(QMainWindow):
         combo.setCurrentIndex(max(self._find_model_index(combo, self._preferred_classifier), 0))
         combo.blockSignals(False)
         combo.setEnabled(combo.count() > 1)
+        self._update_classifier_controls()
 
         # Signals were blocked, so the change is loaded here without becoming the user's choice
         if combo.currentData() != previous_filename:
@@ -893,7 +914,19 @@ class DetectoristApp(QMainWindow):
     def _on_classifier_chosen(self):
         """Remembers the classifier picked in the combo box as the user's choice and loads it."""
         self._preferred_classifier = self.ui.classifier_combo_box.currentData()
+        self._update_classifier_controls()
         self._load_selected_classifier()
+
+    def _update_classifier_controls(self):
+        """
+        Greys out the taxon confidence and hides the results' family, genus
+        and species columns for "No classifier", as nothing is classified then.
+        """
+        active = self.ui.classifier_combo_box.currentData() is not None
+        for widget in (self.ui.taxon_confidence_label, self.ui.taxon_confidence_slider,
+                       self.ui.taxon_confidence_spin_box):
+            widget.setEnabled(active)
+        self.ui.results_table.set_taxonomy_visible(active)
 
     def _load_selected_classifier(self):
         """
@@ -937,10 +970,7 @@ class DetectoristApp(QMainWindow):
         self.ui.group_images_by_object_class_action.setEnabled(has_models and has_images)
 
         if not has_models:
-            # Clear visual state completely
-            self.ui.image_label.hide_bands()
-            self.ui.image_label.setText("No models available<br/>Use File -> Download Models")
-            self._update_detection_info()
+            self._show_message(NO_MODELS_MESSAGE)
             QMetaObject.invokeMethod(self.worker, "unload_model", Qt.ConnectionType.QueuedConnection)
         elif not has_images:
             self._show_welcome_state()
@@ -1004,9 +1034,9 @@ class DetectoristApp(QMainWindow):
         padding_percentage = self.ui.padding_slider.value() / 100.0
         ratio_str = self.ui.crop_ratio_combo_box.currentText()
 
-        if ratio_str == "aspect ratio: same as source image":
+        if ratio_str == "Same as source image":
             aspect_ratio = 'source_image'
-        elif ratio_str == "aspect ratio: same as detection frame":
+        elif ratio_str == "Same as detection frame":
             aspect_ratio = 'detection_frame'
         else:
             # Handle strings like "3:2 (landscape)"
