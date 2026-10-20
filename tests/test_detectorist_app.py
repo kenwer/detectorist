@@ -19,7 +19,7 @@ from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressDialog
 
 from detectorist import __version__, detectorist_app
-from detectorist.batch_run import classification_csv_name, detections_csv_name, settings_json_name
+from detectorist.batch_output import classification_csv_name, detections_csv_name, settings_json_name
 from detectorist.detector import Detector
 from detectorist.image_object import APPLEDOUBLE_MAGIC
 from detectorist.structures import Detection

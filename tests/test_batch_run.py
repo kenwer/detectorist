@@ -12,17 +12,18 @@ import os
 import pytest
 from PIL import Image
 
-from detectorist.batch_run import (
+from detectorist.batch_output import (
     CLASSIFICATION_CSV_HEADER,
     CSV_ENCODING,
     DETECTIONS_CSV_HEADER,
-    CropExportAction,
-    SortByClassAction,
+    ClassificationRow,
+    DetectionsRow,
     classification_csv_name,
     detections_csv_name,
-    run_batch,
     settings_json_name,
+    summarize_detections,
 )
+from detectorist.batch_run import CropExportAction, SortByClassAction, run_batch
 from detectorist.crop_planner import CropMode, CropSettings
 from detectorist.structures import Detection
 from tests.fakes import FakeClassifier, FakeDetector, make_images
@@ -125,6 +126,16 @@ def test_class_filter_drops_detections_of_other_classes(tmp_path):
     assert os.path.isfile(os.path.join(output_dir, "fish_only_ncrop.png"))
 
 
+@pytest.mark.parametrize(("detections", "cropped", "row"), [
+    ([], False, ("a.png", 0, "N/A", 0, "no")),
+    ([Detection((0, 0, 1, 1), 0.6, "Crab"), Detection((0, 0, 1, 1), 0.9, "Fish")], True, ("a.png", 0.9, "Fish", 2, "yes")),
+    # Detected, but the action did not crop (Sort by Class, or no usable crop rectangle)
+    ([Detection((0, 0, 1, 1), 0.9, "Fish")], False, ("a.png", 0.9, "Fish", 1, "no")),
+])
+def test_summarize_detections_reports_the_top_detection_and_the_crop(detections, cropped, row):
+    assert summarize_detections("a.png", detections, cropped) == row
+
+
 def test_sort_by_class_run(tmp_path):
     paths = make_images(tmp_path, ["a.png", "b.png"])
     detector = FakeDetector({"a.png": [Detection((10, 10, 20, 20), 0.8, "Fish")]})
@@ -138,7 +149,7 @@ def test_sort_by_class_run(tmp_path):
     assert os.path.isfile(os.path.join(output_dir, "no-detection", "b.png"))
     assert result.detections_rows == [
         ("a.png", 0.8, "Fish", 1, "no"),
-        ("b.png", 0, "no-detection", 0, "no"),
+        ("b.png", 0, "N/A", 0, "no"),
     ]
 
 
@@ -346,6 +357,14 @@ def run_classified_sort(tmp_path, detections_by_file, classifier, taxon_confiden
                      classification_csv_filename=CLASSIFICATION_CSV_FILENAME)
 
 
+def test_detections_row_has_a_field_per_csv_column():
+    assert len(DetectionsRow._fields) == len(DETECTIONS_CSV_HEADER)
+
+
+def test_classification_row_has_a_field_per_csv_column():
+    assert len(ClassificationRow._fields) == len(CLASSIFICATION_CSV_HEADER)
+
+
 def test_classification_csv_name_encodes_taxon_confidence_and_classifier():
     assert classification_csv_name(73, "sulawesi-fish-classification-2026-10-17.onnx.gz") == \
         "detectorist-classification-conf-73-sulawesi-fish-classification-2026-10-17.csv"
@@ -380,7 +399,8 @@ def test_ranks_below_the_taxon_confidence_are_left_empty(tmp_path, taxon_confide
     result = run_classified_sort(tmp_path, {"a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]},
                                  FakeClassifier(), taxon_confidence)
 
-    assert [list(row[8:14]) for row in result.classification_rows] == [names]
+    (row,) = result.classification_rows
+    assert [row.family, row.family_score, row.genus, row.genus_score, row.species, row.species_score] == names
 
 
 def test_classification_rows_cover_only_the_classes_the_classifier_names(tmp_path):
@@ -388,14 +408,15 @@ def test_classification_rows_cover_only_the_classes_the_classifier_names(tmp_pat
 
     result = run_classified_sort(tmp_path, {"a.png": [crab, fish]}, FakeClassifier(patterns=("Fish",)))
 
-    assert [row[:3] for row in result.classification_rows] == [("a.png", 1, "Fish")]
+    assert [(row.filename, row.detection, row.class_name) for row in result.classification_rows] == [("a.png", 1, "Fish")]
 
 
 def test_classification_boxes_are_clamped_to_the_image(tmp_path):
     # The images are 64 x 48
     result = run_classified_sort(tmp_path, {"a.png": [Detection((-5, 40, 20, 20), 0.9, "Fish")]}, FakeClassifier())
 
-    assert result.classification_rows[0][4:8] == (0, 40, 15, 8)
+    (row,) = result.classification_rows
+    assert (row.x, row.y, row.w, row.h) == (0, 40, 15, 8)
 
 
 def test_without_a_classifier_no_classification_csv_is_written(tmp_path):

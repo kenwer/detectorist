@@ -30,14 +30,8 @@ from PySide6.QtWidgets import (
 from detectorist import __version__
 
 from .about_dialog import show_about_dialog
-from .batch_run import (
-    CropExportAction,
-    SortByClassAction,
-    classification_csv_name,
-    detections_csv_name,
-    run_batch,
-    settings_json_name,
-)
+from .batch_output import classification_csv_name, detections_csv_name, settings_json_name
+from .batch_run import CropExportAction, SortByClassAction, run_batch
 from .classifier import Classifier, class_matches, describe
 from .crop_planner import CropMode, CropSettings, plan_crops
 from .detector import Detector
