@@ -296,6 +296,28 @@ def test_a_failing_classifier_is_reported_and_the_detections_stay(qtbot, tmp_pat
     assert named == [(path_a, {})]
 
 
+def test_a_classifier_failing_in_the_prefetch_stays_silent_until_the_image_is_requested(qtbot, tmp_path):
+    path_a, path_b = make_images(tmp_path, ["a.png", "b.png"], IMAGE_SIZE)
+    worker, factory, named, errors = make_classifying_worker({"a.png": [FISH], "b.png": [FISH]})
+    factory.classify_error = RuntimeError("out of memory")
+    worker.set_classifier("/models/broken.onnx", ["Fish"])
+    cached = []
+    worker.cache_updated.connect(cached.append)
+
+    worker.process_image(path_a, False, [path_b], 0.5)
+    qtbot.waitUntil(lambda: any(path_b in paths for paths in cached))
+
+    assert errors == ["a.png: out of memory"]
+    assert named == [(path_a, {})]
+
+    # The request retries the classification the prefetch failed
+    factory.created[-1].error = None
+    worker.process_image(path_b, False, [], 0.5)
+    qtbot.waitUntil(lambda: len(named) == 2)
+
+    assert named[1] == (path_b, {FISH.box: TAXONOMY})
+
+
 def test_a_classifier_that_fails_to_load_is_reported(qapp):
     worker, factory, _, errors = make_classifying_worker({})
     factory.error = OSError("not a classifier")

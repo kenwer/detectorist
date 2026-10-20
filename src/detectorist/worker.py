@@ -116,27 +116,33 @@ class DetectionWorker(QObject):
         if entry is not None:
             self._classify_and_report(image_path, entry, min_score)
 
-    def _classify_and_report(self, image_path: str, entry: CacheEntry, min_score: float, report: bool = True):
+    def _classify_missing(self, entry: CacheEntry, min_score: float):
         """
         Names the detections picked by detections_to_classify whose boxes the
-        entry has no names for yet, and reports all of the entry's names. A failure leaves
-        the detections shown as they are. A prefetch passes report=False:
-        nothing is emitted and a failure is only logged, so the later real
-        request for the image retries and reports it.
+        entry has no names for yet. Does nothing without a classifier. Raises
+        if the classifier fails, leaving the entry's names as they were.
         """
         if self.classifier is None:
             return
         boxes = [d.box for d in detections_to_classify(entry.results, min_score, self.classifier.patterns)
                  if d.box not in entry.taxonomy]
+        if boxes:
+            entry.taxonomy.update(zip(boxes, self.classifier.classify(entry.image, boxes), strict=True))
+
+    def _classify_and_report(self, image_path: str, entry: CacheEntry, min_score: float):
+        """
+        Names the boxes the entry misses (see _classify_missing) and reports
+        all of the entry's names. A failure is reported too, and leaves the
+        detections shown as they are.
+        """
+        if self.classifier is None:
+            return
         try:
-            if boxes:
-                entry.taxonomy.update(zip(boxes, self.classifier.classify(entry.image, boxes), strict=True))
+            self._classify_missing(entry, min_score)
         except Exception as e:
             logger.exception("Could not classify the detections of %s", image_path)
-            if report:
-                self.classifier_error.emit(f"{os.path.basename(image_path)}: {e}")
-        if report:
-            self.classification_complete.emit(image_path, dict(entry.taxonomy))
+            self.classifier_error.emit(f"{os.path.basename(image_path)}: {e}")
+        self.classification_complete.emit(image_path, dict(entry.taxonomy))
 
     @Slot()
     def clear_cache(self):
@@ -255,7 +261,7 @@ class DetectionWorker(QObject):
         Loads, detects and classifies one image into the cache. A cached one
         only gets the names it misses. Emits no signals: a later real request
         for this path presents the results (or surfaces errors) through the
-        normal path.
+        normal path, and retries a failed classification.
         """
         # get() also promotes a cached entry to MRU so it survives upcoming evictions
         entry = self._cache.get(image_path)
@@ -271,7 +277,7 @@ class DetectionWorker(QObject):
                 self._cache.put(image_path, entry)
                 self._notify_cache_updated()
             if not self._abandon_prefetch(image_path):
-                self._classify_and_report(image_path, entry, min_score, report=False)
+                self._classify_missing(entry, min_score)
         except Exception as e:
             logger.warning("Prefetch failed for %s: %s", image_path, e)
 
