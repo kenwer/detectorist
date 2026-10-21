@@ -196,7 +196,7 @@ def make_classifying_worker(detections_by_file, patterns=("Fish",)):
     return worker, factory, named, errors
 
 
-def test_detections_above_min_score_of_the_classified_classes_are_named(qtbot, tmp_path):
+def test_detections_above_min_detection_score_of_the_classified_classes_are_named(qtbot, tmp_path):
     (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
     worker, factory, named, _ = make_classifying_worker({"a.png": [FISH, FAINT_FISH, CRAB]})
 

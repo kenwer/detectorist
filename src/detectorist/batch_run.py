@@ -81,7 +81,7 @@ class BatchAction(Protocol):
         ...
 
     def process(self, image: ImageObject, detections: list[Detection]) -> bool:
-        """Handle one image and its confidence-filtered detections. Returns whether the image was cropped."""
+        """Handle one image and its detections filtered by detection confidence. Returns whether the image was cropped."""
         ...
 
 

@@ -242,7 +242,7 @@ def test_class_matches_a_pattern_list(patterns, class_name, expected):
     assert class_matches(patterns, class_name) is expected
 
 
-def test_detections_to_classify_are_those_above_min_score_of_the_named_classes_best_first():
+def test_detections_to_classify_are_those_above_min_detection_score_of_the_named_classes_best_first():
     faint = Detection((0, 0, 1, 1), 0.3, "Fish")
     fish = Detection((1, 1, 1, 1), 0.6, "Fish")
     crab = Detection((2, 2, 1, 1), 0.9, "Crab")

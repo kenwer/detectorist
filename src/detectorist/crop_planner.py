@@ -16,7 +16,7 @@ Rect = tuple[int, int, int, int]
 
 
 class CropMode(StrEnum):
-    TOP_CONFIDENCE = "top_confidence"  # box of the highest-confidence detection
+    MOST_CONFIDENT_DETECTION = "top_confidence"  # box of the detection with the highest detection score
     UNION = "union"                    # one box framing all detections
     MOST_CENTERED = "most_centered"    # box of the detection closest to the image center
     EACH_OBJECT = "all_detected_objects"  # one crop per detection
@@ -63,9 +63,9 @@ def plan_crops(detections: list[Detection], image_height: int, image_width: int,
 
     if settings.mode == CropMode.EACH_OBJECT:  # We might have more than one crop rectangle
         crop_rects = []
-        # Treat each detection individually with TOP_CONFIDENCE
+        # Treat each detection individually with MOST_CONFIDENT_DETECTION
         for detection in detections:
-            rect = _plan_single_crop([detection], image_height, image_width, CropMode.TOP_CONFIDENCE, settings.padding, settings.aspect)
+            rect = _plan_single_crop([detection], image_height, image_width, CropMode.MOST_CONFIDENT_DETECTION, settings.padding, settings.aspect)
             if rect:
                 crop_rects.append(rect)
         return crop_rects
@@ -85,7 +85,7 @@ def _plan_single_crop(detections: list[Detection], image_height: int, image_widt
         return None
 
     # The detection boxes are tuples of (x, y, w, h)
-    if mode == CropMode.TOP_CONFIDENCE:
+    if mode == CropMode.MOST_CONFIDENT_DETECTION:
         top_detection = max(detections, key=lambda d: d.score)
         x, y, w, h = top_detection.box
     elif mode == CropMode.UNION:

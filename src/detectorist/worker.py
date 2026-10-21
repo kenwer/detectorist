@@ -61,10 +61,10 @@ class DetectionWorker(QObject):
         # cache itself is only touched on the worker thread.
         self._prefetch_paths: list[str] = []
         self._cache = ImageCache()
-        # The confidence of the latest request, which decides which boxes a
+        # The detection confidence of the latest request, which decides which boxes a
         # cached image still needs names for. Only touched on the worker thread:
         # process_image hands it over via _latest_request_params.
-        self._min_score = 0.0
+        self._min_detection_score = 0.0
 
     @Slot()
     def unload_model(self):
@@ -111,14 +111,14 @@ class DetectionWorker(QObject):
         self._notify_cache_updated()
 
     @Slot(str, float)
-    def classify_image(self, image_path: str, min_score: float):
+    def classify_image(self, image_path: str, min_detection_score: float):
         """
-        Names the boxes of a cached image down to min_score, e.g. after the
-        confidence was lowered, and reports them. Only the boxes without names
+        Names the boxes of a cached image down to min_detection_score, e.g. after the
+        detection confidence was lowered, and reports them. Only the boxes without names
         are classified. An image no longer cached is ignored: the next request
-        for it classifies down to the confidence it carries.
+        for it classifies down to the detection confidence it carries.
         """
-        self._set_min_score(min_score)
+        self._set_min_detection_score(min_detection_score)
         entry = self._cache.get(image_path)
         if entry is not None:
             self._classify_and_report(image_path, entry)
@@ -126,12 +126,12 @@ class DetectionWorker(QObject):
     def _unnamed_boxes(self, entry: CacheEntry) -> list[Box]:
         """
         The boxes of the detections picked by detections_to_classify at the
-        latest confidence that the entry has no names for yet. Empty without
+        latest detection confidence that the entry has no names for yet. Empty without
         a classifier.
         """
         if self.classifier is None:
             return []
-        return [d.box for d in detections_to_classify(entry.results, self._min_score, self.classifier.patterns)
+        return [d.box for d in detections_to_classify(entry.results, self._min_detection_score, self.classifier.patterns)
                 if d.box not in entry.taxonomy]
 
     def _classify_missing(self, entry: CacheEntry):
@@ -168,35 +168,35 @@ class DetectionWorker(QObject):
         self._cache.clear()
         self._notify_cache_updated()
 
-    def _set_min_score(self, min_score: float):
+    def _set_min_detection_score(self, min_detection_score: float):
         """
-        Remembers the confidence of the latest request. Another confidence
+        Remembers the detection confidence of the latest request. Another one
         changes which cached images still need names, so they are reported again.
         """
-        if min_score != self._min_score:
-            self._min_score = min_score
+        if min_detection_score != self._min_detection_score:
+            self._min_detection_score = min_detection_score
             self._notify_cache_updated()
 
     def _notify_cache_updated(self):
         """
         Reports the cached paths a request would be served for instantly, e.g.
         so the image list can highlight them. With a classifier loaded, that
-        takes names for every box the current confidence asks for, not only
+        takes names for every box the current detection confidence asks for, not only
         the decoded image and its detections.
         """
         self.cache_updated.emit([path for path, entry in self._cache.items()
                                  if not self._unnamed_boxes(entry)])
 
     @Slot(str, bool, list, float)
-    def process_image(self, image_path: str, exposure_correction: bool, prefetch_paths: list, min_score: float):
+    def process_image(self, image_path: str, exposure_correction: bool, prefetch_paths: list, min_detection_score: float):
         """
         Receives a request to process an image. Instead of processing immediately,
         it updates the latest request parameters and ensures the processing loop is running.
         prefetch_paths are images to decode and detect ahead of time while idle.
-        Detections scoring below min_score are not classified, here and in the prefetch.
+        Detections scoring below min_detection_score are not classified, here and in the prefetch.
         """
         with self._lock:
-            self._latest_request_params = (image_path, exposure_correction, min_score)
+            self._latest_request_params = (image_path, exposure_correction, min_detection_score)
             self._prefetch_paths = list(prefetch_paths)
             self._new_request_pending = True
             if not self._is_processing:
@@ -222,8 +222,8 @@ class DetectionWorker(QObject):
                     return  # No new requests, exit the loop
 
             assert params is not None
-            image_path, exposure_correction, min_score = params
-            self._set_min_score(min_score)
+            image_path, exposure_correction, min_detection_score = params
+            self._set_min_detection_score(min_detection_score)
 
             if prefetch_path is not None:
                 self._prefetch(prefetch_path)

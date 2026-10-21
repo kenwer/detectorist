@@ -22,16 +22,16 @@ def plan(detections, mode, padding, aspect, height=HEIGHT, width=WIDTH):
 
 
 def test_no_detections_yields_no_crops():
-    assert plan([], CropMode.TOP_CONFIDENCE, 0.1, (1, 1)) == []
+    assert plan([], CropMode.MOST_CONFIDENT_DETECTION, 0.1, (1, 1)) == []
 
 
 def test_top_confidence_picks_highest_score():
     # D3 wins on score. With no padding its 40x40 box is already square
-    assert plan(DETECTIONS, CropMode.TOP_CONFIDENCE, 0.0, (1, 1)) == [(300, 300, 40, 40)]
+    assert plan(DETECTIONS, CropMode.MOST_CONFIDENT_DETECTION, 0.0, (1, 1)) == [(300, 300, 40, 40)]
 
 
 def test_top_confidence_with_padding_and_aspect():
-    assert plan(DETECTIONS, CropMode.TOP_CONFIDENCE, 0.1, (3, 2)) == [(284, 296, 72, 48)]
+    assert plan(DETECTIONS, CropMode.MOST_CONFIDENT_DETECTION, 0.1, (3, 2)) == [(284, 296, 72, 48)]
 
 
 def test_union_frames_all_detections():
@@ -62,40 +62,40 @@ def test_each_object_yields_one_crop_per_detection():
 
 def test_crop_is_translated_back_inside_the_image():
     # Padding pushes the box past the top-left corner; it gets moved to (0, 0)
-    assert plan([Detection((0, 0, 60, 60), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.5, (1, 1)) == [(0, 0, 120, 120)]
+    assert plan([Detection((0, 0, 60, 60), 0.5, "c")], CropMode.MOST_CONFIDENT_DETECTION, 0.5, (1, 1)) == [(0, 0, 120, 120)]
 
 
 def test_crop_larger_than_image_is_scaled_down():
-    assert plan([Detection((10, 10, 500, 350), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.5, (1, 1)) == [(60, 0, 400, 400)]
+    assert plan([Detection((10, 10, 500, 350), 0.5, "c")], CropMode.MOST_CONFIDENT_DETECTION, 0.5, (1, 1)) == [(60, 0, 400, 400)]
 
 
 def test_wide_box_with_tall_target_ratio():
-    assert plan([Detection((50, 50, 300, 30), 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.0, (9, 16)) == [(87, 0, 225, 400)]
+    assert plan([Detection((50, 50, 300, 30), 0.5, "c")], CropMode.MOST_CONFIDENT_DETECTION, 0.0, (9, 16)) == [(87, 0, 225, 400)]
 
 
 def test_source_image_aspect_follows_each_image():
     # The same box and settings yield a landscape crop in a landscape image
     # and a portrait crop in a portrait image
     box = [Detection((100, 100, 40, 40), 0.5, "c")]
-    assert plan(box, CropMode.TOP_CONFIDENCE, 0.0, "source_image", height=400, width=600) == [(90, 100, 60, 40)]
-    assert plan(box, CropMode.TOP_CONFIDENCE, 0.0, "source_image", height=600, width=400) == [(100, 90, 40, 60)]
+    assert plan(box, CropMode.MOST_CONFIDENT_DETECTION, 0.0, "source_image", height=400, width=600) == [(90, 100, 60, 40)]
+    assert plan(box, CropMode.MOST_CONFIDENT_DETECTION, 0.0, "source_image", height=600, width=400) == [(100, 90, 40, 60)]
 
 
 @pytest.mark.parametrize("box", [(50, 50, 0, 0), (50, 50, 20, 0), (50, 50, 0, 20)])
 def test_zero_area_detection_yields_no_crop(box):
-    assert plan([Detection(box, 0.5, "c")], CropMode.TOP_CONFIDENCE, 0.0, "detection_frame") == []
+    assert plan([Detection(box, 0.5, "c")], CropMode.MOST_CONFIDENT_DETECTION, 0.0, "detection_frame") == []
 
 
 def test_zero_area_detection_is_ignored_next_to_usable_ones():
     # The empty box scores highest, yet the crop frames the best box with an area
     empty = Detection((50, 50, 20, 0), 0.99, "c")
-    assert plan([empty, D3], CropMode.TOP_CONFIDENCE, 0.0, (1, 1)) == [(300, 300, 40, 40)]
+    assert plan([empty, D3], CropMode.MOST_CONFIDENT_DETECTION, 0.0, (1, 1)) == [(300, 300, 40, 40)]
 
 
 class TestCropModeFromSetting:
     def test_parses_current_names(self):
         assert CropMode.from_setting("union") is CropMode.UNION
-        assert CropMode.from_setting("top_confidence") is CropMode.TOP_CONFIDENCE
+        assert CropMode.from_setting("top_confidence") is CropMode.MOST_CONFIDENT_DETECTION
         assert CropMode.from_setting("most_centered") is CropMode.MOST_CENTERED
         assert CropMode.from_setting("all_detected_objects") is CropMode.EACH_OBJECT
 

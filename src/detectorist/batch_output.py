@@ -129,19 +129,19 @@ class CsvTable:
             csv_writer.writerows(row for rows in self._rows_by_filename.values() for row in rows)
 
 
-def _run_suffix(confidence: int, model_filename: str) -> str:
-    """The confidence+model fragment shared by the CSV and settings file names."""
-    return f"conf-{confidence}-{strip_model_ext(model_filename or '')}"
+def _run_suffix(threshold: int, model_filename: str) -> str:
+    """The threshold+model fragment shared by the CSV and settings file names."""
+    return f"conf-{threshold}-{strip_model_ext(model_filename or '')}"
 
 
 def detections_csv_name(detection_confidence: int, model_filename: str) -> str:
     """
-    The name of a Batch Run's detections CSV file, encoding the confidence
-    level and the model used (like:
+    The name of a Batch Run's detections CSV file, encoding the detection
+    confidence and the model used (like:
     detectorist-detections-conf-75-fish-seg-transformer-2026-02-24.csv).
     Every run shares the same output directory, so this is what keeps runs
     with different settings from overwriting each other's CSV. A re-run with
-    the same confidence and model overwrites its own prior CSV instead.
+    the same detection confidence and model overwrites its own prior CSV instead.
     """
     return f"detectorist-detections-{_run_suffix(detection_confidence, model_filename)}.csv"
 
@@ -159,7 +159,7 @@ def classification_csv_name(taxon_confidence: int, classifier_filename: str) -> 
 def settings_json_name(detection_confidence: int, model_filename: str) -> str:
     """
     The name of the settings snapshot exported alongside a Batch Run's CSV,
-    encoding the same confidence level and model (like:
+    encoding the same detection confidence and model (like:
     detectorist-settings-conf-75-fish-seg-transformer-2026-02-24.json), so the
     two files pair up at a glance and a re-run overwrites its own prior copy.
     """

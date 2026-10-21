@@ -28,7 +28,7 @@ from detectorist.crop_planner import CropMode, CropSettings
 from detectorist.structures import Detection
 from tests.fakes import FakeClassifier, FakeDetector, make_images
 
-CROP_SETTINGS = CropSettings(mode=CropMode.TOP_CONFIDENCE, padding=0.0, aspect=(1, 1))
+CROP_SETTINGS = CropSettings(mode=CropMode.MOST_CONFIDENT_DETECTION, padding=0.0, aspect=(1, 1))
 
 
 def always_continue(index, total, filename):
@@ -80,7 +80,7 @@ def test_source_image_aspect_is_resolved_per_image(tmp_path):
     box = [Detection((10, 10, 20, 20), 0.9, "Fish")]
     detector = FakeDetector({"landscape.png": box, "portrait.png": box})
     output_dir = str(tmp_path / "out")
-    settings = CropSettings(mode=CropMode.TOP_CONFIDENCE, padding=0.0, aspect="source_image")
+    settings = CropSettings(mode=CropMode.MOST_CONFIDENT_DETECTION, padding=0.0, aspect="source_image")
 
     run_batch(landscape + portrait, detector, detection_confidence=0.5, exposure_correction=False,
               output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(settings),

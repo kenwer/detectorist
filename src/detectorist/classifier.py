@@ -25,7 +25,7 @@ from .image_object import ImageObject
 from .structures import Box, Detection, RankedName, Taxonomy, clamp_box
 from .utils import load_model_bytes
 
-# Most boxes of one image the classifier is run on. A confidence slider pulled
+# Most boxes of one image the classifier is run on. A detection confidence slider pulled
 # to the bottom displays every query of the detector, a few hundred boxes.
 MAX_CLASSIFIED_BOXES = 20
 
@@ -40,13 +40,13 @@ def class_matches(patterns: Sequence[str], class_name: str) -> bool:
     return any(fnmatch.fnmatchcase(class_name, pattern) for pattern in patterns)
 
 
-def detections_to_classify(detections: list[Detection], min_score: float, patterns: Sequence[str]) -> list[Detection]:
+def detections_to_classify(detections: list[Detection], min_detection_score: float, patterns: Sequence[str]) -> list[Detection]:
     """
-    The detections at or above min_score whose class the classifier names,
+    The detections at or above min_detection_score whose class the classifier names,
     at most MAX_CLASSIFIED_BOXES of them, the highest score first.
     """
     ranked = sorted(detections, key=lambda d: d.score, reverse=True)
-    return [d for d in ranked if d.score >= min_score and class_matches(patterns, d.class_name)][:MAX_CLASSIFIED_BOXES]
+    return [d for d in ranked if d.score >= min_detection_score and class_matches(patterns, d.class_name)][:MAX_CLASSIFIED_BOXES]
 
 
 def identified_ranks(taxonomy: Taxonomy, threshold: float) -> list[RankedName]:

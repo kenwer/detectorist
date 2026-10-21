@@ -251,7 +251,7 @@ class ImageLabel(QLabel):
 
         for band, mask in zip(self.detection_bands, self.orig_detection_masks, strict=True):
             style = band.detection_style
-            rgba[mask > 128] = (*style.color, int(style.score * 140))  # alpha scales with confidence
+            rgba[mask > 128] = (*style.color, int(style.score * 140))  # alpha scales with detection confidence
 
         self._mask_overlay_pixmap = self._pixmap_from_rgba(rgba)
 

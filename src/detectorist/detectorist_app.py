@@ -61,7 +61,7 @@ from .worker import DetectionWorker
 
 logger = logging.getLogger(__name__)
 
-# Every Batch Run writes into this same folder, regardless of model or confidence.
+# Every Batch Run writes into this same folder, regardless of model or detection confidence.
 OUTPUT_DIR_NAME = "processed"
 
 
@@ -113,9 +113,9 @@ def _count(number: int, noun: str) -> str:
 
 class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
-    request_processing = Signal(str, bool, list, float)  # image_path, exposure_correction, prefetch_paths, min_score
+    request_processing = Signal(str, bool, list, float)  # image_path, exposure_correction, prefetch_paths, min_detection_score
     request_classifier = Signal(str, list)  # model_path ("" for none), the classes it names (see class_matches)
-    request_classification = Signal(str, float)  # image_path, min_score
+    request_classification = Signal(str, float)  # image_path, min_detection_score
 
     def __init__(
         self,
@@ -239,10 +239,10 @@ class DetectoristApp(QMainWindow):
         self.ui.manage_models_action.triggered.connect(self.show_manage_models_dialog)
         self.ui.open_output_folder_action.triggered.connect(self._open_last_output_folder)
 
-        # Confidence slider/spinbox update the display filter only (no re-inference)
+        # Detection confidence slider/spinbox update the display filter only (no re-inference)
         self.ui.detection_confidence_slider.valueChanged.connect(self._display_filtered_results)
         self.ui.detection_confidence_spin_box.valueChanged.connect(self._display_filtered_results)
-        # The worker only names boxes at or above the confidence, so a lower one asks for the rest.
+        # The worker only names boxes at or above the detection confidence, so a lower one asks for the rest.
         # Debounced: the worker handles one request at a time, and the ticks of a drag queued
         # up there would delay the next image.
         self._classification_timer = QTimer(self)
@@ -253,7 +253,7 @@ class DetectoristApp(QMainWindow):
         self.ui.taxon_confidence_slider.valueChanged.connect(self._display_filtered_results)
 
         # Connect crop controls
-        self.ui.rb_crop_to_top_conf.toggled.connect(self.update_crop_bands)
+        self.ui.rb_crop_most_confident_detection.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_union.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_all_detected_objects.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_centered_obj.toggled.connect(self.update_crop_bands)
@@ -359,9 +359,9 @@ class DetectoristApp(QMainWindow):
         self._preferred_classifier = self.settings.classifier
         self._refresh_classifier_list()
 
-        # Confidence (slider and spinbox are linked)
-        if (confidence := self.settings.confidence) is not None:
-            self.ui.detection_confidence_slider.setValue(confidence)
+        # Detection confidence (slider and spinbox are linked)
+        if (detection_confidence := self.settings.confidence) is not None:
+            self.ui.detection_confidence_slider.setValue(detection_confidence)
 
         # Taxon confidence (slider and spinbox are linked)
         if (taxon_confidence := self.settings.taxon_confidence) is not None:
@@ -400,7 +400,7 @@ class DetectoristApp(QMainWindow):
         self.settings.classifier = self._preferred_classifier
         self.settings.taxon_confidence = self.ui.taxon_confidence_slider.value()
 
-        # Confidence
+        # Detection confidence
         self.settings.confidence = self.ui.detection_confidence_slider.value()
 
         # Crop mode
@@ -710,8 +710,8 @@ class DetectoristApp(QMainWindow):
 
         exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
         prefetch_hints = self._prefetch_planner.hints(self.model.imagePaths(), self.current_image_path)
-        min_score = self.ui.detection_confidence_slider.value() / 100.0
-        self.request_processing.emit(self.current_image_path, exposure_correction, prefetch_hints, min_score)
+        min_detection_score = self.ui.detection_confidence_slider.value() / 100.0
+        self.request_processing.emit(self.current_image_path, exposure_correction, prefetch_hints, min_detection_score)
 
     def toggle_all_overlays(self):
         """Hides the masks, boxes and labels if any of them is shown, otherwise shows all of them."""
@@ -788,7 +788,7 @@ class DetectoristApp(QMainWindow):
         self._display_filtered_results()
 
     def _request_classification(self):
-        """Asks the worker to name the shown image's boxes down to the current confidence."""
+        """Asks the worker to name the shown image's boxes down to the current detection confidence."""
         if self.current_image_path and self.ui.classifier_combo_box.currentData():
             self.request_classification.emit(self.current_image_path, self.ui.detection_confidence_slider.value() / 100.0)
 
@@ -803,9 +803,9 @@ class DetectoristApp(QMainWindow):
         return self.ui.class_filter_combo_box.currentText()
 
     def _filtered_results(self) -> list:
-        """Returns detection results filtered by the current confidence and class filter selections."""
-        confidence = self.ui.detection_confidence_slider.value() / 100.0
-        results = [d for d in self._all_detection_results if d.score >= confidence]
+        """Returns detection results filtered by the current detection confidence and class filter selections."""
+        detection_confidence = self.ui.detection_confidence_slider.value() / 100.0
+        results = [d for d in self._all_detection_results if d.score >= detection_confidence]
         selected = self._selected_class_filter()
         if selected is None:
             return results
@@ -1051,7 +1051,7 @@ class DetectoristApp(QMainWindow):
     def _crop_mode_radios(self) -> dict[CropMode, QRadioButton]:
         """The crop panel radio button for each CropMode."""
         return {
-            CropMode.TOP_CONFIDENCE: self.ui.rb_crop_to_top_conf,
+            CropMode.MOST_CONFIDENT_DETECTION: self.ui.rb_crop_most_confident_detection,
             CropMode.UNION: self.ui.rb_crop_union,
             CropMode.MOST_CENTERED: self.ui.rb_crop_centered_obj,
             CropMode.EACH_OBJECT: self.ui.rb_crop_all_detected_objects,

@@ -256,7 +256,7 @@ def test_result_for_another_image_is_ignored(qtbot, window, folder, monkeypatch,
 
 @pytest.mark.parametrize(("radio_name", "expected"), [
     ("rb_crop_all_detected_objects", [QRect(20, 20, 40, 40), QRect(120, 50, 60, 40)]),
-    ("rb_crop_to_top_conf", [QRect(20, 20, 40, 40)]),
+    ("rb_crop_most_confident_detection", [QRect(20, 20, 40, 40)]),
     ("rb_crop_union", [QRect(20, 20, 160, 70)]),
     ("rb_crop_centered_obj", [QRect(120, 50, 60, 40)]),
 ])
@@ -912,7 +912,7 @@ def test_lowering_the_confidence_names_the_detections_it_reveals(qtbot, species_
 def test_dragging_the_confidence_asks_for_names_once(qtbot, species_model, window, folder, monkeypatch, detector_factory):
     open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, FAINT_FISH])
     requests = []
-    window.request_classification.connect(lambda path, min_score: requests.append(min_score))
+    window.request_classification.connect(lambda path, min_detection_score: requests.append(min_detection_score))
 
     for value in (40, 30, 20, 10):
         window.ui.detection_confidence_slider.setValue(value)
