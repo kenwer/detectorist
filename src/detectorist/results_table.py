@@ -111,6 +111,3 @@ class ResultsTable(QTreeWidget):
         if box != self._hovered_box:
             self._hovered_box = box
             self.row_hovered.emit(box)
-        if box != self._hovered_box:
-            self._hovered_box = box
-            self.row_hovered.emit(box)

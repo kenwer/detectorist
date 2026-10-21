@@ -216,7 +216,8 @@ class ImageObject (ABC):
         try:
             return piexif.load(self.long_image_path)
         except piexif.InvalidImageDataError:
-            logger.warning("No EXIF data found in %s.", self._image_path)
+            # piexif only reads JPEG, TIFF and WebP, so every PNG, BMP or GIF lands here
+            logger.debug("No EXIF data read from %s, piexif does not support its format.", self._image_path)
             return {}
         except Exception as e:
             logger.error("Error loading EXIF data for %s: %s", self._image_path, e)
