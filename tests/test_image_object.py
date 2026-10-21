@@ -9,6 +9,7 @@ them up as if they were real images.
 from detectorist.image_object import (
     APPLEDOUBLE_MAGIC,
     filter_out_appledouble_files,
+    is_supported_image,
     list_supported_images,
 )
 
@@ -78,3 +79,9 @@ def test_filter_out_appledouble_files_does_not_match_across_directories(tmp_path
     kept = filter_out_appledouble_files([str(unrelated_original), str(lookalike_sidecar)])
 
     assert set(kept) == {str(unrelated_original), str(lookalike_sidecar)}
+
+
+def test_is_supported_image_matches_the_extension_in_any_case():
+    assert is_supported_image("photo.JPG")
+    assert is_supported_image("photo.png")
+    assert not is_supported_image("notes.pdf")

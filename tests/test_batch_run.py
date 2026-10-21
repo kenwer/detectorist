@@ -23,7 +23,7 @@ from detectorist.batch_output import (
     settings_json_name,
     summarize_detections,
 )
-from detectorist.batch_run import CropExportAction, SortByClassAction, run_batch
+from detectorist.batch_run import CropExportAction, SortByClassAction, group_by_folder, run_batch, run_batch_per_folder
 from detectorist.crop_planner import CropMode, CropSettings
 from detectorist.structures import Detection, RankedName, Taxonomy
 from tests.fakes import FakeClassifier, FakeDetector, make_images
@@ -233,6 +233,63 @@ def test_progress_can_cancel_the_run(tmp_path):
     assert len(result.detections_rows) == 1  # only a.png was processed
     # The CSV still holds what was processed before the cancel
     assert len(read_detections_csv_rows(output_dir)) == 2  # header + a.png
+
+
+def make_folders(tmp_path, *names):
+    folders = [tmp_path / name for name in names]
+    for folder in folders:
+        folder.mkdir()
+    return folders
+
+
+def run_per_folder(paths, progress=always_continue, detector=None):
+    return run_batch_per_folder(paths, "out", progress, detector=detector or FakeDetector({}),
+                                detection_confidence=0.5, exposure_correction=False,
+                                detections_csv_filename=DETECTIONS_CSV_FILENAME,
+                                action=CropExportAction(CROP_SETTINGS))
+
+
+def test_group_by_folder_keeps_the_order_of_first_appearance():
+    paths = [os.path.join("b", "1.png"), os.path.join("a", "2.png"), os.path.join("b", "3.png")]
+    assert group_by_folder(paths) == {"b": [paths[0], paths[2]], "a": [paths[1]]}
+
+
+def test_same_name_in_two_folders_keeps_both(tmp_path):
+    cam_a, cam_b = make_folders(tmp_path, "camA", "camB")
+    paths = make_images(cam_a, ["IMG_0001.png"]) + make_images(cam_b, ["IMG_0001.png"])
+    detector = FakeDetector({"IMG_0001.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]})
+
+    results = run_per_folder(paths, detector=detector)
+
+    assert [r.output_dir for r in results] == [str(cam_a / "out"), str(cam_b / "out")]
+    for folder in (cam_a, cam_b):
+        assert (folder / "out" / "IMG_0001_crop.png").is_file()
+        assert read_detections_csv_rows(folder / "out")[1:] == [["IMG_0001.png", "0.9", "Fish", "1", "yes"]]
+
+
+def test_progress_counts_across_folders(tmp_path):
+    cam_a, cam_b = make_folders(tmp_path, "camA", "camB")
+    paths = make_images(cam_a, ["a1.png", "a2.png"]) + make_images(cam_b, ["b1.png"])
+    calls = []
+
+    def record(index, total, filename):
+        calls.append((index, total, filename))
+        return True
+
+    run_per_folder(paths, progress=record)
+
+    assert calls == [(0, 3, "a1.png"), (1, 3, "a2.png"), (2, 3, "b1.png")]
+
+
+def test_cancel_skips_the_remaining_folders(tmp_path):
+    cam_a, cam_b, cam_c = make_folders(tmp_path, "camA", "camB", "camC")
+    paths = make_images(cam_a, ["a.png"]) + make_images(cam_b, ["b.png"]) + make_images(cam_c, ["c.png"])
+
+    results = run_per_folder(paths, progress=lambda index, total, filename: index < 1)
+
+    assert [r.cancelled for r in results] == [False, True]
+    assert len(read_detections_csv_rows(cam_a / "out")) == 2  # header + a.png
+    assert not (cam_c / "out").exists()
 
 
 def test_second_run_updates_touched_rows_and_preserves_the_rest(tmp_path):

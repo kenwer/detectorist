@@ -259,6 +259,55 @@ def run_batch(image_paths: list[str], detector, detection_confidence: float, exp
                        failed=failed, classification_rows=new_classification_rows)
 
 
+def group_by_folder(image_paths: list[str]) -> dict[str, list[str]]:
+    """
+    The image paths by their parent folder. Folders come in the order of
+    their first image, and each folder's images keep their input order.
+    """
+    groups: dict[str, list[str]] = {}
+    for path in image_paths:
+        groups.setdefault(os.path.dirname(path), []).append(path)
+    return groups
+
+
+def run_batch_per_folder(image_paths: list[str], output_dir_name: str, progress: ProgressFn,
+                         **batch_options) -> list[BatchResult]:
+    """
+    Runs one Batch Run per parent folder of the images, each writing into
+    <folder>/<output_dir_name>. The CSVs key their rows by bare file name,
+    which is only unique within one folder, so two IMG_0001.JPG from
+    different cameras would otherwise overwrite each other.
+
+    progress counts across all folders, as one run would. Cancelling stops
+    the current folder and skips the remaining ones.
+
+    Args:
+        image_paths: Full paths of the images to process.
+        output_dir_name: Name of the output folder created in each image folder.
+        progress: Called before each image. Returning False cancels the run.
+        **batch_options: Passed on to run_batch (everything but image_paths,
+            output_dir and progress).
+
+    Returns:
+        The results of the folders that ran, in order. Only the last one can
+        be cancelled.
+    """
+    total = len(image_paths)
+    results: list[BatchResult] = []
+    offset = 0
+    for folder, folder_paths in group_by_folder(image_paths).items():
+        def folder_progress(index: int, _total: int, file_name: str, offset: int = offset) -> bool:
+            return progress(offset + index, total, file_name)
+
+        result = run_batch(folder_paths, output_dir=os.path.join(folder, output_dir_name),
+                           progress=folder_progress, **batch_options)
+        results.append(result)
+        if result.cancelled:
+            break
+        offset += len(folder_paths)
+    return results
+
+
 @dataclass
 class CropExportAction:
     """

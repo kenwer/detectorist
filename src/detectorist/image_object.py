@@ -57,6 +57,11 @@ def supported_extensions() -> tuple[str, ...]:
     return HEIF_EXTENSIONS + RAW_EXTENSIONS + STANDARD_IMG_EXTENSIONS
 
 
+def is_supported_image(path: str) -> bool:
+    """Whether path has the extension of a supported image, in any case."""
+    return path.lower().endswith(supported_extensions())
+
+
 def list_supported_images(folder_path: str) -> list[str]:
     """
     Returns sorted basenames of supported image files in folder_path.
@@ -64,7 +69,7 @@ def list_supported_images(folder_path: str) -> list[str]:
     It excludes macOS AppleDouble sidecar files (e.g. "._IMG_1234.HIF").
     """
     entries = os.listdir(utils.long_path(folder_path))
-    supported = [f for f in entries if f.lower().endswith(supported_extensions())]
+    supported = [f for f in entries if is_supported_image(f)]
     full_paths = [os.path.join(folder_path, f) for f in supported]
     kept = filter_out_appledouble_files(full_paths)
     return sorted(os.path.basename(p) for p in kept)

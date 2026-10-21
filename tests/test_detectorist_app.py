@@ -15,7 +15,7 @@ import os
 
 import pytest
 from PySide6.QtCore import QEvent, QMimeData, QPointF, QRect, Qt, QUrl
-from PySide6.QtGui import QDropEvent, QMouseEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QMouseEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QProgressDialog
 
 from detectorist import __version__, detectorist_app
@@ -104,7 +104,7 @@ def test_opening_image_files_lists_them(window, folder, monkeypatch):
     assert listed(window) == ["b.png"]
 
 
-def test_folder_without_images_says_so(window, folder, monkeypatch):
+def test_folder_without_images_says_so(window, folder, monkeypatch, settings, toasts):
     (folder / "notes.txt").write_text("not an image")
 
     open_folder(window, folder, monkeypatch)
@@ -112,6 +112,111 @@ def test_folder_without_images_says_so(window, folder, monkeypatch):
     assert listed(window) == []
     assert window.ui.image_label.text() == "No supported images found or selected."
     assert not window.ui.crop_and_export_all_images_action.isEnabled()
+    assert toasts == []
+    assert settings.recent_directories == []
+
+
+def test_opening_a_folder_without_images_keeps_the_image_list(window, folder, tmp_path, monkeypatch, settings, toasts):
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
+    (empty,) = make_folders(tmp_path, "empty")
+
+    open_folder(window, empty, monkeypatch)
+
+    assert listed(window) == ["a.png"]
+    assert toasts[-1][:2] == ("warning", "No images to open")
+    assert settings.recent_directories == [str(folder)]
+    assert window.ui.crop_and_export_all_images_action.isEnabled()
+
+
+def drag_enter(target, paths) -> bool:
+    """Whether target accepts a drag of paths entering it."""
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(str(path)) for path in paths])
+    event = QDragEnterEvent(QPointF(10, 10), Qt.DropAction.CopyAction, mime, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+    # A new event starts out accepted
+    event.ignore()
+    target.dragEnterEvent(event)
+    return event.isAccepted()
+
+
+def test_dragging_only_unsupported_files_is_refused(window, folder):
+    notes = folder / "notes.pdf"
+    notes.write_text("x")
+    assert not drag_enter(window, [notes])
+    assert not drag_enter(window.ui.image_label, [notes])
+
+
+def test_dragging_a_folder_or_an_image_is_accepted(window, folder):
+    (image,) = make_images(folder, ["a.png"], IMAGE_SIZE)
+    assert drag_enter(window, [folder])
+    assert drag_enter(window, [image, folder / "notes.pdf"])
+    assert drag_enter(window.ui.image_label, [image])
+
+
+def test_dragging_an_image_by_its_windows_short_name_is_accepted(window, folder, monkeypatch):
+    (image,) = make_images(folder, ["IMG_0001.heic"], IMAGE_SIZE)
+    # Explorer cuts the extension to three letters in the 8.3 short name
+    short = folder / "IMG_00~1.HEI"
+    monkeypatch.setattr(detectorist_app, "resolve_short_path",
+                        lambda path: image if path == str(short) else path)
+    assert drag_enter(window, [short])
+
+
+def test_dropping_a_folder_without_images_keeps_the_image_list(window, folder, tmp_path, monkeypatch, toasts):
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
+    (empty,) = make_folders(tmp_path, "empty")
+
+    drop(window, [empty])
+
+    assert listed(window) == ["a.png"]
+    assert toasts[-1][:2] == ("warning", "No images to open")
+
+
+def test_dropping_a_folder_without_images_into_an_empty_list_says_so(window, tmp_path, toasts):
+    (empty,) = make_folders(tmp_path, "empty")
+
+    drop(window, [empty])
+
+    assert window.ui.image_label.text() == "No supported images found or selected."
+    assert toasts == []
+
+
+def test_dropping_only_unsupported_files_keeps_the_image_list(window, folder, monkeypatch, toasts):
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
+    notes = folder / "notes.pdf"
+    notes.write_text("x")
+
+    drop(window, [notes])
+
+    assert listed(window) == ["a.png"]
+    assert toasts[-1][:2] == ("warning", "No images to open")
+    assert window.ui.crop_and_export_all_images_action.isEnabled()
+
+
+def test_dropping_images_with_unsupported_files_says_what_was_skipped(window, folder, toasts):
+    (image,) = make_images(folder, ["a.png"], IMAGE_SIZE)
+    sidecar = folder / "._a.png"
+    sidecar.write_bytes(APPLEDOUBLE_MAGIC + b"\x00" * 20)
+    notes = folder / "notes.pdf"
+    notes.write_text("x")
+
+    drop(window, [image, sidecar, notes])
+
+    assert listed(window) == ["a.png"]
+    assert toasts[-1][:3] == ("warning", "Skipped files", "Skipped 1 unsupported file.")
+
+
+def test_dropping_a_folder_with_other_files_skips_them_without_a_toast(window, folder, toasts):
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    (folder / "notes.pdf").write_text("x")
+
+    drop(window, [folder])
+
+    assert listed(window) == ["a.png"]
+    assert toasts == []
 
 
 def test_dropping_a_folder_loads_its_images(window, folder):
@@ -157,6 +262,41 @@ def test_dropping_an_unreadable_folder_warns_and_still_loads_dropped_files(windo
     drop(window, [unreadable, paths[0]])
 
     assert toasts[-1][:2] == ("warning", "Could not open folder")
+    assert listed(window) == ["a.png"]
+
+
+def make_folders(tmp_path, *names):
+    folders = [tmp_path / name for name in names]
+    for folder in folders:
+        folder.mkdir()
+    return folders
+
+
+def test_dropping_two_folders_loads_the_images_of_both(window, tmp_path):
+    cam_a, cam_b = make_folders(tmp_path, "camA", "camB")
+    make_images(cam_a, ["a.png"], IMAGE_SIZE)
+    make_images(cam_b, ["b.png"], IMAGE_SIZE)
+
+    drop(window, [cam_a, cam_b])
+
+    assert listed(window) == ["a.png", "b.png"]
+
+
+def test_dropping_two_unreadable_folders_warns_for_each(window, folder, tmp_path, monkeypatch, toasts):
+    locked = make_folders(tmp_path, "locked1", "locked2")
+    real_listing = detectorist_app.list_supported_images
+
+    def listing(folder_path):
+        if folder_path in map(str, locked):
+            raise PermissionError(13, "Permission denied", folder_path)
+        return real_listing(folder_path)
+
+    monkeypatch.setattr(detectorist_app, "list_supported_images", listing)
+    paths = make_images(folder, ["a.png"], IMAGE_SIZE)
+
+    drop(window, [*locked, paths[0]])
+
+    assert [toast[:2] for toast in toasts] == [("warning", "Could not open folder")] * 2
     assert listed(window) == ["a.png"]
 
 
@@ -533,6 +673,70 @@ def test_batch_with_a_failing_image_finishes_and_warns(qtbot, window, folder, mo
 def test_copy_export_remove_keeps_the_images_when_one_failed(qtbot, window, folder, monkeypatch, detector_factory):
     open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     fail_detection_of(detector_factory, "a.png")
+    window.ui.image_list_view.selectAll()
+
+    window.ui.copy_export_remove_action.trigger()
+
+    assert listed(window) == ["a.png", "b.png"]
+
+
+def open_two_folders(qtbot, window, tmp_path, detector_factory):
+    """camA/a.png holds a fish, camB/b.png holds nothing. Returns both folders."""
+    cam_a, cam_b = make_folders(tmp_path, "camA", "camB")
+    make_images(cam_a, ["a.png"], IMAGE_SIZE)
+    make_images(cam_b, ["b.png"], IMAGE_SIZE)
+    detector_factory.detections_by_file["a.png"] = [FISH]
+    window.ui.detection_confidence_slider.setValue(50)
+    drop(window, [cam_a, cam_b])
+    qtbot.waitUntil(lambda: object_count(window) == "1")
+    return cam_a, cam_b
+
+
+def test_crop_and_export_writes_each_folders_results_into_it(qtbot, window, tmp_path, detector_factory, toasts, spawned):
+    cam_a, cam_b = open_two_folders(qtbot, window, tmp_path, detector_factory)
+
+    window.ui.crop_and_export_all_images_action.trigger()
+
+    assert (cam_a / "processed" / "a_crop.png").is_file()
+    assert (cam_b / "processed" / "b_ncrop.png").is_file()
+    for cam in (cam_a, cam_b):
+        assert (cam / "processed" / detections_csv_name(50, MODEL_FILENAME)).is_file()
+        assert (cam / "processed" / settings_json_name(50, MODEL_FILENAME)).is_file()
+    kind, _title, text, kwargs = toasts[-1]
+    assert (kind, text) == ("success", "Finished cropping images, results in 2 folders.")
+    kwargs["on_link"]()
+    assert spawned[-1][-1] == os.path.normpath(str(tmp_path))
+
+
+def test_link_target_of_one_folder_is_that_folder():
+    assert detectorist_app.output_link_target(["/a/processed"]) == "/a/processed"
+
+
+def test_link_target_without_a_shared_parent_is_the_first_folder(monkeypatch):
+    def no_shared_parent(paths):
+        raise ValueError("Paths don't have the same drive")
+
+    monkeypatch.setattr(os.path, "commonpath", no_shared_parent)
+    assert detectorist_app.output_link_target(["C:/a/processed", "D:/b/processed"]) == "C:/a/processed"
+
+
+def test_batch_over_two_folders_with_a_failing_image_warns(qtbot, window, tmp_path, detector_factory, toasts):
+    _cam_a, cam_b = open_two_folders(qtbot, window, tmp_path, detector_factory)
+    fail_detection_of(detector_factory, "a.png")
+
+    window.ui.crop_and_export_all_images_action.trigger()
+
+    assert (cam_b / "processed" / "b_ncrop.png").is_file()
+    kind, _title, text, kwargs = toasts[-1]
+    csv_name = detections_csv_name(50, MODEL_FILENAME)
+    assert (kind, text) == ("warning", "Finished cropping images in 2 folders, but 1 image failed. "
+                                       f"See {csv_name} in each folder for details.")
+    assert kwargs["duration"] == 0
+
+
+def test_copy_export_remove_over_two_folders_keeps_the_images_when_one_failed(qtbot, window, tmp_path, detector_factory):
+    open_two_folders(qtbot, window, tmp_path, detector_factory)
+    fail_detection_of(detector_factory, "b.png")
     window.ui.image_list_view.selectAll()
 
     window.ui.copy_export_remove_action.trigger()

@@ -32,7 +32,7 @@ from detectorist import __version__
 
 from .about_dialog import show_about_dialog
 from .batch_output import classification_csv_name, detections_csv_name, settings_json_name
-from .batch_run import CropExportAction, SortByClassAction, run_batch
+from .batch_run import CropExportAction, SortByClassAction, run_batch_per_folder
 from .classifier import Classifier, class_matches, describe
 from .crop_planner import CropMode, CropSettings, plan_crops
 from .detection_style import taxon_styles
@@ -40,7 +40,13 @@ from .detector import Detector
 from .image_cache import PrefetchPlanner
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
-from .image_object import ImageObject, filter_out_appledouble_files, list_supported_images, supported_extensions
+from .image_object import (
+    ImageObject,
+    filter_out_appledouble_files,
+    is_supported_image,
+    list_supported_images,
+    supported_extensions,
+)
 from .manage_models import ManageModelsDialog
 from .model_downloader import ModelDownloader
 from .settings import Settings
@@ -108,6 +114,20 @@ ASPECT_RATIOS: list[tuple[str, tuple[int, int] | str]] = [
 def _count(number: int, noun: str) -> str:
     """A number with a noun in the matching form, e.g. "1 classification" or "20 classifications"."""
     return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
+
+
+def output_link_target(output_dirs: list[str]) -> str:
+    """
+    The folder to reveal after a Batch Run: the closest shared parent of its
+    output folders, or the first one when they share none (e.g. on different
+    drives on Windows).
+    """
+    if len(output_dirs) == 1:
+        return output_dirs[0]
+    try:
+        return os.path.commonpath(output_dirs)
+    except ValueError:
+        return output_dirs[0]
 
 
 class DetectoristApp(QMainWindow):
@@ -443,17 +463,22 @@ class DetectoristApp(QMainWindow):
             summary += f" {classified} of them classified ({self._last_classification_time_ms:.0f} ms)."
         self.ui.results_summary_label.setText(summary)
 
-    def _load_images_from_paths(self, file_paths: list[str]):
-        supported_files = sorted({f for f in file_paths if f.lower().endswith(supported_extensions())})
+    def _load_images_from_paths(self, file_paths: list[str]) -> bool:
+        """
+        Replaces the image list with the supported images among file_paths.
+        Without any, the list stays as it is, as a stray file dropped by
+        mistake should not throw away a loaded folder. Returns whether
+        images were loaded.
+        """
+        supported_files = sorted({f for f in file_paths if is_supported_image(f)})
 
         if not supported_files:
-            # Handle UI state for no images
-            # (Selection-dependent actions are handled via the modelReset signal from model.clear())
-            self._show_message("No supported images found or selected.")
-            self.ui.crop_and_export_all_images_action.setEnabled(False)
-            self.ui.group_images_by_object_class_action.setEnabled(False)
-            self.model.clear()
-            return
+            if self.model.rowCount() == 0:
+                self._show_message("No supported images found or selected.")
+            else:
+                # The image label is taken by the current image
+                show_warning_toast(self, "No images to open", "No supported images found or selected.")
+            return False
 
         # Clear existing list and main image
         self.model.clear()
@@ -482,6 +507,8 @@ class DetectoristApp(QMainWindow):
         except ValueError:
             logger.error("Could not find %s in the list.", first_file_path)
             self.ui.image_label.setText(f"Error: Could not find {os.path.basename(first_file_path)} in the list.")
+        return True
+
     def open_images(self):
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
@@ -523,9 +550,9 @@ class DetectoristApp(QMainWindow):
         full_paths = self._list_folder_images(folder_path)
         if full_paths is None:
             return
-        self.settings.add_recent_directory(folder_path)
-        self._update_recent_folders_menu()
-        self._load_images_from_paths(full_paths)
+        if self._load_images_from_paths(full_paths):
+            self.settings.add_recent_directory(folder_path)
+            self._update_recent_folders_menu()
 
     def _update_recent_folders_menu(self) -> None:
         """Rebuild the Recent Folders submenu from settings."""
@@ -1016,8 +1043,14 @@ class DetectoristApp(QMainWindow):
             self._show_welcome_state()
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
+        # Refusing here shows the "not allowed" cursor before the user lets go.
+        # Folders are accepted unseen, as listing one mid-drag could stall on a slow share.
+        # The short names Windows Explorer drags (see dropEvent) cut the extension to three letters.
+        paths = [resolve_short_path(url.toLocalFile()) for url in event.mimeData().urls() if url.isLocalFile()]
+        if any(os.path.isdir(long_path(path)) or is_supported_image(path) for path in paths):
             event.acceptProposedAction()
+        else:
+            event.ignore()
 
     def dragMoveEvent(self, event):
         event.acceptProposedAction()
@@ -1043,15 +1076,19 @@ class DetectoristApp(QMainWindow):
                 files_to_load.add(path)
 
         files_to_load = set(filter_out_appledouble_files(list(files_to_load)))
+        skipped = sum(not is_supported_image(f) for f in files_to_load)
 
-        if folders_to_scan:
-            # Scan the first folder for images
-            first_folder = folders_to_scan[0]
-            # Files dropped along with an unreadable folder are still loaded
-            files_to_load.update(self._list_folder_images(first_folder) or [])
+        # Load even if empty to report a readable folder without images (unreadable ones already warned)
+        any_folder_read = False
+        for folder in folders_to_scan:
+            folder_images = self._list_folder_images(folder)
+            if folder_images is not None:
+                any_folder_read = True
+                # Files dropped along with an unreadable folder are still loaded
+                files_to_load.update(folder_images)
 
-        if files_to_load:
-            self._load_images_from_paths(list(files_to_load))
+        if (files_to_load or any_folder_read) and self._load_images_from_paths(list(files_to_load)) and skipped:
+            show_warning_toast(self, "Skipped files", f"Skipped {_count(skipped, 'unsupported file')}.")
 
         event.acceptProposedAction()
 
@@ -1133,8 +1170,6 @@ class DetectoristApp(QMainWindow):
         """
         if self.model.rowCount() == 0:
             return False # No images loaded at all
-        # Use the directory of the first loaded image as the base for output
-        output_base_dir = os.path.dirname(self.model.imagePaths()[0])
 
         image_full_paths = image_files_to_process if image_files_to_process is not None else self.model.imagePaths()
         if not image_full_paths:
@@ -1144,7 +1179,6 @@ class DetectoristApp(QMainWindow):
         progress_dialog = None
         try:
             model_filename = self.ui.model_select_combo_box.currentData()
-            output_dir = os.path.join(output_base_dir, OUTPUT_DIR_NAME)
             detections_csv_filename = detections_csv_name(self.ui.detection_confidence_slider.value(), model_filename)
 
             total_files = len(image_full_paths)
@@ -1174,42 +1208,49 @@ class DetectoristApp(QMainWindow):
                 QApplication.processEvents()
                 return not progress_dialog.wasCanceled()
 
-            result = run_batch(
+            results = run_batch_per_folder(
                 image_full_paths,
-                batch_detector,
+                OUTPUT_DIR_NAME,
+                progress,
+                detector=batch_detector,
                 detection_confidence=self.ui.detection_confidence_slider.value() / 100.0,
                 exposure_correction=self.ui.cb_comp_cam_exposure.isChecked(),
-                output_dir=output_dir,
                 detections_csv_filename=detections_csv_filename,
                 action=action,
-                progress=progress,
                 class_filter=self._selected_class_filter(),
                 classifier=batch_classifier,
                 taxon_confidence=self.ui.taxon_confidence_slider.value() / 100.0,
                 classification_csv_filename=classification_csv_name(self.ui.taxon_confidence_slider.value(),
                                                                     classifier_filename),
             )
+            cancelled = results[-1].cancelled
+            failed_count = sum(len(result.failed) for result in results)
+            output_dirs = [result.output_dir for result in results]
 
-            # Export Model & Crop settings to JSON alongside the CSV
+            # Export Model & Crop settings to JSON alongside each CSV
             self._save_settings()
             settings_filename = settings_json_name(self.ui.detection_confidence_slider.value(), model_filename)
-            settings_file_path = Path(result.output_dir) / settings_filename
-            self.settings.export_to_file(
-                settings_file_path,
-                [Settings.GROUP_MODEL, Settings.GROUP_CROP]
-            )
+            for output_dir in output_dirs:
+                self.settings.export_to_file(
+                    Path(output_dir) / settings_filename,
+                    [Settings.GROUP_MODEL, Settings.GROUP_CROP]
+                )
 
-            if not result.cancelled:
+            if not cancelled:
                 self.ui.status_bar.showMessage(f"Finished {process_name.lower()}.", 5000)
-                self._set_last_output_dir(result.output_dir)
-                out_dir = result.output_dir
-                if result.failed:
-                    count = len(result.failed)
+                out_dir = output_link_target(output_dirs)
+                self._set_last_output_dir(out_dir)
+                folders = len(output_dirs)
+                if failed_count:
+                    images = _count(failed_count, "image")
+                    text = (f"Finished {process_name.lower()}, but {images} failed. "
+                            f"See {detections_csv_filename} for details." if folders == 1 else
+                            f"Finished {process_name.lower()} in {folders} folders, but {images} failed. "
+                            f"See {detections_csv_filename} in each folder for details.")
                     show_warning_toast(
                         self,
                         "Detectorist",
-                        f"Finished {process_name.lower()}, but {count} image{'s' if count != 1 else ''} failed. "
-                        f"See {detections_csv_filename} for details.",
+                        text,
                         link_text="Show in file manager",
                         on_link=lambda: self._open_native_file_manager(out_dir),
                         duration=0,  # keep the toast up, as the user may not be watching a long run
@@ -1218,14 +1259,15 @@ class DetectoristApp(QMainWindow):
                     show_success_toast(
                         self,
                         "Detectorist",
-                        f"Finished {process_name.lower()}.",
+                        f"Finished {process_name.lower()}." if folders == 1 else
+                        f"Finished {process_name.lower()}, results in {folders} folders.",
                         link_text="Show in file manager",
                         on_link=lambda: self._open_native_file_manager(out_dir),
                     )
             else:
                 self.ui.status_bar.showMessage(f"{process_name} cancelled.", 5000)
 
-            return not result.cancelled and not result.failed
+            return not cancelled and not failed_count
 
         except Exception as e:
             logger.exception("Error during %s", process_name)

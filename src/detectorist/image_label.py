@@ -452,8 +452,7 @@ class ImageLabel(QLabel):
             self.set_crop_boxes(self.last_crop_rects)
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
+        self.app_instance.dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
         event.acceptProposedAction()

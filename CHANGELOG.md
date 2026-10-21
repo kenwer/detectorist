@@ -20,6 +20,9 @@
 - [Dev] Upgrade dependencies.
 ### Fixed
 - Fix models queued in the Model Manager staying stuck on downloading after an earlier download failed.
+- Fix a batch run over images from several folders writing all results into the first folder, where images with the same name overwrote each other's crops and CSV rows. Each folder now gets its own `processed` folder.
+- Fix dropping several folders loading only the first one.
+- Fix dropping a file that is not an image clearing the image list. Such a drop is now refused, and opening or dropping a folder without images keeps the current list.
 
 ## [0.12.0] - 2026-10-08
 ### Added
