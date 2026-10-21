@@ -35,42 +35,47 @@ logger = logging.getLogger(__name__)
 ProgressFn = Callable[[int, int, str], bool]
 
 
-def classify_detections(classifier: Classifier, taxon_confidence: float, image: ImageObject,
-                        detections: list[Detection]) -> tuple[list[ClassificationRow], dict[Box, Taxonomy]]:
+def classify_detections(classifier: Classifier, image: ImageObject, detections: list[Detection]) -> dict[Box, Taxonomy]:
     """
-    Runs the classifier over the detections of one image and returns their
-    classification CSV rows and their taxonomies by box.
-
-    One row per detection the classifier names (see detections_to_classify),
-    numbered from 1 in that order. A rank scoring below taxon_confidence is
-    left empty, and so is every rank below it, as in the tooltip (see
-    identified_ranks). A detection without any identified rank still gets
-    its row, so it is counted.
-
-    The box is clamped to the image (see clamp_box).
+    Runs the classifier over the detections of one image it names (see
+    detections_to_classify) and returns their taxonomies by box, in that order.
     """
     to_classify = detections_to_classify(detections, 0.0, classifier.patterns)
     if not to_classify:
-        return [], {}
+        return {}
     taxonomies = classifier.classify(image, [d.box for d in to_classify])
-    file_name = os.path.basename(image.image_path)
-    model_name = strip_model_ext(os.path.basename(classifier.model_path))
+    return dict(zip([d.box for d in to_classify], taxonomies, strict=True))
 
+
+def classification_rows(image: ImageObject, detections: list[Detection], taxonomy_by_box: Mapping[Box, Taxonomy],
+                        taxon_confidence: float, model_name: str) -> list[ClassificationRow]:
+    """
+    The classification CSV rows of one image: one per named detection,
+    numbered from 1 in the order of taxonomy_by_box. A rank scoring below
+    taxon_confidence is left empty, and so is every rank below it, as in the
+    tooltip (see identified_ranks). A detection without any identified rank
+    still gets its row, so it is counted.
+
+    The box is clamped to the image (see clamp_box).
+    """
+    file_name = os.path.basename(image.image_path)
+    detection_by_box = {d.box: d for d in detections}
     rows = []
-    for number, (detection, taxonomy) in enumerate(zip(to_classify, taxonomies, strict=True), start=1):
-        x1, y1, x2, y2 = clamp_box(detection.box, image.width, image.height)
+    for number, (box, taxonomy) in enumerate(taxonomy_by_box.items(), start=1):
+        detection = detection_by_box[box]
+        x1, y1, x2, y2 = clamp_box(box, image.width, image.height)
         ranks = identified_ranks(taxonomy, taxon_confidence)
         names = [value for rank in ranks for value in rank] + ["", ""] * (len(taxonomy) - len(ranks))
         rows.append(ClassificationRow(file_name, number, detection.class_name, detection.score,
                                       x1, y1, x2 - x1, y2 - y1, *names, model_name))
-    return rows, {d.box: taxonomy for d, taxonomy in zip(to_classify, taxonomies, strict=True)}
+    return rows
 
 
 class BatchAction(Protocol):
     """
     Per-image behaviour of a Batch Run (e.g. CropExportAction, SortByClassAction).
     Actions only write image files. The CSV rows are run_batch's job (see
-    summarize_detections and classify_detections).
+    summarize_detections and classification_rows).
 
     A structural interface: actions don't subclass this, they satisfy it by
     providing matching prepare() and process() methods.
@@ -121,7 +126,7 @@ def run_batch(image_paths: list[str], detector, detection_confidence: float, exp
     Runs the detector (and the classifier) over the given images, delegating each one to the action
     and updating detections_csv_filename in the output directory with a row per image.
     With a classifier, classification_csv_filename gets a row per named
-    detection too (see classify_detections).
+    detection too (see classification_rows).
 
     A filename already present in detections_csv_filename from a prior run keeps its row
     unless this run processes that same image again, in which case the row is
@@ -185,6 +190,7 @@ def run_batch(image_paths: list[str], detector, detection_confidence: float, exp
     classification_table = (CsvTable(os.path.join(output_dir, classification_csv_filename),
                                      CLASSIFICATION_CSV_HEADER)
                             if classifier is not None else None)
+    classifier_name = strip_model_ext(os.path.basename(classifier.model_path)) if classifier is not None else ""
 
     try:
         # The context manager drains any in-flight load on exit (bounded by
@@ -224,10 +230,11 @@ def run_batch(image_paths: list[str], detector, detection_confidence: float, exp
                     taxonomy_by_box: dict[Box, Taxonomy] = {}
                     if classifier is not None:
                         try:
-                            image_classification_rows, taxonomy_by_box = classify_detections(
-                                classifier, taxon_confidence, image, detections)
+                            taxonomy_by_box = classify_detections(classifier, image, detections)
                         except Exception:
                             logger.exception("%s: could not classify the detections", file_name)
+                        image_classification_rows = classification_rows(image, detections, taxonomy_by_box,
+                                                                        taxon_confidence, classifier_name)
                     cropped = action.process(image, detections, taxonomy_by_box)
                     detections_row = summarize_detections(file_name, detections, cropped)
                 except Exception:
