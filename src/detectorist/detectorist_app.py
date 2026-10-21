@@ -155,6 +155,7 @@ class DetectoristApp(QMainWindow):
         # When the Manage Models dialog is open it reports download progress
         # itself, so app-level toasts are suppressed to avoid double feedback.
         self._models_dialog_open = False
+        self._batch_running = False  # keeps the batch actions disabled while a Batch Run is running
         self._shortcuts_dialog: ShortcutsDialog | None = None
 
         # Ensure opener is registered (otherwise the native code will segfault)
@@ -468,9 +469,9 @@ class DetectoristApp(QMainWindow):
         QApplication.processEvents() # Ensure UI updates
 
         # Enable actions that operate on all loaded images (only if a model is available)
-        has_models = self.ui.model_select_combo_box.count() > 0
-        self.ui.crop_and_export_all_images_action.setEnabled(has_models)
-        self.ui.group_images_by_object_class_action.setEnabled(has_models)
+        can_run = self.ui.model_select_combo_box.count() > 0 and not self._batch_running
+        self.ui.crop_and_export_all_images_action.setEnabled(can_run)
+        self.ui.group_images_by_object_class_action.setEnabled(can_run)
 
         # Select the first image in the list view
         first_file_path = supported_files[0]
@@ -998,13 +999,15 @@ class DetectoristApp(QMainWindow):
         """React to the model combo box becoming empty or populated."""
         has_models = self.ui.model_select_combo_box.count() > 0
         has_images = self.model.rowCount() > 0
+        # A background download can finish during a Batch Run
+        can_run = has_models and not self._batch_running
 
         # Enable/disable actions that require a model
-        self.ui.crop_and_export_all_images_action.setEnabled(has_models and has_images)
+        self.ui.crop_and_export_all_images_action.setEnabled(can_run and has_images)
         self.ui.crop_and_export_selected_images_action.setEnabled(
-            has_models and self.ui.image_list_view.selectionModel().hasSelection()
+            can_run and self.ui.image_list_view.selectionModel().hasSelection()
         )
-        self.ui.group_images_by_object_class_action.setEnabled(has_models and has_images)
+        self.ui.group_images_by_object_class_action.setEnabled(can_run and has_images)
 
         if not has_models:
             self._show_message(NO_MODELS_MESSAGE)
@@ -1246,7 +1249,18 @@ class DetectoristApp(QMainWindow):
         Disabling forces every guarded action off. Re-enabling recomputes each
         action's real state instead of forcing it on, since model/selection
         state may have changed while the batch was running.
+
+        The actions that load other images or change the settings are disabled
+        too. Loading images mid-run would swap the list that a "Copy, export &
+        remove" run removes its images from afterwards, and new settings would
+        not match the settings JSON exported with the CSV. As loading images
+        or a finished download recomputes the action states, those code paths
+        check _batch_running, so they cannot enable a batch action mid-run.
         """
+        self._batch_running = not enabled
+        for action in (self.ui.recent_folders_menu.menuAction(), self.ui.import_settings_action,
+                       self.ui.reset_settings_action, self.ui.manage_models_action):
+            action.setEnabled(enabled)
         if enabled:
             self._on_model_availability_changed()
             self._update_selection_dependent_actions_state()
@@ -1300,16 +1314,16 @@ class DetectoristApp(QMainWindow):
     def _update_selection_dependent_actions_state(self):
         """Enables/disables actions based on the current selection in the image list view."""
         has_selection = len(self.ui.image_list_view.selectionModel().selectedIndexes()) > 0
-        has_models = self.ui.model_select_combo_box.count() > 0
-        self.ui.crop_and_export_selected_images_action.setEnabled(has_selection and has_models)
+        can_run = self.ui.model_select_combo_box.count() > 0 and not self._batch_running
+        self.ui.crop_and_export_selected_images_action.setEnabled(has_selection and can_run)
         self.ui.locate_image_in_filemanager_action.setEnabled(has_selection)
         self.ui.copy_filenames_to_clipboard_action.setEnabled(has_selection)
-        self.ui.remove_selected_images_from_list_action.setEnabled(has_selection)
-        self.ui.copy_export_remove_action.setEnabled(has_selection and has_models)
+        self.ui.remove_selected_images_from_list_action.setEnabled(has_selection and not self._batch_running)
+        self.ui.copy_export_remove_action.setEnabled(has_selection and can_run)
 
     def _update_clear_image_list_action_state(self):
         """Enables/disables clear_image_list_action based on whether the model has images."""
-        self.ui.clear_image_list_action.setEnabled(self.model.rowCount() > 0)
+        self.ui.clear_image_list_action.setEnabled(self.model.rowCount() > 0 and not self._batch_running)
 
     def show_image_list_view_context_menu(self, position):
         index = self.ui.image_list_view.indexAt(position)

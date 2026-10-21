@@ -465,6 +465,48 @@ def test_actions_are_disabled_while_a_batch_runs(qtbot, window, folder, monkeypa
     assert all(action.isEnabled() for action in guarded)
 
 
+def test_actions_that_load_images_or_change_settings_are_disabled_while_a_batch_runs(qtbot, window, folder, monkeypatch, detector_factory):
+    open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    # The macOS menu bar stays usable during the run, as the progress dialog only blocks the window
+    guarded = [
+        window.ui.recent_folders_menu.menuAction(),
+        window.ui.import_settings_action,
+        window.ui.reset_settings_action,
+        window.ui.manage_models_action,
+    ]
+    seen_during_run = []
+    detector_factory.on_detect = lambda _name: seen_during_run.append([action.isEnabled() for action in guarded])
+
+    window.ui.crop_and_export_all_images_action.trigger()
+
+    assert seen_during_run == [[False] * len(guarded)] * 2
+    assert all(action.isEnabled() for action in guarded)
+
+
+def test_download_finishing_during_a_batch_keeps_the_batch_actions_disabled(qtbot, window, folder, monkeypatch, detector_factory, toasts):
+    open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    select_row(window, 0)
+    batch_actions = [
+        window.ui.crop_and_export_all_images_action,
+        window.ui.crop_and_export_selected_images_action,
+        window.ui.group_images_by_object_class_action,
+        window.ui.copy_export_remove_action,
+        window.ui.remove_selected_images_from_list_action,
+        window.ui.clear_image_list_action,
+    ]
+    seen_during_run = []
+
+    def on_detect(_name):
+        window._model_downloader.download_finished.emit(MODEL_FILENAME)
+        seen_during_run.append([action.isEnabled() for action in batch_actions])
+    detector_factory.on_detect = on_detect
+
+    window.ui.crop_and_export_all_images_action.trigger()
+
+    assert seen_during_run == [[False] * len(batch_actions)] * 2
+    assert all(action.isEnabled() for action in batch_actions)
+
+
 def fail_detection_of(detector_factory, bad_name):
     """Makes the detector of the next batch run raise for one image."""
     def on_detect(name):
