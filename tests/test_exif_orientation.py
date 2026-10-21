@@ -59,6 +59,38 @@ def test_portrait_jpeg_is_loaded_upright(tmp_path):
     assert image.image_data[50:].mean() > 245
 
 
+def make_oriented_cmyk_jpeg(path, orientation):
+    """Like make_oriented_jpeg, but in CMYK, which PillowImageObject loads."""
+    pixels = np.zeros((40, 80, 4), dtype=np.uint8)
+    pixels[:, :40, 3] = 255  # full black ink
+    exif = piexif.dump({"0th": {piexif.ImageIFD.Orientation: orientation}, "Exif": {}, "GPS": {}, "1st": {}})
+    Image.fromarray(pixels, "CMYK").save(str(path), exif=exif, quality=95)
+    return str(path)
+
+
+def test_portrait_cmyk_jpeg_is_loaded_upright(tmp_path):
+    image = ImageObject.create(make_oriented_cmyk_jpeg(tmp_path / "portrait.jpg", ROTATE_90_CW))
+
+    assert (image.width, image.height) == (40, 80)
+    rgb = image.image_data_rgb_8bit
+    assert rgb[:30].mean() < 10
+    assert rgb[50:].mean() > 245
+
+
+def test_crop_of_portrait_cmyk_jpeg_is_saved_upright(tmp_path):
+    image = ImageObject.create(make_oriented_cmyk_jpeg(tmp_path / "portrait.jpg", ROTATE_90_CW))
+    output = str(tmp_path / "portrait_crop.jpg")
+
+    image.save_cropped((0, 0, 40, 20), output)
+
+    with Image.open(output) as saved:
+        assert saved.size == (40, 20)
+        assert np.asarray(saved.convert("RGB")).mean() < 10
+    # exif_transpose drops the tag, which viewers read as 1
+    assert piexif.load(output)["0th"].get(piexif.ImageIFD.Orientation, 1) == 1
+    assert image.exif_data["0th"][piexif.ImageIFD.Orientation] == ROTATE_90_CW
+
+
 def test_jpeg_without_orientation_is_loaded_as_stored(tmp_path):
     path = str(tmp_path / "plain.jpg")
     Image.new("RGB", (80, 40)).save(path)

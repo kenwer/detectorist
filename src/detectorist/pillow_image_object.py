@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import piexif
 from PIL import Image as PILImage
+from PIL import ImageOps
 
 from . import utils
 from .image_object import ImageObject
@@ -43,11 +44,14 @@ class PillowImageObject(ImageObject):
 
         logger.debug("Loading image file with Pillow: %s", self.image_path)
 
-        self._pil_image = PILImage.open(self.long_image_path)
-
-        if self._pil_image.mode not in ('P', 'LA', 'CMYK'):
-            self._pil_image.close()
-            raise ValueError(f"Image at {image_path} is not a P, LA, or CMYK image (mode is {self._pil_image.mode}).")
+        with PILImage.open(self.long_image_path) as opened:
+            if opened.mode not in ('P', 'LA', 'CMYK'):
+                raise ValueError(f"Image at {image_path} is not a P, LA, or CMYK image (mode is {opened.mode}).")
+            self._format = opened.format  # lost by exif_transpose, which returns a new image
+            # Pillow keeps the stored pixel layout, so a portrait shot would be displayed and
+            # analyzed sideways. exif_transpose also drops the tag from the image's EXIF,
+            # so crops saved with it are not rotated a second time by viewers.
+            self._pil_image = ImageOps.exif_transpose(opened)
 
         self._image_data = np.array(self._pil_image)
         self._original_bpc = self._image_data.dtype.itemsize * 8
@@ -61,11 +65,6 @@ class PillowImageObject(ImageObject):
 
         self._exif = self._pil_image.info.get('exif')
         self._exif_dict = self._load_exif_data()
-
-    def __del__(self):
-        """Closes the Pillow image file handle."""
-        if hasattr(self, '_pil_image') and self._pil_image:
-            self._pil_image.close()
 
     def _render_rgb_8bit(self) -> np.ndarray:
         """
@@ -123,7 +122,7 @@ class PillowImageObject(ImageObject):
 
         # Preserve format (e.g., GIF) and transparency
         save_kwargs = {}
-        original_format = self._pil_image.format
+        original_format = self._format
         if original_format:
             save_kwargs['format'] = original_format
 
