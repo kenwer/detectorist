@@ -59,12 +59,14 @@ class ImageLabel(QLabel):
         self.orig_detection_masks = []  # parallel to orig_detection_rects; each entry is a uint8 mask array or None
         self._hit_order = []  # (band, mask) pairs in the order _band_at tests them
         self._mask_overlay_pixmap: QPixmap | None = None
+        self._highlight_pixmap: QPixmap | None = None  # the highlighted detection's mask, drawn over the others
         self.class_color_map: dict[str, tuple] = {}
         self.crop_bands = []
         # Kept across set_detection_boxes, so a refresh of the same detections keeps them
         self._hovered_box = None
         self._highlighted_box = None
         self._masks_visible = True
+        self._boxes_visible = True
         self._labels_visible = True
         self._pixmap = QPixmap()
         self.image = None
@@ -149,10 +151,22 @@ class ImageLabel(QLabel):
             self.detection_hovered.emit(box)
 
     def highlight_box(self, box):
-        """Draws the detection with the given box highlighted, and the others as usual. None highlights none."""
+        """
+        Draws the detection with the given box highlighted, and the others as
+        usual. None highlights none. It is shown in the shape that hovering it
+        uses, its mask or else its box, even while masks or boxes are hidden.
+        """
         self._highlighted_box = box
         for band in self.detection_bands:
             band.set_highlighted(band.box == self._highlighted_box)
+        self._build_highlight_pixmap()
+        self._update_band_visibility()
+        self.update()
+
+    def _update_band_visibility(self):
+        for band, mask in zip(self.detection_bands, self.orig_detection_masks, strict=True):
+            # Without a mask, the box is the only shape that can show the highlighted detection
+            band.setVisible(self._boxes_visible or (mask is None and band.highlighted))
 
     def _clear_detection_bands(self):
         self._destroy_bands(self.detection_bands)
@@ -161,6 +175,7 @@ class ImageLabel(QLabel):
         self.orig_detection_masks = []
         self._hit_order = []
         self._mask_overlay_pixmap = None
+        self._highlight_pixmap = None
         self.update()
 
     def set_detection_boxes(self, detections, tooltips: dict | None = None, styles: dict | None = None):
@@ -204,20 +219,26 @@ class ImageLabel(QLabel):
             # Only stored here. QRubberBand ignores the mouse, so mouseMoveEvent
             # shows it, and only over the mask for a segmentation model.
             band.setToolTip(tooltips.get(band.box, f"{class_name} {score:.2f}"))
-            band.show()
             self.detection_bands.append(band)
+        self._update_band_visibility()
 
         # Sorted once here rather than on every mouse move, as summing a mask is not cheap.
         # Smaller objects come first, as they take priority when overlapping a larger one.
-        self._hit_order = sorted(
-            zip(self.detection_bands, self.orig_detection_masks, strict=True),
-            key=lambda bm: int(bm[1].sum()) if bm[1] is not None else float('inf'),
-        )
+        # Masks are tested before boxes, as a mask's sum and a box's area are not comparable.
+        def hit_priority(i):
+            mask = self.orig_detection_masks[i]
+            if mask is not None:
+                return 0, int(mask.sum())
+            rect = self.orig_detection_rects[i][0]
+            return 1, rect.width() * rect.height()
+        self._hit_order = [(self.detection_bands[i], self.orig_detection_masks[i])
+                           for i in sorted(range(len(self.detection_bands)), key=hit_priority)]
         # The hovered detection stays hovered across a refresh, unless it is gone
         if all(band.box != self._hovered_box for band in self.detection_bands):
             self._set_hovered_box(None)
         if has_masks:
             self._build_mask_overlay_pixmap()
+        self._build_highlight_pixmap()
         self.update()
 
     def _build_mask_overlay_pixmap(self):
@@ -232,9 +253,29 @@ class ImageLabel(QLabel):
             style = band.detection_style
             rgba[mask > 128] = (*style.color, int(style.score * 140))  # alpha scales with confidence
 
-        rgba_contiguous = np.ascontiguousarray(rgba)
-        qimage = QImage(rgba_contiguous.data, w, h, rgba_contiguous.strides[0], QImage.Format.Format_RGBA8888)
-        self._mask_overlay_pixmap = QPixmap.fromImage(qimage)
+        self._mask_overlay_pixmap = self._pixmap_from_rgba(rgba)
+
+    def _build_highlight_pixmap(self):
+        self._highlight_pixmap = None
+        for band, mask in zip(self.detection_bands, self.orig_detection_masks, strict=True):
+            if mask is None or not band.highlighted:
+                continue
+            inside = mask > 128
+            # A pixel whose four neighbours are all inside is not on the contour,
+            # which shows where the mask meets an overlapping one of the same color
+            padded = np.pad(inside, 1)
+            interior = inside & padded[:-2, 1:-1] & padded[2:, 1:-1] & padded[1:-1, :-2] & padded[1:-1, 2:]
+            rgba = np.zeros((*inside.shape, 4), dtype=np.uint8)
+            rgba[inside] = (*band.detection_style.color, 160)
+            rgba[inside & ~interior] = (*band.detection_style.color, 255)
+            self._highlight_pixmap = self._pixmap_from_rgba(rgba)
+            return
+
+    @staticmethod
+    def _pixmap_from_rgba(rgba: np.ndarray) -> QPixmap:
+        rgba = np.ascontiguousarray(rgba)
+        h, w = rgba.shape[:2]
+        return QPixmap.fromImage(QImage(rgba.data, w, h, rgba.strides[0], QImage.Format.Format_RGBA8888))
 
     def _get_displayed_image_rect(self) -> QRect:
         if self._pixmap.isNull():
@@ -262,6 +303,11 @@ class ImageLabel(QLabel):
         """Shows or hides the segmentation masks. Hit-testing still uses a hidden mask."""
         self._masks_visible = visible
         self.update()
+
+    def set_boxes_visible(self, visible: bool):
+        """Shows or hides the bounding boxes of the detections. Hit-testing still uses a hidden box."""
+        self._boxes_visible = visible
+        self._update_band_visibility()
 
     def set_labels_visible(self, visible: bool):
         """Shows or hides the labels of the detections (see DetectionStyle)."""
@@ -376,6 +422,8 @@ class ImageLabel(QLabel):
             painter.drawPixmap(point, scaled_pixmap)
             if self._masks_visible and self._mask_overlay_pixmap is not None:
                 painter.drawPixmap(self._get_displayed_image_rect(), self._mask_overlay_pixmap)
+            if self._highlight_pixmap is not None:
+                painter.drawPixmap(self._get_displayed_image_rect(), self._highlight_pixmap)
             if self._labels_visible:
                 self._draw_labels(painter)
 

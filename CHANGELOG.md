@@ -6,10 +6,14 @@
 - With a classifier on:
   - Classified detections are colored by family, with a lighter or darker shade per genus.
   - Each detection is labeled with its deepest identified name, e.g. "A. ocellaris" or just the genus or family.
-  - New `Actions > Show Labels` menu entry and `L` shortcut to toggle the labels.
+- New `View` menu with the following actions/shortcuts:
+  - `B` to toggle visibility of the bounding boxes.
+  - `L` to toggle visibility of the labels.
+  - `M` to toggle visibility of the detection/segment masks.
+  - `H` to hide/show boxes, labels, and masks at once.
 ### Changed
 - The detection summary moved from the side panel to the status bar.
-- The `H` shortcut now toggles only the segmentation masks. Bounding boxes stay visible.
+- Masks are now toggled with `M` in the new `View` menu, instead of `H`.
 - Disable onnxruntime telemetry.
 - App requires macOS 26 or later.
 - [Dev] Upgrade dependencies.

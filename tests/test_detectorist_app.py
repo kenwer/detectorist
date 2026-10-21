@@ -285,6 +285,27 @@ def test_mask_action_is_enabled_only_for_segmentation_models(make_window, detect
     assert window.ui.toggle_masks_action.isEnabled() == is_segmentation
 
 
+def test_show_hide_all_hides_every_enabled_overlay_then_shows_them_again(make_window, detector_factory):
+    detector_factory.is_segmentation = True
+    window = make_window()
+    ui = window.ui
+    # Only the masks and boxes are enabled, as no classifier is selected
+    ui.toggle_boxes_action.setChecked(False)
+
+    ui.toggle_all_overlays_action.trigger()
+
+    assert not ui.toggle_masks_action.isChecked()
+    assert not ui.toggle_boxes_action.isChecked()
+    assert ui.toggle_labels_action.isChecked()
+    assert not ui.image_label._masks_visible
+
+    ui.toggle_all_overlays_action.trigger()
+
+    assert ui.toggle_masks_action.isChecked()
+    assert ui.toggle_boxes_action.isChecked()
+    assert ui.image_label._boxes_visible
+
+
 def test_unreadable_image_reports_an_error(qtbot, window, folder, monkeypatch, toasts):
     (folder / "broken.png").write_bytes(b"this is not a png")
 

@@ -7,8 +7,10 @@
 | Ctrl+Backspace | ⌘⌫  | **Clear Image List** | Clears the list of loaded images |
 | Shift+Ctrl+G    | ⇧⌘G | **Group Images into Folders** | Starts a batch process that groups all images by its detected object classes into individual sub folders |
 | Shift+Ctrl+E    | ⇧⌘E | **Crop & Export all Images** | Starts a batch process that crops and exports all loaded images into a subfolder |
-| H               | H   | **Show/Hide Masks** | Toggles the segmentation masks of detected objects. |
-| L               | L   | **Show/Hide Labels** | Toggles the labels naming the family, genus or species of classified objects. |
+| B               | B   | **Show Boxes** | Toggles the visibility of the bounding boxes of detected objects. |
+| L               | L   | **Show Labels** | Toggles the visibility of the labels naming the family, genus or species of classified objects. |
+| M               | M   | **Show Masks** | Toggles the the visibility of the segmentation masks of detected objects. |
+| H               | H   | **Show/Hide All** | Hides the boxes, labels, and masks if any of them are shown, otherwise shows all of them. |
 
 ##
 # Image navigation shortcuts

@@ -262,7 +262,9 @@ class DetectoristApp(QMainWindow):
 
         self.ui.cb_comp_cam_exposure.toggled.connect(self.on_exposure_compensation_toggled)
         self.ui.toggle_masks_action.toggled.connect(self.ui.image_label.set_masks_visible)
+        self.ui.toggle_boxes_action.toggled.connect(self.ui.image_label.set_boxes_visible)
         self.ui.toggle_labels_action.toggled.connect(self.ui.image_label.set_labels_visible)
+        self.ui.toggle_all_overlays_action.triggered.connect(self.toggle_all_overlays)
 
         # Connect model signals
         self.model.modelReset.connect(self._update_clear_image_list_action_state)
@@ -710,6 +712,15 @@ class DetectoristApp(QMainWindow):
         prefetch_hints = self._prefetch_planner.hints(self.model.imagePaths(), self.current_image_path)
         min_score = self.ui.confidence_slider.value() / 100.0
         self.request_processing.emit(self.current_image_path, exposure_correction, prefetch_hints, min_score)
+
+    def toggle_all_overlays(self):
+        """Hides the masks, boxes and labels if any of them is shown, otherwise shows all of them."""
+        # A disabled toggle, e.g. the masks of a detection model, keeps its state
+        actions = [action for action in (self.ui.toggle_masks_action, self.ui.toggle_boxes_action,
+                                         self.ui.toggle_labels_action) if action.isEnabled()]
+        show = not any(action.isChecked() for action in actions)
+        for action in actions:
+            action.setChecked(show)
 
     def handle_model_loaded(self, success: bool, message: str, class_names: list, is_segmentation: bool):
         """Handles the result of loading a model in the worker."""

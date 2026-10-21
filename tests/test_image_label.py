@@ -112,6 +112,25 @@ def test_mask_toggle_hides_only_the_masks(label):
     assert pixel() == with_masks
 
 
+def test_box_toggle_hides_only_the_boxes_and_keeps_them_hoverable(label):
+    label.set_detection_boxes([FISH])
+    label.set_crop_boxes([QRect(0, 0, 100, 100)])
+
+    label.set_boxes_visible(False)
+
+    assert label.detection_bands[0].isHidden()
+    assert not label.crop_bands[0].isHidden()
+    # The band at (40, 140, 40, 40) is still found under the mouse
+    assert label._band_at(QPoint(60, 160)) is label.detection_bands[0]
+
+    # A new image's boxes start hidden as well
+    label.set_detection_boxes([FISH])
+    assert label.detection_bands[0].isHidden()
+
+    label.set_boxes_visible(True)
+    assert not label.detection_bands[0].isHidden()
+
+
 def test_hide_bands_removes_everything(label):
     label.set_detection_boxes([FISH])
     label.set_crop_boxes([QRect(0, 0, 100, 100)])
@@ -218,6 +237,45 @@ def test_a_hovered_detection_stays_hovered_until_it_is_gone(label):
 
     label.set_detection_boxes([])
     assert hovered == [FISH.box, None]
+
+
+def test_a_smaller_box_takes_priority_where_boxes_overlap(label):
+    big = Detection((10, 10, 90, 90), 0.9, "Fish")
+    small = Detection((30, 30, 50, 50), 0.9, "Fish")
+    label.set_detection_boxes([big, small])
+
+    assert label._band_at(label.detection_bands[1].geometry().center()).box == small.box
+
+
+def test_a_highlighted_box_is_shown_while_boxes_are_hidden(label):
+    label.set_detection_boxes([FISH, Detection((60, 60, 80, 80), 0.5, "Fish")])
+    label.set_boxes_visible(False)
+
+    label.highlight_box(FISH.box)
+    assert [band.isHidden() for band in label.detection_bands] == [False, True]
+
+    label.highlight_box(None)
+    assert [band.isHidden() for band in label.detection_bands] == [True, True]
+
+
+def test_a_highlighted_mask_is_drawn_while_masks_and_boxes_are_hidden(label):
+    mask = np.full((32, 32), 255, dtype=np.uint8)
+    label.set_detection_boxes([Detection((20, 20, 40, 40), 0.9, "Fish", mask)])
+    label.set_masks_visible(False)
+    label.set_boxes_visible(False)
+    # Inside the image, which the mask covers, but clear of the band
+    def pixel():
+        return label.grab().toImage().pixel(300, 250)
+    hidden = pixel()
+
+    label.highlight_box((20, 20, 40, 40))
+
+    assert pixel() != hidden
+    # The mask shows the detection, so its box stays hidden
+    assert label.detection_bands[0].isHidden()
+
+    label.highlight_box(None)
+    assert pixel() == hidden
 
 
 def test_highlighting_lasts_across_new_bands(label):
