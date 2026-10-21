@@ -123,17 +123,17 @@
             </widget>
            </item>
            <item row="2" column="0">
-            <widget class="QLabel" name="confidence_label">
+            <widget class="QLabel" name="detection_confidence_label">
              <property name="toolTip">
               <string>The confidence threshold for filtering detections</string>
              </property>
              <property name="text">
-              <string>Min. confidence</string>
+              <string>Min. detection conf.</string>
              </property>
             </widget>
            </item>
            <item row="2" column="1">
-            <widget class="QSlider" name="confidence_slider">
+            <widget class="QSlider" name="detection_confidence_slider">
              <property name="enabled">
               <bool>true</bool>
              </property>
@@ -167,7 +167,7 @@
             </widget>
            </item>
            <item row="2" column="2">
-            <widget class="QSpinBox" name="confidence_spin_box">
+            <widget class="QSpinBox" name="detection_confidence_spin_box">
              <property name="minimum">
               <number>1</number>
              </property>
@@ -204,10 +204,10 @@
            <item row="1" column="0">
             <widget class="QLabel" name="taxon_confidence_label">
              <property name="toolTip">
-              <string>Names the classifier is less sure of than this are not shown</string>
+              <string>Names each object down to the deepest rank (family, genus or species) the classifier is at least this confident about</string>
              </property>
              <property name="text">
-              <string>Min. confidence</string>
+              <string>Min. taxon conf.</string>
              </property>
             </widget>
            </item>
@@ -220,7 +220,7 @@
               </sizepolicy>
              </property>
              <property name="toolTip">
-              <string>Names the classifier is less sure of than this are not shown</string>
+              <string>Names each object down to the deepest rank (family, genus or species) the classifier is at least this confident about</string>
              </property>
              <property name="minimum">
               <number>1</number>
@@ -280,10 +280,10 @@
            <item row="1" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_to_top_conf">
              <property name="toolTip">
-              <string>Crops to the object with the highest confidence only into a new image</string>
+              <string>Crops only the detection the object detector is most confident about into a new image</string>
              </property>
              <property name="text">
-              <string>Object with highest confidence</string>
+              <string>Most confident detection</string>
              </property>
              <property name="checked">
               <bool>false</bool>
@@ -842,9 +842,9 @@
    <slot>setValue(int)</slot>
   </connection>
   <connection>
-   <sender>confidence_spin_box</sender>
+   <sender>detection_confidence_spin_box</sender>
    <signal>valueChanged(int)</signal>
-   <receiver>confidence_slider</receiver>
+   <receiver>detection_confidence_slider</receiver>
    <slot>setValue(int)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -858,9 +858,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>confidence_slider</sender>
+   <sender>detection_confidence_slider</sender>
    <signal>valueChanged(int)</signal>
-   <receiver>confidence_spin_box</receiver>
+   <receiver>detection_confidence_spin_box</receiver>
    <slot>setValue(int)</slot>
    <hints>
     <hint type="sourcelabel">

@@ -175,7 +175,7 @@ def test_dropping_files_skips_sidecars_and_unsupported_files(window, folder):
 def test_selected_image_shows_detections_above_the_confidence(qtbot, window, folder, monkeypatch, detector_factory):
     make_images(folder, ["a.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [FISH, FAINT_FISH]
-    window.ui.confidence_slider.setValue(50)
+    window.ui.detection_confidence_slider.setValue(50)
 
     open_folder(window, folder, monkeypatch)
     qtbot.waitUntil(lambda: object_count(window) == "1")
@@ -187,11 +187,11 @@ def test_selected_image_shows_detections_above_the_confidence(qtbot, window, fol
 def test_lowering_the_confidence_reveals_detections_without_a_new_inference(qtbot, window, folder, monkeypatch, detector_factory):
     make_images(folder, ["a.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [FISH, FAINT_FISH]
-    window.ui.confidence_slider.setValue(50)
+    window.ui.detection_confidence_slider.setValue(50)
     open_folder(window, folder, monkeypatch)
     qtbot.waitUntil(lambda: object_count(window) == "1")
 
-    window.ui.confidence_slider.setValue(30)
+    window.ui.detection_confidence_slider.setValue(30)
 
     assert object_count(window) == "2"
     assert detector_factory.created[0].detected == ["a.png"]
@@ -200,7 +200,7 @@ def test_lowering_the_confidence_reveals_detections_without_a_new_inference(qtbo
 def test_class_filter_restricts_the_shown_detections(qtbot, window, folder, monkeypatch, detector_factory):
     make_images(folder, ["a.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [FISH, CRAB]
-    window.ui.confidence_slider.setValue(50)
+    window.ui.detection_confidence_slider.setValue(50)
     open_folder(window, folder, monkeypatch)
     qtbot.waitUntil(lambda: object_count(window) == "2")
 
@@ -213,7 +213,7 @@ def test_class_filter_restricts_the_shown_detections(qtbot, window, folder, monk
 def test_selecting_another_image_shows_its_detections(qtbot, window, folder, monkeypatch, detector_factory):
     make_images(folder, ["a.png", "b.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [FISH]
-    window.ui.confidence_slider.setValue(50)
+    window.ui.detection_confidence_slider.setValue(50)
     open_folder(window, folder, monkeypatch)
     qtbot.waitUntil(lambda: object_count(window) == "1")
 
@@ -244,7 +244,7 @@ def test_arrow_keys_move_through_the_list(qtbot, window, folder, monkeypatch):
 def test_result_for_another_image_is_ignored(qtbot, window, folder, monkeypatch, detector_factory):
     make_images(folder, ["a.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [FISH]
-    window.ui.confidence_slider.setValue(50)
+    window.ui.detection_confidence_slider.setValue(50)
     open_folder(window, folder, monkeypatch)
     qtbot.waitUntil(lambda: object_count(window) == "1")
 
@@ -263,7 +263,7 @@ def test_result_for_another_image_is_ignored(qtbot, window, folder, monkeypatch,
 def test_crop_bands_follow_the_crop_mode(qtbot, window, folder, monkeypatch, detector_factory, radio_name, expected):
     make_images(folder, ["a.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [FISH, CRAB]
-    window.ui.confidence_slider.setValue(50)
+    window.ui.detection_confidence_slider.setValue(50)
     # No padding and the detection's own aspect ratio make the crop equal the box
     window.ui.padding_slider.setValue(0)
     window.ui.crop_ratio_combo_box.setCurrentText("Same as detection frame")
@@ -352,12 +352,12 @@ def test_real_detector_runs_end_to_end(qtbot, make_window, folder, monkeypatch):
     # detections with scores of about 0.88, 0.50 and 0.12.
     window = make_window(detector_factory=Detector)
     make_images(folder, ["a.png"], IMAGE_SIZE)
-    window.ui.confidence_slider.setValue(10)
+    window.ui.detection_confidence_slider.setValue(10)
 
     open_folder(window, folder, monkeypatch)
     qtbot.waitUntil(lambda: object_count(window) == "3")
 
-    window.ui.confidence_slider.setValue(40)
+    window.ui.detection_confidence_slider.setValue(40)
     assert object_count(window) == "2"
 
 
@@ -368,7 +368,7 @@ def open_two_images(qtbot, window, folder, monkeypatch, detector_factory):
     """a.png holds a fish, b.png holds nothing. Returns the output folder."""
     make_images(folder, ["a.png", "b.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [FISH]
-    window.ui.confidence_slider.setValue(50)
+    window.ui.detection_confidence_slider.setValue(50)
     open_folder(window, folder, monkeypatch)
     qtbot.waitUntil(lambda: object_count(window) == "1")
     return folder / "processed"
@@ -418,7 +418,7 @@ def test_batch_runs_respect_the_class_filter(qtbot, window, folder, monkeypatch,
     make_images(folder, ["a.png", "b.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [FISH, CRAB]
     detector_factory.detections_by_file["b.png"] = [FISH]
-    window.ui.confidence_slider.setValue(50)
+    window.ui.detection_confidence_slider.setValue(50)
     open_folder(window, folder, monkeypatch)
     qtbot.waitUntil(lambda: object_count(window) == "2")
     window.ui.class_filter_combo_box.setCurrentText("Crab")
@@ -513,7 +513,7 @@ def test_batch_whose_model_fails_to_load_reports_it_and_restores_the_actions(qtb
 
 def test_closing_persists_the_controls_and_a_new_window_restores_them(make_window, settings):
     first = make_window()
-    first.ui.confidence_slider.setValue(42)
+    first.ui.detection_confidence_slider.setValue(42)
     first.ui.padding_slider.setValue(7)
     first.ui.crop_ratio_combo_box.setCurrentIndex(3)
     first.ui.rb_crop_union.setChecked(True)
@@ -531,7 +531,7 @@ def test_closing_persists_the_controls_and_a_new_window_restores_them(make_windo
 
     second = make_window()
 
-    assert second.ui.confidence_slider.value() == 42
+    assert second.ui.detection_confidence_slider.value() == 42
     assert second.ui.padding_slider.value() == 7
     assert second.ui.crop_ratio_combo_box.currentIndex() == 3
     assert second.ui.rb_crop_union.isChecked()
@@ -594,7 +594,7 @@ def test_saved_model_that_is_gone_falls_back_to_an_available_one(make_window, se
 def test_export_settings_writes_model_and_crop_groups(window, tmp_path, monkeypatch):
     target = tmp_path / "exported.json"
     monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args, **kwargs: (str(target), ""))
-    window.ui.confidence_slider.setValue(42)
+    window.ui.detection_confidence_slider.setValue(42)
 
     window.ui.export_settings_action.trigger()
 
@@ -611,7 +611,7 @@ def test_import_settings_applies_them_to_the_controls(window, tmp_path, monkeypa
 
     window.ui.import_settings_action.trigger()
 
-    assert window.ui.confidence_slider.value() == 33
+    assert window.ui.detection_confidence_slider.value() == 33
     assert window.ui.padding_slider.value() == 12
     assert window.ui.rb_crop_union.isChecked()
     assert window.ui.status_bar.currentMessage() == "Settings imported."
@@ -650,21 +650,21 @@ def test_importing_a_file_that_is_not_a_settings_file_reports_an_error(window, t
     source = tmp_path / "import.json"
     source.write_text(content)
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
-    window.ui.confidence_slider.setValue(42)
+    window.ui.detection_confidence_slider.setValue(42)
 
     window.ui.import_settings_action.trigger()
 
     assert toasts[-1][:2] == ("error", "Could not import settings")
-    assert window.ui.confidence_slider.value() == 42
+    assert window.ui.detection_confidence_slider.value() == 42
 
 
 def test_cancelled_import_dialog_changes_nothing(window, monkeypatch):
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: ("", ""))
-    window.ui.confidence_slider.setValue(42)
+    window.ui.detection_confidence_slider.setValue(42)
 
     window.ui.import_settings_action.trigger()
 
-    assert window.ui.confidence_slider.value() == 42
+    assert window.ui.detection_confidence_slider.value() == 42
 
 
 @pytest.mark.parametrize(("answer", "restored"), [
@@ -672,22 +672,22 @@ def test_cancelled_import_dialog_changes_nothing(window, monkeypatch):
     (QMessageBox.StandardButton.No, False),
 ])
 def test_reset_settings_restores_the_defaults_only_when_confirmed(window, monkeypatch, settings, answer, restored):
-    default_confidence = window.ui.confidence_slider.value()
+    default_confidence = window.ui.detection_confidence_slider.value()
     default_padding = window.ui.padding_slider.value()
     monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: answer)
-    window.ui.confidence_slider.setValue(11)
+    window.ui.detection_confidence_slider.setValue(11)
     window.ui.padding_slider.setValue(44)
     window.ui.rb_crop_union.setChecked(True)
 
     window.ui.reset_settings_action.trigger()
 
     if restored:
-        assert window.ui.confidence_slider.value() == default_confidence
+        assert window.ui.detection_confidence_slider.value() == default_confidence
         assert window.ui.padding_slider.value() == default_padding
         assert window.ui.rb_crop_all_detected_objects.isChecked()
         assert settings.confidence == default_confidence
     else:
-        assert window.ui.confidence_slider.value() == 11
+        assert window.ui.detection_confidence_slider.value() == 11
         assert window.ui.padding_slider.value() == 44
         assert window.ui.rb_crop_union.isChecked()
 
@@ -903,7 +903,7 @@ def test_lowering_the_confidence_names_the_detections_it_reveals(qtbot, species_
     open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, FAINT_FISH])
     assert tooltips(window)[1:] == []
 
-    window.ui.confidence_spin_box.setValue(10)
+    window.ui.detection_confidence_spin_box.setValue(10)
 
     qtbot.waitUntil(lambda: len(tooltips(window)) == 2 and tooltips(window)[1].startswith("Pomacentridae"))
     assert classifier_factory.classified == [[FISH.box], [FAINT_FISH.box]]
@@ -915,7 +915,7 @@ def test_dragging_the_confidence_asks_for_names_once(qtbot, species_model, windo
     window.request_classification.connect(lambda path, min_score: requests.append(min_score))
 
     for value in (40, 30, 20, 10):
-        window.ui.confidence_slider.setValue(value)
+        window.ui.detection_confidence_slider.setValue(value)
 
     qtbot.waitUntil(lambda: len(tooltips(window)) == 2 and tooltips(window)[1].startswith("Pomacentridae"))
     assert requests == [0.10]

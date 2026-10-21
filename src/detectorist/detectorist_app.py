@@ -192,7 +192,7 @@ class DetectoristApp(QMainWindow):
 
         # Snapshot the .ui file's built-in defaults before _load_settings() can override
         # them, so "Reset Settings to Defaults" has real values to restore.
-        self._default_confidence = self.ui.confidence_slider.value()
+        self._default_detection_confidence = self.ui.detection_confidence_slider.value()
         self._default_taxon_confidence = self.ui.taxon_confidence_slider.value()
         self._default_padding = self.ui.padding_slider.value()
         self._default_aspect_ratio_index = self.ui.crop_ratio_combo_box.currentIndex()
@@ -240,8 +240,8 @@ class DetectoristApp(QMainWindow):
         self.ui.open_output_folder_action.triggered.connect(self._open_last_output_folder)
 
         # Confidence slider/spinbox update the display filter only (no re-inference)
-        self.ui.confidence_slider.valueChanged.connect(self._display_filtered_results)
-        self.ui.confidence_spin_box.valueChanged.connect(self._display_filtered_results)
+        self.ui.detection_confidence_slider.valueChanged.connect(self._display_filtered_results)
+        self.ui.detection_confidence_spin_box.valueChanged.connect(self._display_filtered_results)
         # The worker only names boxes at or above the confidence, so a lower one asks for the rest.
         # Debounced: the worker handles one request at a time, and the ticks of a drag queued
         # up there would delay the next image.
@@ -249,7 +249,7 @@ class DetectoristApp(QMainWindow):
         self._classification_timer.setSingleShot(True)
         self._classification_timer.setInterval(200)
         self._classification_timer.timeout.connect(self._request_classification)
-        self.ui.confidence_slider.valueChanged.connect(self._classification_timer.start)
+        self.ui.detection_confidence_slider.valueChanged.connect(self._classification_timer.start)
         self.ui.taxon_confidence_slider.valueChanged.connect(self._display_filtered_results)
 
         # Connect crop controls
@@ -361,7 +361,7 @@ class DetectoristApp(QMainWindow):
 
         # Confidence (slider and spinbox are linked)
         if (confidence := self.settings.confidence) is not None:
-            self.ui.confidence_slider.setValue(confidence)
+            self.ui.detection_confidence_slider.setValue(confidence)
 
         # Taxon confidence (slider and spinbox are linked)
         if (taxon_confidence := self.settings.taxon_confidence) is not None:
@@ -401,7 +401,7 @@ class DetectoristApp(QMainWindow):
         self.settings.taxon_confidence = self.ui.taxon_confidence_slider.value()
 
         # Confidence
-        self.settings.confidence = self.ui.confidence_slider.value()
+        self.settings.confidence = self.ui.detection_confidence_slider.value()
 
         # Crop mode
         for mode, radio in self._crop_mode_radios().items():
@@ -615,7 +615,7 @@ class DetectoristApp(QMainWindow):
 
         # _load_settings() only overwrites a widget when a persisted value exists, so it
         # can't restore a value that was just cleared. Re-apply the .ui defaults directly.
-        self.ui.confidence_slider.setValue(self._default_confidence)
+        self.ui.detection_confidence_slider.setValue(self._default_detection_confidence)
         self.ui.taxon_confidence_slider.setValue(self._default_taxon_confidence)
         self._preferred_classifier = None
         self.ui.classifier_combo_box.setCurrentIndex(0)
@@ -710,7 +710,7 @@ class DetectoristApp(QMainWindow):
 
         exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
         prefetch_hints = self._prefetch_planner.hints(self.model.imagePaths(), self.current_image_path)
-        min_score = self.ui.confidence_slider.value() / 100.0
+        min_score = self.ui.detection_confidence_slider.value() / 100.0
         self.request_processing.emit(self.current_image_path, exposure_correction, prefetch_hints, min_score)
 
     def toggle_all_overlays(self):
@@ -790,7 +790,7 @@ class DetectoristApp(QMainWindow):
     def _request_classification(self):
         """Asks the worker to name the shown image's boxes down to the current confidence."""
         if self.current_image_path and self.ui.classifier_combo_box.currentData():
-            self.request_classification.emit(self.current_image_path, self.ui.confidence_slider.value() / 100.0)
+            self.request_classification.emit(self.current_image_path, self.ui.detection_confidence_slider.value() / 100.0)
 
     def handle_classifier_error(self, message: str):
         """Handles the classifier_error signal from the worker. The detections stay as they are."""
@@ -804,7 +804,7 @@ class DetectoristApp(QMainWindow):
 
     def _filtered_results(self) -> list:
         """Returns detection results filtered by the current confidence and class filter selections."""
-        confidence = self.ui.confidence_slider.value() / 100.0
+        confidence = self.ui.detection_confidence_slider.value() / 100.0
         results = [d for d in self._all_detection_results if d.score >= confidence]
         selected = self._selected_class_filter()
         if selected is None:
@@ -1145,7 +1145,7 @@ class DetectoristApp(QMainWindow):
         try:
             model_filename = self.ui.model_select_combo_box.currentData()
             output_dir = os.path.join(output_base_dir, OUTPUT_DIR_NAME)
-            detections_csv_filename = detections_csv_name(self.ui.confidence_slider.value(), model_filename)
+            detections_csv_filename = detections_csv_name(self.ui.detection_confidence_slider.value(), model_filename)
 
             total_files = len(image_full_paths)
             progress_dialog = QProgressDialog("Loading models...", "Cancel", 0, total_files, self)
@@ -1177,7 +1177,7 @@ class DetectoristApp(QMainWindow):
             result = run_batch(
                 image_full_paths,
                 batch_detector,
-                detection_confidence=self.ui.confidence_slider.value() / 100.0,
+                detection_confidence=self.ui.detection_confidence_slider.value() / 100.0,
                 exposure_correction=self.ui.cb_comp_cam_exposure.isChecked(),
                 output_dir=output_dir,
                 detections_csv_filename=detections_csv_filename,
@@ -1192,7 +1192,7 @@ class DetectoristApp(QMainWindow):
 
             # Export Model & Crop settings to JSON alongside the CSV
             self._save_settings()
-            settings_filename = settings_json_name(self.ui.confidence_slider.value(), model_filename)
+            settings_filename = settings_json_name(self.ui.detection_confidence_slider.value(), model_filename)
             settings_file_path = Path(result.output_dir) / settings_filename
             self.settings.export_to_file(
                 settings_file_path,
