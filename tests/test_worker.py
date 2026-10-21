@@ -6,6 +6,7 @@ with no real model. The detector is faked, either by assigning
 worker.detector directly or through the injected detector factory.
 """
 
+import os
 from types import SimpleNamespace
 
 from detectorist import worker as worker_module
@@ -276,6 +277,53 @@ def test_prefetch_names_the_neighbours(qtbot, tmp_path):
     qtbot.waitUntil(lambda: len(named) == 2)
 
     assert len(factory.classified) == 2
+
+
+def test_requesting_the_image_being_prefetched_shows_it_before_naming_its_boxes(qtbot, tmp_path):
+    path_a, path_b = make_images(tmp_path, ["a.png", "b.png"], IMAGE_SIZE)
+    worker, factory, named, _ = make_classifying_worker({"a.png": [FISH], "b.png": [FISH]})
+    # The number of classify() calls made by the time each image is shown
+    classified_when_shown = {}
+    worker.image_loaded.connect(
+        lambda path, image: classified_when_shown.setdefault(os.path.basename(path), len(factory.classified)))
+
+    def request_b_while_prefetching_it(name):
+        if name == "b.png":
+            worker.process_image(path_b, False, [], 0.5)
+
+    worker.detector.on_detect = request_b_while_prefetching_it
+
+    worker.process_image(path_a, False, [path_b], 0.5)
+    qtbot.waitUntil(lambda: len(named) == 2)
+
+    # Only a.png was named when b.png was shown, b.png is named afterwards
+    assert classified_when_shown["b.png"] == 1
+    assert len(factory.classified) == 2
+    assert named[1] == (path_b, {FISH.box: TAXONOMY})
+
+
+def test_requesting_the_image_being_prefetched_shows_it_before_detecting(qtbot, tmp_path, monkeypatch):
+    path_a, path_b = make_images(tmp_path, ["a.png", "b.png"], IMAGE_SIZE)
+    worker, _, named, _ = make_classifying_worker({"a.png": [FISH], "b.png": [FISH]})
+    events = []
+    worker.image_loaded.connect(lambda path, image: events.append(("shown", os.path.basename(path))))
+    worker.detector.on_detect = lambda name: events.append(("detected", name))
+    create = worker_module.ImageObject.create
+
+    def create_and_request(image_path):
+        image = create(image_path)
+        events.append(("decoded", os.path.basename(image_path)))
+        if image_path == path_b and worker._latest_request_params[0] == path_a:
+            worker.process_image(path_b, False, [], 0.5)
+        return image
+
+    monkeypatch.setattr(worker_module.ImageObject, "create", staticmethod(create_and_request))
+
+    worker.process_image(path_a, False, [path_b], 0.5)
+    qtbot.waitUntil(lambda: len(named) == 2)
+
+    # The image decoded by the prefetch is handed to the request, not decoded again
+    assert events[3:] == [("decoded", "b.png"), ("shown", "b.png"), ("detected", "b.png")]
 
 
 def test_another_classifier_names_a_cached_image_again_without_serving_it_again(qtbot, tmp_path):

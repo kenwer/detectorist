@@ -66,6 +66,7 @@ class DetectionWorker(QObject):
         # cached image still needs names for. Only touched on the worker thread:
         # process_image hands it over via _latest_request_params.
         self._min_detection_score = 0.0
+        self._decoded_by_prefetch: tuple[str, ImageObject] | None = None  # path and image a stopped prefetch decoded
 
     @Slot()
     def unload_model(self):
@@ -232,6 +233,7 @@ class DetectionWorker(QObject):
                 continue
 
             # Start of processing for the latest request
+            decoded_by_prefetch = self._take_decoded_by_prefetch(image_path)
             if not self.detector:
                 self.error.emit(image_path, "Model not loaded.")
                 continue  # Continue to the next iteration of the loop
@@ -250,8 +252,7 @@ class DetectionWorker(QObject):
                 if self._new_request_pending:
                     continue
 
-                # Load image
-                image = ImageObject.create(image_path)
+                image = decoded_by_prefetch or ImageObject.create(image_path)
 
                 if self._new_request_pending:
                     continue
@@ -298,13 +299,20 @@ class DetectionWorker(QObject):
         only gets the names it misses. Emits no signals: a later real request
         for this path presents the results (or surfaces errors) through the
         normal path, and retries a failed classification.
+
+        A user request that arrives mid-prefetch stops it after the current
+        step, even one for this image: the request shows the image before
+        its detection and classification run, which the prefetch would not.
+        The decoded image and the cached detections are kept for the request.
         """
         # get() also promotes a cached entry to MRU so it survives upcoming evictions
         entry = self._cache.get(image_path)
         try:
             if entry is None:
                 image = ImageObject.create(image_path)
-                if self._abandon_prefetch(image_path):
+                if self._request_pending():
+                    if image:
+                        self._decoded_by_prefetch = (image_path, image)
                     return
                 start_time = time.perf_counter()
                 results = self.detector.detect(image)
@@ -312,17 +320,21 @@ class DetectionWorker(QObject):
                 entry = CacheEntry(image, results, detection_time_ms)
                 self._cache.put(image_path, entry)
                 self._notify_cache_updated()
-            if not self._abandon_prefetch(image_path):
+            if not self._request_pending():
                 self._classify_missing(entry)
         except Exception as e:
             logger.warning("Prefetch failed for %s: %s", image_path, e)
 
-    def _abandon_prefetch(self, image_path: str) -> bool:
-        """
-        A user request that arrived mid-prefetch wins, unless it asks for the
-        image just decoded; then finishing the prefetch is the fastest way to
-        serve it (the request is answered from the cache right after).
-        """
+    def _request_pending(self) -> bool:
         with self._lock:
-            return (self._new_request_pending
-                    and self._latest_request_params[0] != image_path)
+            return self._new_request_pending
+
+    def _take_decoded_by_prefetch(self, image_path: str) -> ImageObject | None:
+        """
+        The image a stopped prefetch decoded, if it is image_path. Clears it
+        either way, so an image never outlives the request that followed it.
+        """
+        decoded, self._decoded_by_prefetch = self._decoded_by_prefetch, None
+        if decoded is not None and decoded[0] == image_path:
+            return decoded[1]
+        return None
