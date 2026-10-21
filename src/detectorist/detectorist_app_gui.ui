@@ -294,6 +294,22 @@
             </widget>
            </item>
            <item row="2" column="0" colspan="2">
+            <widget class="QRadioButton" name="rb_crop_best_classification">
+             <property name="toolTip">
+              <string>Crops only the best classified object into a new image: the deepest identified rank wins, then the highest score</string>
+             </property>
+             <property name="text">
+              <string>Best classification</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">btngroup_crop</string>
+             </attribute>
+            </widget>
+           </item>
+           <item row="3" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_centered_obj">
              <property name="toolTip">
               <string>Crops to the most centrally located of all detected objects only into a new image</string>
@@ -309,7 +325,7 @@
              </attribute>
             </widget>
            </item>
-           <item row="3" column="0" colspan="2">
+           <item row="4" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_union">
              <property name="toolTip">
               <string>Crops all detected objects into a single image</string>
@@ -325,7 +341,7 @@
              </attribute>
             </widget>
            </item>
-           <item row="4" column="0">
+           <item row="5" column="0">
             <widget class="QLabel" name="crop_ratio_label">
              <property name="toolTip">
               <string>Aspect ratio for the crop</string>
@@ -335,14 +351,14 @@
              </property>
             </widget>
            </item>
-           <item row="4" column="1" colspan="2">
+           <item row="5" column="1" colspan="2">
             <widget class="QComboBox" name="crop_ratio_combo_box">
              <property name="toolTip">
               <string>Aspect ratio for the crop</string>
              </property>
             </widget>
            </item>
-           <item row="5" column="0">
+           <item row="6" column="0">
             <widget class="QLabel" name="padding_label">
              <property name="toolTip">
               <string>Adjusts the padding around detected objects as a percentage of the detection bounding box's width/height</string>
@@ -352,7 +368,7 @@
              </property>
             </widget>
            </item>
-           <item row="5" column="1">
+           <item row="6" column="1">
             <widget class="QSlider" name="padding_slider">
              <property name="enabled">
               <bool>true</bool>
@@ -383,7 +399,7 @@
              </property>
             </widget>
            </item>
-           <item row="5" column="2">
+           <item row="6" column="2">
             <widget class="QSpinBox" name="padding_spin_box">
              <property name="maximum">
               <number>50</number>
@@ -393,7 +409,7 @@
              </property>
             </widget>
            </item>
-           <item row="6" column="0" colspan="3">
+           <item row="7" column="0" colspan="3">
             <widget class="QCheckBox" name="cb_comp_cam_exposure">
              <property name="toolTip">
               <string>Adjust the EV to correct for any exposure bias based on EXIF data</string>

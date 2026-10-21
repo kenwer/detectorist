@@ -4,7 +4,7 @@
 import pytest
 
 from detectorist.crop_planner import CropMode, CropSettings, plan_crops
-from detectorist.structures import Detection
+from detectorist.structures import Detection, RankedName, Taxonomy
 
 # The planner reads only a Detection's box and score. Class names come from
 # the model's metadata (e.g. 'Fish', 'Apoidea') and are all alike within one
@@ -92,12 +92,57 @@ def test_zero_area_detection_is_ignored_next_to_usable_ones():
     assert plan([empty, D3], CropMode.MOST_CONFIDENT_DETECTION, 0.0, (1, 1)) == [(300, 300, 40, 40)]
 
 
+def taxonomy(family, genus, species):
+    return Taxonomy(RankedName("Fam", family), RankedName("Gen", genus), RankedName("Gen_spec", species))
+
+
+def plan_best(detections, taxonomy_by_box, threshold=0.5):
+    settings = CropSettings(mode=CropMode.BEST_CLASSIFICATION, padding=0.0, aspect="detection_frame", taxon_confidence=threshold)
+    return plan_crops(detections, HEIGHT, WIDTH, settings, taxonomy_by_box)
+
+
+class TestBestClassification:
+    def test_deeper_rank_beats_higher_score_at_a_shallower_rank(self):
+        # D1 is named to the genus with a near certain score, D2 to the species with a modest one
+        taxonomies = {D1.box: taxonomy(0.99, 0.97, 0.48), D2.box: taxonomy(0.90, 0.70, 0.55)}
+        assert plan_best(DETECTIONS, taxonomies) == [D2.box]
+
+    def test_higher_score_wins_at_the_same_rank(self):
+        taxonomies = {D1.box: taxonomy(0.99, 0.98, 0.60), D2.box: taxonomy(0.90, 0.80, 0.70)}
+        assert plan_best(DETECTIONS, taxonomies) == [D2.box]
+
+    def test_detection_score_breaks_a_tie(self):
+        # D1 (0.9) and D2 (0.7) are named alike, D1 is the more confident detection
+        taxonomies = {D1.box: taxonomy(0.9, 0.8, 0.7), D2.box: taxonomy(0.9, 0.8, 0.7)}
+        assert plan_best(DETECTIONS, taxonomies) == [D1.box]
+
+    def test_an_identified_detection_beats_unclassified_ones(self):
+        # D3 is the most confident detection but was never classified
+        taxonomies = {D2.box: taxonomy(0.6, 0.3, 0.1)}
+        assert plan_best(DETECTIONS, taxonomies) == [D2.box]
+
+    def test_without_any_identification_the_most_confident_detection_wins(self):
+        taxonomies = {D1.box: taxonomy(0.4, 0.3, 0.2), D2.box: taxonomy(0.45, 0.4, 0.3)}
+        assert plan_best(DETECTIONS, taxonomies) == [D3.box]
+
+    def test_without_taxonomies_the_most_confident_detection_wins(self):
+        assert plan_best(DETECTIONS, {}) == [D3.box]
+
+    def test_threshold_decides_the_depth(self):
+        taxonomies = {D1.box: taxonomy(0.99, 0.97, 0.48), D2.box: taxonomy(0.90, 0.70, 0.55)}
+        # At 0.4 both are named to the species, and D2 scores higher there
+        assert plan_best(DETECTIONS, taxonomies, threshold=0.4) == [D2.box]
+        # At 0.6 neither species counts, and D1's genus scores higher
+        assert plan_best(DETECTIONS, taxonomies, threshold=0.6) == [D1.box]
+
+
 class TestCropModeFromSetting:
     def test_parses_current_names(self):
         assert CropMode.from_setting("union") is CropMode.UNION
         assert CropMode.from_setting("top_confidence") is CropMode.MOST_CONFIDENT_DETECTION
         assert CropMode.from_setting("most_centered") is CropMode.MOST_CENTERED
         assert CropMode.from_setting("all_detected_objects") is CropMode.EACH_OBJECT
+        assert CropMode.from_setting("best_classification") is CropMode.BEST_CLASSIFICATION
 
     def test_parses_legacy_largest_area_as_union(self):
         assert CropMode.from_setting("largest_area") is CropMode.UNION

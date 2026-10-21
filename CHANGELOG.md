@@ -4,8 +4,9 @@
 ### Added
 - New results table below the image that lists all classified detections.
 - With a classifier on:
-  - Classified detections are colored by family, with a lighter or darker shade per genus.
+  - New crop mode `Best classification` which crops the object identified to the deepest rank, with the highest score at that rank.
   - Each detection is labeled with its deepest identified name, e.g. "A. ocellaris" or just the genus or family.
+  - Classified detections are colored by family, with a lighter or darker shade per genus.
 - New `View` menu with the following actions/shortcuts:
   - `B` to toggle visibility of the bounding boxes.
   - `L` to toggle visibility of the labels.

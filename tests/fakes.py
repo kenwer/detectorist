@@ -79,14 +79,17 @@ TAXONOMY = Taxonomy(
 
 
 class FakeClassifier:
-    """Stands in for Classifier, giving every box the same taxonomy.
+    """Stands in for Classifier, giving every box the same taxonomy, or
+    the one taxonomy_by_box holds for it.
 
     classified lists the boxes of each classify() call, in call order. Setting
     error makes the next call raise it.
     """
 
-    def __init__(self, taxonomy=TAXONOMY, model_path="fake-classifier.onnx", error=None, patterns=("*",)):
+    def __init__(self, taxonomy=TAXONOMY, model_path="fake-classifier.onnx", error=None, patterns=("*",),
+                 taxonomy_by_box=None):
         self.taxonomy = taxonomy
+        self.taxonomy_by_box = taxonomy_by_box or {}
         self.model_path = model_path
         self.error = error
         self.patterns = tuple(patterns)
@@ -96,7 +99,7 @@ class FakeClassifier:
         if self.error is not None:
             raise self.error
         self.classified.append(list(boxes))
-        return [self.taxonomy for _ in boxes]
+        return [self.taxonomy_by_box.get(box, self.taxonomy) for box in boxes]
 
 
 class FakeClassifierFactory:
@@ -105,11 +108,12 @@ class FakeClassifierFactory:
     created keeps the classifiers in creation order. Setting error makes the
     next call raise it, which is how a classifier that fails to load is
     simulated. classify_error is handed to every classifier created after it
-    was set.
+    was set. taxonomy_by_box is handed to them likewise (see FakeClassifier).
     """
 
     def __init__(self, taxonomy=TAXONOMY):
         self.taxonomy = taxonomy
+        self.taxonomy_by_box: dict = {}
         self.error: Exception | None = None
         self.classify_error: Exception | None = None
         self.created: list[FakeClassifier] = []
@@ -117,7 +121,7 @@ class FakeClassifierFactory:
     def __call__(self, model_path: str, patterns=("*",)) -> FakeClassifier:
         if self.error is not None:
             raise self.error
-        classifier = FakeClassifier(self.taxonomy, model_path, self.classify_error, patterns)
+        classifier = FakeClassifier(self.taxonomy, model_path, self.classify_error, patterns, self.taxonomy_by_box)
         self.created.append(classifier)
         return classifier
 

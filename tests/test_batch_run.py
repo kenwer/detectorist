@@ -25,7 +25,7 @@ from detectorist.batch_output import (
 )
 from detectorist.batch_run import CropExportAction, SortByClassAction, run_batch
 from detectorist.crop_planner import CropMode, CropSettings
-from detectorist.structures import Detection
+from detectorist.structures import Detection, RankedName, Taxonomy
 from tests.fakes import FakeClassifier, FakeDetector, make_images
 
 CROP_SETTINGS = CropSettings(mode=CropMode.MOST_CONFIDENT_DETECTION, padding=0.0, aspect=(1, 1))
@@ -444,6 +444,40 @@ def test_second_run_replaces_all_classification_rows_of_the_images_it_touches(tm
 
     rows = read_classification_csv_rows(str(tmp_path / "out"))
     assert [row[:5] for row in rows[1:]] == [["a.png", "1", "Fish", "0.8", "30"], ["b.png", "1", "Fish", "0.9", "10"]]
+
+
+def test_best_classification_crop_follows_the_classifier(tmp_path):
+    genus_only = Detection((5, 5, 10, 10), 0.9, "Fish")
+    species = Detection((30, 10, 20, 16), 0.7, "Fish")
+    classifier = FakeClassifier(taxonomy_by_box={
+        genus_only.box: Taxonomy(RankedName("Pomacentridae", 0.99), RankedName("Amphiprion", 0.97), RankedName("Amphiprion_ocellaris", 0.48)),
+        species.box: Taxonomy(RankedName("Pomacentridae", 0.90), RankedName("Amphiprion", 0.70), RankedName("Amphiprion_clarkii", 0.55)),
+    })
+    paths = make_images(tmp_path, ["a.png"])
+    settings = CropSettings(mode=CropMode.BEST_CLASSIFICATION, padding=0.0, aspect="detection_frame", taxon_confidence=0.5)
+
+    run_batch(paths, FakeDetector({"a.png": [genus_only, species]}), detection_confidence=0.5, exposure_correction=False,
+              output_dir=str(tmp_path / "out"), detections_csv_filename=DETECTIONS_CSV_FILENAME,
+              action=CropExportAction(settings), progress=always_continue, classifier=classifier, taxon_confidence=0.5,
+              classification_csv_filename=CLASSIFICATION_CSV_FILENAME)
+
+    with Image.open(tmp_path / "out" / "a_crop.png") as crop:
+        assert crop.size == (20, 16)
+
+
+def test_best_classification_crop_falls_back_to_the_detection_when_the_classifier_fails(tmp_path):
+    paths = make_images(tmp_path, ["a.png"])
+    detections = [Detection((5, 5, 10, 10), 0.9, "Fish"), Detection((30, 10, 20, 16), 0.7, "Fish")]
+    settings = CropSettings(mode=CropMode.BEST_CLASSIFICATION, padding=0.0, aspect="detection_frame", taxon_confidence=0.5)
+
+    run_batch(paths, FakeDetector({"a.png": detections}), detection_confidence=0.5, exposure_correction=False,
+              output_dir=str(tmp_path / "out"), detections_csv_filename=DETECTIONS_CSV_FILENAME,
+              action=CropExportAction(settings), progress=always_continue,
+              classifier=FakeClassifier(error=RuntimeError("out of memory")), taxon_confidence=0.5,
+              classification_csv_filename=CLASSIFICATION_CSV_FILENAME)
+
+    with Image.open(tmp_path / "out" / "a_crop.png") as crop:
+        assert crop.size == (10, 10)
 
 
 def test_classification_rows_of_an_image_that_fails_to_load_are_dropped(tmp_path):

@@ -24,7 +24,7 @@ from detectorist.detection_style import MASK_COLORS
 from detectorist.detector import Detector
 from detectorist.image_label import DETECTION_BORDER_COLOR_RGB
 from detectorist.image_object import APPLEDOUBLE_MAGIC
-from detectorist.structures import Detection
+from detectorist.structures import Detection, RankedName, Taxonomy
 from detectorist.utils import contract_user_path
 from tests.fakes import make_images
 
@@ -927,6 +927,77 @@ def test_deselecting_the_classifier_shows_the_detector_class_again(qtbot, specie
     window.ui.classifier_combo_box.setCurrentIndex(0)
 
     qtbot.waitUntil(lambda: tooltips(window) == ["Fish 0.90"])
+
+
+# Named down to the species at the default taxon confidence of 0.50, unlike TAXONOMY
+CRAB_SPECIES = Taxonomy(RankedName("Pomacentridae", 0.9), RankedName("Amphiprion", 0.8), RankedName("Amphiprion_clarkii", 0.7))
+
+
+def open_for_best_classification(qtbot, window, folder, monkeypatch, detector_factory, classifier_factory):
+    """
+    Open an image of FISH, named to the genus only, and of CRAB, named to the
+    species, with the best classification crop mode. The crop equals the box.
+    """
+    classifier_factory.taxonomy_by_box = {CRAB.box: CRAB_SPECIES}
+    window.ui.padding_slider.setValue(0)
+    window.ui.crop_ratio_combo_box.setCurrentText("Same as detection frame")
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, CRAB])
+    window.ui.rb_crop_best_classification.setChecked(True)
+
+
+def test_best_classification_crop_band_frames_the_deepest_named_detection(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    open_for_best_classification(qtbot, window, folder, monkeypatch, detector_factory, classifier_factory)
+
+    # FISH is the more confident detection and scores higher at the genus
+    assert window.ui.image_label.last_crop_rects == [QRect(*CRAB.box)]
+
+
+def test_best_classification_crop_band_follows_the_taxon_confidence(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    open_for_best_classification(qtbot, window, folder, monkeypatch, detector_factory, classifier_factory)
+
+    # Neither species counts any more, and FISH's genus scores higher
+    window.ui.taxon_confidence_spin_box.setValue(75)
+
+    assert window.ui.image_label.last_crop_rects == [QRect(*FISH.box)]
+
+
+def test_best_classification_crop_band_waits_for_the_names(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    open_for_best_classification(qtbot, window, folder, monkeypatch, detector_factory, classifier_factory)
+    taxonomy_by_box = window._taxonomy_by_box
+
+    window.handle_detection_complete(window.current_image_path, [FISH, CRAB], 1.0)
+
+    assert window.ui.image_label.crop_bands == []
+    # The detection boxes stay
+    assert len(window.ui.image_label.detection_bands) == 2
+
+    window.handle_classification_complete(window.current_image_path, taxonomy_by_box, 1.0)
+
+    assert window.ui.image_label.last_crop_rects == [QRect(*CRAB.box)]
+
+
+def test_best_classification_crop_band_falls_back_when_the_classifier_fails_to_load(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    detector_factory.detections_by_file["a.png"] = [CRAB, FISH]
+    window.ui.padding_slider.setValue(0)
+    window.ui.crop_ratio_combo_box.setCurrentText("Same as detection frame")
+    classifier_factory.error = OSError("not a classifier")
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    window.ui.rb_crop_best_classification.setChecked(True)
+
+    open_folder(window, folder, monkeypatch)
+
+    qtbot.waitUntil(lambda: window.ui.image_label.last_crop_rects == [QRect(*FISH.box)])
+
+
+def test_best_classification_crop_band_without_a_classifier_frames_the_most_confident_detection(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    open_for_best_classification(qtbot, window, folder, monkeypatch, detector_factory, classifier_factory)
+
+    window.ui.classifier_combo_box.setCurrentIndex(0)
+
+    # The choice survives for when a classifier is picked again
+    assert window.ui.rb_crop_best_classification.isChecked()
+    assert window.ui.image_label.last_crop_rects == [QRect(*FISH.box)]
 
 
 def border_rgb(window) -> list[tuple]:

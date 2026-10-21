@@ -320,6 +320,19 @@ def test_a_failing_classifier_is_reported_and_the_detections_stay(qtbot, tmp_pat
     assert named == [(path_a, {})]
 
 
+def test_a_classifier_that_fails_to_load_reports_the_image_without_names(qtbot, tmp_path):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    worker, factory, named, errors = make_classifying_worker({"a.png": [FISH]})
+    factory.error = RuntimeError("bad model file")
+    worker.set_classifier("/models/broken.onnx", ["Fish"])
+
+    worker.process_image(path_a, False, [], 0.5)
+    qtbot.waitUntil(lambda: len(named) == 1)
+
+    assert errors == ["Error loading classifier: bad model file"]
+    assert named == [(path_a, {})]
+
+
 def test_a_classifier_failing_in_the_prefetch_stays_silent_until_the_image_is_requested(qtbot, tmp_path):
     path_a, path_b = make_images(tmp_path, ["a.png", "b.png"], IMAGE_SIZE)
     worker, factory, named, errors = make_classifying_worker({"a.png": [FISH], "b.png": [FISH]})

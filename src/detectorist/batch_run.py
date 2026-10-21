@@ -1,6 +1,6 @@
 """The Batch Run: one pass of a detector (and a classifier) over a set of images.
 
-Owns the pipeline (load, detect, filter, act, classify, log) plus
+Owns the pipeline (load, detect, filter, classify, act, log) plus
 cancellation. The rows it produces and the CSV files they go into are
 batch_output's. Loading runs one image ahead on a background thread so
 decode overlaps detection. Qt-free: progress crosses a callback seam, and the
@@ -10,7 +10,7 @@ Class), so the whole run can be exercised headless.
 
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -26,7 +26,7 @@ from .batch_output import (
 from .classifier import Classifier, detections_to_classify, identified_ranks
 from .crop_planner import CropSettings, plan_crops
 from .image_object import ImageObject
-from .structures import Detection, clamp_box
+from .structures import Box, Detection, Taxonomy, clamp_box
 from .utils import long_path, strip_model_ext
 
 logger = logging.getLogger(__name__)
@@ -36,10 +36,10 @@ ProgressFn = Callable[[int, int, str], bool]
 
 
 def classify_detections(classifier: Classifier, taxon_confidence: float, image: ImageObject,
-                        detections: list[Detection]) -> list[ClassificationRow]:
+                        detections: list[Detection]) -> tuple[list[ClassificationRow], dict[Box, Taxonomy]]:
     """
     Runs the classifier over the detections of one image and returns their
-    classification CSV rows.
+    classification CSV rows and their taxonomies by box.
 
     One row per detection the classifier names (see detections_to_classify),
     numbered from 1 in that order. A rank scoring below taxon_confidence is
@@ -51,7 +51,7 @@ def classify_detections(classifier: Classifier, taxon_confidence: float, image: 
     """
     to_classify = detections_to_classify(detections, 0.0, classifier.patterns)
     if not to_classify:
-        return []
+        return [], {}
     taxonomies = classifier.classify(image, [d.box for d in to_classify])
     file_name = os.path.basename(image.image_path)
     model_name = strip_model_ext(os.path.basename(classifier.model_path))
@@ -63,7 +63,7 @@ def classify_detections(classifier: Classifier, taxon_confidence: float, image: 
         names = [value for rank in ranks for value in rank] + ["", ""] * (len(taxonomy) - len(ranks))
         rows.append(ClassificationRow(file_name, number, detection.class_name, detection.score,
                                       x1, y1, x2 - x1, y2 - y1, *names, model_name))
-    return rows
+    return rows, {d.box: taxonomy for d, taxonomy in zip(to_classify, taxonomies, strict=True)}
 
 
 class BatchAction(Protocol):
@@ -80,8 +80,12 @@ class BatchAction(Protocol):
         """Create whatever directories the action needs inside output_dir."""
         ...
 
-    def process(self, image: ImageObject, detections: list[Detection]) -> bool:
-        """Handle one image and its detections filtered by detection confidence. Returns whether the image was cropped."""
+    def process(self, image: ImageObject, detections: list[Detection], taxonomy_by_box: Mapping[Box, Taxonomy]) -> bool:
+        """
+        Handle one image and its detections filtered by detection confidence.
+        taxonomy_by_box holds what the classifier named them, empty without
+        one. Returns whether the image was cropped.
+        """
         ...
 
 
@@ -137,7 +141,11 @@ def run_batch(image_paths: list[str], detector, detection_confidence: float, exp
     The same goes for an image whose detection or action fails. It gets a
     "process-error" row. Both kinds are listed in the result's failed. A
     failing classification is only logged and leaves the image without
-    classification rows: the action has already handled it.
+    classification rows. The action still handles the image, as if nothing
+    was named.
+
+    The detections are classified before the action runs, as the
+    BEST_CLASSIFICATION crop mode picks its crop by their names.
 
     Args:
         image_paths: Full paths of the images to process.
@@ -209,24 +217,29 @@ def run_batch(image_paths: list[str], detector, detection_confidence: float, exp
                         classification_table.replace(file_name, [])
                     continue
 
+                image_classification_rows: list[ClassificationRow] = []
                 try:
                     detections = [d for d in detector.detect(image)
                                   if d.score >= detection_confidence and class_filter in (None, d.class_name)]
-                    detections_row = summarize_detections(file_name, detections, action.process(image, detections))
+                    taxonomy_by_box: dict[Box, Taxonomy] = {}
+                    if classifier is not None:
+                        try:
+                            image_classification_rows, taxonomy_by_box = classify_detections(
+                                classifier, taxon_confidence, image, detections)
+                        except Exception:
+                            logger.exception("%s: could not classify the detections", file_name)
+                    cropped = action.process(image, detections, taxonomy_by_box)
+                    detections_row = summarize_detections(file_name, detections, cropped)
                 except Exception:
                     logger.exception("%s: could not process image", file_name)
                     detections_row = DetectionsRow(file_name, 0, "process-error", 0, "n/a")
-                    detections = []
+                    # Rows of detections the process-error row no longer lists would contradict it
+                    image_classification_rows = []
                     failed.append(file_name)
                 new_detections_rows.append(detections_row)
                 detections_table.replace(file_name, [detections_row])
 
                 if classification_table is not None:
-                    image_classification_rows = []
-                    try:
-                        image_classification_rows = classify_detections(classifier, taxon_confidence, image, detections)
-                    except Exception:
-                        logger.exception("%s: could not classify the detections", file_name)
                     new_classification_rows += image_classification_rows
                     classification_table.replace(file_name, image_classification_rows)
     finally:
@@ -257,7 +270,7 @@ class CropExportAction:
         """Remember the output directory. Every file lands directly inside it."""
         self.output_dir = output_dir
 
-    def process(self, image: ImageObject, detections: list[Detection]) -> bool:
+    def process(self, image: ImageObject, detections: list[Detection], taxonomy_by_box: Mapping[Box, Taxonomy]) -> bool:
         """
         Save one crop per planned rectangle, named <stem>_crop<ext>, or
         <stem>_crop_<i><ext> when an image yields several crops (the
@@ -268,7 +281,7 @@ class CropExportAction:
         file_name = os.path.basename(image.image_path)
         base, ext = os.path.splitext(file_name)
 
-        crop_tuples = plan_crops(detections, image.height, image.width, self.crop_settings) if detections else []
+        crop_tuples = plan_crops(detections, image.height, image.width, self.crop_settings, taxonomy_by_box) if detections else []
 
         if not crop_tuples:
             if detections:
@@ -296,7 +309,7 @@ class SortByClassAction:
         """
         self._output_dir = output_dir
 
-    def process(self, image: ImageObject, detections: list[Detection]) -> bool:
+    def process(self, image: ImageObject, detections: list[Detection], taxonomy_by_box: Mapping[Box, Taxonomy]) -> bool:
         """
         Copy the image (never move it) into a folder named after its top
         detection's class, creating the folder on first use. Images without

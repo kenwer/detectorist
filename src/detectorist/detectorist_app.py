@@ -146,6 +146,7 @@ class DetectoristApp(QMainWindow):
         self._last_classification_time_ms: float = 0.0
         # What the classifier said about the current image's detections, keyed by box
         self._taxonomy_by_box: dict = {}
+        self._classification_pending = False
         # The classifier the user chose, by filename. It stays the choice while a
         # detection model is loaded that it does not apply to.
         self._preferred_classifier: str | None = None
@@ -254,6 +255,7 @@ class DetectoristApp(QMainWindow):
 
         # Connect crop controls
         self.ui.rb_crop_most_confident_detection.toggled.connect(self.update_crop_bands)
+        self.ui.rb_crop_best_classification.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_union.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_all_detected_objects.toggled.connect(self.update_crop_bands)
         self.ui.rb_crop_centered_obj.toggled.connect(self.update_crop_bands)
@@ -777,6 +779,7 @@ class DetectoristApp(QMainWindow):
         self._last_detection_time_ms = detection_time_ms
         # The names follow with classification_complete
         self._taxonomy_by_box = {}
+        self._classification_pending = self.ui.classifier_combo_box.currentData() is not None
         self._display_filtered_results()
 
     def handle_classification_complete(self, image_path: str, taxonomy_by_box: dict, classification_time_ms: float):
@@ -784,6 +787,7 @@ class DetectoristApp(QMainWindow):
         if image_path != self.current_image_path:
             return
         self._taxonomy_by_box = taxonomy_by_box
+        self._classification_pending = False
         self._last_classification_time_ms = classification_time_ms
         self._display_filtered_results()
 
@@ -973,6 +977,7 @@ class DetectoristApp(QMainWindow):
             self._classifier_factory.release()
         self.request_classifier.emit(model_path, self._model_downloader.classifies(filename) if filename else [])
         self._taxonomy_by_box = {}
+        self._classification_pending = bool(filename and self.current_image_path)
         self._display_filtered_results()
         self._request_classification()
 
@@ -1052,6 +1057,7 @@ class DetectoristApp(QMainWindow):
         """The crop panel radio button for each CropMode."""
         return {
             CropMode.MOST_CONFIDENT_DETECTION: self.ui.rb_crop_most_confident_detection,
+            CropMode.BEST_CLASSIFICATION: self.ui.rb_crop_best_classification,
             CropMode.UNION: self.ui.rb_crop_union,
             CropMode.MOST_CENTERED: self.ui.rb_crop_centered_obj,
             CropMode.EACH_OBJECT: self.ui.rb_crop_all_detected_objects,
@@ -1066,7 +1072,8 @@ class DetectoristApp(QMainWindow):
 
         padding_percentage = self.ui.padding_slider.value() / 100.0
         _, aspect_ratio = ASPECT_RATIOS[self.ui.crop_ratio_combo_box.currentIndex()]
-        return CropSettings(mode=crop_mode, padding=padding_percentage, aspect=aspect_ratio)
+        return CropSettings(mode=crop_mode, padding=padding_percentage, aspect=aspect_ratio,
+                            taxon_confidence=self.ui.taxon_confidence_slider.value() / 100.0)
 
     def update_crop_bands(self):
         if not self.ui.image_label.image or not self.ui.image_label.orig_detection_rects:
@@ -1084,7 +1091,13 @@ class DetectoristApp(QMainWindow):
         if crop_settings is None:
             self.ui.image_label.hide_bands()
             return
-        crop_tuples = plan_crops(detections, self.ui.image_label.image.height, self.ui.image_label.image.width, crop_settings)
+        if crop_settings.mode == CropMode.BEST_CLASSIFICATION and self._classification_pending:
+            # Until the names arrive, the band would frame the most confident detection
+            # only to jump to the best classified one. The detection boxes stay.
+            self.ui.image_label.set_crop_boxes([])
+            return
+        crop_tuples = plan_crops(detections, self.ui.image_label.image.height, self.ui.image_label.image.width, crop_settings,
+                                 self._taxonomy_by_box)
         crop_rects = [QRect(*crop_tuple) for crop_tuple in crop_tuples if crop_tuple and crop_tuple[2] > 0 and crop_tuple[3] > 0]
 
         if not crop_rects:

@@ -53,6 +53,7 @@ class DetectionWorker(QObject):
         self._classifier_factory = classifier_factory
         self.detector = None
         self.classifier = None
+        self._classifier_requested = False  # whether the caller asked for a classifier,
         self._lock = Lock()
         self._latest_request_params = None
         self._new_request_pending = False
@@ -100,6 +101,7 @@ class DetectionWorker(QObject):
         shown image again is up to the caller, via classify_image.
         """
         self.classifier = None
+        self._classifier_requested = bool(model_path)
         self._cache.clear_taxonomy()
         if model_path:
             try:
@@ -151,9 +153,9 @@ class DetectionWorker(QObject):
         """
         Names the boxes the entry misses (see _classify_missing) and reports
         all of the entry's names. A failure is reported too, and leaves the
-        detections shown as they are.
+        detections shown as they are. Without a classifier requested, nothing is reported.
         """
-        if self.classifier is None:
+        if not self._classifier_requested:
             return
         try:
             self._classify_missing(entry)

@@ -5,11 +5,13 @@ CropSettings, so both callers (the interactive crop bands and the batch
 crop/export loop) and tests exercise the same seam headless.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
 
-from .structures import Detection
+from .classifier import identified_ranks
+from .structures import Box, Detection, Taxonomy
 
 # A crop rectangle as (x, y, w, h) in image pixel space.
 Rect = tuple[int, int, int, int]
@@ -20,6 +22,7 @@ class CropMode(StrEnum):
     UNION = "union"                    # one box framing all detections
     MOST_CENTERED = "most_centered"    # box of the detection closest to the image center
     EACH_OBJECT = "all_detected_objects"  # one crop per detection
+    BEST_CLASSIFICATION = "best_classification"  # box of the detection named to the deepest rank (see _classification_rank)
 
     @classmethod
     def from_setting(cls, value: str | None) -> CropMode | None:
@@ -41,9 +44,11 @@ class CropSettings:
     mode: CropMode
     padding: float  # fraction of the detection box, e.g. 0.1 for 10%
     aspect: tuple[int, int] | Literal["detection_frame", "source_image"]
+    taxon_confidence: float = 0.0  # score a rank needs to count as identified
 
 
-def plan_crops(detections: list[Detection], image_height: int, image_width: int, settings: CropSettings) -> list[Rect]:
+def plan_crops(detections: list[Detection], image_height: int, image_width: int, settings: CropSettings,
+               taxonomy_by_box: Mapping[Box, Taxonomy] = {}) -> list[Rect]:
     """
     Plans crop rectangles based on detections and crop settings.
 
@@ -51,7 +56,9 @@ def plan_crops(detections: list[Detection], image_height: int, image_width: int,
         detections: The detections to frame. Only the box and score are read.
         image_height: The height of the image.
         image_width: The width of the image.
-        settings: Crop mode, padding and aspect ratio to apply.
+        settings: Crop mode, padding, aspect ratio and taxon confidence to apply.
+        taxonomy_by_box: What the classifier named the detections, read by
+            BEST_CLASSIFICATION only. Detections missing here count as unidentified.
 
     Returns:
         A list of tuples (x, y, w, h) for the crop rectangles.
@@ -69,9 +76,25 @@ def plan_crops(detections: list[Detection], image_height: int, image_width: int,
             if rect:
                 crop_rects.append(rect)
         return crop_rects
+    elif settings.mode == CropMode.BEST_CLASSIFICATION:
+        best = max(detections, key=lambda d: _classification_rank(d, taxonomy_by_box.get(d.box), settings.taxon_confidence))
+        rect = _plan_single_crop([best], image_height, image_width, CropMode.MOST_CONFIDENT_DETECTION, settings.padding, settings.aspect)
+        return [rect] if rect else []
     else:  # Just a single crop rectangle
         rect = _plan_single_crop(detections, image_height, image_width, settings.mode, settings.padding, settings.aspect)
         return [rect] if rect else []
+
+
+def _classification_rank(detection: Detection, taxonomy: Taxonomy | None, taxon_confidence: float) -> tuple[int, float, float]:
+    """
+    Orders detections by how well they were classified: the deepest
+    identified rank first, then the score at that rank, then the detection
+    score. Comparing scores across ranks would favor shallow ones, as a
+    genus scores the sum of its species. A detection identified at no rank
+    is ordered by its detection score alone.
+    """
+    ranks = identified_ranks(taxonomy, taxon_confidence) if taxonomy else []
+    return len(ranks), ranks[-1].score if ranks else 0.0, detection.score
 
 
 def _plan_single_crop(detections: list[Detection], image_height: int, image_width: int, mode: CropMode, padding_percentage: float, aspect_ratio: tuple[int, int] | str) -> Rect | None:
