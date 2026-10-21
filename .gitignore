@@ -1,3 +1,27 @@
+# Top level is an allow list: tool state, scratch patches and notes that
+# appear in the repo root stay untracked until they are listed here.
+/*
+!/.gitattributes
+!/.githooks/
+!/.github/
+!/.gitignore
+!/CHANGELOG.md
+!/CITATION.cff
+!/DEVELOPMENT.md
+!/FAQ.md
+!/LICENSE
+!/README.md
+!/SHORTCUTS.md
+!/assets/
+!/benchmarks/
+!/docs/
+!/models/
+!/pyproject.toml
+!/scripts/
+!/src/
+!/tests/
+!/uv.lock
+
 # Python-specific ignores
 **/__pycache__/
 *.py[cod]
