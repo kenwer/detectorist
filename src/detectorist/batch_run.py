@@ -36,36 +36,36 @@ ProgressFn = Callable[[int, int, str], bool]
 
 
 def classify_detections(classifier: Classifier, image: ImageObject, detections: list[Detection]) -> dict[Box, Taxonomy]:
-    """
-    Runs the classifier over the detections of one image it names (see
-    detections_to_classify) and returns their taxonomies by box, in that order.
-    """
-    to_classify = detections_to_classify(detections, 0.0, classifier.patterns)
-    if not to_classify:
+    """Runs the classifier over the detections of one image and returns their taxonomies by box."""
+    if not detections:
         return {}
-    taxonomies = classifier.classify(image, [d.box for d in to_classify])
-    return dict(zip([d.box for d in to_classify], taxonomies, strict=True))
+    taxonomies = classifier.classify(image, [d.box for d in detections])
+    return dict(zip([d.box for d in detections], taxonomies, strict=True))
 
 
-def classification_rows(image: ImageObject, detections: list[Detection], taxonomy_by_box: Mapping[Box, Taxonomy],
+def classification_rows(image: ImageObject, named: list[Detection], taxonomy_by_box: Mapping[Box, Taxonomy],
                         taxon_confidence: float, model_name: str) -> list[ClassificationRow]:
     """
     The classification CSV rows of one image: one per named detection,
-    numbered from 1 in the order of taxonomy_by_box. A rank scoring below
-    taxon_confidence is left empty, and so is every rank below it, as in the
-    tooltip (see identified_ranks). A detection without any identified rank
-    still gets its row, so it is counted.
+    numbered from 1 in the order of named (see detections_to_classify). A
+    rank scoring below taxon_confidence is left empty, and so is every rank
+    below it, as in the tooltip (see identified_ranks). A detection without
+    any identified rank still gets its row, so it is counted. So does one
+    missing from taxonomy_by_box because the classifier failed, with
+    "classify-error" as its family.
 
     The box is clamped to the image (see clamp_box).
     """
     file_name = os.path.basename(image.image_path)
-    detection_by_box = {d.box: d for d in detections}
     rows = []
-    for number, (box, taxonomy) in enumerate(taxonomy_by_box.items(), start=1):
-        detection = detection_by_box[box]
-        x1, y1, x2, y2 = clamp_box(box, image.width, image.height)
-        ranks = identified_ranks(taxonomy, taxon_confidence)
-        names = [value for rank in ranks for value in rank] + ["", ""] * (len(taxonomy) - len(ranks))
+    for number, detection in enumerate(named, start=1):
+        x1, y1, x2, y2 = clamp_box(detection.box, image.width, image.height)
+        taxonomy = taxonomy_by_box.get(detection.box)
+        if taxonomy is None:
+            names = ["classify-error"] + [""] * (2 * len(Taxonomy._fields) - 1)
+        else:
+            ranks = identified_ranks(taxonomy, taxon_confidence)
+            names = [value for rank in ranks for value in rank] + ["", ""] * (len(taxonomy) - len(ranks))
         rows.append(ClassificationRow(file_name, number, detection.class_name, detection.score,
                                       x1, y1, x2 - x1, y2 - y1, *names, model_name))
     return rows
@@ -145,9 +145,9 @@ def run_batch(image_paths: list[str], detector, detection_confidence: float, exp
     aborting the run, so one corrupt file cannot end a batch of thousands.
     The same goes for an image whose detection or action fails. It gets a
     "process-error" row. Both kinds are listed in the result's failed. A
-    failing classification is only logged and leaves the image without
-    classification rows. The action still handles the image, as if nothing
-    was named.
+    failing classification is logged and marks the image's classification
+    rows with "classify-error" (see classification_rows). The action still
+    handles the image, as if nothing was named.
 
     The detections are classified before the action runs, as the
     BEST_CLASSIFICATION crop mode picks its crop by their names.
@@ -229,11 +229,12 @@ def run_batch(image_paths: list[str], detector, detection_confidence: float, exp
                                   if d.score >= detection_confidence and class_filter in (None, d.class_name)]
                     taxonomy_by_box: dict[Box, Taxonomy] = {}
                     if classifier is not None:
+                        named = detections_to_classify(detections, 0.0, classifier.patterns)
                         try:
-                            taxonomy_by_box = classify_detections(classifier, image, detections)
+                            taxonomy_by_box = classify_detections(classifier, image, named)
                         except Exception:
                             logger.exception("%s: could not classify the detections", file_name)
-                        image_classification_rows = classification_rows(image, detections, taxonomy_by_box,
+                        image_classification_rows = classification_rows(image, named, taxonomy_by_box,
                                                                         taxon_confidence, classifier_name)
                     cropped = action.process(image, detections, taxonomy_by_box)
                     detections_row = summarize_detections(file_name, detections, cropped)

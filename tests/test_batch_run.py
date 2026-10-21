@@ -392,6 +392,14 @@ def test_a_crowded_image_gets_a_classification_row_per_detection(tmp_path):
     assert len(result.classification_rows) == 35
 
 
+def test_detections_sharing_a_box_each_get_a_classification_row(tmp_path):
+    detections = [Detection((10, 10, 20, 20), 0.9, "Fish"), Detection((10, 10, 20, 20), 0.7, "Fish")]
+
+    result = run_classified_sort(tmp_path, {"a.png": detections}, FakeClassifier())
+
+    assert [(row.detection, row.score) for row in result.classification_rows] == [(1, 0.9), (2, 0.7)]
+
+
 def test_detections_csv_keeps_its_columns_with_a_classifier(tmp_path):
     run_classified_sort(tmp_path, {"a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]}, FakeClassifier())
 
@@ -434,14 +442,20 @@ def test_without_a_classifier_no_classification_csv_is_written(tmp_path):
     assert not (tmp_path / "out" / CLASSIFICATION_CSV_FILENAME).exists()
 
 
-def test_a_failing_classifier_leaves_the_image_without_classification_rows(tmp_path):
+def test_a_failing_classifier_marks_the_classification_rows_of_the_image(tmp_path):
     classifier = FakeClassifier(error=RuntimeError("out of memory"))
+    detections = [Detection((10, 10, 20, 20), 0.9, "Fish"), Detection((30, 20, 10, 10), 0.8, "Fish")]
 
-    result = run_classified_sort(tmp_path, {"a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]}, classifier)
+    result = run_classified_sort(tmp_path, {"a.png": detections}, classifier)
 
     assert result.failed == []
-    assert result.detections_rows == [("a.png", 0.9, "Fish", 1, "no")]
-    assert read_classification_csv_rows(str(tmp_path / "out")) == [CLASSIFICATION_CSV_HEADER]
+    assert result.detections_rows == [("a.png", 0.9, "Fish", 2, "no")]
+    names = ["classify-error", "", "", "", "", "", "fake-classifier"]
+    assert read_classification_csv_rows(str(tmp_path / "out")) == [
+        CLASSIFICATION_CSV_HEADER,
+        ["a.png", "1", "Fish", "0.9", "10", "10", "20", "20", *names],
+        ["a.png", "2", "Fish", "0.8", "30", "20", "10", "10", *names],
+    ]
     assert (tmp_path / "out" / "Fish" / "a.png").is_file()
 
 
