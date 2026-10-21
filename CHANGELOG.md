@@ -18,6 +18,8 @@
 - Disable onnxruntime telemetry.
 - App requires macOS 26 or later.
 - [Dev] Upgrade dependencies.
+### Fixed
+- Fix models queued in the Model Manager staying stuck on downloading after an earlier download failed.
 
 ## [0.12.0] - 2026-10-08
 ### Added

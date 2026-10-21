@@ -334,16 +334,20 @@ class ManageModelsDialog(QDialog):
             self._set_row_state(row, "downloading")
         elif row.state == "downloading":
             self._downloader.cancel()
-            for r in self._rows:
-                if r.state == "downloading":
-                    existing_models = list_model_files(self._downloader.model_dir(r.model))
-                    superseded_on_disk = [f for f in r.model.get("supersedes", [])
-                                          if f in existing_models]
-                    self._set_row_state(r, "outdated" if superseded_on_disk else "available")
+            self._reset_downloading_rows()
             self.ui.status_label.setText("Download cancelled.")
             self._update_download_all_button_state()
         elif row.state in ("downloaded", "local_only"):
             self._delete_model(row)
+
+    def _reset_downloading_rows(self):
+        """Return rows still marked downloading to the state they had before they were queued."""
+        for r in self._rows:
+            if r.state == "downloading":
+                existing_models = list_model_files(self._downloader.model_dir(r.model))
+                superseded_on_disk = [f for f in r.model.get("supersedes", [])
+                                      if f in existing_models]
+                self._set_row_state(r, "outdated" if superseded_on_disk else "available")
 
     def _find_row(self, filename: str) -> _ModelRow | None:
         """Return the row whose model's filename matches the given filename, or None."""
@@ -425,6 +429,8 @@ class ManageModelsDialog(QDialog):
         if row:
             self._set_row_state(row, "error")
             row.status_label.setToolTip(error_message)
+        # The downloader drops the rest of its queue on a failure, so rows queued behind this one will never start
+        self._reset_downloading_rows()
         self.ui.status_label.setText(f"Error: {error_message}")
         self._update_download_all_button_state()
 

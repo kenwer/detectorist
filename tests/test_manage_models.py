@@ -211,6 +211,21 @@ def test_failed_download_marks_the_row_and_shows_the_error(qtbot, open_dialog, r
     assert dialog.ui.status_label.text().startswith("Error: Download failed")
 
 
+def test_failed_download_releases_the_models_queued_behind_it(qtbot, open_dialog, remote):
+    (remote / "a.onnx").unlink()
+    dialog, _ = open_dialog()
+
+    # Both clicks land before the event loop runs, so b.onnx is queued while a.onnx is active
+    button(dialog, "a.onnx").click()
+    button(dialog, "b.onnx").click()
+    assert states(dialog)["b.onnx"] == "downloading"
+    qtbot.waitUntil(lambda: states(dialog)["a.onnx"] == "error")
+
+    assert states(dialog)["b.onnx"] == "available"
+    assert button(dialog, "b.onnx").text() == "Download"
+    assert not dialog._downloader.is_downloading
+
+
 def test_manifest_fetch_failure_is_shown(qtbot, make_downloader, tmp_path, remote):
     (remote / "models.json").unlink()
     models = tmp_path / "models"
