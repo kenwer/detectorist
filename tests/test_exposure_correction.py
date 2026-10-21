@@ -1,7 +1,7 @@
 """Tests for the exposure correction policy shared by the ImageObject adapters.
 
-save_cropped is exercised end-to-end for JPEG (OpencvImageObject) and HEIF
-(HeifImageObject). RAW is omitted because a proprietary .arw fixture cannot
+save_cropped is exercised end-to-end for JPEG (OpencvImageObject), HEIF
+(HeifImageObject) and palette PNG and GIF (PillowImageObject). RAW is omitted because a proprietary .arw fixture cannot
 be generated. The output files are read back through ImageObject.create, so
 the same adapters that write the EXIF also verify it.
 """
@@ -9,6 +9,7 @@ the same adapters that write the EXIF also verify it.
 import numpy as np
 import piexif
 import pillow_heif
+import pytest
 from PIL import Image
 
 from detectorist import image_utils
@@ -170,6 +171,45 @@ def test_display_data_applies_correction_when_enabled(tmp_path):
 
     expected = image_utils.adjust_exposure(image.image_data_rgb_8bit, 1.0, 2.2, 8)
     np.testing.assert_array_equal(image.image_data_rgb_8bit_display, expected)
+
+
+def make_transparent_palette_image(path):
+    """
+    A 4-color palette image whose top-left quadrant is transparent. The
+    transparent color is index 1, which re-quantizing the colors moves.
+    """
+    pixels = np.full((40, 40), 2, dtype=np.uint8)
+    pixels[:20, :20] = 1
+    pixels[20:, :20] = 0
+    pixels[20:, 20:] = 3
+    image = Image.fromarray(pixels, "P")
+    image.putpalette([40, 50, 60, 255, 0, 0, 90, 30, 20, 10, 80, 10])
+    image.save(str(path), transparency=1)
+    return str(path)
+
+
+def rgba_of(image_path):
+    with Image.open(image_path) as image:
+        return np.asarray(image.convert("RGBA"))
+
+
+@pytest.mark.parametrize("extension", ["png", "gif"])
+@pytest.mark.parametrize("compensation", [0.0, -1.0])
+def test_corrected_palette_crop_keeps_its_transparent_pixels(tmp_path, monkeypatch, extension, compensation):
+    source = make_transparent_palette_image(tmp_path / f"palette.{extension}")
+    output = str(tmp_path / f"palette_crop.{extension}")
+    image = ImageObject.create(source)
+    image.exposure_correction = True
+    # PNG and GIF files carry no EXIF the app reads, so the stored bias is set directly
+    monkeypatch.setattr(image, "get_exposure_compensation", lambda: compensation)
+
+    image.save_cropped((0, 0, 40, 40), output)
+
+    original, corrected = rgba_of(source), rgba_of(output)
+    np.testing.assert_array_equal(corrected[..., 3], original[..., 3])
+    opaque = original[..., 3] == 255
+    expected = image_utils.adjust_exposure(original[..., :3], -compensation, 2.2, 8)
+    np.testing.assert_array_equal(corrected[..., :3][opaque], expected[opaque])
 
 
 def test_display_data_is_unchanged_when_disabled(tmp_path):
