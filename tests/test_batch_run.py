@@ -383,6 +383,15 @@ def test_every_named_detection_gets_a_classification_row(tmp_path):
     ]
 
 
+def test_a_crowded_image_gets_a_classification_row_per_detection(tmp_path):
+    detections = [Detection((i, 0, 1, 1), 0.9, "Fish") for i in range(35)]
+
+    result = run_classified_sort(tmp_path, {"a.png": detections}, FakeClassifier())
+
+    assert result.detections_rows[0].object_count == 35
+    assert len(result.classification_rows) == 35
+
+
 def test_detections_csv_keeps_its_columns_with_a_classifier(tmp_path):
     run_classified_sort(tmp_path, {"a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]}, FakeClassifier())
 

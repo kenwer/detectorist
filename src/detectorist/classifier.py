@@ -25,9 +25,10 @@ from .image_object import ImageObject
 from .structures import Box, Detection, RankedName, Taxonomy, clamp_box
 from .utils import load_model_bytes
 
-# Most boxes of one image the classifier is run on. A detection confidence slider pulled
-# to the bottom displays every query of the detector, a few hundred boxes.
-MAX_CLASSIFIED_BOXES = 20
+# Most crops in one run of the model. A detection confidence slider pulled to the
+# bottom asks for every query of the detector, a few hundred boxes, and a single
+# batch of them would take gigabytes of memory. More than 8 is no faster on a CPU.
+CROPS_PER_RUN = 8
 
 
 def class_matches(patterns: Sequence[str], class_name: str) -> bool:
@@ -43,10 +44,10 @@ def class_matches(patterns: Sequence[str], class_name: str) -> bool:
 def detections_to_classify(detections: list[Detection], min_detection_score: float, patterns: Sequence[str]) -> list[Detection]:
     """
     The detections at or above min_detection_score whose class the classifier names,
-    at most MAX_CLASSIFIED_BOXES of them, the highest score first.
+    the highest score first.
     """
     ranked = sorted(detections, key=lambda d: d.score, reverse=True)
-    return [d for d in ranked if d.score >= min_detection_score and class_matches(patterns, d.class_name)][:MAX_CLASSIFIED_BOXES]
+    return [d for d in ranked if d.score >= min_detection_score and class_matches(patterns, d.class_name)]
 
 
 def identified_ranks(taxonomy: Taxonomy, threshold: float) -> list[RankedName]:
@@ -247,7 +248,10 @@ class Classifier:
             x1, y1, x2, y2 = classification_window(box, image.width, image.height, self.margin)
             crops.append(letterbox(rgb[y1:y2, x1:x2], self.size))
 
-        pixels = np.stack(crops).astype(np.float32).transpose(0, 3, 1, 2) / 255
-        probs = self.session.run(None, {self.input_name: pixels})[0]
-
-        return [roll_up(row, self.species, self.genera, self.families, self.genus_of, self.family_of) for row in probs]
+        taxonomies = []
+        for start in range(0, len(crops), CROPS_PER_RUN):
+            pixels = np.stack(crops[start:start + CROPS_PER_RUN]).astype(np.float32).transpose(0, 3, 1, 2) / 255
+            probs = self.session.run(None, {self.input_name: pixels})[0]
+            taxonomies += [roll_up(row, self.species, self.genera, self.families, self.genus_of, self.family_of)
+                           for row in probs]
+        return taxonomies

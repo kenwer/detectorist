@@ -14,7 +14,6 @@ from PIL import Image
 
 from detectorist import classifier as classifier_module
 from detectorist.classifier import (
-    MAX_CLASSIFIED_BOXES,
     Classifier,
     class_matches,
     classification_window,
@@ -192,6 +191,27 @@ def test_classify_returns_one_taxonomy_per_box_in_order(classifier, tmp_path):
     assert red.family.score >= red.genus.score >= red.species.score > 0.5
 
 
+def test_classify_runs_the_model_on_a_few_crops_at_a_time(classifier, tmp_path, monkeypatch):
+    image = painted_image(tmp_path)
+    boxes = [BLUE_BOX, RED_BOX, DARK_BOX]
+    expected = classifier.classify(image, boxes)
+    monkeypatch.setattr(classifier_module, "CROPS_PER_RUN", 2)
+    run = classifier.session.run
+    batch_sizes = []
+
+    def counting_run(output_names, feed):
+        batch_sizes.append(len(next(iter(feed.values()))))
+        return run(output_names, feed)
+
+    monkeypatch.setattr(classifier.session, "run", counting_run)
+
+    taxonomies = classifier.classify(image, boxes)
+
+    assert batch_sizes == [2, 1]
+    assert [t.species.name for t in taxonomies] == [t.species.name for t in expected]
+    assert [t.species.score for t in taxonomies] == pytest.approx([t.species.score for t in expected])
+
+
 def test_classify_without_boxes_returns_nothing(classifier, tmp_path):
     assert classifier.classify(painted_image(tmp_path), []) == []
 
@@ -251,10 +271,10 @@ def test_detections_to_classify_are_those_above_min_detection_score_of_the_named
     assert detections_to_classify([faint, fish, crab, best], 0.5, ["Fish"]) == [best, fish]
 
 
-def test_detections_to_classify_are_capped():
-    many = [Detection((i, 0, 1, 1), 0.9, "Fish") for i in range(MAX_CLASSIFIED_BOXES + 5)]
+def test_detections_to_classify_keeps_every_query_of_the_detector():
+    many = [Detection((i, 0, 1, 1), 0.9, "Fish") for i in range(300)]
 
-    assert len(detections_to_classify(many, 0.0, ["*"])) == MAX_CLASSIFIED_BOXES
+    assert len(detections_to_classify(many, 0.0, ["*"])) == 300
 
 
 @pytest.mark.parametrize(("threshold", "expected"), [
