@@ -60,7 +60,7 @@ def test_boxes_are_clamped_to_the_image(label):
         Detection((-10, -10, 30, 30), 0.8, "Fish"),
     ])
 
-    assert [rect for rect, _score, _name in label.orig_detection_rects] == [QRect(180, 80, 20, 20), QRect(0, 0, 20, 20)]
+    assert label.orig_detection_rects == [QRect(180, 80, 20, 20), QRect(0, 0, 20, 20)]
 
 
 def test_box_outside_the_image_gets_no_band(label):

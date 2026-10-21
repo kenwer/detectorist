@@ -55,8 +55,8 @@ class ImageLabel(QLabel):
         super().__init__(parent)
         self.app_instance = app_instance
         self.detection_bands = []
-        self.orig_detection_rects = [] # stores the original detection data—a list of QRect, score and class_id tuples—in the image's original coordinate system
-        self.orig_detection_masks = []  # parallel to orig_detection_rects; each entry is a uint8 mask array or None
+        self.orig_detection_rects: list[QRect] = []  # each band's box clamped to the image, in image pixels
+        self.orig_detection_masks = []  # each band's uint8 mask array or None
         self._hit_order = []  # (band, mask) pairs in the order _band_at tests them
         self._mask_overlay_pixmap: QPixmap | None = None
         self._highlight_pixmap: QPixmap | None = None  # the highlighted detection's mask, drawn over the others
@@ -205,7 +205,7 @@ class ImageLabel(QLabel):
                 continue
             rect = QRect(x1, y1, x2 - x1, y2 - y1)
             style = styles.get(box) or DetectionStyle(color_map.get(class_name, fallback_color), score)
-            self.orig_detection_rects.append((rect, score, class_name))
+            self.orig_detection_rects.append(rect)
             self.orig_detection_masks.append(mask)
 
             alpha = int(10 + style.score * (255 - 10))  # Scale score (0.0-1.0) to alpha (10-255)
@@ -229,7 +229,7 @@ class ImageLabel(QLabel):
             mask = self.orig_detection_masks[i]
             if mask is not None:
                 return 0, int(mask.sum())
-            rect = self.orig_detection_rects[i][0]
+            rect = self.orig_detection_rects[i]
             return 1, rect.width() * rect.height()
         self._hit_order = [(self.detection_bands[i], self.orig_detection_masks[i])
                            for i in sorted(range(len(self.detection_bands)), key=hit_priority)]
@@ -446,11 +446,8 @@ class ImageLabel(QLabel):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        # Update the rubber band geometries based on the new size
-        for i, (rect, _score, _class_name) in enumerate(self.orig_detection_rects):
-            if i < len(self.detection_bands):
-                widget_rect = self._map_rect_from_image_to_widget(rect)
-                self.detection_bands[i].setGeometry(widget_rect)
+        for band, rect in zip(self.detection_bands, self.orig_detection_rects, strict=True):
+            band.setGeometry(self._map_rect_from_image_to_widget(rect))
         if self.last_crop_rects and self.crop_bands:
             self.set_crop_boxes(self.last_crop_rects)
 

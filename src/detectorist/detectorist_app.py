@@ -45,7 +45,6 @@ from .manage_models import ManageModelsDialog
 from .model_downloader import ModelDownloader
 from .settings import Settings
 from .shortcuts_dialog import ShortcutsDialog
-from .structures import Detection
 from .toasts import show_error_toast, show_success_toast, show_warning_toast
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
 from .utils import (
@@ -1067,7 +1066,6 @@ class DetectoristApp(QMainWindow):
         """Gets crop settings from the UI, or None if no crop mode is selected."""
         crop_mode = next((mode for mode, radio in self._crop_mode_radios().items() if radio.isChecked()), None)
         if crop_mode is None:
-            self.ui.image_label.hide_bands()
             return None
 
         padding_percentage = self.ui.padding_slider.value() / 100.0
@@ -1076,35 +1074,21 @@ class DetectoristApp(QMainWindow):
                             taxon_confidence=self.ui.taxon_confidence_slider.value() / 100.0)
 
     def update_crop_bands(self):
-        if not self.ui.image_label.image or not self.ui.image_label.orig_detection_rects:
-            self.ui.image_label.hide_bands()
-            return
-
-        # The detections in image_label are (QRect, score, class_name);
-        # convert them back to Detection for plan_crops
-        detections = [
-            Detection((rect.x(), rect.y(), rect.width(), rect.height()), score, class_name)
-            for rect, score, class_name in self.ui.image_label.orig_detection_rects
-        ]
-
+        """
+        Frames the crops a Batch Run would export for the shown detections. They are
+        planned from the detections as the detector returned them, like in the Batch
+        Run, not from the drawn boxes, which are clamped to the image.
+        """
+        image = self.ui.image_label.image
         crop_settings = self._get_current_crop_settings()
-        if crop_settings is None:
-            self.ui.image_label.hide_bands()
-            return
-        if crop_settings.mode == CropMode.BEST_CLASSIFICATION and self._classification_pending:
-            # Until the names arrive, the band would frame the most confident detection
-            # only to jump to the best classified one. The detection boxes stay.
+        # Until the names arrive, a best classification band would frame the most
+        # confident detection only to jump to the best classified one
+        if (image is None or crop_settings is None
+                or crop_settings.mode == CropMode.BEST_CLASSIFICATION and self._classification_pending):
             self.ui.image_label.set_crop_boxes([])
             return
-        crop_tuples = plan_crops(detections, self.ui.image_label.image.height, self.ui.image_label.image.width, crop_settings,
-                                 self._taxonomy_by_box)
-        crop_rects = [QRect(*crop_tuple) for crop_tuple in crop_tuples if crop_tuple and crop_tuple[2] > 0 and crop_tuple[3] > 0]
-
-        if not crop_rects:
-            self.ui.image_label.hide_bands()
-            return
-
-        self.ui.image_label.set_crop_boxes(crop_rects)
+        crop_tuples = plan_crops(self._filtered_results(), image.height, image.width, crop_settings, self._taxonomy_by_box)
+        self.ui.image_label.set_crop_boxes([QRect(*crop_tuple) for crop_tuple in crop_tuples])
 
     def _open_native_file_manager(self, path):
         """Opens a folder in the native (OS specific) file manager, revealing the file if a file path is provided."""

@@ -207,7 +207,7 @@ def test_class_filter_restricts_the_shown_detections(qtbot, window, folder, monk
     window.ui.class_filter_combo_box.setCurrentText("Crab")
 
     assert object_count(window) == "1"
-    assert [name for _rect, _score, name in window.ui.image_label.orig_detection_rects] == ["Crab"]
+    assert [band.box for band in window.ui.image_label.detection_bands] == [CRAB.box]
 
 
 def test_selecting_another_image_shows_its_detections(qtbot, window, folder, monkeypatch, detector_factory):
@@ -933,15 +933,15 @@ def test_deselecting_the_classifier_shows_the_detector_class_again(qtbot, specie
 CRAB_SPECIES = Taxonomy(RankedName("Pomacentridae", 0.9), RankedName("Amphiprion", 0.8), RankedName("Amphiprion_clarkii", 0.7))
 
 
-def open_for_best_classification(qtbot, window, folder, monkeypatch, detector_factory, classifier_factory):
+def open_for_best_classification(qtbot, window, folder, monkeypatch, detector_factory, classifier_factory, crab=CRAB):
     """
-    Open an image of FISH, named to the genus only, and of CRAB, named to the
+    Open an image of FISH, named to the genus only, and of crab, named to the
     species, with the best classification crop mode. The crop equals the box.
     """
-    classifier_factory.taxonomy_by_box = {CRAB.box: CRAB_SPECIES}
+    classifier_factory.taxonomy_by_box = {crab.box: CRAB_SPECIES}
     window.ui.padding_slider.setValue(0)
     window.ui.crop_ratio_combo_box.setCurrentText("Same as detection frame")
-    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, CRAB])
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, crab])
     window.ui.rb_crop_best_classification.setChecked(True)
 
 
@@ -950,6 +950,15 @@ def test_best_classification_crop_band_frames_the_deepest_named_detection(qtbot,
 
     # FISH is the more confident detection and scores higher at the genus
     assert window.ui.image_label.last_crop_rects == [QRect(*CRAB.box)]
+
+
+def test_best_classification_crop_band_frames_a_detection_reaching_past_the_image_edge(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    # The detector does not clamp its boxes, and the names are keyed by the box it returned
+    edge_crab = CRAB._replace(box=(150, 50, 60, 40))
+    open_for_best_classification(qtbot, window, folder, monkeypatch, detector_factory, classifier_factory, edge_crab)
+
+    # Moved back inside the image, as the Batch Run would crop it
+    assert window.ui.image_label.last_crop_rects == [QRect(140, 50, 60, 40)]
 
 
 def test_best_classification_crop_band_follows_the_taxon_confidence(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
