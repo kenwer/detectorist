@@ -5,6 +5,7 @@ CropSettings, so both callers (the interactive crop bands and the batch
 crop/export loop) and tests exercise the same seam headless.
 """
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -22,7 +23,7 @@ class CropMode(StrEnum):
     UNION = "union"                    # one box framing all detections
     MOST_CENTERED = "most_centered"    # box of the detection closest to the image center
     EACH_OBJECT = "all_detected_objects"  # one crop per detection
-    BEST_CLASSIFICATION = "best_classification"  # box of the detection named to the deepest rank (see _classification_rank)
+    BEST_CLASSIFICATION = "best_classification"  # box of the detection named to the deepest rank (see _classification_quality)
 
     @classmethod
     def from_setting(cls, value: str | None) -> CropMode | None:
@@ -67,25 +68,34 @@ def plan_crops(detections: list[Detection], image_height: int, image_width: int,
     detections = [d for d in detections if d.box[2] > 0 and d.box[3] > 0]
     if not detections:
         return []
-
-    if settings.mode == CropMode.EACH_OBJECT:  # We might have more than one crop rectangle
-        crop_rects = []
-        # Treat each detection individually with MOST_CONFIDENT_DETECTION
-        for detection in detections:
-            rect = _plan_single_crop([detection], image_height, image_width, CropMode.MOST_CONFIDENT_DETECTION, settings.padding, settings.aspect)
-            if rect:
-                crop_rects.append(rect)
-        return crop_rects
-    elif settings.mode == CropMode.BEST_CLASSIFICATION:
-        best = max(detections, key=lambda d: _classification_rank(d, taxonomy_by_box.get(d.box), settings.taxon_confidence))
-        rect = _plan_single_crop([best], image_height, image_width, CropMode.MOST_CONFIDENT_DETECTION, settings.padding, settings.aspect)
-        return [rect] if rect else []
-    else:  # Just a single crop rectangle
-        rect = _plan_single_crop(detections, image_height, image_width, settings.mode, settings.padding, settings.aspect)
-        return [rect] if rect else []
+    boxes = _boxes_to_frame(detections, image_height, image_width, settings, taxonomy_by_box)
+    return [_frame(box, image_height, image_width, settings.padding, settings.aspect) for box in boxes]
 
 
-def _classification_rank(detection: Detection, taxonomy: Taxonomy | None, taxon_confidence: float) -> tuple[int, float, float]:
+def _boxes_to_frame(detections: list[Detection], image_height: int, image_width: int, settings: CropSettings,
+                    taxonomy_by_box: Mapping[Box, Taxonomy]) -> list[Box]:
+    """The boxes the crop mode frames, one per crop."""
+    match settings.mode:
+        case CropMode.EACH_OBJECT:
+            return [d.box for d in detections]
+        case CropMode.UNION:
+            left = min(d.box[0] for d in detections)
+            top = min(d.box[1] for d in detections)
+            right = max(d.box[0] + d.box[2] for d in detections)
+            bottom = max(d.box[1] + d.box[3] for d in detections)
+            return [(left, top, right - left, bottom - top)]
+        case CropMode.MOST_CONFIDENT_DETECTION:
+            return [max(detections, key=lambda d: d.score).box]
+        case CropMode.MOST_CENTERED:
+            def distance_to_center(d: Detection) -> float:
+                x, y, w, h = d.box
+                return math.hypot(x + w / 2 - image_width / 2, y + h / 2 - image_height / 2)
+            return [min(detections, key=distance_to_center).box]
+        case CropMode.BEST_CLASSIFICATION:
+            return [max(detections, key=lambda d: _classification_quality(d, taxonomy_by_box.get(d.box), settings.taxon_confidence)).box]
+
+
+def _classification_quality(detection: Detection, taxonomy: Taxonomy | None, taxon_confidence: float) -> tuple[int, float, float]:
     """
     Orders detections by how well they were classified: the deepest
     identified rank first, then the score at that rank, then the detection
@@ -97,57 +107,12 @@ def _classification_rank(detection: Detection, taxonomy: Taxonomy | None, taxon_
     return len(ranks), ranks[-1].score if ranks else 0.0, detection.score
 
 
-def _plan_single_crop(detections: list[Detection], image_height: int, image_width: int, mode: CropMode, padding_percentage: float, aspect_ratio: tuple[int, int] | str) -> Rect | None:
+def _frame(box: Box, image_height: int, image_width: int, padding_percentage: float, aspect_ratio: tuple[int, int] | str) -> Rect:
     """
-    Calculates a single crop rectangle based on detections and parameters.
-
-    Returns:
-        A tuple (x, y, w, h) for the crop rectangle, or None if no rectangle could be calculated.
+    Pads the box, widens or heightens it to the aspect ratio and fits the
+    result inside the image. The box must have an area.
     """
-    if not detections:
-        return None
-
-    # The detection boxes are tuples of (x, y, w, h)
-    if mode == CropMode.MOST_CONFIDENT_DETECTION:
-        top_detection = max(detections, key=lambda d: d.score)
-        x, y, w, h = top_detection.box
-    elif mode == CropMode.UNION:
-        left = min(d.box[0] for d in detections)
-        top = min(d.box[1] for d in detections)
-        right = max(d.box[0] + d.box[2] for d in detections)
-        bottom = max(d.box[1] + d.box[3] for d in detections)
-        x, y, w, h = left, top, right - left, bottom - top
-    elif mode == CropMode.MOST_CENTERED:
-        image_center_x = image_width / 2
-        image_center_y = image_height / 2
-
-        min_distance = float('inf')
-        most_centered_detection = None
-
-        # Iterate through each detected object to find the one closest to the image center
-        for detection in detections:
-            # Bounding box coordinates and dimensions for the current detection
-            det_x, det_y, det_w, det_h = detection.box
-            # Calculate the center coordinates of the current detection's bounding box
-            det_center_x = det_x + det_w / 2
-            det_center_y = det_y + det_h / 2
-
-            # Euclidean distance between the detection's center and the image's center
-            distance = ((det_center_x - image_center_x)**2 + (det_center_y - image_center_y)**2)**0.5
-
-            # If this detection is closer to the image center than previous ones, update
-            if distance < min_distance:
-                min_distance = distance
-                most_centered_detection = detection
-
-        # If a most centered detection was found, use its bounding box for cropping
-        if most_centered_detection:
-            x, y, w, h = most_centered_detection.box
-        else:
-            return None # No centered detection found
-    else:
-        raise ValueError(f"invalid crop mode for _plan_single_crop: {mode}")
-
+    x, y, w, h = box
     detection_w, detection_h = w, h
 
     # Calculate the horizontal/vertical padding based on the width/height of the bounding box and the padding percentage
@@ -166,10 +131,7 @@ def _plan_single_crop(detections: list[Detection], image_height: int, image_widt
     if aspect_ratio == "source_image":
         final_aspect_ratio = (image_width, image_height)
     elif isinstance(aspect_ratio, str):
-        if detection_w > 0 and detection_h > 0:
-            final_aspect_ratio = (detection_w, detection_h)
-        else:
-            final_aspect_ratio = (1, 1)  # Fallback to square if detection has zero area
+        final_aspect_ratio = (detection_w, detection_h)
     else:
         final_aspect_ratio = aspect_ratio
 
