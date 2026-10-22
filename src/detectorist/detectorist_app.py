@@ -69,8 +69,6 @@ logger = logging.getLogger(__name__)
 
 OUTPUT_DIR_NAME = "processed"  # export folder in each image folder, for any model or confidence
 
-PORTABLE_SETTINGS_GROUPS = [Settings.GROUP_MODEL, Settings.GROUP_CROP]  # in settings files
-
 
 def image_name_filter(platform: str = sys.platform) -> str:
     """
@@ -95,7 +93,7 @@ def image_name_filter(platform: str = sys.platform) -> str:
 
 NO_MODELS_MESSAGE = "No models available<br/>Use File -> Download Models"
 
-# The crop aspect ratio combo box's entries, in order. Settings save the position, not the label.
+# The crop aspect ratio combo box's entries, in order. Settings save the ratio, see aspect_ratio_setting().
 ASPECT_RATIOS: list[tuple[str, tuple[int, int] | str]] = [
     ("Same as source image", "source_image"),
     ("Same as detection frame", "detection_frame"),
@@ -111,6 +109,11 @@ ASPECT_RATIOS: list[tuple[str, tuple[int, int] | str]] = [
     ("9:16 (portrait)", (9, 16)),
     ("9:21 (portrait)", (9, 21)),
 ]
+
+
+def aspect_ratio_setting(aspect: tuple[int, int] | str) -> str:
+    """How settings store an aspect ratio: "3:2" for a ratio, and the name of a ratio taken from elsewhere."""
+    return f"{aspect[0]}:{aspect[1]}" if isinstance(aspect, tuple) else aspect
 
 
 def _count(number: int, noun: str) -> str:
@@ -197,7 +200,8 @@ class DetectoristApp(QMainWindow):
         self.ui.results_table.setVisible(False)
         self.ui.image_label.image_shown_changed.connect(self.ui.results_table.setVisible)
 
-        self.ui.crop_ratio_combo_box.addItems([label for label, _ in ASPECT_RATIOS])
+        for label, aspect in ASPECT_RATIOS:
+            self.ui.crop_ratio_combo_box.addItem(label, aspect_ratio_setting(aspect))
 
         # Snapshot the .ui file's built-in defaults before _load_settings() can override
         # them, so "Reset Settings to Defaults" has real values to restore.
@@ -342,8 +346,8 @@ class DetectoristApp(QMainWindow):
         """Apply the persisted window geometry and splitter state."""
         if self.settings.window_geometry:
             self.restoreGeometry(self.settings.window_geometry)
-        if self.settings.splitter_state:
-            self.ui.splitter.restoreState(self.settings.splitter_state)
+        if self.settings.main_splitter_state:
+            self.ui.splitter.restoreState(self.settings.main_splitter_state)
         if self.settings.image_splitter_state:
             self.ui.image_splitter.restoreState(self.settings.image_splitter_state)
 
@@ -355,10 +359,10 @@ class DetectoristApp(QMainWindow):
         classifier is selected once a model it applies to has loaded.
         """
         # Model selection
-        if self.settings.model:
+        if self.settings.detection_model:
             combo = self.ui.model_select_combo_box
             combo.blockSignals(True)
-            idx = self._find_model_index(combo, self.settings.model)
+            idx = self._find_model_index(combo, self.settings.detection_model)
             if idx >= 0:
                 combo.setCurrentIndex(idx)
             combo.blockSignals(False)
@@ -366,15 +370,15 @@ class DetectoristApp(QMainWindow):
         # Classifier choice. At startup no detection model has loaded yet, so the
         # list stays at "No classifier" until handle_model_loaded refreshes it.
         # After Import Settings, the refresh selects the imported choice.
-        self._preferred_classifier = self.settings.classifier
+        self._preferred_classifier = self.settings.classification_model
         self._refresh_classifier_list()
 
         # Detection confidence (slider and spinbox are linked)
-        if (detection_confidence := self.settings.confidence) is not None:
+        if (detection_confidence := self.settings.detection_min_confidence_percent) is not None:
             self.ui.detection_confidence_slider.setValue(detection_confidence)
 
         # Taxon confidence (slider and spinbox are linked)
-        if (taxon_confidence := self.settings.taxon_confidence) is not None:
+        if (taxon_confidence := self.settings.classification_min_confidence_percent) is not None:
             self.ui.taxon_confidence_slider.setValue(taxon_confidence)
 
         # Crop mode
@@ -383,19 +387,19 @@ class DetectoristApp(QMainWindow):
         self._crop_mode_radios()[crop_mode].setChecked(True)
 
         # Aspect ratio
-        if (aspect_ratio_index := self.settings.aspect_ratio_index) is not None:
-            if 0 <= aspect_ratio_index < self.ui.crop_ratio_combo_box.count():
-                self.ui.crop_ratio_combo_box.setCurrentIndex(aspect_ratio_index)
+        # A ratio that is not offered keeps the current one
+        if (index := self.ui.crop_ratio_combo_box.findData(self.settings.crop_aspect_ratio)) >= 0:
+            self.ui.crop_ratio_combo_box.setCurrentIndex(index)
 
         # Padding
-        if (padding := self.settings.padding) is not None:
+        if (padding := self.settings.crop_padding_percent) is not None:
             self.ui.padding_slider.setValue(padding)
 
         # Auto correct camera exposure bias
-        if (auto_exposure := self.settings.auto_correct_exposure_enabled) is not None:
+        if (auto_exposure := self.settings.image_correct_exposure) is not None:
             self.ui.cb_comp_cam_exposure.setChecked(auto_exposure)
 
-        if (crop := self.settings.crop_enabled) is not None:
+        if (crop := self.settings.crop_images) is not None:
             self.ui.cb_crop.setChecked(crop)
         self._update_crop_controls()
 
@@ -405,18 +409,18 @@ class DetectoristApp(QMainWindow):
 
         # Window geometry and splitter state
         self.settings.window_geometry = self.saveGeometry()
-        self.settings.splitter_state = self.ui.splitter.saveState()
+        self.settings.main_splitter_state = self.ui.splitter.saveState()
         self.settings.image_splitter_state = self.ui.image_splitter.saveState()
 
         # Model selection
-        self.settings.model = self.ui.model_select_combo_box.currentData()
+        self.settings.detection_model = self.ui.model_select_combo_box.currentData()
 
         # Classifier selection and taxon confidence
-        self.settings.classifier = self._preferred_classifier
-        self.settings.taxon_confidence = self.ui.taxon_confidence_slider.value()
+        self.settings.classification_model = self._preferred_classifier
+        self.settings.classification_min_confidence_percent = self.ui.taxon_confidence_slider.value()
 
         # Detection confidence
-        self.settings.confidence = self.ui.detection_confidence_slider.value()
+        self.settings.detection_min_confidence_percent = self.ui.detection_confidence_slider.value()
 
         # Crop mode
         for mode, radio in self._crop_mode_radios().items():
@@ -425,14 +429,14 @@ class DetectoristApp(QMainWindow):
                 break
 
         # Aspect ratio
-        self.settings.aspect_ratio_index = self.ui.crop_ratio_combo_box.currentIndex()
+        self.settings.crop_aspect_ratio = self.ui.crop_ratio_combo_box.currentData()
 
         # Padding
-        self.settings.padding = self.ui.padding_slider.value()
+        self.settings.crop_padding_percent = self.ui.padding_slider.value()
 
         # Auto correct camera exposure bias
-        self.settings.auto_correct_exposure_enabled = self.ui.cb_comp_cam_exposure.isChecked()
-        self.settings.crop_enabled = self.ui.cb_crop.isChecked()
+        self.settings.image_correct_exposure = self.ui.cb_comp_cam_exposure.isChecked()
+        self.settings.crop_images = self.ui.cb_crop.isChecked()
 
     def _clear_results(self):
         """Empties the results table and its summary, while no detection result is shown."""
@@ -506,18 +510,18 @@ class DetectoristApp(QMainWindow):
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Open Image(s)",
-            self.settings.last_directory,
+            self.settings.last_folder,
             image_name_filter(),
             # Qt's own dialog would otherwise spell out all the patterns in its filter box
             options=QFileDialog.Option.HideNameFilterDetails,
         )
         if file_paths:
-            self.settings.add_recent_directory(os.path.dirname(file_paths[0]))
+            self.settings.add_recent_folder(os.path.dirname(file_paths[0]))
             self._update_recent_folders_menu()
             self._load_images_from_paths(file_paths)
 
     def open_folder(self) -> None:
-        folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", self.settings.last_directory)
+        folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", self.settings.last_folder)
         if folder_path:
             self._open_folder_by_path(folder_path)
 
@@ -544,14 +548,14 @@ class DetectoristApp(QMainWindow):
         if full_paths is None:
             return
         if self._load_images_from_paths(full_paths):
-            self.settings.add_recent_directory(folder_path)
+            self.settings.add_recent_folder(folder_path)
             self._update_recent_folders_menu()
 
     def _update_recent_folders_menu(self) -> None:
         """Rebuild the Recent Folders submenu from settings."""
         self.ui.recent_folders_menu.clear()
 
-        recent = self.settings.recent_directories
+        recent = self.settings.recent_folders
         if not recent:
             no_recent = self.ui.recent_folders_menu.addAction("No Recent Folders")
             no_recent.setEnabled(False)
@@ -575,7 +579,7 @@ class DetectoristApp(QMainWindow):
 
     def _clear_recent_folders(self) -> None:
         """Clear the recent folders list."""
-        self.settings.clear_recent_directories()
+        self.settings.clear_recent_folders()
         self._update_recent_folders_menu()
 
     def _import_settings(self) -> None:
@@ -583,14 +587,14 @@ class DetectoristApp(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Import Settings",
-            self.settings.last_directory,
+            self.settings.last_folder,
             "Settings Files (*.json)"
         )
         if not file_path:
             return
 
         try:
-            self.settings.import_from_file(Path(file_path), PORTABLE_SETTINGS_GROUPS)
+            self.settings.import_from_file(Path(file_path))
         except (OSError, ValueError) as e:
             logger.error("Could not import settings from %s: %s", file_path, e)
             show_error_toast(self, "Could not import settings", f"{os.path.basename(file_path)}: {e}")
@@ -604,22 +608,22 @@ class DetectoristApp(QMainWindow):
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Export Settings",
-            self.settings.last_directory + "/settings.json",
+            self.settings.last_folder + "/settings.json",
             "Settings Files (*.json)"
         )
         if not file_path:
             return
 
         self._save_settings()
-        self.settings.export_to_file(Path(file_path), PORTABLE_SETTINGS_GROUPS)
+        self.settings.export_to_file(Path(file_path))
         self.ui.status_bar.showMessage("Settings exported.", 3000)
 
     def _reset_settings(self) -> None:
-        """Reset Model and Crop settings to their defaults after confirmation."""
+        """Reset all settings but the recent folders and window layout to their defaults after confirmation."""
         reply = QMessageBox.question(
             self,
             "Reset Settings",
-            "Reset Model and Crop settings to their defaults?\n"
+            "Reset all settings to their defaults?\n"
             "Recent folders and window layout are not affected.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -647,7 +651,7 @@ class DetectoristApp(QMainWindow):
 
     def _show_welcome_state(self) -> None:
         parts = ['<span style="font-size: large;">Drop images or a folder with images</span><br/>']
-        recents = self.settings.recent_directories
+        recents = self.settings.recent_folders
         if recents:
             parts.append('<span style="color: #000000;"><br/>You can also use File menu<br/><br/><br/><br/>Recent Folders:</span><br/>')
             for path in recents:
@@ -1225,7 +1229,7 @@ class DetectoristApp(QMainWindow):
             # Export the settings to JSON alongside the CSV
             self._save_settings()
             settings_filename = settings_json_name(self.ui.detection_confidence_slider.value(), model_filename)
-            self.settings.export_to_file(Path(output_dir) / settings_filename, PORTABLE_SETTINGS_GROUPS)
+            self.settings.export_to_file(Path(output_dir) / settings_filename)
 
             if not cancelled:
                 self.ui.status_bar.showMessage(f"Finished {process_name.lower()}.", 5000)

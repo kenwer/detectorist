@@ -1,53 +1,112 @@
 import json
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import Any, Self, overload
 
+from packaging.version import InvalidVersion, Version
 from PySide6.QtCore import QByteArray, QDir, QSettings
 
 from detectorist import __version__
 
 from . import utils
 
-T = TypeVar("T")
+
+class Setting[T]:
+    """
+    One stored setting, read back as its type, or None while it is unset.
+    Setting it to None unsets it, since an INI file has no way to store None.
+    The key is the attribute name without its group prefix, unless given.
+    """
+
+    def __init__(self, group: str, value_type: type[T], doc: str, key: str = ""):
+        self.group = group
+        self.type = value_type
+        self.__doc__ = doc
+        self.key = key
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.key = self.key or name.removeprefix(f"{self.group}_")
+
+    @property
+    def path(self) -> str:
+        return f"{self.group}/{self.key}"
+
+    @overload
+    def __get__(self, settings: None, owner: type | None = None) -> Self: ...
+
+    @overload
+    def __get__(self, settings: Settings, owner: type | None = None) -> T | None: ...
+
+    def __get__(self, settings: Settings | None, owner: type | None = None) -> Self | T | None:
+        if settings is None:
+            return self
+        return settings._read(self)
+
+    def __set__(self, settings: Settings, value: T | None) -> None:
+        settings._write(self, value)
 
 
 class Settings:
-    """Settings class that uses QSettings for persistent settings management."""
+    """
+    The app's settings, stored with QSettings. Each one is a Setting class
+    attribute named after its key, prefixed by its group where the key alone
+    would be unclear, like crop_mode. The portable groups describe
+    how images are detected, classified and exported, and are what settings
+    files hold. The other groups describe this computer.
+    """
 
     ORGANIZATION = "kenwer"
     APPLICATION = "detectorist"
 
     # Settings groups
     GROUP_APP = "app"        # app metadata (not exported)
-    GROUP_UI = "ui"          # window geometry/layout (not exported)
-    GROUP_RECENT = "recent"  # recently opened locations (not exported)
-    GROUP_MODEL = "model"    # model settings such as model path and confidence
-    GROUP_CROP = "crop"      # crop settings such as mode, aspect ratio, padding, etc.
+    GROUP_UI = "ui"          # window geometry and layout (not exported)
+    GROUP_RECENT = "recent"  # recently opened folders (not exported)
+    GROUP_MODEL = "model"    # detection and classification models and their confidences
+    GROUP_IMAGE = "image"    # how images are shown and exported, such as exposure correction
+    GROUP_CROP = "crop"      # whether and how Export crops: mode, aspect ratio and padding
+    # The groups settings files hold, in the order they list them
+    PORTABLE_GROUPS = [GROUP_MODEL, GROUP_IMAGE, GROUP_CROP]
+
+    MAX_RECENT_FOLDERS = 10
 
     # App settings (not exported)
-    KEY_VERSION = "version"
-
-    # Recent locations (not exported)
-    KEY_RECENT_DIRECTORIES = "directories"
-    MAX_RECENT_DIRECTORIES = 10
+    newest_version = Setting(GROUP_APP, str,
+                             "The newest app version that saved the settings, like 0.12.1.dev3. An older one leaves it.")
 
     # UI settings (not exported)
-    KEY_WINDOW_GEOMETRY = "geometry"
-    KEY_WINDOW_SPLITTER = "splitter_state"
-    KEY_IMAGE_SPLITTER = "image_splitter_state"
+    window_geometry = Setting(GROUP_UI, QByteArray, "Main window size and position, as saved by QWidget.saveGeometry().")
+    main_splitter_state = Setting(GROUP_UI, QByteArray,
+                                  "Sizes of the main splitter's panes, as saved by QSplitter.saveState().")
+    image_splitter_state = Setting(GROUP_UI, QByteArray,
+                                   "Heights of the image and the results below it, as saved by QSplitter.saveState().")
+
+    # Recent folders (not exported), read through recent_folders. The key keeps
+    # its name from earlier versions, so their lists carry over.
+    _recent_folders = Setting(GROUP_RECENT, list, "Recently opened folders, most recent first.", key="directories")
 
     # Model settings
-    KEY_MODEL_PATH = "path"
-    KEY_CLASSIFIER = "classifier"
-    KEY_TAXON_CONFIDENCE = "taxon_confidence"
+    detection_model = Setting(GROUP_MODEL, str, "File name of the selected detection model.")
+    detection_min_confidence_percent = Setting(
+        GROUP_MODEL, int, "Minimum score in percent (1 to 100) a detection must reach to be kept.")
+    classification_model = Setting(GROUP_MODEL, str,
+                                   "File name of the selected classifier, or None when none is selected.")
+    classification_min_confidence_percent = Setting(
+        GROUP_MODEL, int,
+        "Minimum score in percent (1 to 100) a family, genus or species must reach for its name "
+        "to be shown and written to the classification CSV.")
+
+    # Image settings
+    image_correct_exposure = Setting(GROUP_IMAGE, bool,
+                                     "Whether images are shown and exported with the camera's exposure bias corrected.")
 
     # Crop settings
-    KEY_CONFIDENCE = "confidence"
-    KEY_CROP_MODE = "mode"
-    KEY_ASPECT_RATIO_INDEX = "aspect_ratio_index"
-    KEY_PADDING = "padding"
-    KEY_AUTO_CORRECT_EXPOSURE = "auto_correct_exposure"
-    KEY_CROP = "crop"
+    crop_mode = Setting(GROUP_CROP, str,
+                        "The CropMode value of the selected crop mode. Parse it with CropMode.from_setting().")
+    crop_aspect_ratio = Setting(GROUP_CROP, str,
+                                "The crop aspect ratio, such as \"3:2\", \"source_image\" or \"detection_frame\".")
+    crop_padding_percent = Setting(GROUP_CROP, int,
+                                   "Padding added around a crop, in percent of the detection's width and height.")
+    crop_images = Setting(GROUP_CROP, bool, "Whether Export crops the images or copies them whole.")
 
     def __init__(self, qsettings: QSettings | None = None):
         """
@@ -56,240 +115,121 @@ class Settings:
                 native store for this application.
         """
         self._settings = qsettings if qsettings is not None else QSettings(self.ORGANIZATION, self.APPLICATION)
+        # Keys a newer build saved are left alone, so going back to an older build keeps them
+        if not self._saved_by_newer_build():
+            self._remove_unknown_keys()
 
-    def _get_grouped(self, group: str, key: str, type_hint: type[T]) -> T | None:
-        """Get a typed setting value from a group, or None if the key doesn't exist."""
-        self._settings.beginGroup(group)
-        value = None
-        if self._settings.contains(key):
-            value = cast(T, self._settings.value(key, type=type_hint))
-        self._settings.endGroup()
-        return value
+    @classmethod
+    def _all(cls) -> list[Setting]:
+        return [value for value in vars(cls).values() if isinstance(value, Setting)]
 
-    def _set_grouped(self, group: str, key: str, value: object) -> None:
-        """Set a setting value within a group."""
-        self._settings.beginGroup(group)
-        self._settings.setValue(key, value)
-        self._settings.endGroup()
+    @classmethod
+    def _portable(cls) -> list[Setting]:
+        return [setting for setting in cls._all() if setting.group in cls.PORTABLE_GROUPS]
 
-    def _get_grouped_with_default(
-        self, group: str, key: str, default: T, type_hint: type[T]
-    ) -> T:
-        """Get a typed setting value from a group, with a default if not set."""
-        self._settings.beginGroup(group)
-        value = cast(T, self._settings.value(key, default, type=type_hint))
-        self._settings.endGroup()
-        return value
+    def _remove_unknown_keys(self) -> None:
+        """
+        Removes the keys earlier versions wrote under other names, which would
+        otherwise stay in the store for good. Keys outside the app's groups,
+        like the system-wide ones macOS lists along, are left alone.
+        """
+        known = {setting.path for setting in self._all()}
+        groups = {setting.group for setting in self._all()}
+        for key in self._settings.allKeys():
+            if key.split("/")[0] in groups and key not in known:
+                self._settings.remove(key)
 
-    # GROUP_APP settings
-    @property
-    def version(self) -> str | None:
-        """Return the app version that last saved settings, or None if not set."""
-        return self._get_grouped(self.GROUP_APP, self.KEY_VERSION, str)
+    def _read(self, setting: Setting) -> Any:
+        if not self._settings.contains(setting.path):
+            return None
+        return self._settings.value(setting.path, type=setting.type)
+
+    def _write(self, setting: Setting, value: Any) -> None:
+        if value is None:
+            self._settings.remove(setting.path)
+        else:
+            self._settings.setValue(setting.path, value)
+
+    def _saved_by_newer_build(self) -> bool:
+        """
+        Whether a newer build than this one saved the settings, like 0.12.1.dev3
+        after 0.12.0. A build whose own version does not parse, like "unknown"
+        without package metadata, cannot tell and assumes so. A saved version
+        that does not parse counts as older.
+        """
+        try:
+            current = Version(__version__)
+        except InvalidVersion:
+            return True
+        try:
+            return self.newest_version is not None and Version(self.newest_version) > current
+        except InvalidVersion:
+            return False
 
     def save_current_version(self) -> None:
-        """Save the current app version to settings."""
-        self._set_grouped(self.GROUP_APP, self.KEY_VERSION, __version__)
-
-    # GROUP_RECENT settings
+        """
+        Records the app version, unless a newer build saved the settings. The
+        version is kept then, so a later start of this build still leaves the
+        newer build's keys alone.
+        """
+        if not self._saved_by_newer_build():
+            self.newest_version = __version__
 
     @property
-    def last_directory(self) -> str:
-        """Last opened directory for file dialogs (defaults to home directory)."""
-        recent = self.recent_directories
+    def last_folder(self) -> str:
+        """Last opened folder for file dialogs (defaults to home folder)."""
+        recent = self.recent_folders
         return recent[0] if recent else QDir.homePath()
 
     @property
-    def recent_directories(self) -> list[str]:
-        """List of recently opened directories, most recent first."""
-        self._settings.beginGroup(self.GROUP_RECENT)
-        value = self._settings.value(self.KEY_RECENT_DIRECTORIES, [], type=list)
-        self._settings.endGroup()
-        return cast(list[str], value)
+    def recent_folders(self) -> list[str]:
+        return self._recent_folders or []
 
-    def add_recent_directory(self, path: str) -> None:
-        """Add a directory to the recent list (moves to front if already present)."""
-        recent = self.recent_directories
+    def add_recent_folder(self, path: str) -> None:
+        """Puts a folder first in the recent list, moving it there if it is already listed."""
+        recent = [folder for folder in self.recent_folders if folder != path]
+        self._recent_folders = [path, *recent][: self.MAX_RECENT_FOLDERS]
 
-        # Remove if already present (will be re-added at front)
-        if path in recent:
-            recent.remove(path)
-
-        # Add to front, trim to max size
-        recent.insert(0, path)
-        recent = recent[: self.MAX_RECENT_DIRECTORIES]
-
-        self._settings.beginGroup(self.GROUP_RECENT)
-        self._settings.setValue(self.KEY_RECENT_DIRECTORIES, recent)
-        self._settings.endGroup()
-
-    def clear_recent_directories(self) -> None:
-        """Clear the recent directories list."""
-        self._settings.beginGroup(self.GROUP_RECENT)
-        self._settings.remove(self.KEY_RECENT_DIRECTORIES)
-        self._settings.endGroup()
-
-    # GROUP_UI settings
-    @property
-    def window_geometry(self) -> QByteArray | None:
-        """Main window size and position, as saved by QWidget.saveGeometry()."""
-        return self._get_grouped(self.GROUP_UI, self.KEY_WINDOW_GEOMETRY, QByteArray)
-
-    @window_geometry.setter
-    def window_geometry(self, value: QByteArray) -> None:
-        self._set_grouped(self.GROUP_UI, self.KEY_WINDOW_GEOMETRY, value)
-
-    @property
-    def splitter_state(self) -> QByteArray | None:
-        """Sizes of the main splitter's panes, as saved by QSplitter.saveState()."""
-        return self._get_grouped(self.GROUP_UI, self.KEY_WINDOW_SPLITTER, QByteArray)
-
-    @splitter_state.setter
-    def splitter_state(self, value: QByteArray) -> None:
-        self._set_grouped(self.GROUP_UI, self.KEY_WINDOW_SPLITTER, value)
-
-    @property
-    def image_splitter_state(self) -> QByteArray | None:
-        """Heights of the image and the results below it, as saved by QSplitter.saveState()."""
-        return self._get_grouped(self.GROUP_UI, self.KEY_IMAGE_SPLITTER, QByteArray)
-
-    @image_splitter_state.setter
-    def image_splitter_state(self, value: QByteArray) -> None:
-        self._set_grouped(self.GROUP_UI, self.KEY_IMAGE_SPLITTER, value)
-
-    # GROUP_MODEL settings
-    @property
-    def model(self) -> str | None:
-        """Filename of the selected detection model. Stored under KEY_MODEL_PATH despite the name."""
-        return self._get_grouped(self.GROUP_MODEL, self.KEY_MODEL_PATH, str)
-
-    @model.setter
-    def model(self, value: str) -> None:
-        self._set_grouped(self.GROUP_MODEL, self.KEY_MODEL_PATH, value)
-
-    @property
-    def confidence(self) -> int | None:
-        """Minimum score in percent (1 to 100) a detection must reach to be kept."""
-        return self._get_grouped(self.GROUP_MODEL, self.KEY_CONFIDENCE, int)
-
-    @confidence.setter
-    def confidence(self, value: int) -> None:
-        self._set_grouped(self.GROUP_MODEL, self.KEY_CONFIDENCE, value)
-
-    @property
-    def classifier(self) -> str | None:
-        """Filename of the selected classifier, or None when none is selected."""
-        return self._get_grouped(self.GROUP_MODEL, self.KEY_CLASSIFIER, str) or None
-
-    @classifier.setter
-    def classifier(self, value: str | None) -> None:
-        # Stored as an empty string: QSettings has no portable way to store None in an INI file
-        self._set_grouped(self.GROUP_MODEL, self.KEY_CLASSIFIER, value or "")
-
-    @property
-    def taxon_confidence(self) -> int | None:
-        """
-        Minimum score in percent (1 to 100) a family, genus or species must
-        reach for its name to be shown and written to the classification CSV.
-        """
-        return self._get_grouped(self.GROUP_MODEL, self.KEY_TAXON_CONFIDENCE, int)
-
-    @taxon_confidence.setter
-    def taxon_confidence(self, value: int) -> None:
-        self._set_grouped(self.GROUP_MODEL, self.KEY_TAXON_CONFIDENCE, value)
-
-    # GROUP_CROP settings
-    @property
-    def crop_mode(self) -> str | None:
-        """The CropMode value of the selected crop mode. Parse it with CropMode.from_setting()."""
-        return self._get_grouped(self.GROUP_CROP, self.KEY_CROP_MODE, str)
-
-    @crop_mode.setter
-    def crop_mode(self, value: str) -> None:
-        self._set_grouped(self.GROUP_CROP, self.KEY_CROP_MODE, value)
-
-    @property
-    def aspect_ratio_index(self) -> int | None:
-        """Position of the selected crop aspect ratio in the aspect ratio combo box."""
-        return self._get_grouped(self.GROUP_CROP, self.KEY_ASPECT_RATIO_INDEX, int)
-
-    @aspect_ratio_index.setter
-    def aspect_ratio_index(self, value: int) -> None:
-        self._set_grouped(self.GROUP_CROP, self.KEY_ASPECT_RATIO_INDEX, value)
-
-    @property
-    def padding(self) -> int | None:
-        """Padding added around a crop, in percent."""
-        return self._get_grouped(self.GROUP_CROP, self.KEY_PADDING, int)
-
-    @padding.setter
-    def padding(self, value: int) -> None:
-        self._set_grouped(self.GROUP_CROP, self.KEY_PADDING, value)
-
-    @property
-    def auto_correct_exposure_enabled(self) -> bool | None:
-        """Whether images are loaded with the camera's exposure bias corrected."""
-        return self._get_grouped(self.GROUP_CROP, self.KEY_AUTO_CORRECT_EXPOSURE, bool)
-
-    @auto_correct_exposure_enabled.setter
-    def auto_correct_exposure_enabled(self, value: bool) -> None:
-        self._set_grouped(self.GROUP_CROP, self.KEY_AUTO_CORRECT_EXPOSURE, value)
-
-    @property
-    def crop_enabled(self) -> bool | None:
-        """Whether Export crops the images, or copies them whole."""
-        return self._get_grouped(self.GROUP_CROP, self.KEY_CROP, bool)
-
-    @crop_enabled.setter
-    def crop_enabled(self, value: bool) -> None:
-        self._set_grouped(self.GROUP_CROP, self.KEY_CROP, value)
+    def clear_recent_folders(self) -> None:
+        self._recent_folders = None
 
     def reset_to_defaults(self) -> None:
-        """Clear Model and Crop settings, leaving recent directories and UI layout untouched."""
-        for group in (self.GROUP_MODEL, self.GROUP_CROP):
-            self._settings.beginGroup(group)
-            self._settings.remove("")
-            self._settings.endGroup()
+        """Clears the portable settings, leaving recent folders and the window layout untouched."""
+        for setting in self._portable():
+            self._write(setting, None)
 
-    def export_group(self, group: str) -> dict[str, object]:
-        """Export all settings in a group as a dict."""
-        data: dict[str, object] = {}
-        self._settings.beginGroup(group)
-        for key in self._settings.childKeys():
-            data[key] = self._settings.value(key)
-        self._settings.endGroup()
-        return data
-
-    def import_group(self, group: str, data: dict[str, object]) -> None:
-        """Import settings into a group from a dict."""
-        self._settings.beginGroup(group)
-        for key, value in data.items():
-            self._settings.setValue(key, value)
-        self._settings.endGroup()
-
-    def export_to_file(self, path: Path, groups: list[str]) -> None:
-        """Export specified groups to a JSON file."""
-        data = {
-            "app_version": __version__,
-            "groups": {g: self.export_group(g) for g in groups},
-        }
+    def export_to_file(self, path: Path) -> None:
+        """Writes the portable settings to a JSON file, an unset one as null."""
+        groups: dict[str, dict[str, Any]] = {group: {} for group in self.PORTABLE_GROUPS}
+        for setting in self._portable():
+            groups[setting.group][setting.key] = self._read(setting)
+        data = {"app_version": __version__, "settings": groups}
         with open(utils.long_path(str(path)), "w", encoding="utf-8") as f:
             f.write(json.dumps(data, indent=2))
 
-    def import_from_file(self, path: Path, groups: list[str] | None = None) -> None:
-        """Import groups from a JSON file. If groups is None, import all.
+    def import_from_file(self, path: Path) -> None:
+        """
+        Reads the portable settings from a JSON file written by export_to_file().
+        Settings the file leaves out keep their value, null unsets one, and
+        unknown groups and keys are ignored.
 
         Raises:
             OSError: If the file cannot be read.
-            ValueError: If the file is not JSON or not shaped like an export.
-                Nothing is imported in that case.
+            ValueError: If the file is not JSON, not shaped like an export, or
+                holds a value of the wrong type. Nothing is imported in that case.
         """
         with open(utils.long_path(str(path)), encoding="utf-8") as f:
             data = json.loads(f.read())
         # Checked in full before the first write, so a bad file changes nothing
-        file_groups = data.get("groups", {}) if isinstance(data, dict) else None
-        if not isinstance(file_groups, dict) or not all(isinstance(v, dict) for v in file_groups.values()):
+        groups = data.get("settings") if isinstance(data, dict) else None
+        if not isinstance(groups, dict) or not all(isinstance(v, dict) for v in groups.values()):
             raise ValueError(f"{path.name} is not a settings file")
-        for group, settings in file_groups.items():
-            if groups is None or group in groups:
-                self.import_group(group, settings)
+        values = {setting: groups[setting.group][setting.key] for setting in self._portable()
+                  if setting.key in groups.get(setting.group, {})}
+        for setting, value in values.items():
+            # type() and not isinstance(), since a JSON true is an int to Python
+            if value is not None and type(value) is not setting.type:
+                raise ValueError(f"{path.name} is not a settings file: {setting.group}.{setting.key} "
+                                 f"must be a {setting.type.__name__}")
+        for setting, value in values.items():
+            self._write(setting, value)

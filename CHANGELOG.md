@@ -21,6 +21,7 @@
 - Masks are now toggled with `M` in the new `View` menu, instead of `H`.
 - Disable onnxruntime telemetry.
 - App requires macOS 26 or later.
+- [Dev] Settings and settings files use new, clearer names.
 - [Dev] Upgrade dependencies.
 ### Removed
 - The `Union of all objects` crop mode.

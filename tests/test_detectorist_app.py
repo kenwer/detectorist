@@ -91,7 +91,7 @@ def test_opening_a_folder_lists_its_images_and_shows_the_first(qtbot, window, fo
     assert window.ui.image_list_view.currentIndex().row() == 0
     qtbot.waitUntil(lambda: window.ui.status_bar.currentMessage() == "a.png")
     assert "200x100" in window.ui.image_info_label.text()
-    assert settings.recent_directories == [str(folder)]
+    assert settings.recent_folders == [str(folder)]
     assert window.ui.crop_and_export_all_images_action.isEnabled()
     assert window.ui.crop_and_export_selected_images_action.isEnabled()
 
@@ -114,7 +114,7 @@ def test_folder_without_images_says_so(window, folder, monkeypatch, settings, to
     assert window.ui.image_label.text() == "No supported images found or selected."
     assert not window.ui.crop_and_export_all_images_action.isEnabled()
     assert toasts == []
-    assert settings.recent_directories == []
+    assert settings.recent_folders == []
 
 
 def test_opening_a_folder_without_images_keeps_the_image_list(window, folder, tmp_path, monkeypatch, settings, toasts):
@@ -126,7 +126,7 @@ def test_opening_a_folder_without_images_keeps_the_image_list(window, folder, tm
 
     assert listed(window) == ["a.png"]
     assert toasts[-1][:2] == ("warning", "No images to open")
-    assert settings.recent_directories == [str(folder)]
+    assert settings.recent_folders == [str(folder)]
     assert window.ui.crop_and_export_all_images_action.isEnabled()
 
 
@@ -254,7 +254,7 @@ def test_opening_an_unreadable_folder_warns_and_keeps_the_image_list(window, fol
     assert (kind, title) == ("warning", "Could not open folder")
     assert text.endswith("Permission denied")
     assert listed(window) == ["a.png"]
-    assert settings.recent_directories == [str(folder)]
+    assert settings.recent_folders == [str(folder)]
 
 
 def test_dropping_an_unreadable_folder_warns_and_keeps_the_image_list(window, folder, unreadable, monkeypatch, toasts):
@@ -523,9 +523,9 @@ def test_crop_and_export_all_writes_crops_csv_and_settings(qtbot, window, folder
     assert (output / "Fish_a_crop.png").is_file()
     assert (output / "no-detection_b.png").is_file()
     assert (output / detections_csv_name(50, MODEL_FILENAME)).is_file()
-    exported = json.loads((output / settings_json_name(50, MODEL_FILENAME)).read_text())
-    assert set(exported["groups"]) == {"model", "crop"}
-    assert int(exported["groups"]["model"]["confidence"]) == 50
+    exported = json.loads((output / settings_json_name(50, MODEL_FILENAME)).read_text())["settings"]
+    assert set(exported) == {"model", "image", "crop"}
+    assert exported["model"]["detection_min_confidence_percent"] == 50
 
     kind, title, text, kwargs = toasts[-1]
     assert (kind, title, text) == ("success", "Detectorist", "Finished exporting images.")
@@ -543,16 +543,6 @@ def test_crop_and_export_selected_only_processes_the_selection(qtbot, window, fo
     window.ui.crop_and_export_selected_images_action.trigger()
 
     assert sorted(path.name for path in output.glob("*.png")) == ["no-detection_b.png"]
-
-
-def test_export_ignores_an_output_folder_left_in_the_settings(qtbot, window, folder, monkeypatch, detector_factory, settings):
-    open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
-    settings.import_group("export", {"output_dir_name": "crops"})
-
-    window.ui.crop_and_export_all_images_action.trigger()
-
-    assert (folder / "processed" / "Fish_a_crop.png").is_file()
-    assert not (folder / "crops").exists()
 
 
 def open_two_images_with_classifier(qtbot, window, folder, monkeypatch, detector_factory):
@@ -591,19 +581,6 @@ def test_summary_label_follows_the_classifier(qtbot, species_model, window):
     window.ui.classifier_combo_box.setCurrentIndex(1)
 
     assert summary_lines(window) == describe_export(True, True)
-
-
-def test_importing_a_settings_file_with_an_export_group_changes_nothing(window, tmp_path, monkeypatch, settings):
-    source = tmp_path / "import.json"
-    source.write_text(json.dumps({"groups": {"export": {"output_dir_name": "crops"}}}))
-    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
-    before = summary_lines(window)
-
-    window.ui.import_settings_action.trigger()
-
-    assert summary_lines(window) == before
-    assert settings.export_group("export") == {}
-    assert window.ui.status_bar.currentMessage() != ""
 
 
 def test_batch_runs_respect_the_class_filter(qtbot, window, folder, monkeypatch, detector_factory):
@@ -745,25 +722,25 @@ def test_closing_persists_the_controls_and_a_new_window_restores_them(make_windo
     first = make_window()
     first.ui.detection_confidence_slider.setValue(42)
     first.ui.padding_slider.setValue(7)
-    first.ui.crop_ratio_combo_box.setCurrentIndex(3)
+    first.ui.crop_ratio_combo_box.setCurrentText("4:3 (landscape)")
     first.ui.rb_crop_centered_obj.setChecked(True)
     first.ui.cb_comp_cam_exposure.setChecked(False)
 
     first.close()
 
-    assert settings.confidence == 42
-    assert settings.padding == 7
-    assert settings.aspect_ratio_index == 3
+    assert settings.detection_min_confidence_percent == 42
+    assert settings.crop_padding_percent == 7
+    assert settings.crop_aspect_ratio == "4:3"
     assert settings.crop_mode == "most_centered"
-    assert settings.auto_correct_exposure_enabled is False
-    assert settings.model == MODEL_FILENAME
-    assert settings.version == __version__
+    assert settings.image_correct_exposure is False
+    assert settings.detection_model == MODEL_FILENAME
+    assert settings.newest_version == __version__
 
     second = make_window()
 
     assert second.ui.detection_confidence_slider.value() == 42
     assert second.ui.padding_slider.value() == 7
-    assert second.ui.crop_ratio_combo_box.currentIndex() == 3
+    assert second.ui.crop_ratio_combo_box.currentText() == "4:3 (landscape)"
     assert second.ui.rb_crop_centered_obj.isChecked()
     assert not second.ui.cb_comp_cam_exposure.isChecked()
 
@@ -779,7 +756,7 @@ def test_a_saved_union_crop_mode_opens_with_the_default_mode(make_window, settin
 def test_saved_model_is_selected_again(make_window, settings, models_dir):
     # Sorts before the saved model, so being first in the list is not enough
     (models_dir / "another.onnx").write_bytes(b"model")
-    settings.model = MODEL_FILENAME
+    settings.detection_model = MODEL_FILENAME
 
     window = make_window()
 
@@ -812,7 +789,7 @@ def test_selection_follows_a_model_across_its_update(make_window, qtbot, models_
 def test_saved_model_that_was_superseded_selects_its_successor(make_window, settings, models_dir):
     (models_dir / "another.onnx").write_bytes(b"model")
     write_manifest_superseding(models_dir, MODEL_FILENAME, "tiny-detect-v0.onnx")
-    settings.model = "tiny-detect-v0.onnx"
+    settings.detection_model = "tiny-detect-v0.onnx"
 
     window = make_window()
 
@@ -821,7 +798,7 @@ def test_saved_model_that_was_superseded_selects_its_successor(make_window, sett
 
 def test_saved_model_that_is_gone_falls_back_to_an_available_one(make_window, settings, models_dir, detector_factory):
     (models_dir / "another.onnx").write_bytes(b"model")
-    settings.model = "deleted-model.onnx"
+    settings.detection_model = "deleted-model.onnx"
 
     window = make_window()
 
@@ -829,22 +806,23 @@ def test_saved_model_that_is_gone_falls_back_to_an_available_one(make_window, se
     assert os.path.basename(detector_factory.created[0].model_path) == "another.onnx"
 
 
-def test_export_settings_writes_the_model_and_crop_groups(window, tmp_path, monkeypatch):
+def test_export_settings_writes_the_portable_groups(window, tmp_path, monkeypatch):
     target = tmp_path / "exported.json"
     monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args, **kwargs: (str(target), ""))
     window.ui.detection_confidence_slider.setValue(42)
 
     window.ui.export_settings_action.trigger()
 
-    exported = json.loads(target.read_text())
-    assert set(exported["groups"]) == {"model", "crop"}
-    assert int(exported["groups"]["model"]["confidence"]) == 42
+    exported = json.loads(target.read_text())["settings"]
+    assert set(exported) == {"model", "image", "crop"}
+    assert exported["model"]["detection_min_confidence_percent"] == 42
     assert window.ui.status_bar.currentMessage() == "Settings exported."
 
 
 def test_import_settings_applies_them_to_the_controls(window, tmp_path, monkeypatch):
     source = tmp_path / "import.json"
-    source.write_text(json.dumps({"groups": {"model": {"confidence": 33}, "crop": {"padding": 12, "mode": "most_centered"}}}))
+    source.write_text(json.dumps({"settings": {"model": {"detection_min_confidence_percent": 33},
+                                          "crop": {"padding_percent": 12, "mode": "most_centered"}}}))
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
 
     window.ui.import_settings_action.trigger()
@@ -860,7 +838,7 @@ def test_import_settings_loads_the_imported_model(window, qtbot, tmp_path, monke
     window._refresh_model_list()
     assert window.ui.model_select_combo_box.currentData() == MODEL_FILENAME
     source = tmp_path / "import.json"
-    source.write_text(json.dumps({"groups": {"model": {"path": "another.onnx"}}}))
+    source.write_text(json.dumps({"settings": {"model": {"detection_model": "another.onnx"}}}))
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
 
     window.ui.import_settings_action.trigger()
@@ -875,7 +853,7 @@ def test_import_settings_keeps_the_window_layout(window, tmp_path, monkeypatch):
     window._save_settings()
     window.resize(1000, 800)
     source = tmp_path / "import.json"
-    source.write_text(json.dumps({"groups": {"model": {"confidence": 33}}}))
+    source.write_text(json.dumps({"settings": {"model": {"detection_min_confidence_percent": 33}}}))
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
 
     window.ui.import_settings_action.trigger()
@@ -923,7 +901,7 @@ def test_reset_settings_restores_the_defaults_only_when_confirmed(window, monkey
         assert window.ui.detection_confidence_slider.value() == default_confidence
         assert window.ui.padding_slider.value() == default_padding
         assert window.ui.rb_crop_all_detected_objects.isChecked()
-        assert settings.confidence == default_confidence
+        assert settings.detection_min_confidence_percent == default_confidence
     else:
         assert window.ui.detection_confidence_slider.value() == 11
         assert window.ui.padding_slider.value() == 44
@@ -943,12 +921,12 @@ def test_recent_folders_menu_lists_opened_folders_and_can_be_cleared(window, fol
 
     window.ui.clear_recent_folders_action.trigger()
     assert recent_menu_texts(window)[0] == "No Recent Folders"
-    assert settings.recent_directories == []
+    assert settings.recent_folders == []
 
 
 def test_recent_folder_entry_opens_the_folder(make_window, folder, settings):
     make_images(folder, ["a.png"], IMAGE_SIZE)
-    settings.add_recent_directory(str(folder))
+    settings.add_recent_folder(str(folder))
     window = make_window()
 
     window.ui.recent_folders_menu.actions()[0].trigger()
@@ -958,7 +936,7 @@ def test_recent_folder_entry_opens_the_folder(make_window, folder, settings):
 
 def test_welcome_link_opens_the_recent_folder(make_window, folder, settings):
     make_images(folder, ["a.png"], IMAGE_SIZE)
-    settings.add_recent_directory(str(folder))
+    settings.add_recent_folder(str(folder))
     window = make_window()
     assert str(folder) in window.ui.image_label.text()
 
@@ -969,7 +947,7 @@ def test_welcome_link_opens_the_recent_folder(make_window, folder, settings):
 
 def test_recent_folder_that_is_gone_warns_and_keeps_the_loaded_images(make_window, tmp_path, folder, monkeypatch, settings, toasts):
     make_images(folder, ["a.png"], IMAGE_SIZE)
-    settings.add_recent_directory(str(tmp_path / "unplugged"))
+    settings.add_recent_folder(str(tmp_path / "unplugged"))
     window = make_window()
     open_folder(window, folder, monkeypatch)
 
@@ -1456,7 +1434,7 @@ def test_classifier_and_taxon_confidence_are_restored_by_a_new_window(qtbot, spe
 
 
 def test_saved_classifier_that_is_gone_leaves_none_selected(make_window, settings):
-    settings.classifier = "deleted-classifier.onnx"
+    settings.classification_model = "deleted-classifier.onnx"
 
     window = make_window()
 
@@ -1536,7 +1514,7 @@ def test_classifier_is_set_aside_for_a_model_it_does_not_apply_to_and_comes_back
     # Closing while it is set aside still saves it as the choice
     select_model(qtbot, window, bee_model, "Apoidea")
     window.close()
-    assert settings.classifier == species_model
+    assert settings.classification_model == species_model
 
 
 def test_choosing_no_classifier_is_remembered_across_models(qtbot, species_model, bee_model, models_dir, make_window):
@@ -1575,7 +1553,7 @@ def test_crop_checkbox_survives_a_restart_and_is_reset(make_window, settings, mo
     first = make_window()
     first.ui.cb_crop.setChecked(False)
     first.close()
-    assert settings.crop_enabled is False
+    assert settings.crop_images is False
 
     second = make_window()
     assert not second.ui.cb_crop.isChecked()
@@ -1615,13 +1593,13 @@ def test_reset_dialog_names_only_the_settings_it_resets(window, monkeypatch):
 
     window.ui.reset_settings_action.trigger()
 
-    assert asked[0].startswith("Reset Model and Crop settings")
+    assert asked[0].startswith("Reset all settings")
 
 
 @pytest.mark.parametrize("crop", [{"mode": "union"}, {"mode": "bogus"}, {}])
 def test_importing_an_unknown_or_missing_crop_mode_selects_the_default(window, tmp_path, monkeypatch, crop):
     source = tmp_path / "import.json"
-    source.write_text(json.dumps({"groups": {"crop": crop}}))
+    source.write_text(json.dumps({"settings": {"crop": crop}}))
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
     window.ui.rb_crop_centered_obj.setChecked(True)
 
