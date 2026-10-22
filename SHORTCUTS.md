@@ -5,8 +5,7 @@
 | Ctrl+O          | ⌘O  | **Open Image(s)...** | Brings up the file dialog to load one or more images |
 | Shift+Ctrl+O    | ⇧⌘O | **Open Folder...** | Brings up the file dialog to open an entire folder with images |
 | Ctrl+Backspace | ⌘⌫  | **Clear Image List** | Clears the list of loaded images |
-| Shift+Ctrl+G    | ⇧⌘G | **Group Images into Folders** | Starts a batch process that groups all images by its detected object classes into individual sub folders |
-| Shift+Ctrl+E    | ⇧⌘E | **Crop & Export all Images** | Starts a batch process that crops and exports all loaded images into a subfolder |
+| Shift+Ctrl+E    | ⇧⌘E | **Export all Images** | Starts a batch process that exports all loaded images into a subfolder |
 | B               | B   | **Show Boxes** | Toggles the visibility of the bounding boxes of detected objects. |
 | L               | L   | **Show Labels** | Toggles the visibility of the labels naming the family, genus or species of classified objects. |
 | M               | M   | **Show Masks** | Toggles the the visibility of the segmentation masks of detected objects. |
@@ -31,6 +30,6 @@
 | --- | --- | --- | --- |
 | Ctrl+L    | ⌘L | **Locate Image in Filemanager** | Locates the image in your filemanager |
 | Ctrl+C    | ⌘C | **Copy selected Filenames to Clipboard**| Puts the filenames of the selected image(s) into your clipboard |
-| Ctrl+E    | ⌘E | **Crop & Export selected Images** | Starts a batch process that crops and exports the selected images into a subfolder |
-| Alt+E     | ⌥E | **Crop & Export & Remove selected Images from List** | Starts a batch process that crops and exports the selected image(s) into a subfolder and also removes the image(s) from the list |
+| Ctrl+E    | ⌘E | **Export selected Images** | Starts a batch process that exports the selected images into a subfolder |
+| Alt+E     | ⌥E | **Export & Remove selected Images from List** | Starts a batch process that exports the selected image(s) into a subfolder and also removes the image(s) from the list |
 | Backspace | ⌫  | **Remove selected Image from List** | Removes the selected image(s) from the list (not deleted, just removed from the view) |

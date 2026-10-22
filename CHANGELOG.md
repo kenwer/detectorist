@@ -13,15 +13,20 @@
   - `M` to toggle visibility of the detection/segment masks.
   - `H` to hide/show boxes, labels, and masks at once.
 ### Changed
+- Export writes into a flat `processed` folder, each file name starting with its class or, with a classifier on, its taxa, e.g. `Pomacentridae_Amphiprion_unidentified_IMG_0042_crop.jpg`.
+- `Crop & Export` is renamed to `Export`. A new `Crop` checkbox chooses between crops and whole images.
+- The image list shows the images of one folder. Dragging in several folders, or images from different folders, is refused.
+- A batch run writes new detections and classification CSV files instead of merging its rows into those of an earlier run with the same settings. Files with the same name are overwritten.
 - The detection summary moved from the side panel to the status bar.
 - Masks are now toggled with `M` in the new `View` menu, instead of `H`.
 - Disable onnxruntime telemetry.
 - App requires macOS 26 or later.
 - [Dev] Upgrade dependencies.
+### Removed
+- The `Union of all objects` crop mode.
+- `Group Images into Folders (by Object Class)`, now covered by `Export` with `Crop` unchecked.
 ### Fixed
 - Fix models queued in the Model Manager staying stuck on downloading after an earlier download failed.
-- Fix a batch run over images from several folders writing all results into the first folder, where images with the same name overwrote each other's crops and CSV rows. Each folder now gets its own `processed` folder.
-- Fix dropping several folders loading only the first one.
 - Fix dropping a file that is not an image clearing the image list. Such a drop is now refused, and opening or dropping a folder without images keeps the current list.
 
 ## [0.12.0] - 2026-10-08

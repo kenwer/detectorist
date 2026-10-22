@@ -30,3 +30,13 @@ def test_about_dialog_shows_version_changelog_and_acknowledgements(qtbot, monkey
     assert dialog.findChild(QLabel, "version_label").text() == f"Version: {__version__}"
     assert dialog.findChild(QTextBrowser, "changelog_text_browser").toPlainText().strip()
     assert "RF-DETR" in dialog.findChild(QTextBrowser, "acknowledgements_text_browser").toPlainText()
+
+
+def test_shortcuts_document_names_the_current_export_actions(qtbot):
+    dialog = ShortcutsDialog()
+    qtbot.addWidget(dialog)
+    text = dialog.ui.shortcuts_text_browser.toPlainText()
+
+    assert "Export all Images" in text
+    assert "Crop & Export" not in text
+    assert "Group Images" not in text

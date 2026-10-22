@@ -48,12 +48,11 @@ Download the binary for your operating system and start the application.
 *   **Image Browser:** Load and browse images from a local folder using drag & drop.
 *   **Detect, segment, and crop objects using AI:** Run object detection or instance segmentation using ONNX models.
 *   **Adjustable Confidence Threshold:** Interactively change confidence to see the effect on detections in real-time.
-*   **Filter by object class:** Filter detections by object class. The filter applies to the displayed detections and to cropping and sorting.
+*   **Filter by object class:** Filter detections by object class. The filter applies to the displayed detections and to exports.
 *   **Multiple Image Formats:** Supports common image formats like PNG, JPG, BMP, and also 10 bit HEIC/HEIF or Sony RAW (.ARW).
 *   **EXIF Data Viewer:** Displays selected EXIF metadata for the current image.
-*   **Save cropped copies:** Automatically isolate detected objects in all loaded images.
+*   **Export named copies:** Export crops or whole images, each named after its detected class or, with a classifier, its taxa.
 *   **Configurable aspect ratio for cropping:** with 3:2, 4:4, 16:9, plus support for padding.
-*   **Sort into subfolder:** Detect object classes and sort images into corresponding sub folders.
 *   **CSV log when processing multiple images:** Write log file to the output directory providing information about the detections like the number of detected objects and the highest confidence score.
 *   **Model Manager:** Browse, download, and update models from the project page.
 *   **Settings persistence:** Application settings are saved and restored between sessions. Settings can also be imported/exported as JSON files.
@@ -70,10 +69,12 @@ Download the binary for your operating system and start the application.
 *   Click on an iamge-item in the list on the left or use the arrow keys to navigate through the image set.
 *   Use the slider and spin-box on the right to adjust the **Confidence** threshold. Detections will update automatically.
     * The Confidence threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
-*   You can sort the images into sub folders that are named after the detected object class using the corresponding item in the Actions menu. The images are copied, not moved.
-*   Optionally configure the crop & padding settings, then start cropping via the Actions menu.
-    * The cropped and sorted images all land in a `processed` subdirectory of the directory that is currently being viewed.
-    * Cropped images keep their original filename with a `_crop` suffix. Images without a usable detection are copied in with a `_ncrop` suffix instead.
+*   Optionally configure the crop and padding settings, then start an export via `Export all Images` or `Export selected Images` in the Actions menu. The original images are never changed.
+    * Every file lands in a `processed` subdirectory of the image's folder, with no further subfolders.
+    * With `Crop` checked, each detection is cropped (`Fish_IMG_0042_crop.jpg`). Unchecked, the whole image is copied (`Fish_IMG_0042.jpg`).
+    * Without a classifier, file names start with the detected class. With a classifier, they start with every rank that reaches the taxon confidence, and `unidentified` for the rest (`Pomacentridae_Amphiprion_ocellaris_IMG_0042_crop.jpg`, `Pomacentridae_Amphiprion_unidentified_IMG_0042_crop.jpg`).
+    * Images without detections are copied with a `no-detection_` prefix, so every image is accounted for.
+    * Files from an earlier export are overwritten where the names match and kept otherwise.
     * The accompanying detections CSV and exported settings JSON encode the confidence level and model used in their filenames (like: `detectorist-detections-conf-75-fish-seg-transformer-2026-02-24.csv`).
 
 ### Keyboard shortcuts

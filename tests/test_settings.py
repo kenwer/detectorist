@@ -27,6 +27,7 @@ def test_unset_values_read_as_none(settings):
     assert settings.aspect_ratio_index is None
     assert settings.padding is None
     assert settings.auto_correct_exposure_enabled is None
+    assert settings.crop_enabled is None
     assert settings.window_geometry is None
     assert settings.splitter_state is None
     assert settings.image_splitter_state is None
@@ -35,20 +36,22 @@ def test_unset_values_read_as_none(settings):
 def test_values_keep_their_type_across_a_reopen(settings, settings_file):
     settings.model = "fish.onnx.gz"
     settings.confidence = 60
-    settings.crop_mode = "union"
+    settings.crop_mode = "most_centered"
     settings.aspect_ratio_index = 3
     settings.padding = 0
     settings.auto_correct_exposure_enabled = False
+    settings.crop_enabled = False
     settings.window_geometry = QByteArray(b"\x01\x02")
 
     reopened = reopen(settings_file)
 
     assert reopened.model == "fish.onnx.gz"
     assert reopened.confidence == 60
-    assert reopened.crop_mode == "union"
+    assert reopened.crop_mode == "most_centered"
     assert reopened.aspect_ratio_index == 3
     assert reopened.padding == 0
     assert reopened.auto_correct_exposure_enabled is False
+    assert reopened.crop_enabled is False
     assert reopened.window_geometry == QByteArray(b"\x01\x02")
 
 
@@ -126,7 +129,7 @@ def test_export_writes_only_the_requested_groups(settings, tmp_path):
 
 def test_export_then_import_restores_typed_values(settings, tmp_path):
     settings.confidence = 60
-    settings.crop_mode = "union"
+    settings.crop_mode = "most_centered"
     settings.auto_correct_exposure_enabled = False
     export_path = tmp_path / "exported.json"
     settings.export_to_file(export_path, [Settings.GROUP_MODEL, Settings.GROUP_CROP])
@@ -135,7 +138,7 @@ def test_export_then_import_restores_typed_values(settings, tmp_path):
     other.import_from_file(export_path)
 
     assert other.confidence == 60
-    assert other.crop_mode == "union"
+    assert other.crop_mode == "most_centered"
     assert other.auto_correct_exposure_enabled is False
 
 

@@ -3,7 +3,7 @@
 
 import pytest
 
-from detectorist.crop_planner import CropMode, CropSettings, plan_crops
+from detectorist.crop_planner import CropMode, CropSettings, naming_detection, plan_crop_targets, plan_crops
 from detectorist.structures import Detection, RankedName, Taxonomy
 
 # The planner reads only a Detection's box and score. Class names come from
@@ -32,19 +32,6 @@ def test_top_confidence_picks_highest_score():
 
 def test_top_confidence_with_padding_and_aspect():
     assert plan(DETECTIONS, CropMode.MOST_CONFIDENT_DETECTION, 0.1, (3, 2)) == [(284, 296, 72, 48)]
-
-
-def test_union_frames_all_detections():
-    # UNION spans from D1's left edge to D2's right edge, one crop containing everything
-    assert plan(DETECTIONS, CropMode.UNION, 0.0, "detection_frame") == [(100, 100, 420, 240)]
-
-
-def test_union_padded_square_is_clamped_to_image_height():
-    assert plan(DETECTIONS, CropMode.UNION, 0.25, (1, 1)) == [(110, 0, 400, 400)]
-
-
-def test_union_of_single_detection_is_its_own_box():
-    assert plan([D1], CropMode.UNION, 0.1, (4, 3)) == [(61, 192, 128, 96)]
 
 
 def test_most_centered_picks_detection_closest_to_image_center():
@@ -138,15 +125,59 @@ class TestBestClassification:
 
 class TestCropModeFromSetting:
     def test_parses_current_names(self):
-        assert CropMode.from_setting("union") is CropMode.UNION
         assert CropMode.from_setting("top_confidence") is CropMode.MOST_CONFIDENT_DETECTION
         assert CropMode.from_setting("most_centered") is CropMode.MOST_CENTERED
         assert CropMode.from_setting("all_detected_objects") is CropMode.EACH_OBJECT
         assert CropMode.from_setting("best_classification") is CropMode.BEST_CLASSIFICATION
 
-    def test_parses_legacy_largest_area_as_union(self):
-        assert CropMode.from_setting("largest_area") is CropMode.UNION
+    @pytest.mark.parametrize("value", ["union", "largest_area"])
+    def test_a_saved_union_mode_is_no_longer_known(self, value):
+        assert CropMode.from_setting(value) is None
 
     def test_unknown_and_missing_are_none(self):
         assert CropMode.from_setting("bogus") is None
         assert CropMode.from_setting(None) is None
+
+
+def targets(detections, mode):
+    return plan_crop_targets(detections, HEIGHT, WIDTH, CropSettings(mode=mode, padding=0.1, aspect=(1, 1)))
+
+
+def test_each_crop_target_frames_one_detection():
+    assert [d for _, d in targets([D1, D2], CropMode.EACH_OBJECT)] == [D1, D2]
+
+
+def test_single_detection_modes_target_the_chosen_detection():
+    ((_, detection),) = targets([D1, D2], CropMode.MOST_CONFIDENT_DETECTION)
+    assert detection == D1
+
+
+def test_plan_crops_matches_the_rectangles_of_plan_crop_targets():
+    for mode in CropMode:
+        settings = CropSettings(mode=mode, padding=0.1, aspect=(1, 1))
+        assert plan_crops(DETECTIONS, HEIGHT, WIDTH, settings) == [
+            rect for rect, _ in plan_crop_targets(DETECTIONS, HEIGHT, WIDTH, settings)
+        ]
+
+
+EDGE = Detection((0, 0, 10, 10), 0.9, "Crab")
+CENTER = Detection((45, 45, 10, 10), 0.6, "Fish")
+
+
+@pytest.mark.parametrize(("mode", "expected"), [
+    (CropMode.MOST_CONFIDENT_DETECTION, EDGE),
+    (CropMode.EACH_OBJECT, EDGE),
+    (CropMode.MOST_CENTERED, CENTER),
+])
+def test_naming_detection_is_the_one_the_crop_mode_picks(mode, expected):
+    assert naming_detection([EDGE, CENTER], 100, 100, CropSettings(mode, 0.0, "detection_frame")) == expected
+
+
+def test_naming_detection_falls_back_to_the_top_score_when_no_box_has_area():
+    flat = [Detection((0, 0, 5, 0), 0.6, "Fish"), Detection((0, 0, 0, 5), 0.9, "Crab")]
+    settings = CropSettings(CropMode.MOST_CENTERED, 0.0, "detection_frame")
+    assert naming_detection(flat, 100, 100, settings).class_name == "Crab"
+
+
+def test_naming_detection_without_detections_is_none():
+    assert naming_detection([], 100, 100, CropSettings(CropMode.EACH_OBJECT, 0.0, "detection_frame")) is None

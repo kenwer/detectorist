@@ -22,6 +22,7 @@ from detectorist import __version__, detectorist_app
 from detectorist.batch_output import classification_csv_name, detections_csv_name, settings_json_name
 from detectorist.detection_style import MASK_COLORS
 from detectorist.detector import Detector
+from detectorist.export_layout import describe_export
 from detectorist.image_label import DETECTION_BORDER_COLOR_RGB
 from detectorist.image_object import APPLEDOUBLE_MAGIC
 from detectorist.structures import Detection, RankedName, Taxonomy
@@ -256,10 +257,11 @@ def test_opening_an_unreadable_folder_warns_and_keeps_the_image_list(window, fol
     assert settings.recent_directories == [str(folder)]
 
 
-def test_dropping_an_unreadable_folder_warns_and_still_loads_dropped_files(window, folder, unreadable, toasts):
-    paths = make_images(folder, ["a.png"], IMAGE_SIZE)
+def test_dropping_an_unreadable_folder_warns_and_keeps_the_image_list(window, folder, unreadable, monkeypatch, toasts):
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
 
-    drop(window, [unreadable, paths[0]])
+    drop(window, [unreadable])
 
     assert toasts[-1][:2] == ("warning", "Could not open folder")
     assert listed(window) == ["a.png"]
@@ -272,32 +274,33 @@ def make_folders(tmp_path, *names):
     return folders
 
 
-def test_dropping_two_folders_loads_the_images_of_both(window, tmp_path):
+def test_dragging_images_from_more_than_one_folder_is_refused(window, tmp_path):
+    cam_a, cam_b = make_folders(tmp_path, "camA", "camB")
+    (a,) = make_images(cam_a, ["a.png"], IMAGE_SIZE)
+    (b,) = make_images(cam_b, ["b.png"], IMAGE_SIZE)
+
+    assert not drag_enter(window, [cam_a, cam_b])
+    assert not drag_enter(window, [a, b])
+    assert not drag_enter(window, [cam_a, b])
+    assert not drag_enter(window.ui.image_label, [cam_a, cam_b])
+
+
+def test_dragging_a_folder_with_its_own_images_is_accepted(window, folder):
+    (image,) = make_images(folder, ["a.png"], IMAGE_SIZE)
+
+    assert drag_enter(window, [folder, image])
+
+
+def test_dropping_images_from_more_than_one_folder_keeps_the_image_list(window, folder, tmp_path, monkeypatch):
+    make_images(folder, ["keep.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
     cam_a, cam_b = make_folders(tmp_path, "camA", "camB")
     make_images(cam_a, ["a.png"], IMAGE_SIZE)
     make_images(cam_b, ["b.png"], IMAGE_SIZE)
 
     drop(window, [cam_a, cam_b])
 
-    assert listed(window) == ["a.png", "b.png"]
-
-
-def test_dropping_two_unreadable_folders_warns_for_each(window, folder, tmp_path, monkeypatch, toasts):
-    locked = make_folders(tmp_path, "locked1", "locked2")
-    real_listing = detectorist_app.list_supported_images
-
-    def listing(folder_path):
-        if folder_path in map(str, locked):
-            raise PermissionError(13, "Permission denied", folder_path)
-        return real_listing(folder_path)
-
-    monkeypatch.setattr(detectorist_app, "list_supported_images", listing)
-    paths = make_images(folder, ["a.png"], IMAGE_SIZE)
-
-    drop(window, [*locked, paths[0]])
-
-    assert [toast[:2] for toast in toasts] == [("warning", "Could not open folder")] * 2
-    assert listed(window) == ["a.png"]
+    assert listed(window) == ["keep.png"]
 
 
 def test_dropping_files_skips_sidecars_and_unsupported_files(window, folder):
@@ -397,7 +400,6 @@ def test_result_for_another_image_is_ignored(qtbot, window, folder, monkeypatch,
 @pytest.mark.parametrize(("radio_name", "expected"), [
     ("rb_crop_all_detected_objects", [QRect(20, 20, 40, 40), QRect(120, 50, 60, 40)]),
     ("rb_crop_most_confident_detection", [QRect(20, 20, 40, 40)]),
-    ("rb_crop_union", [QRect(20, 20, 160, 70)]),
     ("rb_crop_centered_obj", [QRect(120, 50, 60, 40)]),
 ])
 def test_crop_bands_follow_the_crop_mode(qtbot, window, folder, monkeypatch, detector_factory, radio_name, expected):
@@ -484,7 +486,6 @@ def test_without_models_the_dialog_is_offered_and_model_actions_stay_disabled(qt
     assert listed(window) == ["a.png"]
     assert window.ui.image_label.text().startswith("No models available")
     assert not window.ui.crop_and_export_all_images_action.isEnabled()
-    assert not window.ui.group_images_by_object_class_action.isEnabled()
 
 
 def test_real_detector_runs_end_to_end(qtbot, make_window, folder, monkeypatch):
@@ -519,15 +520,15 @@ def test_crop_and_export_all_writes_crops_csv_and_settings(qtbot, window, folder
 
     window.ui.crop_and_export_all_images_action.trigger()
 
-    assert (output / "a_crop.png").is_file()
-    assert (output / "b_ncrop.png").is_file()
+    assert (output / "Fish_a_crop.png").is_file()
+    assert (output / "no-detection_b.png").is_file()
     assert (output / detections_csv_name(50, MODEL_FILENAME)).is_file()
     exported = json.loads((output / settings_json_name(50, MODEL_FILENAME)).read_text())
     assert set(exported["groups"]) == {"model", "crop"}
     assert int(exported["groups"]["model"]["confidence"]) == 50
 
     kind, title, text, kwargs = toasts[-1]
-    assert (kind, title, text) == ("success", "Detectorist", "Finished cropping images.")
+    assert (kind, title, text) == ("success", "Detectorist", "Finished exporting images.")
     assert kwargs["link_text"] == "Show in file manager"
     assert window.ui.open_output_folder_action.isEnabled()
 
@@ -541,17 +542,68 @@ def test_crop_and_export_selected_only_processes_the_selection(qtbot, window, fo
 
     window.ui.crop_and_export_selected_images_action.trigger()
 
-    assert sorted(path.name for path in output.glob("*.png")) == ["b_ncrop.png"]
+    assert sorted(path.name for path in output.glob("*.png")) == ["no-detection_b.png"]
 
 
-def test_sort_by_class_copies_images_into_class_folders(qtbot, window, folder, monkeypatch, detector_factory, toasts):
+def test_export_ignores_an_output_folder_left_in_the_settings(qtbot, window, folder, monkeypatch, detector_factory, settings):
+    open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    settings.import_group("export", {"output_dir_name": "crops"})
+
+    window.ui.crop_and_export_all_images_action.trigger()
+
+    assert (folder / "processed" / "Fish_a_crop.png").is_file()
+    assert not (folder / "crops").exists()
+
+
+def open_two_images_with_classifier(qtbot, window, folder, monkeypatch, detector_factory):
+    """open_two_images with the classifier selected and a taxon confidence that names a.png's fish to the species."""
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    # TAXONOMY's species scores 0.44
+    window.ui.taxon_confidence_spin_box.setValue(40)
+    return output
 
-    window.ui.group_images_by_object_class_action.trigger()
 
-    assert (output / "Fish" / "a.png").is_file()
-    assert (output / "no-detection" / "b.png").is_file()
-    assert toasts[-1][2] == "Finished sorting images."
+def test_quick_export_with_a_classifier_names_the_crops_by_taxon(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+    output = open_two_images_with_classifier(qtbot, window, folder, monkeypatch, detector_factory)
+
+    window.ui.crop_and_export_all_images_action.trigger()
+
+    assert sorted(path.name for path in output.glob("*.png")) == [
+        "Pomacentridae_Amphiprion_ocellaris_a_crop.png", "no-detection_b.png"]
+
+
+def test_success_toast_with_a_classifier_has_no_counts(qtbot, species_model, window, folder, monkeypatch, detector_factory, toasts):
+    open_two_images_with_classifier(qtbot, window, folder, monkeypatch, detector_factory)
+
+    window.ui.crop_and_export_all_images_action.trigger()
+
+    assert toasts[-1][:3] == ("success", "Detectorist", "Finished exporting images.")
+
+
+def summary_lines(window) -> str:
+    return window.ui.export_summary_label.text()
+
+
+def test_summary_label_follows_the_classifier(qtbot, species_model, window):
+    assert summary_lines(window) == describe_export(False, True)
+
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+
+    assert summary_lines(window) == describe_export(True, True)
+
+
+def test_importing_a_settings_file_with_an_export_group_changes_nothing(window, tmp_path, monkeypatch, settings):
+    source = tmp_path / "import.json"
+    source.write_text(json.dumps({"groups": {"export": {"output_dir_name": "crops"}}}))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
+    before = summary_lines(window)
+
+    window.ui.import_settings_action.trigger()
+
+    assert summary_lines(window) == before
+    assert settings.export_group("export") == {}
+    assert window.ui.status_bar.currentMessage() != ""
 
 
 def test_batch_runs_respect_the_class_filter(qtbot, window, folder, monkeypatch, detector_factory):
@@ -563,13 +615,11 @@ def test_batch_runs_respect_the_class_filter(qtbot, window, folder, monkeypatch,
     qtbot.waitUntil(lambda: object_count(window) == "2")
     window.ui.class_filter_combo_box.setCurrentText("Crab")
 
-    window.ui.group_images_by_object_class_action.trigger()
+    window.ui.crop_and_export_all_images_action.trigger()
 
-    # Without the filter the higher scoring fish would put both images into Fish/
+    # Without the filter the higher scoring fish would name both images
     output = folder / "processed"
-    assert (output / "Crab" / "a.png").is_file()
-    assert (output / "no-detection" / "b.png").is_file()
-    assert not (output / "Fish").exists()
+    assert sorted(path.name for path in output.glob("*.png")) == ["Crab_a_crop.png", "no-detection_b.png"]
 
 
 def test_cancelling_a_batch_stops_it_without_a_success_toast(qtbot, window, folder, monkeypatch, detector_factory, toasts):
@@ -580,9 +630,9 @@ def test_cancelling_a_batch_stops_it_without_a_success_toast(qtbot, window, fold
 
     window.ui.crop_and_export_all_images_action.trigger()
 
-    assert window.ui.status_bar.currentMessage() == "Cropping images cancelled."
-    assert (output / "a_crop.png").is_file()
-    assert not (output / "b_ncrop.png").exists()
+    assert window.ui.status_bar.currentMessage() == "Exporting images cancelled."
+    assert (output / "Fish_a_crop.png").is_file()
+    assert not (output / "no-detection_b.png").exists()
     assert toasts == []
     assert not window.ui.open_output_folder_action.isEnabled()
 
@@ -593,7 +643,6 @@ def test_actions_are_disabled_while_a_batch_runs(qtbot, window, folder, monkeypa
         window.ui.open_folder_action,
         window.ui.open_images_action,
         window.ui.crop_and_export_all_images_action,
-        window.ui.group_images_by_object_class_action,
         window.ui.clear_image_list_action,
     ]
     seen_during_run = []
@@ -629,7 +678,6 @@ def test_download_finishing_during_a_batch_keeps_the_batch_actions_disabled(qtbo
     batch_actions = [
         window.ui.crop_and_export_all_images_action,
         window.ui.crop_and_export_selected_images_action,
-        window.ui.group_images_by_object_class_action,
         window.ui.copy_export_remove_action,
         window.ui.remove_selected_images_from_list_action,
         window.ui.clear_image_list_action,
@@ -662,10 +710,10 @@ def test_batch_with_a_failing_image_finishes_and_warns(qtbot, window, folder, mo
     window.ui.crop_and_export_all_images_action.trigger()
 
     # The image after the failing one is still exported
-    assert (output / "b_ncrop.png").is_file()
+    assert (output / "no-detection_b.png").is_file()
     kind, title, text, kwargs = toasts[-1]
     csv_name = detections_csv_name(50, MODEL_FILENAME)
-    assert (kind, text) == ("warning", f"Finished cropping images, but 1 image failed. See {csv_name} for details.")
+    assert (kind, text) == ("warning", f"Finished exporting images, but 1 image failed. See {csv_name} for details.")
     assert kwargs["duration"] == 0
     assert kwargs["link_text"] == "Show in file manager"
 
@@ -680,79 +728,15 @@ def test_copy_export_remove_keeps_the_images_when_one_failed(qtbot, window, fold
     assert listed(window) == ["a.png", "b.png"]
 
 
-def open_two_folders(qtbot, window, tmp_path, detector_factory):
-    """camA/a.png holds a fish, camB/b.png holds nothing. Returns both folders."""
-    cam_a, cam_b = make_folders(tmp_path, "camA", "camB")
-    make_images(cam_a, ["a.png"], IMAGE_SIZE)
-    make_images(cam_b, ["b.png"], IMAGE_SIZE)
-    detector_factory.detections_by_file["a.png"] = [FISH]
-    window.ui.detection_confidence_slider.setValue(50)
-    drop(window, [cam_a, cam_b])
-    qtbot.waitUntil(lambda: object_count(window) == "1")
-    return cam_a, cam_b
-
-
-def test_crop_and_export_writes_each_folders_results_into_it(qtbot, window, tmp_path, detector_factory, toasts, spawned):
-    cam_a, cam_b = open_two_folders(qtbot, window, tmp_path, detector_factory)
-
-    window.ui.crop_and_export_all_images_action.trigger()
-
-    assert (cam_a / "processed" / "a_crop.png").is_file()
-    assert (cam_b / "processed" / "b_ncrop.png").is_file()
-    for cam in (cam_a, cam_b):
-        assert (cam / "processed" / detections_csv_name(50, MODEL_FILENAME)).is_file()
-        assert (cam / "processed" / settings_json_name(50, MODEL_FILENAME)).is_file()
-    kind, _title, text, kwargs = toasts[-1]
-    assert (kind, text) == ("success", "Finished cropping images, results in 2 folders.")
-    kwargs["on_link"]()
-    assert spawned[-1][-1] == os.path.normpath(str(tmp_path))
-
-
-def test_link_target_of_one_folder_is_that_folder():
-    assert detectorist_app.output_link_target(["/a/processed"]) == "/a/processed"
-
-
-def test_link_target_without_a_shared_parent_is_the_first_folder(monkeypatch):
-    def no_shared_parent(paths):
-        raise ValueError("Paths don't have the same drive")
-
-    monkeypatch.setattr(os.path, "commonpath", no_shared_parent)
-    assert detectorist_app.output_link_target(["C:/a/processed", "D:/b/processed"]) == "C:/a/processed"
-
-
-def test_batch_over_two_folders_with_a_failing_image_warns(qtbot, window, tmp_path, detector_factory, toasts):
-    _cam_a, cam_b = open_two_folders(qtbot, window, tmp_path, detector_factory)
-    fail_detection_of(detector_factory, "a.png")
-
-    window.ui.crop_and_export_all_images_action.trigger()
-
-    assert (cam_b / "processed" / "b_ncrop.png").is_file()
-    kind, _title, text, kwargs = toasts[-1]
-    csv_name = detections_csv_name(50, MODEL_FILENAME)
-    assert (kind, text) == ("warning", "Finished cropping images in 2 folders, but 1 image failed. "
-                                       f"See {csv_name} in each folder for details.")
-    assert kwargs["duration"] == 0
-
-
-def test_copy_export_remove_over_two_folders_keeps_the_images_when_one_failed(qtbot, window, tmp_path, detector_factory):
-    open_two_folders(qtbot, window, tmp_path, detector_factory)
-    fail_detection_of(detector_factory, "b.png")
-    window.ui.image_list_view.selectAll()
-
-    window.ui.copy_export_remove_action.trigger()
-
-    assert listed(window) == ["a.png", "b.png"]
-
-
 def test_batch_whose_model_fails_to_load_reports_it_and_restores_the_actions(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     detector_factory.error = OSError("boom")
 
     window.ui.crop_and_export_all_images_action.trigger()
 
-    assert window.ui.status_bar.currentMessage() == "Error during Cropping images: boom"
+    assert window.ui.status_bar.currentMessage() == "Error during Exporting images: boom"
     assert not output.exists()
-    assert [toast[:3] for toast in toasts] == [("error", "Cropping images failed", "boom")]
+    assert [toast[:3] for toast in toasts] == [("error", "Exporting images failed", "boom")]
     assert window.ui.crop_and_export_all_images_action.isEnabled()
     assert window.ui.open_folder_action.isEnabled()
 
@@ -762,7 +746,7 @@ def test_closing_persists_the_controls_and_a_new_window_restores_them(make_windo
     first.ui.detection_confidence_slider.setValue(42)
     first.ui.padding_slider.setValue(7)
     first.ui.crop_ratio_combo_box.setCurrentIndex(3)
-    first.ui.rb_crop_union.setChecked(True)
+    first.ui.rb_crop_centered_obj.setChecked(True)
     first.ui.cb_comp_cam_exposure.setChecked(False)
 
     first.close()
@@ -770,7 +754,7 @@ def test_closing_persists_the_controls_and_a_new_window_restores_them(make_windo
     assert settings.confidence == 42
     assert settings.padding == 7
     assert settings.aspect_ratio_index == 3
-    assert settings.crop_mode == "union"
+    assert settings.crop_mode == "most_centered"
     assert settings.auto_correct_exposure_enabled is False
     assert settings.model == MODEL_FILENAME
     assert settings.version == __version__
@@ -780,8 +764,16 @@ def test_closing_persists_the_controls_and_a_new_window_restores_them(make_windo
     assert second.ui.detection_confidence_slider.value() == 42
     assert second.ui.padding_slider.value() == 7
     assert second.ui.crop_ratio_combo_box.currentIndex() == 3
-    assert second.ui.rb_crop_union.isChecked()
+    assert second.ui.rb_crop_centered_obj.isChecked()
     assert not second.ui.cb_comp_cam_exposure.isChecked()
+
+
+def test_a_saved_union_crop_mode_opens_with_the_default_mode(make_window, settings):
+    settings.crop_mode = "union"
+
+    window = make_window()
+
+    assert window.ui.rb_crop_all_detected_objects.isChecked()
 
 
 def test_saved_model_is_selected_again(make_window, settings, models_dir):
@@ -837,7 +829,7 @@ def test_saved_model_that_is_gone_falls_back_to_an_available_one(make_window, se
     assert os.path.basename(detector_factory.created[0].model_path) == "another.onnx"
 
 
-def test_export_settings_writes_model_and_crop_groups(window, tmp_path, monkeypatch):
+def test_export_settings_writes_the_model_and_crop_groups(window, tmp_path, monkeypatch):
     target = tmp_path / "exported.json"
     monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args, **kwargs: (str(target), ""))
     window.ui.detection_confidence_slider.setValue(42)
@@ -852,14 +844,14 @@ def test_export_settings_writes_model_and_crop_groups(window, tmp_path, monkeypa
 
 def test_import_settings_applies_them_to_the_controls(window, tmp_path, monkeypatch):
     source = tmp_path / "import.json"
-    source.write_text(json.dumps({"groups": {"model": {"confidence": 33}, "crop": {"padding": 12, "mode": "union"}}}))
+    source.write_text(json.dumps({"groups": {"model": {"confidence": 33}, "crop": {"padding": 12, "mode": "most_centered"}}}))
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
 
     window.ui.import_settings_action.trigger()
 
     assert window.ui.detection_confidence_slider.value() == 33
     assert window.ui.padding_slider.value() == 12
-    assert window.ui.rb_crop_union.isChecked()
+    assert window.ui.rb_crop_centered_obj.isChecked()
     assert window.ui.status_bar.currentMessage() == "Settings imported."
 
 
@@ -923,7 +915,7 @@ def test_reset_settings_restores_the_defaults_only_when_confirmed(window, monkey
     monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: answer)
     window.ui.detection_confidence_slider.setValue(11)
     window.ui.padding_slider.setValue(44)
-    window.ui.rb_crop_union.setChecked(True)
+    window.ui.rb_crop_centered_obj.setChecked(True)
 
     window.ui.reset_settings_action.trigger()
 
@@ -935,7 +927,7 @@ def test_reset_settings_restores_the_defaults_only_when_confirmed(window, monkey
     else:
         assert window.ui.detection_confidence_slider.value() == 11
         assert window.ui.padding_slider.value() == 44
-        assert window.ui.rb_crop_union.isChecked()
+        assert window.ui.rb_crop_centered_obj.isChecked()
 
 
 def recent_menu_texts(window) -> list[str]:
@@ -1085,7 +1077,7 @@ def test_copy_export_remove_does_all_three(qtbot, window, folder, monkeypatch, d
     window.ui.copy_export_remove_action.trigger()
 
     assert QApplication.clipboard().text() == "a.png"
-    assert (output / "a_crop.png").is_file()
+    assert (output / "Fish_a_crop.png").is_file()
     assert listed(window) == ["b.png"]
 
 
@@ -1431,7 +1423,7 @@ def test_batch_with_a_classifier_writes_the_classification_csv(qtbot, species_mo
     window.ui.classifier_combo_box.setCurrentIndex(1)
     window.ui.taxon_confidence_spin_box.setValue(50)
 
-    window.ui.group_images_by_object_class_action.trigger()
+    window.ui.crop_and_export_all_images_action.trigger()
 
     with open(output / classification_csv_name(50, species_model), newline="", encoding="utf-8-sig") as f:
         rows = list(csv.reader(f))
@@ -1446,7 +1438,7 @@ def test_batch_shares_the_classifier_of_the_worker(qtbot, species_model, window,
     open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     window.ui.classifier_combo_box.setCurrentIndex(1)
 
-    window.ui.group_images_by_object_class_action.trigger()
+    window.ui.crop_and_export_all_images_action.trigger()
 
     assert len(classifier_factory.created) == 1
 
@@ -1558,3 +1550,81 @@ def test_choosing_no_classifier_is_remembered_across_models(qtbot, species_model
     select_model(qtbot, window, MODEL_FILENAME, "Fish")
 
     assert window.ui.classifier_combo_box.currentIndex() == 0
+
+
+CROP_ONLY_CONTROLS = ["rb_crop_all_detected_objects", "rb_crop_most_confident_detection", "rb_crop_best_classification",
+                      "rb_crop_centered_obj", "crop_ratio_combo_box", "padding_slider", "padding_spin_box"]
+
+
+def test_unchecking_crop_disables_the_crop_controls_and_clears_the_bands(qtbot, window, folder, monkeypatch, detector_factory):
+    open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    assert window.ui.image_label.crop_bands
+
+    window.ui.cb_crop.setChecked(False)
+
+    assert not any(getattr(window.ui, name).isEnabled() for name in CROP_ONLY_CONTROLS)
+    assert window.ui.image_label.crop_bands == []
+
+    window.ui.cb_crop.setChecked(True)
+
+    assert all(getattr(window.ui, name).isEnabled() for name in CROP_ONLY_CONTROLS)
+    assert window.ui.image_label.crop_bands
+
+
+def test_crop_checkbox_survives_a_restart_and_is_reset(make_window, settings, monkeypatch):
+    first = make_window()
+    first.ui.cb_crop.setChecked(False)
+    first.close()
+    assert settings.crop_enabled is False
+
+    second = make_window()
+    assert not second.ui.cb_crop.isChecked()
+    assert not second.ui.padding_slider.isEnabled()
+
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+    second.ui.reset_settings_action.trigger()
+    assert second.ui.cb_crop.isChecked()
+
+
+def test_export_without_crop_copies_the_whole_images(qtbot, window, folder, monkeypatch, detector_factory):
+    output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    window.ui.cb_crop.setChecked(False)
+
+    window.ui.crop_and_export_all_images_action.trigger()
+
+    assert sorted(path.name for path in output.glob("*.png")) == ["Fish_a.png", "no-detection_b.png"]
+
+
+def test_summary_label_follows_the_crop_checkbox(window):
+    window.ui.cb_crop.setChecked(False)
+
+    assert summary_lines(window) == "processed/, named by class, not cropped"
+
+
+def test_export_actions_are_named_export_and_keep_their_shortcuts(window):
+    assert window.ui.crop_and_export_selected_images_action.text() == "Export selected Images"
+    assert window.ui.crop_and_export_selected_images_action.shortcut().toString() == "Ctrl+E"
+    assert window.ui.crop_and_export_all_images_action.text() == "Export all Images"
+    assert window.ui.crop_and_export_all_images_action.shortcut().toString() == "Ctrl+Shift+E"
+    assert window.ui.copy_export_remove_action.text().strip() == "Export && Remove selected Images from List"
+
+
+def test_reset_dialog_names_only_the_settings_it_resets(window, monkeypatch):
+    asked = []
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: asked.append(args[2]) or QMessageBox.StandardButton.No)
+
+    window.ui.reset_settings_action.trigger()
+
+    assert asked[0].startswith("Reset Model and Crop settings")
+
+
+@pytest.mark.parametrize("crop", [{"mode": "union"}, {"mode": "bogus"}, {}])
+def test_importing_an_unknown_or_missing_crop_mode_selects_the_default(window, tmp_path, monkeypatch, crop):
+    source = tmp_path / "import.json"
+    source.write_text(json.dumps({"groups": {"crop": crop}}))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(source), ""))
+    window.ui.rb_crop_centered_obj.setChecked(True)
+
+    window.ui.import_settings_action.trigger()
+
+    assert window.ui.rb_crop_all_detected_objects.isChecked()

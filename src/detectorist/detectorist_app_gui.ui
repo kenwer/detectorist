@@ -262,6 +262,19 @@
           </property>
           <layout class="QGridLayout" name="grdlyt_crop">
            <item row="0" column="0" colspan="2">
+            <widget class="QCheckBox" name="cb_crop">
+             <property name="toolTip">
+              <string>Uncheck to export whole images, named like the crops</string>
+             </property>
+             <property name="text">
+              <string>Crop</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_all_detected_objects">
              <property name="toolTip">
               <string>Crops all detected objects into individual images</string>
@@ -277,7 +290,7 @@
              </attribute>
             </widget>
            </item>
-           <item row="1" column="0" colspan="2">
+           <item row="2" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_most_confident_detection">
              <property name="toolTip">
               <string>Crops only the detection the object detector is most confident about into a new image</string>
@@ -293,7 +306,7 @@
              </attribute>
             </widget>
            </item>
-           <item row="2" column="0" colspan="2">
+           <item row="3" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_best_classification">
              <property name="toolTip">
               <string>Crops only the best classified object into a new image: the deepest identified rank wins, then the highest score</string>
@@ -309,29 +322,13 @@
              </attribute>
             </widget>
            </item>
-           <item row="3" column="0" colspan="2">
+           <item row="4" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_centered_obj">
              <property name="toolTip">
               <string>Crops to the most centrally located of all detected objects only into a new image</string>
              </property>
              <property name="text">
               <string>Object closest to center</string>
-             </property>
-             <property name="checked">
-              <bool>false</bool>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">btngroup_crop</string>
-             </attribute>
-            </widget>
-           </item>
-           <item row="4" column="0" colspan="2">
-            <widget class="QRadioButton" name="rb_crop_union">
-             <property name="toolTip">
-              <string>Crops all detected objects into a single image</string>
-             </property>
-             <property name="text">
-              <string>Union of all objects</string>
              </property>
              <property name="checked">
               <bool>false</bool>
@@ -418,6 +415,29 @@
               <string>Auto correct camera exposure bias</string>
              </property>
              <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="0" alignment="Qt::AlignmentFlag::AlignTop">
+            <widget class="QLabel" name="export_summary_title_label">
+             <property name="toolTip">
+              <string>Where Export writes the images</string>
+             </property>
+             <property name="text">
+              <string>Output</string>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="1" colspan="2">
+            <widget class="QLabel" name="export_summary_label">
+             <property name="toolTip">
+              <string>Where Export writes the images</string>
+             </property>
+             <property name="textFormat">
+              <enum>Qt::TextFormat::RichText</enum>
+             </property>
+             <property name="wordWrap">
               <bool>true</bool>
              </property>
             </widget>
@@ -518,8 +538,6 @@
     <property name="title">
      <string>Actions</string>
     </property>
-    <addaction name="group_images_by_object_class_action"/>
-    <addaction name="separator"/>
     <addaction name="crop_and_export_all_images_action"/>
     <addaction name="crop_and_export_selected_images_action"/>
     <addaction name="separator"/>
@@ -575,7 +593,7 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Crop &amp;&amp; Export selected Images</string>
+    <string>Export selected Images</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+E</string>
@@ -589,7 +607,7 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Crop &amp;&amp; Export all Images</string>
+    <string>Export all Images</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+E</string>
@@ -702,20 +720,6 @@
     <bool>true</bool>
    </property>
   </action>
-  <action name="group_images_by_object_class_action">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>Group Images into Folders (by Object Class)</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+Shift+G</string>
-   </property>
-   <property name="shortcutVisibleInContextMenu">
-    <bool>true</bool>
-   </property>
-  </action>
   <action name="clear_image_list_action">
    <property name="enabled">
     <bool>false</bool>
@@ -786,10 +790,10 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Crop &amp;&amp; Export &amp;&amp; Remove selected Images from List </string>
+    <string>Export &amp;&amp; Remove selected Images from List</string>
    </property>
    <property name="toolTip">
-    <string>Starts a batch process that crops and exports the selected image(s) into a subfolder and also removes the image(s) from the list</string>
+    <string>Starts a batch process that exports the selected image(s) into a subfolder and also removes the image(s) from the list</string>
    </property>
    <property name="shortcut">
     <string>Alt+E</string>
@@ -808,7 +812,7 @@
     <string>Import Settings...</string>
    </property>
    <property name="toolTip">
-    <string>Import Model and Crop settings from a previous export's settings.json file</string>
+    <string>Import settings from a previous export's settings.json file</string>
    </property>
   </action>
   <action name="export_settings_action">
@@ -816,7 +820,7 @@
     <string>Export Settings...</string>
    </property>
    <property name="toolTip">
-    <string>Export current Model and Crop settings to a JSON file</string>
+    <string>Export current settings to a JSON file</string>
    </property>
   </action>
   <action name="reset_settings_action">
@@ -824,7 +828,7 @@
     <string>Reset Settings to Defaults</string>
    </property>
    <property name="toolTip">
-    <string>Reset Model and Crop settings to their default values</string>
+    <string>Reset Model, Crop and Export settings to their default values</string>
    </property>
   </action>
   <action name="manage_models_action">

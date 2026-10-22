@@ -20,7 +20,6 @@ Rect = tuple[int, int, int, int]
 
 class CropMode(StrEnum):
     MOST_CONFIDENT_DETECTION = "top_confidence"  # box of the detection with the highest detection score
-    UNION = "union"                    # one box framing all detections
     MOST_CENTERED = "most_centered"    # box of the detection closest to the image center
     EACH_OBJECT = "all_detected_objects"  # one crop per detection
     BEST_CLASSIFICATION = "best_classification"  # box of the detection named to the deepest rank (see _classification_quality)
@@ -28,8 +27,6 @@ class CropMode(StrEnum):
     @classmethod
     def from_setting(cls, value: str | None) -> CropMode | None:
         """Parse a persisted mode name, or None if missing/unknown."""
-        if value == "largest_area":  # persisted name before the UNION rename
-            return cls.UNION
         if value is None:
             return None
         try:
@@ -50,8 +47,15 @@ class CropSettings:
 
 def plan_crops(detections: list[Detection], image_height: int, image_width: int, settings: CropSettings,
                taxonomy_by_box: Mapping[Box, Taxonomy] = {}) -> list[Rect]:
+    """Plans crop rectangles, see plan_crop_targets for the arguments."""
+    return [rect for rect, _ in plan_crop_targets(detections, image_height, image_width, settings, taxonomy_by_box)]
+
+
+def plan_crop_targets(detections: list[Detection], image_height: int, image_width: int, settings: CropSettings,
+                      taxonomy_by_box: Mapping[Box, Taxonomy] = {}) -> list[tuple[Rect, Detection]]:
     """
-    Plans crop rectangles based on detections and crop settings.
+    Plans crop rectangles based on detections and crop settings, each with
+    the detection it frames.
 
     Args:
         detections: The detections to frame. Only the box and score are read.
@@ -62,37 +66,47 @@ def plan_crops(detections: list[Detection], image_height: int, image_width: int,
             BEST_CLASSIFICATION only. Detections missing here count as unidentified.
 
     Returns:
-        A list of tuples (x, y, w, h) for the crop rectangles.
+        A list of ((x, y, w, h), detection) pairs, one per crop rectangle.
     """
     # A box without area cannot be framed and would divide by zero in the aspect fit
     detections = [d for d in detections if d.box[2] > 0 and d.box[3] > 0]
     if not detections:
         return []
-    boxes = _boxes_to_frame(detections, image_height, image_width, settings, taxonomy_by_box)
-    return [_frame(box, image_height, image_width, settings.padding, settings.aspect) for box in boxes]
+    chosen = _detections_to_frame(detections, image_height, image_width, settings, taxonomy_by_box)
+    return [(_frame(d.box, image_height, image_width, settings.padding, settings.aspect), d) for d in chosen]
 
 
-def _boxes_to_frame(detections: list[Detection], image_height: int, image_width: int, settings: CropSettings,
-                    taxonomy_by_box: Mapping[Box, Taxonomy]) -> list[Box]:
-    """The boxes the crop mode frames, one per crop."""
+def naming_detection(detections: list[Detection], image_height: int, image_width: int, settings: CropSettings,
+                     taxonomy_by_box: Mapping[Box, Taxonomy] = {}) -> Detection | None:
+    """
+    The detection an uncropped copy of the image is named by: the one the
+    crop mode would crop, or the top score where the mode crops each object
+    or no box has an area. None without detections.
+    """
+    if not detections:
+        return None
+    targets = plan_crop_targets(detections, image_height, image_width, settings, taxonomy_by_box)
+    if settings.mode is CropMode.EACH_OBJECT or not targets:
+        return max(detections, key=lambda d: d.score)
+    return targets[0][1]
+
+
+def _detections_to_frame(detections: list[Detection], image_height: int, image_width: int, settings: CropSettings,
+                         taxonomy_by_box: Mapping[Box, Taxonomy]) -> list[Detection]:
+    """The detections the crop mode frames, one per crop."""
     match settings.mode:
         case CropMode.EACH_OBJECT:
-            return [d.box for d in detections]
-        case CropMode.UNION:
-            left = min(d.box[0] for d in detections)
-            top = min(d.box[1] for d in detections)
-            right = max(d.box[0] + d.box[2] for d in detections)
-            bottom = max(d.box[1] + d.box[3] for d in detections)
-            return [(left, top, right - left, bottom - top)]
+            return list(detections)
         case CropMode.MOST_CONFIDENT_DETECTION:
-            return [max(detections, key=lambda d: d.score).box]
+            chosen = max(detections, key=lambda d: d.score)
         case CropMode.MOST_CENTERED:
             def distance_to_center(d: Detection) -> float:
                 x, y, w, h = d.box
                 return math.hypot(x + w / 2 - image_width / 2, y + h / 2 - image_height / 2)
-            return [min(detections, key=distance_to_center).box]
+            chosen = min(detections, key=distance_to_center)
         case CropMode.BEST_CLASSIFICATION:
-            return [max(detections, key=lambda d: _classification_quality(d, taxonomy_by_box.get(d.box), settings.taxon_confidence)).box]
+            chosen = max(detections, key=lambda d: _classification_quality(d, taxonomy_by_box.get(d.box), settings.taxon_confidence))
+    return [chosen]
 
 
 def _classification_quality(detection: Detection, taxonomy: Taxonomy | None, taxon_confidence: float) -> tuple[int, float, float]:

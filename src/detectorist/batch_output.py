@@ -1,20 +1,18 @@
 """The files a Batch Run writes besides the action's images.
 
-The rows and columns of the detections and classification CSV files, how a
-run merges its rows into a prior run's file, and the names of the CSV and
-settings files. Knows nothing about detecting or classifying.
+The rows and columns of the detections and classification CSV files, and
+the names of the CSV and settings files. Knows nothing about detecting or
+classifying.
 """
 
 import csv
-import locale
-import logging
 import os
-from typing import NamedTuple
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any, NamedTuple
 
 from .structures import Detection
 from .utils import long_path, strip_model_ext
-
-logger = logging.getLogger(__name__)
 
 CSV_ENCODING = "utf-8-sig"
 DETECTIONS_CSV_HEADER = ["Filename", "Highest confidence score", "Class name", "Number of detected objects", "cropped"]
@@ -67,66 +65,22 @@ def summarize_detections(file_name: str, detections: list[Detection], cropped: b
                          "yes" if cropped else "no")
 
 
-class CsvTable:
+@contextmanager
+def csv_writer(path: str, header: list[str]) -> Iterator[Any]:
     """
-    A Batch Run's CSV file as rows grouped by the image filename in their
-    first column. Starts with a prior run's rows, so this run replaces the
-    rows of the images it processes again and leaves the rest as they were.
+    A csv writer for one of a Batch Run's CSV files, with the header written.
+    The file is created anew, replacing one left by an earlier run. Opening it
+    up front fails the run before any image is processed if another program
+    holds the file locked, instead of after every image was.
     """
-
-    def __init__(self, path: str, header: list[str]):
-        """
-        Reads the prior rows and fails before the run starts if the file
-        cannot be written, e.g. because another program holds it locked.
-        Otherwise the error would only surface after every image was processed.
-        """
-        self._path = path
-        self._header = header
-        self._rows_by_filename: dict[str, list[tuple]] = {}
-        for row in self._read_prior_rows():
-            self._rows_by_filename.setdefault(row[0], []).append(row)
-
-        try:
-            # Append mode probes without truncating
-            with open(long_path(path), "a"):
-                pass
-        except OSError as e:
-            raise OSError(
-                f"Cannot write {os.path.basename(path)}. Close it if it is open in another program."
-            ) from e
-
-    def _read_prior_rows(self) -> list[tuple]:
-        """
-        A missing file, a header other than this table's (e.g. from an older
-        app version), or a file that cannot be decoded is treated as "no prior
-        data" rather than migrated.
-        """
-        if not os.path.isfile(long_path(self._path)):
-            return []
-
-        for encoding in (CSV_ENCODING, locale.getencoding()):
-            try:
-                with open(long_path(self._path), newline="", encoding=encoding) as f:
-                    reader = csv.reader(f)
-                    if next(reader, None) != self._header:
-                        logger.warning("%s: header does not match, ignoring prior contents", self._path)
-                        return []
-                    # Skip blank lines, which a hand-edited file may contain
-                    return [tuple(row) for row in reader if row]
-            except UnicodeDecodeError:
-                continue
-        logger.warning("%s: cannot be decoded, ignoring prior contents", self._path)
-        return []
-
-    def replace(self, file_name: str, rows: list[tuple]) -> None:
-        """Replaces all rows of an image. No rows drops the image from the file."""
-        self._rows_by_filename[file_name] = rows
-
-    def write(self) -> None:
-        with open(long_path(self._path), "w", newline="", encoding=CSV_ENCODING) as csv_file:
-            csv_writer = csv.writer(csv_file)
-            csv_writer.writerow(self._header)
-            csv_writer.writerows(row for rows in self._rows_by_filename.values() for row in rows)
+    try:
+        csv_file = open(long_path(path), "w", newline="", encoding=CSV_ENCODING)
+    except OSError as e:
+        raise OSError(f"Cannot write {os.path.basename(path)}. Close it if it is open in another program.") from e
+    with csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(header)
+        yield writer
 
 
 def _run_suffix(threshold: int, model_filename: str) -> str:
@@ -141,7 +95,7 @@ def detections_csv_name(detection_confidence: int, model_filename: str) -> str:
     detectorist-detections-conf-75-fish-seg-transformer-2026-02-24.csv).
     Every run shares the same output directory, so this is what keeps runs
     with different settings from overwriting each other's CSV. A re-run with
-    the same detection confidence and model overwrites its own prior CSV instead.
+    the same detection confidence and model replaces its own prior CSV instead.
     """
     return f"detectorist-detections-{_run_suffix(detection_confidence, model_filename)}.csv"
 

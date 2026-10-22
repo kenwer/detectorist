@@ -47,6 +47,7 @@ class Settings:
     KEY_ASPECT_RATIO_INDEX = "aspect_ratio_index"
     KEY_PADDING = "padding"
     KEY_AUTO_CORRECT_EXPOSURE = "auto_correct_exposure"
+    KEY_CROP = "crop"
 
     def __init__(self, qsettings: QSettings | None = None):
         """
@@ -233,6 +234,15 @@ class Settings:
     @auto_correct_exposure_enabled.setter
     def auto_correct_exposure_enabled(self, value: bool) -> None:
         self._set_grouped(self.GROUP_CROP, self.KEY_AUTO_CORRECT_EXPOSURE, value)
+
+    @property
+    def crop_enabled(self) -> bool | None:
+        """Whether Export crops the images, or copies them whole."""
+        return self._get_grouped(self.GROUP_CROP, self.KEY_CROP, bool)
+
+    @crop_enabled.setter
+    def crop_enabled(self, value: bool) -> None:
+        self._set_grouped(self.GROUP_CROP, self.KEY_CROP, value)
 
     def reset_to_defaults(self) -> None:
         """Clear Model and Crop settings, leaving recent directories and UI layout untouched."""
