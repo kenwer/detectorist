@@ -51,7 +51,7 @@ Download the binary for your operating system and start the application.
 *   **Filter by object class:** Filter detections by object class. The filter applies to the displayed detections and to exports.
 *   **Multiple Image Formats:** Supports common image formats like PNG, JPG, BMP, and also 10 bit HEIC/HEIF or Sony RAW (.ARW).
 *   **EXIF Data Viewer:** Displays selected EXIF metadata for the current image.
-*   **Export named copies:** Export crops or whole images, each named after its detected class or, with a classifier, its taxa.
+*   **Export named copies:** Export crops or whole images, each named after its taxa (with a classifier), its detected class, or both.
 *   **Configurable aspect ratio for cropping:** with 3:2, 4:4, 16:9, plus support for padding.
 *   **CSV log when processing multiple images:** Write log file to the output directory providing information about the detections like the number of detected objects and the highest confidence score.
 *   **Model Manager:** Browse, download, and update models from the project page.
@@ -69,13 +69,14 @@ Download the binary for your operating system and start the application.
 *   Click on an iamge-item in the list on the left or use the arrow keys to navigate through the image set.
 *   Use the slider and spin-box on the right to adjust the **Confidence** threshold. Detections will update automatically.
     * The Confidence threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
-*   Optionally configure the crop and padding settings, then start an export via `Export all Images` or `Export selected Images` in the Actions menu. The original images are never changed.
-    * Every file lands in a `processed` subdirectory of the image's folder, with no further subfolders.
-    * With `Crop` checked, each detection is cropped (`Fish_IMG_0042_crop.jpg`). Unchecked, the whole image is copied (`Fish_IMG_0042.jpg`).
-    * Without a classifier, file names start with the detected class. With a classifier, they start with every rank that reaches the taxon confidence, and `unidentified` for the rest (`Pomacentridae_Amphiprion_ocellaris_IMG_0042_crop.jpg`, `Pomacentridae_Amphiprion_unidentified_IMG_0042_crop.jpg`).
-    * Images without detections are copied with a `no-detection_` prefix, so every image is accounted for.
+*   Optionally configure the crop mode, aspect ratio and padding, then choose `Export Images...` in the File menu (`Ctrl+E`). The Export dialog previews the files and lets you choose:
+    * All images, or only the selected ones.
+    * Whether to crop each detection (`Fish_IMG_0042_crop.jpg`) or copy the whole image (`Fish_IMG_0042.jpg`).
+    * What the file names start with: the class, the taxa (with a classifier), both, or nothing (`Fish_in-focus_Pomacentridae_Amphiprion_ocellaris_IMG_0042_crop.jpg`). Taxa name every rank that reaches the taxon confidence and `unidentified` for the rest (`Pomacentridae_Amphiprion_unidentified_IMG_0042_crop.jpg`). Detections of a class the classifier does not name keep their class instead. Images without detections start with `no-detection_`.
+    * The output folder: a `processed` subdirectory of the image folder, or another folder. The original images are never changed.
+    * Only the detections of the class chosen in `Show` are exported, as the dialog notes.
     * Files from an earlier export are overwritten where the names match and kept otherwise.
-    * The accompanying detections CSV and exported settings JSON encode the confidence level and model used in their filenames (like: `detectorist-detections-conf-75-fish-seg-transformer-2026-02-24.csv`).
+    * Next to the images go `detectorist-detections.csv`, `detectorist-classification.csv` (with a classifier) and `detectorist-settings.json`, which records the settings used, such as models, confidence levels and the Show filter. Import it with `Import Settings...` in the File menu to repeat the export.
 
 ### Keyboard shortcuts
 

@@ -11,6 +11,7 @@ from PySide6.QtCore import (
     Q_ARG,
     QMetaObject,
     QRect,
+    QSignalBlocker,
     Qt,
     QThread,
     QTimer,
@@ -19,25 +20,26 @@ from PySide6.QtCore import (
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
+    QDialog,
     QFileDialog,
     QLabel,
     QMainWindow,
     QMenu,
     QMessageBox,
     QProgressDialog,
-    QRadioButton,
 )
 
 from detectorist import __version__
 
 from .about_dialog import show_about_dialog
-from .batch_output import classification_csv_name, detections_csv_name, settings_json_name
+from .batch_output import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
 from .batch_run import CropExportAction, run_batch
 from .classifier import Classifier, class_matches, describe
-from .crop_planner import CropMode, CropSettings, plan_crops
 from .detection_style import taxon_styles
 from .detector import Detector
-from .export_layout import describe_export
+from .enum_button_group import EnumButtonGroup
+from .export_dialog import ExportDialog, PreviewImage
+from .export_planner import CropMode, CropSettings, ExportOptions, plan_crops
 from .image_cache import PrefetchPlanner
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
@@ -57,6 +59,7 @@ from .ui_detectorist_app_gui import Ui_DetectoristAppUI
 from .utils import (
     SharedFactory,
     contract_user_path,
+    count_noun,
     get_model_path,
     list_model_files,
     long_path,
@@ -66,8 +69,6 @@ from .utils import (
 from .worker import DetectionWorker
 
 logger = logging.getLogger(__name__)
-
-OUTPUT_DIR_NAME = "processed"  # export folder in each image folder, for any model or confidence
 
 
 def image_name_filter(platform: str = sys.platform) -> str:
@@ -116,11 +117,6 @@ def aspect_ratio_setting(aspect: tuple[int, int] | str) -> str:
     return f"{aspect[0]}:{aspect[1]}" if isinstance(aspect, tuple) else aspect
 
 
-def _count(number: int, noun: str) -> str:
-    """A number with a noun in the matching form, e.g. "1 classification" or "20 classifications"."""
-    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
-
-
 class DetectoristApp(QMainWindow):
     # Signal to request processing in the worker thread
     request_processing = Signal(str, bool, list, float)  # image_path, exposure_correction, prefetch_paths, min_detection_score
@@ -160,6 +156,8 @@ class DetectoristApp(QMainWindow):
         # The classifier the user chose, by filename. It stays the choice while a
         # detection model is loaded that it does not apply to.
         self._preferred_classifier: str | None = None
+        # The class chosen in Show, kept while a model that does not detect it is loaded
+        self._preferred_class_filter: str | None = None
         # Classes of the loaded detection model. They decide which classifiers are offered.
         self._detector_class_names: list[str] = []
         self._last_output_dir: str | None = None
@@ -203,6 +201,13 @@ class DetectoristApp(QMainWindow):
         for label, aspect in ASPECT_RATIOS:
             self.ui.crop_ratio_combo_box.addItem(label, aspect_ratio_setting(aspect))
 
+        self._crop_modes = EnumButtonGroup(self.ui.btngroup_crop, {
+            CropMode.MOST_CONFIDENT_DETECTION: self.ui.rb_crop_most_confident_detection,
+            CropMode.BEST_CLASSIFICATION: self.ui.rb_crop_best_classification,
+            CropMode.MOST_CENTERED: self.ui.rb_crop_centered_obj,
+            CropMode.EACH_OBJECT: self.ui.rb_crop_all_detected_objects,
+        })
+
         # Snapshot the .ui file's built-in defaults before _load_settings() can override
         # them, so "Reset Settings to Defaults" has real values to restore.
         self._default_detection_confidence = self.ui.detection_confidence_slider.value()
@@ -210,10 +215,7 @@ class DetectoristApp(QMainWindow):
         self._default_padding = self.ui.padding_slider.value()
         self._default_aspect_ratio_index = self.ui.crop_ratio_combo_box.currentIndex()
         self._default_auto_correct_exposure = self.ui.cb_comp_cam_exposure.isChecked()
-        self._default_crop = self.ui.cb_crop.isChecked()
-        self._default_crop_mode = next(
-            mode for mode, radio in self._crop_mode_radios().items() if radio.isChecked()
-        )
+        self._default_crop_mode = self._crop_modes.value()
 
         self.model = ImageListModel()
         self.ui.image_list_view.setModel(self.model)
@@ -229,22 +231,19 @@ class DetectoristApp(QMainWindow):
         self.ui.image_list_view.addAction(self.ui.remove_selected_images_from_list_action)
         self.ui.image_list_view.addAction(self.ui.locate_image_in_filemanager_action)
         self.ui.image_list_view.addAction(self.ui.copy_filenames_to_clipboard_action)
-        self.ui.image_list_view.addAction(self.ui.copy_export_remove_action)
 
         # Connect signals
         self.ui.open_images_action.triggered.connect(self.open_images)
         self.ui.open_folder_action.triggered.connect(self.open_folder)
         self.ui.clear_image_list_action.triggered.connect(self.clear_image_list)
         self.ui.image_list_view.selectionModel().currentChanged.connect(self.on_image_selected)
-        self.ui.crop_and_export_all_images_action.triggered.connect(self.crop_and_export_all_images)
-        self.ui.crop_and_export_selected_images_action.triggered.connect(self.crop_and_export_selected_images)
+        self.ui.export_action.triggered.connect(self.export_with_dialog)
         self.ui.image_list_view.selectionModel().selectionChanged.connect(self._update_selection_dependent_actions_state)
         self.ui.about_action.triggered.connect(self.show_about_dialog)
         self.ui.shortcuts_action.triggered.connect(self.show_shortcuts_dialog)
         self.ui.locate_image_in_filemanager_action.triggered.connect(self._locate_selected_image_in_file_manager)
         self.ui.copy_filenames_to_clipboard_action.triggered.connect(self._copy_selected_filenames_to_clipboard)
         self.ui.remove_selected_images_from_list_action.triggered.connect(self._remove_selected_images_from_list)
-        self.ui.copy_export_remove_action.triggered.connect(self._copy_export_remove_selected_images)
         self.ui.clear_recent_folders_action.triggered.connect(self._clear_recent_folders)
         self.ui.import_settings_action.triggered.connect(self._import_settings)
         self.ui.export_settings_action.triggered.connect(self._export_settings)
@@ -266,15 +265,11 @@ class DetectoristApp(QMainWindow):
         self.ui.taxon_confidence_slider.valueChanged.connect(self._display_filtered_results)
 
         # Connect crop controls
-        self.ui.rb_crop_most_confident_detection.toggled.connect(self.update_crop_bands)
-        self.ui.rb_crop_best_classification.toggled.connect(self.update_crop_bands)
-        self.ui.rb_crop_all_detected_objects.toggled.connect(self.update_crop_bands)
-        self.ui.rb_crop_centered_obj.toggled.connect(self.update_crop_bands)
+        self._crop_modes.value_changed.connect(self.update_crop_bands)
         self.ui.crop_ratio_combo_box.currentIndexChanged.connect(self.update_crop_bands)
         self.ui.padding_slider.valueChanged.connect(self.update_crop_bands)
 
         self.ui.cb_comp_cam_exposure.toggled.connect(self.on_exposure_compensation_toggled)
-        self.ui.cb_crop.toggled.connect(self._on_crop_toggled)
         self.ui.toggle_masks_action.toggled.connect(self.ui.image_label.set_masks_visible)
         self.ui.toggle_boxes_action.toggled.connect(self.ui.image_label.set_boxes_visible)
         self.ui.toggle_labels_action.toggled.connect(self.ui.image_label.set_labels_visible)
@@ -361,17 +356,23 @@ class DetectoristApp(QMainWindow):
         # Model selection
         if self.settings.detection_model:
             combo = self.ui.model_select_combo_box
-            combo.blockSignals(True)
-            idx = self._find_model_index(combo, self.settings.detection_model)
-            if idx >= 0:
-                combo.setCurrentIndex(idx)
-            combo.blockSignals(False)
+            with QSignalBlocker(combo):
+                idx = self._find_model_index(combo, self.settings.detection_model)
+                if idx >= 0:
+                    combo.setCurrentIndex(idx)
 
         # Classifier choice. At startup no detection model has loaded yet, so the
         # list stays at "No classifier" until handle_model_loaded refreshes it.
         # After Import Settings, the refresh selects the imported choice.
         self._preferred_classifier = self.settings.classification_model
         self._refresh_classifier_list()
+
+        # Like the classifier, the Show filter is selected once a model that detects its class has loaded.
+        # After Import Settings the loaded model may stay, and its classes are listed already.
+        self._preferred_class_filter = self.settings.export_class_filter
+        if self.ui.class_filter_combo_box.count():
+            self._select_preferred_class_filter()
+            self._display_filtered_results()
 
         # Detection confidence (slider and spinbox are linked)
         if (detection_confidence := self.settings.detection_min_confidence_percent) is not None:
@@ -384,7 +385,7 @@ class DetectoristApp(QMainWindow):
         # Crop mode
         # A mode that is missing or no longer exists, like the removed union, falls back to the default
         crop_mode = CropMode.from_setting(self.settings.crop_mode) or self._default_crop_mode
-        self._crop_mode_radios()[crop_mode].setChecked(True)
+        self._crop_modes.set_value(crop_mode)
 
         # Aspect ratio
         # A ratio that is not offered keeps the current one
@@ -398,10 +399,6 @@ class DetectoristApp(QMainWindow):
         # Auto correct camera exposure bias
         if (auto_exposure := self.settings.image_correct_exposure) is not None:
             self.ui.cb_comp_cam_exposure.setChecked(auto_exposure)
-
-        if (crop := self.settings.crop_images) is not None:
-            self.ui.cb_crop.setChecked(crop)
-        self._update_crop_controls()
 
     def _save_settings(self):
         """Save current UI state to persistent settings."""
@@ -423,10 +420,8 @@ class DetectoristApp(QMainWindow):
         self.settings.detection_min_confidence_percent = self.ui.detection_confidence_slider.value()
 
         # Crop mode
-        for mode, radio in self._crop_mode_radios().items():
-            if radio.isChecked():
-                self.settings.crop_mode = mode.value
-                break
+        if (crop_mode := self._crop_modes.value()) is not None:
+            self.settings.crop_mode = crop_mode.value
 
         # Aspect ratio
         self.settings.crop_aspect_ratio = self.ui.crop_ratio_combo_box.currentData()
@@ -436,7 +431,9 @@ class DetectoristApp(QMainWindow):
 
         # Auto correct camera exposure bias
         self.settings.image_correct_exposure = self.ui.cb_comp_cam_exposure.isChecked()
-        self.settings.crop_images = self.ui.cb_crop.isChecked()
+
+        # Show filter
+        self.settings.export_class_filter = self._preferred_class_filter
 
     def _clear_results(self):
         """Empties the results table and its summary, while no detection result is shown."""
@@ -454,7 +451,7 @@ class DetectoristApp(QMainWindow):
         many of them are classified, and the time each took.
         """
         self.ui.results_table.show_detections(detections, self._taxonomy_by_box, threshold)
-        summary = f"{_count(len(detections), 'object')} detected ({self._last_detection_time_ms:.0f} ms)."
+        summary = f"{count_noun(len(detections), 'object')} detected ({self._last_detection_time_ms:.0f} ms)."
         if self._taxonomy_by_box:
             # The time also covers the names of detections the filters hide
             classified = sum(d.box in self._taxonomy_by_box for d in detections)
@@ -493,7 +490,7 @@ class DetectoristApp(QMainWindow):
 
         # Enable actions that operate on all loaded images (only if a model is available)
         can_run = self.ui.model_select_combo_box.count() > 0 and not self._batch_running
-        self.ui.crop_and_export_all_images_action.setEnabled(can_run)
+        self.ui.export_action.setEnabled(can_run)
 
         # Select the first image in the list view
         first_file_path = supported_files[0]
@@ -639,12 +636,13 @@ class DetectoristApp(QMainWindow):
         self.ui.taxon_confidence_slider.setValue(self._default_taxon_confidence)
         self._preferred_classifier = None
         self.ui.classifier_combo_box.setCurrentIndex(0)
+        # Set directly, as the combo box may show all classes already and then not signal the change
+        self._preferred_class_filter = None
+        self.ui.class_filter_combo_box.setCurrentIndex(0)
         self.ui.padding_slider.setValue(self._default_padding)
         self.ui.crop_ratio_combo_box.setCurrentIndex(self._default_aspect_ratio_index)
         self.ui.cb_comp_cam_exposure.setChecked(self._default_auto_correct_exposure)
-        self._crop_mode_radios()[self._default_crop_mode].setChecked(True)
-        self.ui.cb_crop.setChecked(self._default_crop)
-        self._update_crop_controls()
+        self._crop_modes.set_value(self._default_crop_mode)
 
         self._save_settings()
         self.ui.status_bar.showMessage("Settings reset to defaults.", 3000)
@@ -677,7 +675,7 @@ class DetectoristApp(QMainWindow):
 
         # Disable actions that depend on images being loaded
         # (Selection-dependent actions are handled via the modelReset signal)
-        self.ui.crop_and_export_all_images_action.setEnabled(False)
+        self.ui.export_action.setEnabled(False)
 
     def on_image_selected(self, index):
         if not index.isValid():
@@ -747,12 +745,10 @@ class DetectoristApp(QMainWindow):
         """Handles the result of loading a model in the worker."""
         self.ui.image_label.set_class_color_map(class_names)
         self.ui.toggle_masks_action.setEnabled(is_segmentation)
-        self.ui.class_filter_combo_box.blockSignals(True)
-        self.ui.class_filter_combo_box.clear()
-        self.ui.class_filter_combo_box.addItem("All classes")
-        for name in class_names:
-            self.ui.class_filter_combo_box.addItem(name)
-        self.ui.class_filter_combo_box.blockSignals(False)
+        with QSignalBlocker(self.ui.class_filter_combo_box):
+            self.ui.class_filter_combo_box.clear()
+            self.ui.class_filter_combo_box.addItems(["All classes", *class_names])
+        self._select_preferred_class_filter()
         self._all_detection_results = []
         self._detector_class_names = class_names
         self._refresh_classifier_list()
@@ -819,6 +815,15 @@ class DetectoristApp(QMainWindow):
         """Handles the classifier_error signal from the worker. The detections stay as they are."""
         show_error_toast(self, "Classifier error", message)
 
+    def _select_preferred_class_filter(self) -> None:
+        """
+        Selects the preferred class in Show, or all classes while the loaded
+        model does not detect it. The preference stays for a model that does.
+        """
+        combo = self.ui.class_filter_combo_box
+        with QSignalBlocker(combo):
+            combo.setCurrentIndex(max(combo.findText(self._preferred_class_filter or ""), 0))
+
     def _selected_class_filter(self) -> str | None:
         """The class name chosen in the class filter, or None for "All classes"."""
         if self.ui.class_filter_combo_box.currentIndex() <= 0:
@@ -846,6 +851,7 @@ class DetectoristApp(QMainWindow):
 
     def on_class_filter_changed(self):
         """Re-displays detection results when the class filter selection changes."""
+        self._preferred_class_filter = self._selected_class_filter()
         self._display_filtered_results()
 
     def handle_worker_error(self, image_path: str, message: str):
@@ -919,16 +925,15 @@ class DetectoristApp(QMainWindow):
         self._refresh_classifier_list()
 
         combo = self.ui.model_select_combo_box
-        combo.blockSignals(True)
-        for filename in onnx_files:
-            display_name = name_map.get(filename) or strip_model_ext(filename)
-            combo.addItem(display_name, filename)
+        with QSignalBlocker(combo):
+            for filename in onnx_files:
+                display_name = name_map.get(filename) or strip_model_ext(filename)
+                combo.addItem(display_name, filename)
 
-        # Restore previous selection by filename
-        idx = self._find_model_index(combo, previous_filename)
-        if idx >= 0:
-            combo.setCurrentIndex(idx)
-        combo.blockSignals(False)
+            # Restore previous selection by filename
+            idx = self._find_model_index(combo, previous_filename)
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
 
         # If the selected model changed (e.g. first download), load it in the worker.
         # on_model_selected is not triggered automatically because signals were blocked.
@@ -952,13 +957,12 @@ class DetectoristApp(QMainWindow):
             if any(class_matches(self._model_downloader.classifies(filename), name) for name in self._detector_class_names)
         ]
 
-        combo.blockSignals(True)
-        combo.clear()
-        combo.addItem("No classifier", None)
-        for filename in applicable:
-            combo.addItem(name_map.get(filename) or strip_model_ext(filename), filename)
-        combo.setCurrentIndex(max(self._find_model_index(combo, self._preferred_classifier), 0))
-        combo.blockSignals(False)
+        with QSignalBlocker(combo):
+            combo.clear()
+            combo.addItem("No classifier", None)
+            for filename in applicable:
+                combo.addItem(name_map.get(filename) or strip_model_ext(filename), filename)
+            combo.setCurrentIndex(max(self._find_model_index(combo, self._preferred_classifier), 0))
         combo.setEnabled(combo.count() > 1)
         self._update_classifier_controls()
 
@@ -974,17 +978,16 @@ class DetectoristApp(QMainWindow):
 
     def _update_classifier_controls(self):
         """
-        Greys out the taxon confidence and the labels action and hides the
-        results' family, genus and species columns for "No classifier", as
-        nothing is classified then.
+        Greys out the taxon confidence, the labels action and the Best
+        classification crop mode and hides the results' family, genus and
+        species columns for "No classifier", as nothing is classified then.
         """
         active = self.ui.classifier_combo_box.currentData() is not None
         for widget in (self.ui.taxon_confidence_label, self.ui.taxon_confidence_slider,
-                       self.ui.taxon_confidence_spin_box, self.ui.toggle_labels_action):
+                       self.ui.taxon_confidence_spin_box, self.ui.toggle_labels_action,
+                       self.ui.rb_crop_best_classification):
             widget.setEnabled(active)
         self.ui.results_table.set_taxonomy_visible(active)
-        # Without a classifier the export is not sorted
-        self._update_export_summary()
 
     def _load_selected_classifier(self):
         """
@@ -1024,10 +1027,7 @@ class DetectoristApp(QMainWindow):
         can_run = has_models and not self._batch_running
 
         # Enable/disable actions that require a model
-        self.ui.crop_and_export_all_images_action.setEnabled(can_run and has_images)
-        self.ui.crop_and_export_selected_images_action.setEnabled(
-            can_run and self.ui.image_list_view.selectionModel().hasSelection()
-        )
+        self.ui.export_action.setEnabled(can_run and has_images)
 
         if not has_models:
             self._show_message(NO_MODELS_MESSAGE)
@@ -1084,22 +1084,13 @@ class DetectoristApp(QMainWindow):
             files_to_load.update(folder_images)
 
         if (files_to_load or folder_read) and self._load_images_from_paths(list(files_to_load)) and skipped:
-            show_warning_toast(self, "Skipped files", f"Skipped {_count(skipped, 'unsupported file')}.")
+            show_warning_toast(self, "Skipped files", f"Skipped {count_noun(skipped, 'unsupported file')}.")
 
         event.acceptProposedAction()
 
-    def _crop_mode_radios(self) -> dict[CropMode, QRadioButton]:
-        """The crop panel radio button for each CropMode."""
-        return {
-            CropMode.MOST_CONFIDENT_DETECTION: self.ui.rb_crop_most_confident_detection,
-            CropMode.BEST_CLASSIFICATION: self.ui.rb_crop_best_classification,
-            CropMode.MOST_CENTERED: self.ui.rb_crop_centered_obj,
-            CropMode.EACH_OBJECT: self.ui.rb_crop_all_detected_objects,
-        }
-
     def _get_current_crop_settings(self) -> CropSettings | None:
         """Gets crop settings from the UI, or None if no crop mode is selected."""
-        crop_mode = next((mode for mode, radio in self._crop_mode_radios().items() if radio.isChecked()), None)
+        crop_mode = self._crop_modes.value()
         if crop_mode is None:
             return None
 
@@ -1110,13 +1101,12 @@ class DetectoristApp(QMainWindow):
 
     def update_crop_bands(self):
         """
-        Frames the crops a Batch Run would export for the shown detections, none
-        while the Crop checkbox is off. They are planned from the detections as the
-        detector returned them, like in the Batch Run, not from the drawn boxes,
-        which are clamped to the image.
+        Frames the crops a Batch Run would export for the shown detections. They are
+        planned from the detections as the detector returned them, like in the Batch
+        Run, not from the drawn boxes, which are clamped to the image.
         """
         image = self.ui.image_label.image
-        crop_settings = self._get_current_crop_settings() if self.ui.cb_crop.isChecked() else None
+        crop_settings = self._get_current_crop_settings()
         # Until the names arrive, a best classification band would frame the most
         # confident detection only to jump to the best classified one
         if (image is None or crop_settings is None
@@ -1153,33 +1143,22 @@ class DetectoristApp(QMainWindow):
         if self._last_output_dir:
             self._open_native_file_manager(self._last_output_dir)
 
-
-    def _run_batch_with_progress(self, process_name: str, action, output_dir_name: str,
-                                 image_files_to_process: list[str] | None = None) -> bool:
+    def _run_batch_with_progress(self, options: ExportOptions, output_dir: str, image_paths: list[str]) -> bool:
         """
-        Runs a Batch Run over the given images (or all loaded images) with a
-        modal progress dialog, writing into the folder output_dir_name of the
-        image folder, then exports the settings alongside the CSV and reveals
-        the output directory.
+        Exports the given images via a Batch Run with a modal progress dialog,
+        writing into output_dir, then exports the settings alongside the CSV
+        and reveals the output directory.
 
         Returns:
             bool: True if every image was processed, False if the run was
                 cancelled, an error occurred or some images failed.
         """
-        if self.model.rowCount() == 0:
-            return False # No images loaded at all
-
-        image_full_paths = image_files_to_process if image_files_to_process is not None else self.model.imagePaths()
-        if not image_full_paths:
-            return False
-
         self._set_batch_actions_enabled(False)
         progress_dialog = None
         try:
             model_filename = self.ui.model_select_combo_box.currentData()
-            detections_csv_filename = detections_csv_name(self.ui.detection_confidence_slider.value(), model_filename)
 
-            total_files = len(image_full_paths)
+            total_files = len(image_paths)
             progress_dialog = QProgressDialog("Loading models...", "Cancel", 0, total_files, self)
             progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
             progress_dialog.setAutoClose(True)
@@ -1206,40 +1185,38 @@ class DetectoristApp(QMainWindow):
                 QApplication.processEvents()
                 return not progress_dialog.wasCanceled()
 
-            # The image list holds one folder (see _is_one_folder)
-            output_dir = os.path.join(os.path.dirname(image_full_paths[0]), output_dir_name)
             result = run_batch(
-                image_full_paths,
+                image_paths,
                 detector=batch_detector,
                 detection_confidence=self.ui.detection_confidence_slider.value() / 100.0,
                 exposure_correction=self.ui.cb_comp_cam_exposure.isChecked(),
                 output_dir=output_dir,
-                detections_csv_filename=detections_csv_filename,
-                action=action,
+                action=CropExportAction(options),
                 progress=progress,
                 class_filter=self._selected_class_filter(),
                 classifier=batch_classifier,
                 taxon_confidence=self.ui.taxon_confidence_slider.value() / 100.0,
-                classification_csv_filename=classification_csv_name(self.ui.taxon_confidence_slider.value(),
-                                                                    classifier_filename),
             )
             cancelled = result.cancelled
             failed_count = len(result.failed)
 
-            # Export the settings to JSON alongside the CSV
+            # Export the settings to JSON alongside the CSV. A classifier or class set aside for
+            # the loaded model is still the choice, but this run went without it.
             self._save_settings()
-            settings_filename = settings_json_name(self.ui.detection_confidence_slider.value(), model_filename)
-            self.settings.export_to_file(Path(output_dir) / settings_filename)
+            self.settings.export_to_file(Path(output_dir) / SETTINGS_JSON_NAME, {
+                Settings.classification_model: classifier_filename,
+                Settings.export_class_filter: self._selected_class_filter(),
+            })
 
             if not cancelled:
-                self.ui.status_bar.showMessage(f"Finished {process_name.lower()}.", 5000)
+                self.ui.status_bar.showMessage("Finished exporting images.", 5000)
                 self._set_last_output_dir(output_dir)
                 if failed_count:
                     show_warning_toast(
                         self,
                         "Detectorist",
-                        f"Finished {process_name.lower()}, but {_count(failed_count, 'image')} failed. "
-                        f"See {detections_csv_filename} for details.",
+                        f"Finished exporting images, but {count_noun(failed_count, 'image')} failed. "
+                        f"See {DETECTIONS_CSV_NAME} for details.",
                         link_text="Show in file manager",
                         on_link=lambda: self._open_native_file_manager(output_dir),
                         duration=0,  # keep the toast up, as the user may not be watching a long run
@@ -1248,19 +1225,19 @@ class DetectoristApp(QMainWindow):
                     show_success_toast(
                         self,
                         "Detectorist",
-                        f"Finished {process_name.lower()}.",
+                        "Finished exporting images.",
                         link_text="Show in file manager",
                         on_link=lambda: self._open_native_file_manager(output_dir),
                     )
             else:
-                self.ui.status_bar.showMessage(f"{process_name} cancelled.", 5000)
+                self.ui.status_bar.showMessage("Exporting images cancelled.", 5000)
 
             return not cancelled and not failed_count
 
         except Exception as e:
-            logger.exception("Error during %s", process_name)
-            self.ui.status_bar.showMessage(f"Error during {process_name}: {e}", 5000)
-            show_error_toast(self, f"{process_name} failed", str(e), duration=0)
+            logger.exception("Export failed")
+            self.ui.status_bar.showMessage(f"Export failed: {e}", 5000)
+            show_error_toast(self, "Export failed", str(e), duration=0)
             return False
         finally:
             if progress_dialog is not None:
@@ -1281,9 +1258,8 @@ class DetectoristApp(QMainWindow):
         state may have changed while the batch was running.
 
         The actions that load other images or change the settings are disabled
-        too. Loading images mid-run would swap the list that a "Copy, export &
-        remove" run removes its images from afterwards, and new settings would
-        not match the settings JSON exported with the CSV. As loading images
+        too, so the settings JSON exported with the CSV matches what the run
+        used and the window still shows the run's images. As loading images
         or a finished download recomputes the action states, those code paths
         check _batch_running, so they cannot enable a batch action mid-run.
         """
@@ -1298,81 +1274,58 @@ class DetectoristApp(QMainWindow):
             self.ui.open_images_action.setEnabled(True)
             self.ui.open_folder_action.setEnabled(True)
         else:
-            self.ui.crop_and_export_all_images_action.setEnabled(False)
-            self.ui.crop_and_export_selected_images_action.setEnabled(False)
-            self.ui.copy_export_remove_action.setEnabled(False)
+            self.ui.export_action.setEnabled(False)
             self.ui.clear_image_list_action.setEnabled(False)
             self.ui.remove_selected_images_from_list_action.setEnabled(False)
             self.ui.open_images_action.setEnabled(False)
             self.ui.open_folder_action.setEnabled(False)
 
-    def _crop_and_export_images_with_progress(self, process_name: str, image_files_to_process: list[str] | None = None):
+    def export_with_dialog(self) -> bool:
         """
-        Exports images via a Batch Run using the current crop
-        settings, into the processed folder of each image folder. The files are
-        named by taxon while a classifier is selected, else by class.
+        Asks in the Export dialog which images to export and how, then exports
+        them via a Batch Run with the current crop settings. Returns whether
+        every image was exported.
         """
+        all_images = self.model.imagePaths()
         crop_settings = self._get_current_crop_settings()
-        if crop_settings is None:
+        if not all_images or crop_settings is None:
             return False
         classifier_filename = self.ui.classifier_combo_box.currentData()
         patterns = tuple(self._model_downloader.classifies(classifier_filename)) if classifier_filename else None
-        action = CropExportAction(crop_settings, crop=self.ui.cb_crop.isChecked(), classifier_patterns=patterns)
-        return self._run_batch_with_progress(process_name, action, OUTPUT_DIR_NAME,
-                                             image_files_to_process)
+        options = ExportOptions(crop_settings, crop=self.settings.export_crop_images,
+                                prefix_class=self.settings.export_prefix_class,
+                                prefix_taxa=self.settings.export_prefix_taxa, classifier_patterns=patterns)
+
+        # Only the shown image has its detections at hand
+        image = self.ui.image_label.image
+        preview_image = (PreviewImage(self.current_image_path, self._filtered_results(), image.height, image.width,
+                                      self._taxonomy_by_box) if image is not None else None)
+        run_files = [DETECTIONS_CSV_NAME, *([CLASSIFICATION_CSV_NAME] if classifier_filename else []), SETTINGS_JSON_NAME]
+        crop_summary = (f"{self._crop_modes.button(crop_settings.mode).text()}, "
+                        f"{self.ui.crop_ratio_combo_box.currentText()}, {self.ui.padding_slider.value()}% padding")
+
+        dialog = ExportDialog(all_images, self._selected_image_files(), options=options, preview_image=preview_image,
+                              run_files=run_files, crop_summary=crop_summary,
+                              class_filter=self._selected_class_filter(), parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return False
+        options = dialog.options()
+        self.settings.export_crop_images = options.crop
+        self.settings.export_prefix_class = options.prefix_class
+        self.settings.export_prefix_taxa = options.prefix_taxa
+        return self._run_batch_with_progress(options, dialog.output_dir(), dialog.images())
 
     def _selected_image_files(self) -> list[str]:
         """Full paths of the selected images, in list order."""
         rows = sorted(index.row() for index in self.ui.image_list_view.selectionModel().selectedIndexes())
         return [self.model.data(self.model.index(row), ImageListModel.FullPathRole) for row in rows]
 
-    def crop_and_export_selected_images(self):
-        """Export the currently selected images."""
-        selected_image_files = self._selected_image_files()
-        if not selected_image_files:
-            return False
-        return self._crop_and_export_images_with_progress("Exporting selected images", selected_image_files)
-
-    def crop_and_export_all_images(self):
-        """Export all images."""
-        return self._crop_and_export_images_with_progress("Exporting images")
-
-    def _update_export_summary(self) -> None:
-        """Shows in the crop panel how the export names its files."""
-        self.ui.export_summary_label.setText(describe_export(bool(self.ui.classifier_combo_box.currentData()),
-                                                             self.ui.cb_crop.isChecked()))
-
-    def _on_crop_toggled(self, _checked: bool) -> None:
-        self._update_crop_controls()
-        self.update_crop_bands()
-
-    def _update_crop_controls(self) -> None:
-        """Enables the controls that only matter for crops while the Crop checkbox is on, and updates the summary."""
-        crop = self.ui.cb_crop.isChecked()
-        for widget in [*self._crop_mode_radios().values(), self.ui.crop_ratio_label, self.ui.crop_ratio_combo_box,
-                       self.ui.padding_label, self.ui.padding_slider, self.ui.padding_spin_box]:
-            widget.setEnabled(crop)
-        self._update_export_summary()
-
-    def _copy_export_remove_selected_images(self):
-        """Copies filenames, exports the selected images, and removes them from the list."""
-        if not self.ui.image_list_view.selectionModel().hasSelection():
-            return
-
-        self._copy_selected_filenames_to_clipboard()
-        success = self.crop_and_export_selected_images()
-        if success:
-            self._remove_selected_images_from_list()
-
     def _update_selection_dependent_actions_state(self):
         """Enables/disables actions based on the current selection in the image list view."""
         has_selection = len(self.ui.image_list_view.selectionModel().selectedIndexes()) > 0
-        can_run = self.ui.model_select_combo_box.count() > 0 and not self._batch_running
-        self.ui.crop_and_export_selected_images_action.setEnabled(has_selection and can_run)
         self.ui.locate_image_in_filemanager_action.setEnabled(has_selection)
         self.ui.copy_filenames_to_clipboard_action.setEnabled(has_selection)
         self.ui.remove_selected_images_from_list_action.setEnabled(has_selection and not self._batch_running)
-        self.ui.copy_export_remove_action.setEnabled(has_selection and can_run)
 
     def _update_clear_image_list_action_state(self):
         """Enables/disables clear_image_list_action based on whether the model has images."""
@@ -1387,8 +1340,6 @@ class DetectoristApp(QMainWindow):
             menu = QMenu()
             menu.addAction(self.ui.locate_image_in_filemanager_action)
             menu.addSeparator()
-            menu.addAction(self.ui.crop_and_export_selected_images_action)
-            menu.addAction(self.ui.copy_export_remove_action)
             menu.addAction(self.ui.remove_selected_images_from_list_action)
             menu.addAction(self.ui.clear_image_list_action)
             menu.addSeparator()

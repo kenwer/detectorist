@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ExportDialog</class>
+ <widget class="QDialog" name="ExportDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1000</width>
+    <height>480</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Export Images</string>
+  </property>
+  <layout class="QVBoxLayout" name="vlyt_dialog">
+   <item>
+    <layout class="QGridLayout" name="grdlyt_groups" rowstretch="0,1,0" columnstretch="0,1">
+     <item row="0" column="0">
+      <widget class="QGroupBox" name="images_group_box">
+       <property name="title">
+        <string>Images</string>
+       </property>
+       <layout class="QVBoxLayout" name="vlyt_images">
+        <item>
+         <widget class="QRadioButton" name="rb_all">
+          <property name="text">
+           <string>All images</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="rb_selected">
+          <property name="text">
+           <string>Selected images</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="class_filter_label">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="toolTip">
+           <string>Export follows the class chosen in Show in the side panel</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QGroupBox" name="files_group_box">
+       <property name="title">
+        <string>Files</string>
+       </property>
+       <layout class="QVBoxLayout" name="vlyt_files">
+        <item>
+         <widget class="QCheckBox" name="cb_crop">
+          <property name="toolTip">
+           <string>Uncheck to export whole images, named like the crops</string>
+          </property>
+          <property name="text">
+           <string>Crop to the detections</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="crop_summary_label">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="indent">
+           <number>22</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="prefix_label">
+          <property name="text">
+           <string>Name starts with:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="hlyt_prefix">
+          <item>
+           <widget class="QCheckBox" name="cb_prefix_class">
+            <property name="toolTip">
+             <string>The detected class, such as Fish_in-focus</string>
+            </property>
+            <property name="text">
+             <string>Class</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="cb_prefix_taxa">
+            <property name="toolTip">
+             <string>The family, genus and species that reach the taxon confidence</string>
+            </property>
+            <property name="text">
+             <string>Taxa</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="prefix_spacer">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="files_spacer">
+          <property name="orientation">
+           <enum>Qt::Orientation::Vertical</enum>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="0" column="1" rowspan="2">
+      <widget class="QGroupBox" name="preview_group_box">
+       <property name="title">
+        <string>Preview</string>
+       </property>
+       <layout class="QVBoxLayout" name="vlyt_preview">
+        <item>
+         <widget class="QLabel" name="preview_label">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::TextFormat::RichText</enum>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+          </property>
+          <property name="textInteractionFlags">
+           <set>Qt::TextInteractionFlag::TextSelectableByMouse</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="2" column="0" colspan="2">
+      <widget class="QGroupBox" name="output_group_box">
+       <property name="title">
+        <string>Output folder</string>
+       </property>
+       <layout class="QVBoxLayout" name="vlyt_output">
+        <item>
+         <layout class="QHBoxLayout" name="hlyt_output">
+          <item>
+           <widget class="QLabel" name="output_path_label">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="textFormat">
+             <enum>Qt::TextFormat::RichText</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="default_link_label">
+            <property name="toolTip">
+             <string>Export to processed/ next to the images</string>
+            </property>
+            <property name="text">
+             <string>&lt;a href=&quot;default&quot;&gt;Use Default&lt;/a&gt;</string>
+            </property>
+            <property name="textFormat">
+             <enum>Qt::TextFormat::RichText</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="choose_button">
+            <property name="text">
+             <string>Choose...</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="note_label">
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="button_box">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <connections>
+  <connection>
+   <sender>button_box</sender>
+   <signal>accepted()</signal>
+   <receiver>ExportDialog</receiver>
+   <slot>accept()</slot>
+  </connection>
+  <connection>
+   <sender>button_box</sender>
+   <signal>rejected()</signal>
+   <receiver>ExportDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

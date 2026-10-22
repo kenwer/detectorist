@@ -33,10 +33,16 @@ def test_unset_values_read_as_none(settings):
     assert settings.crop_mode is None
     assert settings.crop_aspect_ratio is None
     assert settings.crop_padding_percent is None
-    assert settings.crop_images is None
+    assert settings.export_class_filter is None
     assert settings.window_geometry is None
     assert settings.main_splitter_state is None
     assert settings.image_splitter_state is None
+
+
+def test_unset_export_choices_read_as_the_export_options_defaults(settings):
+    assert settings.export_crop_images is True
+    assert settings.export_prefix_class is False
+    assert settings.export_prefix_taxa is True
 
 
 def test_values_keep_their_type_across_a_reopen(settings, settings_file):
@@ -48,7 +54,10 @@ def test_values_keep_their_type_across_a_reopen(settings, settings_file):
     settings.crop_mode = "most_centered"
     settings.crop_aspect_ratio = "3:2"
     settings.crop_padding_percent = 0
-    settings.crop_images = False
+    settings.export_crop_images = False
+    settings.export_prefix_class = True
+    settings.export_prefix_taxa = False
+    settings.export_class_filter = "Fish"
     settings.window_geometry = QByteArray(b"\x01\x02")
 
     reopened = reopen(settings_file)
@@ -61,7 +70,10 @@ def test_values_keep_their_type_across_a_reopen(settings, settings_file):
     assert reopened.crop_mode == "most_centered"
     assert reopened.crop_aspect_ratio == "3:2"
     assert reopened.crop_padding_percent == 0
-    assert reopened.crop_images is False
+    assert reopened.export_crop_images is False
+    assert reopened.export_prefix_class is True
+    assert reopened.export_prefix_taxa is False
+    assert reopened.export_class_filter == "Fish"
     assert reopened.window_geometry == QByteArray(b"\x01\x02")
 
 
@@ -70,18 +82,18 @@ def test_settings_are_stored_under_their_group_and_key(settings, settings_file):
     settings.classification_model = "fish-species.onnx.gz"
     settings.image_correct_exposure = True
     settings.crop_aspect_ratio = "1:1"
-    settings.crop_images = True
+    settings.export_crop_images = True
     settings.add_recent_folder("/photos/a")
     settings.main_splitter_state = QByteArray(b"\x01")
     settings.save_current_version()
 
     assert stored_keys(settings_file) == {
         "model/detection_min_confidence_percent", "model/classification_model", "image/correct_exposure", "crop/aspect_ratio",
-        "crop/images", "recent/directories", "ui/main_splitter_state", "app/newest_version"}
+        "export/crop_images", "recent/directories", "ui/main_splitter_state", "app/newest_version"}
 
 
 @pytest.mark.parametrize(("name", "value"), [("classification_model", "something"),
-                                           ("detection_model", "something"), ("crop_padding_percent", 10)])
+                                           ("export_class_filter", "something"), ("crop_padding_percent", 10)])
 def test_none_is_stored_and_read_back_as_none(settings, settings_file, name, value):
     setattr(settings, name, value)
     setattr(settings, name, None)
@@ -187,7 +199,7 @@ def test_reset_clears_the_portable_settings_but_keeps_recent_and_layout(settings
     settings.classification_min_confidence_percent = 35
     settings.image_correct_exposure = False
     settings.crop_padding_percent = 10
-    settings.crop_images = False
+    settings.export_class_filter = "Fish"
     settings.add_recent_folder("/photos/a")
     settings.window_geometry = QByteArray(b"\x01")
 
@@ -197,7 +209,7 @@ def test_reset_clears_the_portable_settings_but_keeps_recent_and_layout(settings
     assert settings.classification_min_confidence_percent is None
     assert settings.image_correct_exposure is None
     assert settings.crop_padding_percent is None
-    assert settings.crop_images is None
+    assert settings.export_class_filter is None
     assert settings.recent_folders == ["/photos/a"]
     assert settings.window_geometry == QByteArray(b"\x01")
 
@@ -211,7 +223,10 @@ def test_export_writes_every_portable_setting_with_its_json_type(settings, tmp_p
     settings.crop_mode = "best_classification"
     settings.crop_aspect_ratio = "detection_frame"
     settings.crop_padding_percent = 15
-    settings.crop_images = True
+    settings.export_crop_images = True
+    settings.export_prefix_class = False
+    settings.export_prefix_taxa = True
+    settings.export_class_filter = "Fish"
     settings.add_recent_folder("/photos/a")
     export_path = tmp_path / "exported.json"
 
@@ -223,8 +238,8 @@ def test_export_writes_every_portable_setting_with_its_json_type(settings, tmp_p
             "model": {"detection_model": "fish.onnx.gz", "detection_min_confidence_percent": 52,
                       "classification_model": None, "classification_min_confidence_percent": 61},
             "image": {"correct_exposure": True},
-            "crop": {"mode": "best_classification", "aspect_ratio": "detection_frame", "padding_percent": 15,
-                     "images": True},
+            "crop": {"mode": "best_classification", "aspect_ratio": "detection_frame", "padding_percent": 15},
+            "export": {"crop_images": True, "prefix_class": False, "prefix_taxa": True, "class_filter": "Fish"},
         },
     }
 
@@ -235,14 +250,14 @@ def test_export_writes_unset_settings_as_null(settings, tmp_path):
     settings.export_to_file(export_path)
 
     assert json.loads(export_path.read_text())["settings"]["crop"] == {
-        "mode": None, "aspect_ratio": None, "padding_percent": None, "images": None}
+        "mode": None, "aspect_ratio": None, "padding_percent": None}
 
 
 def test_export_then_import_restores_typed_values(settings, tmp_path):
     settings.detection_min_confidence_percent = 60
     settings.crop_mode = "most_centered"
     settings.image_correct_exposure = False
-    settings.classification_model = "fish-species.onnx.gz"
+    settings.export_class_filter = "Fish"
     export_path = tmp_path / "exported.json"
     settings.export_to_file(export_path)
 
@@ -252,17 +267,17 @@ def test_export_then_import_restores_typed_values(settings, tmp_path):
     assert other.detection_min_confidence_percent == 60
     assert other.crop_mode == "most_centered"
     assert other.image_correct_exposure is False
-    assert other.classification_model == "fish-species.onnx.gz"
+    assert other.export_class_filter == "Fish"
 
 
 def test_importing_null_unsets_a_setting(settings, tmp_path):
-    settings.classification_model = "fish-species.onnx.gz"
+    settings.export_class_filter = "Fish"
     import_path = tmp_path / "import.json"
-    import_path.write_text(json.dumps({"settings": {"model": {"classification_model": None}}}))
+    import_path.write_text(json.dumps({"settings": {"export": {"class_filter": None}}}))
 
     settings.import_from_file(import_path)
 
-    assert settings.classification_model is None
+    assert settings.export_class_filter is None
 
 
 def test_import_ignores_unknown_groups_and_keys(settings, settings_file, tmp_path):

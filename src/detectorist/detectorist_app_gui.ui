@@ -258,23 +258,10 @@
         <item>
          <widget class="QGroupBox" name="crop_info_group_box">
           <property name="title">
-           <string>Crop</string>
+           <string>Crop (Export)</string>
           </property>
           <layout class="QGridLayout" name="grdlyt_crop">
            <item row="0" column="0" colspan="2">
-            <widget class="QCheckBox" name="cb_crop">
-             <property name="toolTip">
-              <string>Uncheck to export whole images, named like the crops</string>
-             </property>
-             <property name="text">
-              <string>Crop</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_all_detected_objects">
              <property name="toolTip">
               <string>Crops all detected objects into individual images</string>
@@ -290,7 +277,7 @@
              </attribute>
             </widget>
            </item>
-           <item row="2" column="0" colspan="2">
+           <item row="1" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_most_confident_detection">
              <property name="toolTip">
               <string>Crops only the detection the object detector is most confident about into a new image</string>
@@ -306,7 +293,7 @@
              </attribute>
             </widget>
            </item>
-           <item row="3" column="0" colspan="2">
+           <item row="2" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_best_classification">
              <property name="toolTip">
               <string>Crops only the best classified object into a new image: the deepest identified rank wins, then the highest score</string>
@@ -322,7 +309,7 @@
              </attribute>
             </widget>
            </item>
-           <item row="4" column="0" colspan="2">
+           <item row="3" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_centered_obj">
              <property name="toolTip">
               <string>Crops to the most centrally located of all detected objects only into a new image</string>
@@ -338,7 +325,7 @@
              </attribute>
             </widget>
            </item>
-           <item row="5" column="0">
+           <item row="4" column="0">
             <widget class="QLabel" name="crop_ratio_label">
              <property name="toolTip">
               <string>Aspect ratio for the crop</string>
@@ -348,14 +335,14 @@
              </property>
             </widget>
            </item>
-           <item row="5" column="1" colspan="2">
+           <item row="4" column="1" colspan="2">
             <widget class="QComboBox" name="crop_ratio_combo_box">
              <property name="toolTip">
               <string>Aspect ratio for the crop</string>
              </property>
             </widget>
            </item>
-           <item row="6" column="0">
+           <item row="5" column="0">
             <widget class="QLabel" name="padding_label">
              <property name="toolTip">
               <string>Adjusts the padding around detected objects as a percentage of the detection bounding box's width/height</string>
@@ -365,7 +352,7 @@
              </property>
             </widget>
            </item>
-           <item row="6" column="1">
+           <item row="5" column="1">
             <widget class="QSlider" name="padding_slider">
              <property name="enabled">
               <bool>true</bool>
@@ -396,49 +383,13 @@
              </property>
             </widget>
            </item>
-           <item row="6" column="2">
+           <item row="5" column="2">
             <widget class="QSpinBox" name="padding_spin_box">
              <property name="maximum">
               <number>50</number>
              </property>
              <property name="value">
               <number>15</number>
-             </property>
-            </widget>
-           </item>
-           <item row="7" column="0" colspan="3">
-            <widget class="QCheckBox" name="cb_comp_cam_exposure">
-             <property name="toolTip">
-              <string>Adjust the EV to correct for any exposure bias based on EXIF data</string>
-             </property>
-             <property name="text">
-              <string>Auto correct camera exposure bias</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="8" column="0" alignment="Qt::AlignmentFlag::AlignTop">
-            <widget class="QLabel" name="export_summary_title_label">
-             <property name="toolTip">
-              <string>Where Export writes the images</string>
-             </property>
-             <property name="text">
-              <string>Output</string>
-             </property>
-            </widget>
-           </item>
-           <item row="8" column="1" colspan="2">
-            <widget class="QLabel" name="export_summary_label">
-             <property name="toolTip">
-              <string>Where Export writes the images</string>
-             </property>
-             <property name="textFormat">
-              <enum>Qt::TextFormat::RichText</enum>
-             </property>
-             <property name="wordWrap">
-              <bool>true</bool>
              </property>
             </widget>
            </item>
@@ -455,6 +406,19 @@
             <widget class="QLabel" name="image_info_label">
              <property name="text">
               <string>-</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="cb_comp_cam_exposure">
+             <property name="toolTip">
+              <string>Adjust the EV to correct for any exposure bias based on EXIF data, when showing and exporting images</string>
+             </property>
+             <property name="text">
+              <string>Auto correct camera exposure bias</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
              </property>
             </widget>
            </item>
@@ -526,6 +490,9 @@
     <addaction name="open_folder_action"/>
     <addaction name="recent_folders_menu"/>
     <addaction name="separator"/>
+    <addaction name="export_action"/>
+    <addaction name="open_output_folder_action"/>
+    <addaction name="separator"/>
     <addaction name="import_settings_action"/>
     <addaction name="export_settings_action"/>
     <addaction name="reset_settings_action"/>
@@ -533,15 +500,6 @@
     <addaction name="manage_models_action"/>
     <addaction name="separator"/>
     <addaction name="clear_image_list_action"/>
-   </widget>
-   <widget class="QMenu" name="menu_actions">
-    <property name="title">
-     <string>Actions</string>
-    </property>
-    <addaction name="crop_and_export_all_images_action"/>
-    <addaction name="crop_and_export_selected_images_action"/>
-    <addaction name="separator"/>
-    <addaction name="open_output_folder_action"/>
    </widget>
    <widget class="QMenu" name="menu_view">
     <property name="title">
@@ -561,7 +519,6 @@
     <addaction name="about_action"/>
    </widget>
    <addaction name="menu_file"/>
-   <addaction name="menu_actions"/>
    <addaction name="menu_view"/>
    <addaction name="menu_help"/>
   </widget>
@@ -588,29 +545,15 @@
     <bool>true</bool>
    </property>
   </action>
-  <action name="crop_and_export_selected_images_action">
+  <action name="export_action">
    <property name="enabled">
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Export selected Images</string>
+    <string>Export Images...</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+E</string>
-   </property>
-   <property name="shortcutVisibleInContextMenu">
-    <bool>true</bool>
-   </property>
-  </action>
-  <action name="crop_and_export_all_images_action">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>Export all Images</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+Shift+E</string>
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>
@@ -621,7 +564,7 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Open output folder</string>
+    <string>Open Output Folder</string>
    </property>
   </action>
   <action name="toggle_masks_action">
@@ -785,23 +728,6 @@
     <bool>true</bool>
    </property>
   </action>
-  <action name="copy_export_remove_action">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>Export &amp;&amp; Remove selected Images from List</string>
-   </property>
-   <property name="toolTip">
-    <string>Starts a batch process that exports the selected image(s) into a subfolder and also removes the image(s) from the list</string>
-   </property>
-   <property name="shortcut">
-    <string>Alt+E</string>
-   </property>
-   <property name="shortcutVisibleInContextMenu">
-    <bool>true</bool>
-   </property>
-  </action>
   <action name="clear_recent_folders_action">
    <property name="text">
     <string>Clear Recent</string>
@@ -812,7 +738,7 @@
     <string>Import Settings...</string>
    </property>
    <property name="toolTip">
-    <string>Import settings from a previous export's settings.json file</string>
+    <string>Import settings, such as the detectorist-settings.json an export writes, to repeat that export</string>
    </property>
   </action>
   <action name="export_settings_action">
@@ -828,7 +754,7 @@
     <string>Reset Settings to Defaults</string>
    </property>
    <property name="toolTip">
-    <string>Reset Model, Crop and Export settings to their default values</string>
+    <string>Reset all settings but the recent folders and window layout to their default values</string>
    </property>
   </action>
   <action name="manage_models_action">

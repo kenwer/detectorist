@@ -12,11 +12,19 @@
   - `L` to toggle visibility of the labels.
   - `M` to toggle visibility of the detection/segment masks.
   - `H` to hide/show boxes, labels, and masks at once.
+- New `Export Images...` dialog in the File menu replaces the Actions menu and its crop actions. It allows to:
+  - export all or the selected images
+  - crops or whole images
+  - configure the filename pattern and the output folder
 ### Changed
-- Export writes into a flat `processed` folder, each file name starting with its class or, with a classifier on, its taxa, e.g. `Pomacentridae_Amphiprion_unidentified_IMG_0042_crop.jpg`.
-- `Crop & Export` is renamed to `Export`. A new `Crop` checkbox chooses between crops and whole images.
-- The image list shows the images of one folder. Dragging in several folders, or images from different folders, is refused.
-- A batch run writes new detections and classification CSV files instead of merging its rows into those of an earlier run with the same settings. Files with the same name are overwritten.
+- Export:
+  - Writes into a flat `processed` folder, each file name starting with its taxa or, without a classifier, its class, e.g. `Pomacentridae_Amphiprion_unidentified_IMG_0042_crop.jpg`.
+  - Writes new `detectorist-detections.csv` and `detectorist-classification.csv` files instead of merging its rows into those of an earlier run.
+  - The models and confidence levels are in `detectorist-settings.json` instead of the file names. Files with the same name are overwritten.
+  - Only exports the class selected in the UI.
+- The Crop group is renamed `Crop (Export)`.
+- `Auto correct camera exposure bias` moved to the Image group, as it applies to every image shown and exported.
+- Dragging in several folders, or images from different folders, is refused.
 - The detection summary moved from the side panel to the status bar.
 - Masks are now toggled with `M` in the new `View` menu, instead of `H`.
 - Disable onnxruntime telemetry.
@@ -25,7 +33,8 @@
 - [Dev] Upgrade dependencies.
 ### Removed
 - The `Union of all objects` crop mode.
-- `Group Images into Folders (by Object Class)`, now covered by `Export` with `Crop` unchecked.
+- `Group Images into Folders (by Object Class)`, now covered by `Export Images...` without cropping.
+- `Crop & Export & Remove selected Images from List`.
 ### Fixed
 - Fix models queued in the Model Manager staying stuck on downloading after an earlier download failed.
 - Fix dropping a file that is not an image clearing the image list. Such a drop is now refused, and opening or dropping a folder without images keeps the current list.

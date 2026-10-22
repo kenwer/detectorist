@@ -5,7 +5,7 @@
 | Ctrl+O          | ⌘O  | **Open Image(s)...** | Brings up the file dialog to load one or more images |
 | Shift+Ctrl+O    | ⇧⌘O | **Open Folder...** | Brings up the file dialog to open an entire folder with images |
 | Ctrl+Backspace | ⌘⌫  | **Clear Image List** | Clears the list of loaded images |
-| Shift+Ctrl+E    | ⇧⌘E | **Export all Images** | Starts a batch process that exports all loaded images into a subfolder |
+| Ctrl+E          | ⌘E  | **Export Images...** | Opens the Export dialog to export all or the selected images, as crops or whole, named by taxon or class |
 | B               | B   | **Show Boxes** | Toggles the visibility of the bounding boxes of detected objects. |
 | L               | L   | **Show Labels** | Toggles the visibility of the labels naming the family, genus or species of classified objects. |
 | M               | M   | **Show Masks** | Toggles the the visibility of the segmentation masks of detected objects. |
@@ -30,6 +30,4 @@
 | --- | --- | --- | --- |
 | Ctrl+L    | ⌘L | **Locate Image in Filemanager** | Locates the image in your filemanager |
 | Ctrl+C    | ⌘C | **Copy selected Filenames to Clipboard**| Puts the filenames of the selected image(s) into your clipboard |
-| Ctrl+E    | ⌘E | **Export selected Images** | Starts a batch process that exports the selected images into a subfolder |
-| Alt+E     | ⌥E | **Export & Remove selected Images from List** | Starts a batch process that exports the selected image(s) into a subfolder and also removes the image(s) from the list |
 | Backspace | ⌫  | **Remove selected Image from List** | Removes the selected image(s) from the list (not deleted, just removed from the view) |

@@ -1,9 +1,15 @@
-"""Characterization tests for the crop planner.
-"""
+"""Tests for the export planner: crop rectangles and file names."""
 
 import pytest
 
-from detectorist.crop_planner import CropMode, CropSettings, naming_detection, plan_crop_targets, plan_crops
+from detectorist.export_planner import (
+    CropMode,
+    CropSettings,
+    ExportOptions,
+    plan_crops,
+    safe_name,
+    taxon_prefix,
+)
 from detectorist.structures import Detection, RankedName, Taxonomy
 
 # The planner reads only a Detection's box and score. Class names come from
@@ -125,13 +131,13 @@ class TestBestClassification:
 
 class TestCropModeFromSetting:
     def test_parses_current_names(self):
-        assert CropMode.from_setting("top_confidence") is CropMode.MOST_CONFIDENT_DETECTION
+        assert CropMode.from_setting("most_confident") is CropMode.MOST_CONFIDENT_DETECTION
         assert CropMode.from_setting("most_centered") is CropMode.MOST_CENTERED
-        assert CropMode.from_setting("all_detected_objects") is CropMode.EACH_OBJECT
+        assert CropMode.from_setting("each_object") is CropMode.EACH_OBJECT
         assert CropMode.from_setting("best_classification") is CropMode.BEST_CLASSIFICATION
 
-    @pytest.mark.parametrize("value", ["union", "largest_area"])
-    def test_a_saved_union_mode_is_no_longer_known(self, value):
+    @pytest.mark.parametrize("value", ["union", "largest_area", "top_confidence", "all_detected_objects"])
+    def test_names_of_earlier_versions_are_no_longer_known(self, value):
         assert CropMode.from_setting(value) is None
 
     def test_unknown_and_missing_are_none(self):
@@ -139,45 +145,125 @@ class TestCropModeFromSetting:
         assert CropMode.from_setting(None) is None
 
 
-def targets(detections, mode):
-    return plan_crop_targets(detections, HEIGHT, WIDTH, CropSettings(mode=mode, padding=0.1, aspect=(1, 1)))
-
-
-def test_each_crop_target_frames_one_detection():
-    assert [d for _, d in targets([D1, D2], CropMode.EACH_OBJECT)] == [D1, D2]
-
-
-def test_single_detection_modes_target_the_chosen_detection():
-    ((_, detection),) = targets([D1, D2], CropMode.MOST_CONFIDENT_DETECTION)
-    assert detection == D1
-
-
-def test_plan_crops_matches_the_rectangles_of_plan_crop_targets():
-    for mode in CropMode:
-        settings = CropSettings(mode=mode, padding=0.1, aspect=(1, 1))
-        assert plan_crops(DETECTIONS, HEIGHT, WIDTH, settings) == [
-            rect for rect, _ in plan_crop_targets(DETECTIONS, HEIGHT, WIDTH, settings)
-        ]
-
-
 EDGE = Detection((0, 0, 10, 10), 0.9, "Crab")
 CENTER = Detection((45, 45, 10, 10), 0.6, "Fish")
 
 
+def whole_image_name(detections, mode):
+    options = ExportOptions(CropSettings(mode, 0.0, "detection_frame"), crop=False)
+    (planned,) = options.plan("IMG.jpg", detections, 100, 100, {})
+    return planned.name
+
+
+def test_each_crop_is_named_by_the_detection_it_frames():
+    planned = ExportOptions(CropSettings(CropMode.EACH_OBJECT, 0.0, (1, 1))).plan("IMG.jpg", [EDGE, CENTER], 100, 100, {})
+    assert [file.name for file in planned] == ["Crab_IMG_crop_0.jpg", "Fish_IMG_crop_1.jpg"]
+
+
 @pytest.mark.parametrize(("mode", "expected"), [
-    (CropMode.MOST_CONFIDENT_DETECTION, EDGE),
-    (CropMode.EACH_OBJECT, EDGE),
-    (CropMode.MOST_CENTERED, CENTER),
+    (CropMode.MOST_CONFIDENT_DETECTION, "Crab_IMG.jpg"),
+    (CropMode.EACH_OBJECT, "Crab_IMG.jpg"),
+    (CropMode.MOST_CENTERED, "Fish_IMG.jpg"),
 ])
-def test_naming_detection_is_the_one_the_crop_mode_picks(mode, expected):
-    assert naming_detection([EDGE, CENTER], 100, 100, CropSettings(mode, 0.0, "detection_frame")) == expected
+def test_a_whole_image_is_named_by_the_detection_the_crop_mode_picks(mode, expected):
+    assert whole_image_name([EDGE, CENTER], mode) == expected
 
 
-def test_naming_detection_falls_back_to_the_top_score_when_no_box_has_area():
+def test_a_whole_image_is_named_by_the_top_score_when_no_box_has_area():
     flat = [Detection((0, 0, 5, 0), 0.6, "Fish"), Detection((0, 0, 0, 5), 0.9, "Crab")]
-    settings = CropSettings(CropMode.MOST_CENTERED, 0.0, "detection_frame")
-    assert naming_detection(flat, 100, 100, settings).class_name == "Crab"
+    assert whole_image_name(flat, CropMode.MOST_CENTERED) == "Crab_IMG.jpg"
 
 
-def test_naming_detection_without_detections_is_none():
-    assert naming_detection([], 100, 100, CropSettings(CropMode.EACH_OBJECT, 0.0, "detection_frame")) is None
+def test_a_crop_without_area_falls_back_to_a_whole_image():
+    flat = [Detection((0, 0, 5, 0), 0.6, "Fish")]
+    (planned,) = ExportOptions(CropSettings(CropMode.EACH_OBJECT, 0.0, (1, 1))).plan("IMG.jpg", flat, 100, 100, {})
+    assert planned == (None, "Fish_IMG.jpg")
+
+
+FULL = [RankedName("Pomacentridae", 0.99), RankedName("Amphiprion", 0.97), RankedName("Amphiprion_ocellaris", 0.9)]
+
+
+@pytest.mark.parametrize("name, safe", [("Amphiprion_sp.", "Amphiprion_sp"), ('a:b*c?"<>|', "a_b_c_____"), ("ok", "ok")])
+def test_safe_name_replaces_characters_windows_rejects(name, safe):
+    assert safe_name(name) == safe
+
+
+def test_taxon_prefix_makes_species_names_safe():
+    odd = [RankedName("Fam:x", 1.0), RankedName("Gen", 1.0), RankedName("Gen_sp.", 1.0)]
+    assert taxon_prefix(odd) == "Fam_x_Gen_sp"
+
+
+@pytest.mark.parametrize(("ranks", "prefix"), [
+    (FULL, "Pomacentridae_Amphiprion_ocellaris"),
+    (FULL[:2], "Pomacentridae_Amphiprion_unidentified"),
+    (FULL[:1], "Pomacentridae_unidentified"),
+    ([], "unidentified"),
+])
+def test_taxon_prefix_names_the_identified_ranks_then_unidentified(ranks, prefix):
+    assert taxon_prefix(ranks) == prefix
+
+
+def test_taxon_prefix_makes_names_safe_for_windows():
+    assert taxon_prefix([RankedName("Fam:ily", 1.0)]) == "Fam_ily_unidentified"
+
+
+SETTINGS = CropSettings(mode=CropMode.EACH_OBJECT, padding=0.0, aspect="detection_frame", taxon_confidence=0.5)
+FISH = Detection((10, 10, 20, 20), 0.9, "Fish")
+OTHER = Detection((40, 10, 10, 10), 0.8, "Fish")
+TAXONOMY = {FISH.box: Taxonomy(*FULL), OTHER.box: Taxonomy(*FULL[:2], RankedName("Amphiprion_ocellaris", 0.3))}
+
+
+def names(detections, crop=True, prefix_class=False, prefix_taxa=True, patterns=("*",), settings=SETTINGS):
+    options = ExportOptions(settings, crop=crop, prefix_class=prefix_class, prefix_taxa=prefix_taxa,
+                            classifier_patterns=patterns)
+    return [file.name for file in options.plan("IMG.jpg", detections, 48, 64, TAXONOMY)]
+
+
+def test_plan_names_each_crop_by_its_taxa():
+    assert names([FISH, OTHER]) == ["Pomacentridae_Amphiprion_ocellaris_IMG_crop_0.jpg",
+                                    "Pomacentridae_Amphiprion_unidentified_IMG_crop_1.jpg"]
+
+
+def test_plan_by_class_ignores_the_taxa():
+    assert names([FISH], prefix_class=True, prefix_taxa=False) == ["Fish_IMG_crop.jpg"]
+
+
+def test_plan_by_class_and_taxa_names_the_class_first():
+    assert names([FISH], prefix_class=True) == ["Fish_Pomacentridae_Amphiprion_ocellaris_IMG_crop.jpg"]
+
+
+def test_plan_by_class_and_taxa_names_a_class_the_classifier_skips_once():
+    assert names([FISH], prefix_class=True, patterns=("Crab",)) == ["Fish_IMG_crop.jpg"]
+
+
+def test_plan_without_a_prefix_keeps_the_file_name():
+    assert names([FISH], prefix_taxa=False) == ["IMG_crop.jpg"]
+    assert names([FISH], crop=False, prefix_taxa=False) == ["IMG.jpg"]
+    assert names([], prefix_taxa=False) == ["IMG.jpg"]
+
+
+def test_plan_without_crop_copies_the_whole_image_once():
+    options = ExportOptions(SETTINGS, crop=False, prefix_class=False, prefix_taxa=True, classifier_patterns=("*",))
+    (planned,) = options.plan("IMG.jpg", [FISH, OTHER], 48, 64, TAXONOMY)
+    assert planned == (None, "Pomacentridae_Amphiprion_ocellaris_IMG.jpg")
+
+
+def test_plan_by_taxa_without_a_classifier_names_by_class():
+    assert names([FISH], patterns=None) == ["Fish_IMG_crop.jpg"]
+
+
+def test_plan_of_an_image_without_detections():
+    assert names([]) == ["no-detection_IMG.jpg"]
+
+
+@pytest.mark.parametrize(("crop", "prefix_class", "prefix_taxa", "patterns", "scheme"), [
+    (True, False, True, ("*",), "<Family>_<Genus>_<Species>_<Filename>_crop[_<n>].HIF"),
+    (True, True, True, ("*",), "<Class>_<Family>_<Genus>_<Species>_<Filename>_crop[_<n>].HIF"),
+    (True, True, False, ("*",), "<Class>_<Filename>_crop[_<n>].HIF"),
+    (True, False, True, None, "<Class>_<Filename>_crop[_<n>].HIF"),
+    (False, False, False, ("*",), "<Filename>.HIF"),
+])
+def test_name_scheme_spells_out_what_plan_names(crop, prefix_class, prefix_taxa, patterns, scheme):
+    options = ExportOptions(SETTINGS, crop=crop, prefix_class=prefix_class, prefix_taxa=prefix_taxa,
+                            classifier_patterns=patterns)
+    assert options.name_scheme(".HIF") == scheme

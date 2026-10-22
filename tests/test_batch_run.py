@@ -15,17 +15,16 @@ from PIL import Image
 
 from detectorist.batch_output import (
     CLASSIFICATION_CSV_HEADER,
+    CLASSIFICATION_CSV_NAME,
     CSV_ENCODING,
     DETECTIONS_CSV_HEADER,
+    DETECTIONS_CSV_NAME,
     ClassificationRow,
     DetectionsRow,
-    classification_csv_name,
-    detections_csv_name,
-    settings_json_name,
     summarize_detections,
 )
 from detectorist.batch_run import CropExportAction, run_batch
-from detectorist.crop_planner import CropMode, CropSettings
+from detectorist.export_planner import CropMode, CropSettings, ExportOptions
 from detectorist.structures import Detection, RankedName, Taxonomy
 from tests.fakes import FakeClassifier, FakeDetector, make_images
 
@@ -36,24 +35,9 @@ def always_continue(index, total, filename):
     return True
 
 
-DETECTIONS_CSV_FILENAME = "detections.csv"
-
-
 def read_detections_csv_rows(output_dir):
-    with open(os.path.join(output_dir, DETECTIONS_CSV_FILENAME), newline="", encoding=CSV_ENCODING) as f:
+    with open(os.path.join(output_dir, DETECTIONS_CSV_NAME), newline="", encoding=CSV_ENCODING) as f:
         return list(csv.reader(f))
-
-
-def test_detections_csv_name_encodes_confidence_and_model():
-    assert detections_csv_name(75, "fish-seg-transformer-2026-02-24.onnx.gz") == \
-        "detectorist-detections-conf-75-fish-seg-transformer-2026-02-24.csv"
-    assert detections_csv_name(50, None) == "detectorist-detections-conf-50-.csv"
-
-
-def test_settings_json_name_encodes_confidence_and_model():
-    assert settings_json_name(75, "fish-seg-transformer-2026-02-24.onnx.gz") == \
-        "detectorist-settings-conf-75-fish-seg-transformer-2026-02-24.json"
-    assert settings_json_name(50, None) == "detectorist-settings-conf-50-.json"
 
 
 def test_crop_export_run(tmp_path):
@@ -62,7 +46,7 @@ def test_crop_export_run(tmp_path):
     output_dir = str(tmp_path / "out")
 
     result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
-                       output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                       output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue)
 
     assert not result.cancelled
@@ -84,7 +68,7 @@ def test_source_image_aspect_is_resolved_per_image(tmp_path):
     settings = CropSettings(mode=CropMode.MOST_CONFIDENT_DETECTION, padding=0.0, aspect="source_image")
 
     run_batch(landscape + portrait, detector, detection_confidence=0.5, exposure_correction=False,
-              output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(settings),
+              output_dir=output_dir, action=CropExportAction(ExportOptions(settings)),
               progress=always_continue)
 
     with Image.open(os.path.join(output_dir, "Fish_landscape_crop.png")) as crop:
@@ -99,7 +83,7 @@ def test_detections_below_confidence_are_dropped(tmp_path):
     output_dir = str(tmp_path / "out")
 
     result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
-                       output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                       output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue)
 
     assert result.detections_rows == [("faint.png", 0, "N/A", 0, "no")]
@@ -114,7 +98,7 @@ def test_class_filter_drops_detections_of_other_classes(tmp_path):
     output_dir = str(tmp_path / "out")
 
     result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
-                       output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                       output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue, class_filter="Crab")
 
     # The crab wins although the fish scores higher. An image without a crab counts as empty
@@ -145,7 +129,7 @@ def test_load_failure_skips_image_and_continues(tmp_path):
     output_dir = str(tmp_path / "out")
 
     result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
-                       output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                       output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue)
 
     assert not result.cancelled
@@ -170,7 +154,7 @@ def test_processing_failure_skips_image_and_continues(tmp_path):
     output_dir = str(tmp_path / "out")
 
     result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
-                       output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                       output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue)
 
     assert not result.cancelled
@@ -190,7 +174,7 @@ def test_detection_without_area_is_exported_uncropped(tmp_path):
     output_dir = str(tmp_path / "out")
 
     result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
-                       output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                       output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue)
 
     assert result.detections_rows == [("flat.png", 0.9, "Fish", 1, "no")]
@@ -210,7 +194,7 @@ def test_progress_can_cancel_the_run(tmp_path):
         return index < 1
 
     result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
-                       output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                       output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=cancel_after_first)
 
     assert result.cancelled
@@ -226,12 +210,12 @@ def test_second_run_replaces_the_csv_of_the_first(tmp_path):
     paths = make_images(tmp_path, ["a.png", "b.png"])
     detector = FakeDetector({"a.png": [Detection((10, 10, 20, 20), 0.6, "Fish")]})
     run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
-              output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+              output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
               progress=always_continue)
 
     detector2 = FakeDetector({"a.png": [Detection((10, 10, 20, 20), 0.95, "Fish")]})
     run_batch([paths[0]], detector2, detection_confidence=0.5, exposure_correction=False,
-              output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+              output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
               progress=always_continue)
 
     # b.png is not in the second run, so its row is gone, while its copy stays
@@ -245,10 +229,10 @@ def test_csv_is_utf8_with_bom_and_keeps_non_latin_filenames(tmp_path):
     output_dir = str(tmp_path / "out")
 
     run_batch(paths, FakeDetector(), detection_confidence=0.5, exposure_correction=False,
-              output_dir=output_dir, detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+              output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
               progress=always_continue)
 
-    with open(os.path.join(output_dir, DETECTIONS_CSV_FILENAME), "rb") as f:
+    with open(os.path.join(output_dir, DETECTIONS_CSV_NAME), "rb") as f:
         raw = f.read()
     # The byte order mark is what lets Excel detect UTF-8
     assert raw.startswith(codecs.BOM_UTF8)
@@ -259,35 +243,32 @@ def test_unwritable_csv_fails_before_any_image_is_processed(tmp_path):
     paths = make_images(tmp_path, ["a.png"])
     output_dir = tmp_path / "out"
     # A directory in the CSV's place cannot be opened for writing on any platform
-    (output_dir / DETECTIONS_CSV_FILENAME).mkdir(parents=True)
+    (output_dir / DETECTIONS_CSV_NAME).mkdir(parents=True)
     detector = FakeDetector()
 
-    with pytest.raises(OSError, match="Cannot write detections.csv"):
+    with pytest.raises(OSError, match=f"Cannot write {DETECTIONS_CSV_NAME}"):
         run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
-                  output_dir=str(output_dir), detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
+                  output_dir=str(output_dir), action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                   progress=always_continue)
 
     assert detector.detected == []
     assert not (output_dir / "no-detection_a.png").exists()
 
 
-CLASSIFICATION_CSV_FILENAME = "classification.csv"
-
-
 def read_classification_csv_rows(output_dir):
-    with open(os.path.join(output_dir, CLASSIFICATION_CSV_FILENAME), newline="", encoding=CSV_ENCODING) as f:
+    with open(os.path.join(output_dir, CLASSIFICATION_CSV_NAME), newline="", encoding=CSV_ENCODING) as f:
         return list(csv.reader(f))
 
 
 def run_classified_sort(tmp_path, detections_by_file, classifier, taxon_confidence=0.0):
     """Export the images named in detections_by_file uncropped with a classifier. Returns the BatchResult."""
     paths = make_images(tmp_path, list(detections_by_file))
-    action = CropExportAction(replace(CROP_SETTINGS, taxon_confidence=taxon_confidence), crop=False,
-                              classifier_patterns=classifier.patterns if classifier else None)
+    action = CropExportAction(ExportOptions(replace(CROP_SETTINGS, taxon_confidence=taxon_confidence), crop=False,
+                                            prefix_class=False, prefix_taxa=True,
+                                            classifier_patterns=classifier.patterns if classifier else None))
     return run_batch(paths, FakeDetector(detections_by_file), detection_confidence=0.5, exposure_correction=False,
-                     output_dir=str(tmp_path / "out"), detections_csv_filename=DETECTIONS_CSV_FILENAME, action=action,
-                     progress=always_continue, classifier=classifier, taxon_confidence=taxon_confidence,
-                     classification_csv_filename=CLASSIFICATION_CSV_FILENAME)
+                     output_dir=str(tmp_path / "out"), action=action,
+                     progress=always_continue, classifier=classifier, taxon_confidence=taxon_confidence)
 
 
 def test_detections_row_has_a_field_per_csv_column():
@@ -298,17 +279,12 @@ def test_classification_row_has_a_field_per_csv_column():
     assert len(ClassificationRow._fields) == len(CLASSIFICATION_CSV_HEADER)
 
 
-def test_classification_csv_name_encodes_taxon_confidence_and_classifier():
-    assert classification_csv_name(73, "sulawesi-fish-classification-2026-10-17.onnx.gz") == \
-        "detectorist-classification-conf-73-sulawesi-fish-classification-2026-10-17.csv"
-
-
 def test_every_named_detection_gets_a_classification_row(tmp_path):
     detections = [Detection((30, 20, 10, 10), 0.8, "Fish"), Detection((10, 10, 20, 20), 0.9, "Fish")]
 
     run_classified_sort(tmp_path, {"a.png": detections}, FakeClassifier())
 
-    names = ["Pomacentridae", "0.99", "Amphiprion", "0.97", "Amphiprion_ocellaris", "0.44", "fake-classifier"]
+    names = ["Pomacentridae", "0.99", "Amphiprion", "0.97", "Amphiprion_ocellaris", "0.44"]
     assert read_classification_csv_rows(str(tmp_path / "out")) == [
         CLASSIFICATION_CSV_HEADER,
         ["a.png", "1", "Fish", "0.9", "10", "10", "20", "20", *names],
@@ -372,7 +348,16 @@ def test_classification_boxes_are_clamped_to_the_image(tmp_path):
 def test_without_a_classifier_no_classification_csv_is_written(tmp_path):
     run_classified_sort(tmp_path, {"a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]}, None)
 
-    assert not (tmp_path / "out" / CLASSIFICATION_CSV_FILENAME).exists()
+    assert not (tmp_path / "out" / CLASSIFICATION_CSV_NAME).exists()
+
+
+def test_without_a_classifier_a_leftover_classification_csv_is_removed(tmp_path):
+    (tmp_path / "out").mkdir()
+    (tmp_path / "out" / CLASSIFICATION_CSV_NAME).write_text("from an earlier export")
+
+    run_classified_sort(tmp_path, {"a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]}, None)
+
+    assert not (tmp_path / "out" / CLASSIFICATION_CSV_NAME).exists()
 
 
 def test_a_failing_classifier_marks_the_classification_rows_of_the_image(tmp_path):
@@ -383,7 +368,7 @@ def test_a_failing_classifier_marks_the_classification_rows_of_the_image(tmp_pat
 
     assert result.failed == []
     assert result.detections_rows == [("a.png", 0.9, "Fish", 2, "no")]
-    names = ["classify-error", "", "", "", "", "", "fake-classifier"]
+    names = ["classify-error", "", "", "", "", ""]
     assert read_classification_csv_rows(str(tmp_path / "out")) == [
         CLASSIFICATION_CSV_HEADER,
         ["a.png", "1", "Fish", "0.9", "10", "10", "20", "20", *names],
@@ -413,9 +398,8 @@ def test_best_classification_crop_follows_the_classifier(tmp_path):
     settings = CropSettings(mode=CropMode.BEST_CLASSIFICATION, padding=0.0, aspect="detection_frame", taxon_confidence=0.5)
 
     run_batch(paths, FakeDetector({"a.png": [genus_only, species]}), detection_confidence=0.5, exposure_correction=False,
-              output_dir=str(tmp_path / "out"), detections_csv_filename=DETECTIONS_CSV_FILENAME,
-              action=CropExportAction(settings), progress=always_continue, classifier=classifier, taxon_confidence=0.5,
-              classification_csv_filename=CLASSIFICATION_CSV_FILENAME)
+              output_dir=str(tmp_path / "out"),
+              action=CropExportAction(ExportOptions(settings)), progress=always_continue, classifier=classifier, taxon_confidence=0.5)
 
     with Image.open(tmp_path / "out" / "Fish_a_crop.png") as crop:
         assert crop.size == (20, 16)
@@ -427,10 +411,9 @@ def test_best_classification_crop_falls_back_to_the_detection_when_the_classifie
     settings = CropSettings(mode=CropMode.BEST_CLASSIFICATION, padding=0.0, aspect="detection_frame", taxon_confidence=0.5)
 
     run_batch(paths, FakeDetector({"a.png": detections}), detection_confidence=0.5, exposure_correction=False,
-              output_dir=str(tmp_path / "out"), detections_csv_filename=DETECTIONS_CSV_FILENAME,
-              action=CropExportAction(settings), progress=always_continue,
-              classifier=FakeClassifier(error=RuntimeError("out of memory")), taxon_confidence=0.5,
-              classification_csv_filename=CLASSIFICATION_CSV_FILENAME)
+              output_dir=str(tmp_path / "out"),
+              action=CropExportAction(ExportOptions(settings)), progress=always_continue,
+              classifier=FakeClassifier(error=RuntimeError("out of memory")), taxon_confidence=0.5)
 
     with Image.open(tmp_path / "out" / "Fish_a_crop.png") as crop:
         assert crop.size == (10, 10)
@@ -438,9 +421,8 @@ def test_best_classification_crop_falls_back_to_the_detection_when_the_classifie
 
 def test_an_image_that_fails_to_load_has_no_classification_rows(tmp_path):
     run_batch([str(tmp_path / "missing.png")], FakeDetector(), detection_confidence=0.5, exposure_correction=False,
-              output_dir=str(tmp_path / "out"), detections_csv_filename=DETECTIONS_CSV_FILENAME, action=CropExportAction(CROP_SETTINGS),
-              progress=always_continue, classifier=FakeClassifier(),
-              classification_csv_filename=CLASSIFICATION_CSV_FILENAME)
+              output_dir=str(tmp_path / "out"), action=CropExportAction(ExportOptions(CROP_SETTINGS)),
+              progress=always_continue, classifier=FakeClassifier())
 
     assert read_classification_csv_rows(str(tmp_path / "out")) == [CLASSIFICATION_CSV_HEADER]
 
@@ -453,13 +435,17 @@ SORT_CROP_SETTINGS = replace(CROP_SETTINGS, taxon_confidence=0.5)
 OTHER = Detection((40, 10, 10, 10), 0.8, "Fish")
 
 
-def export(tmp_path, paths, detector, classifier, crop=True, crop_settings=SORT_CROP_SETTINGS):
-    """Export the images into tmp_path/out, named by taxon when there is a classifier. Returns the BatchResult."""
-    action = CropExportAction(crop_settings, crop=crop, classifier_patterns=classifier.patterns if classifier else None)
+def export(tmp_path, paths, detector, classifier, crop=True, crop_settings=SORT_CROP_SETTINGS, prefix=(False, True)):
+    """
+    Export the images into tmp_path/out, named by taxon when there is a classifier, else by class.
+    prefix is the pair of prefix_class and prefix_taxa. Returns the BatchResult.
+    """
+    prefix_class, prefix_taxa = prefix
+    action = CropExportAction(ExportOptions(crop_settings, crop=crop, prefix_class=prefix_class, prefix_taxa=prefix_taxa,
+                                            classifier_patterns=classifier.patterns if classifier else None))
     return run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
-                     output_dir=str(tmp_path / "out"), detections_csv_filename=DETECTIONS_CSV_FILENAME, action=action,
-                     progress=always_continue, classifier=classifier, taxon_confidence=crop_settings.taxon_confidence,
-                     classification_csv_filename=CLASSIFICATION_CSV_FILENAME)
+                     output_dir=str(tmp_path / "out"), action=action,
+                     progress=always_continue, classifier=classifier, taxon_confidence=crop_settings.taxon_confidence)
 
 
 def exported(tmp_path):
@@ -552,3 +538,15 @@ def test_reexport_overwrites_same_named_crops_and_keeps_the_rest(tmp_path):
     export(tmp_path, paths, detector, classifier, crop_settings=replace(SORT_CROP_SETTINGS, taxon_confidence=0.2))
     assert exported(tmp_path) == ["Pomacentridae_Amphiprion_ocellaris_fish_crop.png",
                                   "Pomacentridae_Amphiprion_unidentified_fish_crop.png"]
+
+
+@pytest.mark.parametrize(("prefix", "expected"), [
+    ((True, False), ["Fish_fish_crop.png", "no-detection_empty.png"]),
+    ((True, True), ["Fish_Pomacentridae_Amphiprion_ocellaris_fish_crop.png", "no-detection_empty.png"]),
+    ((False, False), ["empty.png", "fish_crop.png"]),
+])
+def test_export_with_a_classifier_can_name_by_class_and_taxa_or_keep_the_names(tmp_path, prefix, expected):
+    export(tmp_path, make_images(tmp_path, ["fish.png", "empty.png"]), FakeDetector({"fish.png": [FISH]}),
+           FakeClassifier(SPECIES), prefix=prefix)
+
+    assert exported(tmp_path) == expected

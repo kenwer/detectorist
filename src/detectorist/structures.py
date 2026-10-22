@@ -1,7 +1,19 @@
-from enum import Enum
-from typing import NamedTuple
+from enum import Enum, StrEnum
+from typing import NamedTuple, Self
 
 import numpy as np
+
+
+class SettingEnum(StrEnum):
+    """A choice stored in the settings by its value."""
+
+    @classmethod
+    def from_setting(cls, value: str | None) -> Self | None:
+        """Parse a persisted value, or None if missing/unknown."""
+        try:
+            return cls(value)
+        except ValueError:
+            return None
 
 
 class ImageMode(Enum):

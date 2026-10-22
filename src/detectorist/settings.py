@@ -8,20 +8,22 @@ from PySide6.QtCore import QByteArray, QDir, QSettings
 from detectorist import __version__
 
 from . import utils
+from .export_planner import ExportOptions
 
 
 class Setting[T]:
     """
-    One stored setting, read back as its type, or None while it is unset.
-    Setting it to None unsets it, since an INI file has no way to store None.
-    The key is the attribute name without its group prefix, unless given.
+    One stored setting, read back as its type, or as its default while it is
+    unset. Setting it to None unsets it, since an INI file has no way to store
+    None. The key is the attribute name without its group prefix, unless given.
     """
 
-    def __init__(self, group: str, value_type: type[T], doc: str, key: str = ""):
+    def __init__(self, group: str, value_type: type[T], doc: str, key: str = "", default: T | None = None):
         self.group = group
         self.type = value_type
         self.__doc__ = doc
         self.key = key
+        self.default = default
 
     def __set_name__(self, owner: type, name: str) -> None:
         self.key = self.key or name.removeprefix(f"{self.group}_")
@@ -63,9 +65,10 @@ class Settings:
     GROUP_RECENT = "recent"  # recently opened folders (not exported)
     GROUP_MODEL = "model"    # detection and classification models and their confidences
     GROUP_IMAGE = "image"    # how images are shown and exported, such as exposure correction
-    GROUP_CROP = "crop"      # whether and how Export crops: mode, aspect ratio and padding
+    GROUP_CROP = "crop"      # crop mode, aspect ratio and padding
+    GROUP_EXPORT = "export"  # choices last made in the Export dialog, and the Show filter
     # The groups settings files hold, in the order they list them
-    PORTABLE_GROUPS = [GROUP_MODEL, GROUP_IMAGE, GROUP_CROP]
+    PORTABLE_GROUPS = [GROUP_MODEL, GROUP_IMAGE, GROUP_CROP, GROUP_EXPORT]
 
     MAX_RECENT_FOLDERS = 10
 
@@ -106,7 +109,20 @@ class Settings:
                                 "The crop aspect ratio, such as \"3:2\", \"source_image\" or \"detection_frame\".")
     crop_padding_percent = Setting(GROUP_CROP, int,
                                    "Padding added around a crop, in percent of the detection's width and height.")
-    crop_images = Setting(GROUP_CROP, bool, "Whether Export crops the images or copies them whole.")
+
+    # Export settings
+    export_crop_images = Setting(GROUP_EXPORT, bool,
+                                 "Whether Export crops the images or copies them whole, as last chosen in the Export dialog.",
+                                 default=ExportOptions.crop)
+    export_prefix_class = Setting(GROUP_EXPORT, bool,
+                                  "Whether exported file names start with the detected class, as last chosen in the Export dialog.",
+                                  default=ExportOptions.prefix_class)
+    export_prefix_taxa = Setting(GROUP_EXPORT, bool,
+                                 "Whether exported file names hold the identified family, genus and species, "
+                                 "as last chosen in the Export dialog. Kept while no classifier is selected.",
+                                 default=ExportOptions.prefix_taxa)
+    export_class_filter = Setting(GROUP_EXPORT, str,
+                                  "The class chosen in Show, whose detections alone are exported, or None for all classes.")
 
     def __init__(self, qsettings: QSettings | None = None):
         """
@@ -141,7 +157,7 @@ class Settings:
 
     def _read(self, setting: Setting) -> Any:
         if not self._settings.contains(setting.path):
-            return None
+            return setting.default
         return self._settings.value(setting.path, type=setting.type)
 
     def _write(self, setting: Setting, value: Any) -> None:
@@ -198,11 +214,20 @@ class Settings:
         for setting in self._portable():
             self._write(setting, None)
 
-    def export_to_file(self, path: Path) -> None:
-        """Writes the portable settings to a JSON file, an unset one as null."""
+    def export_to_file(self, path: Path, used: dict[Setting, Any] | None = None) -> None:
+        """
+        Writes the portable settings to a JSON file, an unset one as its default or null.
+
+        Args:
+            used: Values to write in place of the stored ones, keyed by
+                setting, such as Settings.classification_model. An export
+                passes what it used where that differs from the choice kept
+                for later.
+        """
+        used = used or {}
         groups: dict[str, dict[str, Any]] = {group: {} for group in self.PORTABLE_GROUPS}
         for setting in self._portable():
-            groups[setting.group][setting.key] = self._read(setting)
+            groups[setting.group][setting.key] = used[setting] if setting in used else self._read(setting)
         data = {"app_version": __version__, "settings": groups}
         with open(utils.long_path(str(path)), "w", encoding="utf-8") as f:
             f.write(json.dumps(data, indent=2))

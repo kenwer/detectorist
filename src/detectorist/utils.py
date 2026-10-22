@@ -121,6 +121,11 @@ def list_model_files(folder: str) -> list[str]:
     return sorted(f for f in entries if f.endswith((".onnx", ".onnx.gz")))
 
 
+def count_noun(number: int, noun: str) -> str:
+    """A number with a noun in the matching form, e.g. "1 classification" or "20 classifications"."""
+    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
+
+
 def strip_model_ext(filename: str) -> str:
     """Strip .onnx or .onnx.gz extension for display."""
     return filename.removesuffix(".gz").removesuffix(".onnx")

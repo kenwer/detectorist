@@ -37,6 +37,8 @@ def test_shortcuts_document_names_the_current_export_actions(qtbot):
     qtbot.addWidget(dialog)
     text = dialog.ui.shortcuts_text_browser.toPlainText()
 
-    assert "Export all Images" in text
-    assert "Crop & Export" not in text
+    assert "Export Images..." in text
+    assert "Export all Images" not in text
+    assert "Export selected Images" not in text
+    assert "Export & Remove" not in text
     assert "Group Images" not in text
