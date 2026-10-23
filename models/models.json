@@ -21,8 +21,11 @@
     "name": "Fish Segmentation (Focus-Aware)",
     "size_mb": 115,
     "description": "Locates fish using a transformer-based instance segmentation model with two classes that separate in-focus from out-of-focus fish.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-focus-seg-transformer-2026-09-29.onnx.gz",
-    "release_date": "2026-09-29"
+    "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-focus-036-seg-transformer-2026-10-18.onnx.gz",
+    "release_date": "2026-10-18",
+    "supersedes": [
+      "fish-focus-seg-transformer-2026-09-29.onnx.gz"
+    ]
   },
   {
     "name": "Apoidea Detection",
@@ -46,10 +49,11 @@
     "name": "Apoidea Segmentation (Focus-Aware)",
     "size_mb": 115,
     "description": "Locates bees, wasps, and related Apoidea species using a transformer-based instance segmentation model with two classes that separate in-focus from out-of-focus individuals.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-focus-seg-transformer-2026-10-05.onnx.gz",
-    "release_date": "2026-10-05",
+    "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-focus-042-seg-transformer-2026-10-18.onnx.gz",
+    "release_date": "2026-10-18",
     "supersedes": [
-      "apoidea-focus-seg-transformer-2026-09-17.onnx.gz"
+      "apoidea-focus-seg-transformer-2026-09-17.onnx.gz",
+      "apoidea-focus-seg-transformer-2026-10-05.onnx.gz"
     ]
   },
   {
