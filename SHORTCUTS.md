@@ -5,6 +5,7 @@
 | Ctrl+O         | Ctrl+O         | ⌘O  | **Open Image(s)...** | Brings up the file dialog to load one or more images |
 | Shift+Ctrl+O   | Shift+Ctrl+O   | ⇧⌘O | **Open Folder...** | Brings up the file dialog to open an entire folder with images |
 | Ctrl+E         | Ctrl+E         | ⌘E  | **Export Images...** | Opens the Export dialog to export all or the selected images, as crops or whole, named by taxon or class |
+| Shift+Ctrl+M   | Shift+Ctrl+M   | ⇧⌘M | **Manage Models...** | Opens the Manage Models dialog to download, update or remove detection models |
 | Ctrl+Backspace | Ctrl+Backspace | ⌘⌫  | **Clear Image List** | Clears the list of loaded images |
 | Alt+F4         | Ctrl+Q         | ⌘Q  | **Quit** | Quits Detectorist |
 | Ctrl+/, F1     | Ctrl+/, F1     | ⌘/, ⌘? | **Keyboard Shortcuts** | Shows this list of shortcuts |

@@ -1735,6 +1735,7 @@ def test_actions_use_the_platform_shortcuts(window):
     assert window.ui.quit_action.shortcuts() == QKeySequence.keyBindings(QKeySequence.StandardKey.Quit)
     assert [key.toString() for key in window.ui.remove_selected_images_from_list_action.shortcuts()] == ["Del", "Backspace"]
     assert window.ui.reveal_image_action.shortcut().toString() == "Ctrl+R"
+    assert window.ui.manage_models_action.shortcut().toString() == "Ctrl+Shift+M"
     assert window.ui.shortcuts_action.shortcuts() == [
         QKeySequence("Ctrl+/"), *QKeySequence.keyBindings(QKeySequence.StandardKey.HelpContents)]
 

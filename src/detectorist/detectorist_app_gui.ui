@@ -757,6 +757,9 @@
    <property name="toolTip">
     <string>Manage detection models</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+M</string>
+   </property>
   </action>
   <action name="quit_action">
    <property name="text">

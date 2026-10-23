@@ -23,6 +23,7 @@
   - `Delete` removes the selected image(s) from the list, just like `Backspace`
   - `Ctrl+R`/`⌘R` reveals the selected image in the file manager
   - `Alt+F4`/`Ctrl+Q`/`⌘Q` quits the application
+  - `Shift+Ctrl+M`/`⇧⌘M` opens the Manage Models dialog
 ### Changed
 - Export:
   - Writes into a flat `processed` folder, each file name starting with its taxa or, without a classifier, its class, e.g. `Pomacentridae_Amphiprion_unidentified_IMG_0042_crop.jpg`.
