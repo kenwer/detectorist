@@ -34,8 +34,7 @@
     "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-detect-transformer-2026-02-16.onnx.gz",
     "release_date": "2026-02-16",
     "supersedes": [
-      "bee-detect-2025-09-10.onnx",
-      "apoidea-detect-transformer-2026-01-23.onnx.gz"
+      "bee-detect-2025-09-10.onnx"
     ]
   },
   {
