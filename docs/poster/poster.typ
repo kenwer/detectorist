@@ -21,18 +21,18 @@
 )
 #set par(leading: 0.62em)
 
-// A labelled feature block; hero: true renders the wider, bolder variant
-// used for the single headline capability.
-#let feature(title, body, hero: false) = block(
+// A labelled feature block.
+#let feature(title, body, height: auto) = block(
   fill: panel,
-  inset: if hero { 14pt } else { 11pt },
+  inset: 12pt,
   radius: 6pt,
   width: 100%,
-  stroke: if hero { (left: 3pt + accent) } else { none },
+  height: height,
+  stroke: (left: 3pt + accent),
   stack(
-    spacing: if hero { 16pt } else { 15pt },
-    text(weight: "bold", size: if hero { 14pt } else { 12pt }, fill: accent-dark, title),
-    text(size: if hero { 11pt } else { 10.5pt }, fill: muted, body),
+    spacing: 14pt,
+    text(weight: "bold", size: 13pt, fill: accent-dark, title),
+    text(size: 11pt, fill: muted, body),
   ),
 )
 
@@ -45,7 +45,7 @@
   stack(
     spacing: 23pt,
     text(size: 40pt, weight: "extralight", fill: muted)[Detectorist],
-    text(size: 18pt, weight: "bold")[Sort and crop photos using local AI object detection],
+    text(size: 18pt, weight: "bold")[Find, crop and identify animals in large photo sets with local AI],
   ),
 )
 
@@ -53,13 +53,9 @@
 #line(length: 100%, stroke: 1.5pt + accent)
 #v(6pt)
 
-// Intro
-#text(size: 12.5pt)[
-  A cross platform desktop application that uses machine learning for object detection and
-  instance segmentation to sort and crop photos. It saves time when cropping similar objects
-  across large batches of images, for example thousands of underwater photos of fish, or a
-  season's worth of bee sightings, using confidence, aspect ratio, and padding settings you
-  control.
+// Teaser
+#text(size: 14pt)[
+  Detectorist is a desktop application for macOS, Windows and Linux that finds, crops and identifies animals in large sets of photos. It runs the detection, segmentation and species classification models locally on your computer.
 ]
 
 #v(6pt)
@@ -71,43 +67,50 @@
   image("/docs/poster/screenshot.jpg", width: 100%),
 )
 #align(center, text(size: 9pt, fill: muted)[
-  Fish segmentation with adjustable confidence, crop mode, and per-image EXIF metadata.
+  Fish segmentation and species classification with detection and taxon thresholds, results table, and EXIF metadata.
 ])
 
-#v(8pt)
+#v(32pt)
 
-// Feature grid
-#feature("Detect objects using local AI", hero: true)[
-  Run bounding-box detection or instance segmentation with built-in detection transformer based models for fish,
-  Apoidea (bees and similar looking insects). Confidence threshold and class
-  filter update detections live.
-]
-
-#v(7pt)
-
-#grid(
-  columns: (1fr, 1fr),
-  gutter: 7pt,
-  feature("View images")[
-    Load images from a local folder via drag & drop or the file dialog. Supports JPG, PNG, BMP,
-    10-bit HEIF, and Sony RAW (.arw). An EXIF viewer shows camera, lens, exposure, and other
-    metadata for the selected image.
-  ],
-  feature("Crop and sort")[
-    Choose a crop mode (top confidence, union, most centered, each object), aspect ratio, and
-    padding. Preview the effect on any selected image before running batch actions on the entire set.
-  ],
-  feature("Batch export")[
-    Run Crop & Export or Group into Folders across your whole image list in one pass. Output
-    lands in a `processed` subfolder alongside a detections CSV and settings JSON, both named
-    for the confidence and model used.
-  ],
-  feature("Model Manager")[
-    Browse, download, and update supported AI models without leaving the app. New detection
-    and segmentation models can be added as they become available, and existing ones updated
-    in place.
-  ],
+// Use cases, copied verbatim from the README's About section.
+#let use-cases = (
+  ("screen large image sets for the animals you study", [
+    such as the several thousand photos of a dive or a field day. A detection model locates
+    every fish or Apoidea individual, tells sharp from out-of-focus ones, and separates the
+    images with detections from those without.
+  ]),
+  ("need standardized crops of each detection", [
+    with a fixed aspect ratio and padding, for photo-identification of individuals or as
+    training data for other models.
+  ]),
+  ("want to know which species you photographed.", [
+    A classifier assigns a family, genus and species to each detection and names it down to
+    the deepest rank that reaches a user-set confidence threshold.
+  ]),
+  ("want to analyze the results further", [
+    e.g. in R or Python. Each export writes CSV files with the detections and, with a
+    classifier, the name and score at each rank. A settings file records the models and
+    thresholds used, so the analysis can be reproduced.
+  ]),
 )
+
+#text(size: 16pt, weight: "bold")[Detectorist is the right tool for you if you...]
+#v(4pt)
+// Typst cannot stretch a block to its grid row, so measure the tallest tile at
+// the column width and give all four that height.
+#layout(size => {
+  let gutter = 7pt
+  let column = (size.width - gutter) / 2
+  let tallest = calc.max(..use-cases.map(((title, body)) => measure(
+    feature(title, body),
+    width: column,
+  ).height))
+  grid(
+    columns: (1fr, 1fr),
+    gutter: gutter,
+    ..use-cases.map(((title, body)) => feature(title, body, height: tallest)),
+  )
+})
 
 #v(1fr)
 
