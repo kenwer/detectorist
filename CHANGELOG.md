@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+### Changed
+- `Min. taxon conf.` defaults to 70% instead of 50%.
+
 ### Fixed
 - Sorting the results table by a score column uses the exact score, not the rounded one shown.
 

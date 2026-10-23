@@ -1215,7 +1215,7 @@ def test_selecting_a_classifier_labels_the_displayed_detections(qtbot, species_m
     # Above the confidence only, the highest scoring first
     assert classifier_factory.classified == [[FISH.box, CRAB.box]]
     assert classifier_factory.created[0].model_path == os.path.join(window.models_dir, "classifiers", species_model)
-    # The species scores 0.44, below the default taxon confidence of 0.50
+    # The species scores 0.44, below the default taxon confidence of 0.70
     assert labels(window) == ["Amphiprion"] * 2
 
 
@@ -1258,8 +1258,8 @@ def test_deselecting_the_classifier_shows_the_detector_class_again(qtbot, specie
     qtbot.waitUntil(lambda: labels(window) == [None])
 
 
-# Named down to the species at the default taxon confidence of 0.50, unlike TAXONOMY
-CRAB_SPECIES = Taxonomy(RankedName("Pomacentridae", 0.9), RankedName("Amphiprion", 0.8), RankedName("Amphiprion_clarkii", 0.7))
+# Named down to the species at the default taxon confidence of 0.70, unlike TAXONOMY
+CRAB_SPECIES = Taxonomy(RankedName("Pomacentridae", 0.9), RankedName("Amphiprion", 0.8), RankedName("Amphiprion_clarkii", 0.72))
 
 
 def open_for_best_classification(qtbot, window, folder, monkeypatch, detector_factory, classifier_factory, crab=CRAB):
