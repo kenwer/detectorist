@@ -1392,23 +1392,24 @@ def test_results_summary_gives_the_detections_and_classifications_with_their_tim
     assert window.ui.results_summary_label.text() == "1 object detected (220 ms). 1 of them classified (430 ms)."
 
 
-def test_hovering_a_detection_shows_its_result_row_in_bold(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+def test_hovering_a_detection_tints_its_result_row(qtbot, species_model, window, folder, monkeypatch, detector_factory):
     open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [CRAB, FISH])
     table = window.ui.results_table
 
-    def bold():
-        return [table.topLevelItem(i).font(0).bold() for i in range(table.topLevelItemCount())]
+    def tinted():
+        return [table.topLevelItem(i).data(0, Qt.ItemDataRole.BackgroundRole) is not None
+                for i in range(table.topLevelItemCount())]
 
     window.ui.image_label.detection_hovered.emit(CRAB.box)
-    assert bold() == [False, True]
+    assert tinted() == [False, True]
 
     window.ui.image_label.detection_hovered.emit(None)
-    assert bold() == [False, False]
+    assert tinted() == [False, False]
 
     # Rebuilds the rows
     window.ui.image_label.detection_hovered.emit(CRAB.box)
     window.ui.taxon_confidence_spin_box.setValue(40)
-    assert bold() == [False, True]
+    assert tinted() == [False, True]
 
 
 def test_hovering_a_detection_or_refreshing_the_results_keeps_the_table_scrolled(qtbot, species_model, window, folder, monkeypatch, detector_factory):

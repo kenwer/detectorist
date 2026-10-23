@@ -190,7 +190,7 @@ class DetectoristApp(QMainWindow):
         self.ui.image_label.linkActivated.connect(self._open_recent_folder)
         self.ui.image_label.setAcceptDrops(True) # Enable drag and drop for image_label
         # Hovering a detection marks its results row, as hovering a row highlights its detection
-        self.ui.image_label.detection_hovered.connect(self.ui.results_table.set_bold_box)
+        self.ui.image_label.detection_hovered.connect(self.ui.results_table.set_highlighted_box)
         self.ui.results_table.row_hovered.connect(self.ui.image_label.highlight_box)
 
         # A permanent widget, so the status bar's messages (the image's name, notices) do not replace it

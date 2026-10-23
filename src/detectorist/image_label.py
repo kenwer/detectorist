@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QImage, QPainter, QPen, QPixmap
+from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel, QRubberBand
 
 from .detection_style import MASK_COLORS, DetectionStyle, build_class_color_map
@@ -444,9 +444,9 @@ class ImageLabel(QLabel):
             if style.label is None:
                 continue
             painter.setFont(bold_font if band.highlighted else regular_font)
-            metrics = painter.fontMetrics()
             box = band.geometry()
-            text_rect = metrics.boundingRect(style.label).adjusted(-3, -1, 3, 1)
+            # Sized for bold whether or not the label is highlighted, so hovering does not widen it
+            text_rect = QFontMetrics(bold_font).boundingRect(style.label).adjusted(-3, -1, 3, 1)
             # Above the box, or inside it where the box touches the top of the widget
             top = box.top() - text_rect.height()
             text_rect.moveTo(box.left(), top if top >= 0 else box.top())

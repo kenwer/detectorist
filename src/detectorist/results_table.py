@@ -1,4 +1,5 @@
 from PySide6.QtCore import QEvent, QPoint, Qt, Signal
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QHeaderView, QTreeWidget, QTreeWidgetItem
 
 from .classifier import display_name, identified_ranks
@@ -17,8 +18,8 @@ def _is_score_column(column: int) -> bool:
 class ResultsTable(QTreeWidget):
     """
     Lists the shown image's detections, one row each, with what the classifier
-    named them. Hovering a row shows it in bold and reports its detection's
-    box, and the row of a box set with set_bold_box is shown in bold too.
+    named them. Hovering a row tints it and reports its detection's box, and
+    the row of a box set with set_highlighted_box is tinted too.
     """
 
     # The box of the detection whose row is under the mouse, or None
@@ -39,7 +40,7 @@ class ResultsTable(QTreeWidget):
         # Where the mouse last was over the viewport, or None, as rows can change under a resting mouse
         self._mouse_pos: QPoint | None = None
         self._hovered_box = None
-        self._bold_box = None
+        self._highlighted_box = None
         self.viewport().setMouseTracking(True)
 
     def show_detections(self, detections: list, taxonomy_by_box: dict, threshold: float):
@@ -63,7 +64,7 @@ class ResultsTable(QTreeWidget):
             item.setData(0, BOX_ROLE, detection.box)
             for column in filter(_is_score_column, range(len(cells))):
                 item.setTextAlignment(column, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            self._set_bold(item, detection.box == self._bold_box)
+            self._set_highlighted(item, detection.box == self._highlighted_box)
             self.addTopLevelItem(item)
         self.verticalScrollBar().setValue(scroll_position)
         self._update_hovered_box()
@@ -77,22 +78,26 @@ class ResultsTable(QTreeWidget):
         for column in range(TAXONOMY_COLUMNS_START, self.columnCount()):
             self.setColumnHidden(column, not visible)
 
-    def set_bold_box(self, box):
+    def set_highlighted_box(self, box):
         """
-        Shows the row of the detection with the given box in bold, or none for
-        None. The table is not scrolled to it, as moving the mouse over the
+        Tints the row of the detection with the given box, or none for None. The table is not scrolled to it, as moving the mouse over the
         image would keep scrolling the table.
         """
-        self._bold_box = box
+        self._highlighted_box = box
         for i in range(self.topLevelItemCount()):
             item = self.topLevelItem(i)
-            self._set_bold(item, item.data(0, BOX_ROLE) == box)
+            self._set_highlighted(item, item.data(0, BOX_ROLE) == box)
 
-    def _set_bold(self, item: QTreeWidgetItem, bold: bool):
-        font = item.font(0)
-        font.setBold(bold)
+    def _set_highlighted(self, item: QTreeWidgetItem, highlighted: bool):
+        # A tint rather than bold, as bold text is wider and would resize the score columns.
+        # Fainter than the selection, so a hovered row still shows whether it is selected.
+        brush = None
+        if highlighted:
+            color = self.palette().color(QPalette.ColorRole.Highlight)
+            color.setAlphaF(0.3)
+            brush = color
         for column in range(self.columnCount()):
-            item.setFont(column, font)
+            item.setData(column, Qt.ItemDataRole.BackgroundRole, brush)
 
     def viewportEvent(self, event):
         # The rows are drawn on the viewport, so it gets the mouse, and the table has no signal for leaving a row
@@ -110,5 +115,5 @@ class ResultsTable(QTreeWidget):
         box = None if item is None else item.data(0, BOX_ROLE)
         if box != self._hovered_box:
             self._hovered_box = box
-            self.set_bold_box(box)
+            self.set_highlighted_box(box)
             self.row_hovered.emit(box)
