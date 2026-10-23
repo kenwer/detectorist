@@ -44,6 +44,7 @@
 - Disable onnxruntime telemetry.
 - App requires macOS 26 or later.
 - [Dev] Settings and settings files use new, clearer names.
+- [Dev] A failed build fails the build task instead of packaging an empty app.
 - [Dev] Upgrade dependencies.
 ### Removed
 - The `Union of all objects` crop mode.

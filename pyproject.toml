@@ -74,8 +74,10 @@ case "$(uname -s)" in
 esac
 """
 
+# set -e fails the build tasks on a failed Nuitka run, which the trailing commands would otherwise hide
 [tool.poe.tasks.build-linux]
 shell = """
+set -e
 ARCH=$(uname -m)
 OUTPUT_DIR=dist/linux-$ARCH
 rm -rf "$OUTPUT_DIR"
@@ -98,8 +100,11 @@ nuitka \
 deps = ["compile-ui", "compile-qrc"]
 help = "Build the application for Linux"
 
+# No platforminputcontexts plugins: on macOS PySide6-Essentials only ships the virtual keyboard one,
+# without the QtVirtualKeyboard frameworks it links against, so Nuitka fails to resolve it
 [tool.poe.tasks.build-mac]
 shell = """
+set -e
 ARCH=$(uname -m)
 VERSION=$(poe get_app_version)
 OUTPUT_DIR=dist/macos-$ARCH
@@ -112,7 +117,6 @@ nuitka \
     --noinclude-qt-translations \
     --noinclude-dlls='*.cpp.o' \
     --noinclude-dlls='*.qsb' \
-    --include-qt-plugins=platforminputcontexts \
     --include-package-data=pyqttoast \
     --disable-ccache \
     --output-dir="$OUTPUT_DIR" \
@@ -132,6 +136,7 @@ help = "Build the application for macOS"
 
 [tool.poe.tasks.build-windows]
 shell = """
+set -e
 ARCH=$(uname -m)
 VERSION=$(poe get_app_version)
 OUTPUT_DIR=dist/windows-$ARCH
