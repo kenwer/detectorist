@@ -313,3 +313,33 @@ def test_cancelling_a_download_makes_the_model_available_again(qtbot, open_dialo
     assert button(dialog, "slow.onnx").text() == "Download"
     assert dialog.ui.status_label.text() == "Download cancelled."
     assert list(models.iterdir()) == []
+
+
+def test_a_long_file_name_wraps_instead_of_widening_the_rows(qtbot, make_downloader, tmp_path, remote):
+    filename = f"{'long-model-name-' * 6}2026-01-01.onnx.gz"
+    (remote / filename).write_bytes(b"model")
+    manifest = [{"name": "Long", "url": file_url(remote / filename), "size_mb": 1, "release_date": "2026-01-01"}]
+    (remote / "models.json").write_text(json.dumps(manifest))
+    models = tmp_path / "models"
+    models.mkdir()
+
+    dialog = ManageModelsDialog(make_downloader(models), str(models))
+    qtbot.addWidget(dialog)
+    dialog.show()
+    qtbot.waitUntil(lambda: len(dialog._rows) > 0)
+    qtbot.wait(50)
+
+    contents = dialog.ui.scroll_contents
+    assert contents.minimumSizeHint().width() <= dialog.ui.scroll_area.viewport().width()
+    assert contents.width() == dialog.ui.scroll_area.viewport().width()
+
+
+def test_dialog_fits_on_a_short_screen(make_downloader, qtbot, tmp_path, remote):
+    models = tmp_path / "models"
+    models.mkdir()
+
+    # The offscreen screen is 600 pixels tall, shorter than the dialog's default height
+    dialog = ManageModelsDialog(make_downloader(models), str(models))
+    qtbot.addWidget(dialog)
+
+    assert dialog.height() <= dialog.screen().availableGeometry().height() - 50

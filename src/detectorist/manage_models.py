@@ -74,6 +74,11 @@ class ManageModelsDialog(QDialog):
         self.ui = Ui_ManageModelsDialog()
         self.ui.setupUi(self)
         self.ui.scroll_contents_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        # Windows does not shrink a window that is taller than the screen, so
+        # a laptop at 150% scaling would hide the Close button. The margin
+        # leaves room for the title bar, which resize() does not count.
+        available_height = self.screen().availableGeometry().height()
+        self.resize(self.width(), min(self.height(), available_height - 50))
 
         self._downloader.manifest_loaded.connect(self._on_manifest_loaded)
         self._downloader.manifest_error.connect(self._on_manifest_error)
@@ -194,15 +199,15 @@ class ManageModelsDialog(QDialog):
             <p><table style="border-collapse: collapse;">
                 <tr>
                     <td style="text-align: left; padding-right: 10px; white-space: nowrap;">{filename_label}</td>
-                    <td style="font-family: 'Courier New', Consolas, monospace; white-space: nowrap;">{filename}</td>
+                    <td style="font-family: 'Courier New', Consolas, monospace;">{filename}</td>
                 </tr>
                 <tr>
                     <td style="text-align: left; padding-right: 10px; white-space: nowrap;">Release date:</td>
-                    <td style="font-family: 'Courier New', Consolas, monospace; white-space: nowrap;">{model.get("release_date", "unknown date")}</td>
+                    <td style="font-family: 'Courier New', Consolas, monospace;">{model.get("release_date", "unknown date")}</td>
                 </tr>
                 <tr>
                     <td style="text-align: left; padding-right: 10px; white-space: nowrap;">File size:</td>
-                    <td style="font-family: 'Courier New', Consolas, monospace; white-space: nowrap;">{model.get("size_mb", "unknown size")} MB</td>
+                    <td style="font-family: 'Courier New', Consolas, monospace;">{model.get("size_mb", "unknown size")} MB</td>
                 </tr>
             </table></p>
             """)
