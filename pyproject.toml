@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.13.5,<0.14"]
+build-backend = "uv_build"
 
 [project]
 name = "detectorist"
@@ -37,10 +37,6 @@ dev = [
 [project.scripts]
 detectorist = "detectorist.main:main"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-packages = ["detectorist"]
-
 [tool.poe.tasks]
 compile-ui = { shell = "for f in src/detectorist/*.ui; do base=\"${f%.ui}\"; out=\"${base%/*}/ui_${base##*/}.py\"; pyside6-uic --from-imports \"$f\" -o \"$out\"; done", help = "Compile Qt UI files to Python files with relative imports" }
 # --format-version 1 omits per-file timestamps for reproducible output as setting SOURCE_DATE_EPOCH=0 does not work (Qt treats 0 as "not set" see QTBUG-62511).
@@ -53,8 +49,7 @@ test-fast = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest -m 'not s
 test-slow = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest -m slow" }], help = "Compile UI/resources, then run only the slow tests that load the real models from ./models" }
 install-hooks = { cmd = "git config core.hooksPath .githooks", help = "Point git at the repo's tracked hooks (pre-push runs test-fast)" }
 
-# Read from pyproject.toml instead of the installed metadata, which can be shadowed by a stale egg-info in the repo root.
-get_app_version = { shell = "python -c 'import tomllib; print(tomllib.load(open(\"pyproject.toml\", \"rb\"))[\"project\"][\"version\"])'", help = "Get the application version" }
+get_app_version = { cmd = "uv version --short --frozen", help = "Get the application version" }
 
 clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
 

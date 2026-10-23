@@ -18,27 +18,9 @@ permissions:
   contents: write
 
 jobs:
-  get-version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Get version
-        id: version
-        run: |
-          VERSION=$(grep -m1 '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
   build:
     name: Build (${{ matrix.name }})
-    needs: get-version
     runs-on: ${{ matrix.os }}
-    env:
-      VERSION: ${{ needs.get-version.outputs.version }}
     strategy:
       fail-fast: true
       matrix:
@@ -98,6 +80,7 @@ jobs:
       - name: Package archive
         shell: bash
         run: |
+          VERSION=$(uv run poe -q get_app_version)
           dist_dir="dist/${{ matrix.os_name }}-${{ matrix.arch }}"
           versioned="Detectorist-${VERSION}-${{ matrix.os_name }}-${{ matrix.arch }}"
           archive="Detectorist-${{ matrix.os_name }}-${{ matrix.arch }}.${{ matrix.archive_ext }}"

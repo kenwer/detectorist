@@ -12,8 +12,8 @@ set -euo pipefail
 #   3. Check if the working directory is clean
 #      git status
 #
-#   4. Increment the version number in pyproject.toml
-#      sed -i "s/version = \"...\"/version = \"...\"/"
+#   4. Set the release version in pyproject.toml and uv.lock
+#      uv version X.Y.Z
 #
 #   5. Update CITATION.cff (version and date-released)
 #      sed -i "s/^version: .../version: .../; s/^date-released: .../date-released: .../"
@@ -21,19 +21,16 @@ set -euo pipefail
 #   6. Update the citation BibTeX block in README.md (version and year)
 #      sed -i "s/version = {...}/version = {...}/; s/year    = {....}/year    = {....}/"
 #
-#   7. Regenerate uv.lock so it records the new version
-#      uv lock
-#
-#   8. Adjust CHANGELOG.md (replace "## [Unreleased]" with the new version and date)
+#   7. Adjust CHANGELOG.md (replace "## [Unreleased]" with the new version and date)
 #      sed -i "s/## \[Unreleased\]/## [X.Y.Z] - YYYY-MM-DD/"
 #
-#   9. Commit the changes with a message like "Bump version to 0.7.4"
+#   8. Commit the changes with a message like "Bump version to 0.7.4"
 #      git add ... && git commit -m "Bump version to X.Y.Z"
 #
-#  10. Push to remote and wait for GitHub Actions to complete
+#   9. Push to remote and wait for GitHub Actions to complete
 #      git push
 #
-#  11. Tag the release and push the tag to trigger the release workflow
+#  10. Tag the release and push the tag to trigger the release workflow
 #      V="0.7.4"; git tag -a "v${V}" -m "Release version ${V}" && git push -u origin "v${V}"
 #
 # The generated ui_*.py and *_rc.py files are not tracked. CI compiles them
@@ -172,14 +169,11 @@ else
     success "Working directory is clean"
 fi
 
-# Get current version
-CURRENT_VERSION=$(grep -m1 '^version = ' "$VERSION_FILE" | sed 's/version = "\(.*\)"/\1/')
+CURRENT_VERSION=$(uv version --short --frozen)
 info "Current version: ${GREEN}${CURRENT_VERSION}${NC}"
 
-# Calculate version options
-IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-PATCH_BUMP="${MAJOR}.${MINOR}.$((PATCH + 1))"
-MINOR_BUMP="${MAJOR}.$((MINOR + 1)).0"
+PATCH_BUMP=$(uv version --bump patch --dry-run --short --frozen)
+MINOR_BUMP=$(uv version --bump minor --dry-run --short --frozen)
 
 # Prompt for new version
 echo ""
@@ -210,14 +204,13 @@ done
 
 echo ""
 info "Release plan:"
-echo -e "  4. Update version: ${CURRENT_VERSION} -> ${GREEN}${NEW_VERSION}${NC} in ${VERSION_FILE}"
+echo -e "  4. Update version: ${CURRENT_VERSION} -> ${GREEN}${NEW_VERSION}${NC} in ${VERSION_FILE} and ${LOCK_FILE}"
 echo -e "  5. Update ${CITATION_FILE} (version and date-released)"
 echo -e "  6. Update citation BibTeX block in ${README_FILE} (version and year)"
-echo -e "  7. Regenerate ${LOCK_FILE} (uv lock)"
-echo -e "  8. Update CHANGELOG.md ([Unreleased] -> [${NEW_VERSION}] - $(date +%Y-%m-%d))"
-echo -e "  9. Commit: \"Bump version to ${NEW_VERSION}\""
-echo -e " 10. Push to remote and wait for CI"
-echo " 11. Tag: v${NEW_VERSION}"
+echo -e "  7. Update CHANGELOG.md ([Unreleased] -> [${NEW_VERSION}] - $(date +%Y-%m-%d))"
+echo -e "  8. Commit: \"Bump version to ${NEW_VERSION}\""
+echo -e "  9. Push to remote and wait for CI"
+echo " 10. Tag: v${NEW_VERSION}"
 echo ""
 
 if ! confirm "Proceed with release?"; then
@@ -225,11 +218,12 @@ if ! confirm "Proceed with release?"; then
     exit 0
 fi
 
-# Step 4: Update version in pyproject.toml
+# Step 4: Update version in pyproject.toml and uv.lock
 echo ""
-info "Step 4: Updating version in ${VERSION_FILE}..."
-sed -i.bak "s/^version = \"${CURRENT_VERSION}\"/version = \"${NEW_VERSION}\"/" "$VERSION_FILE"
-rm -f "${VERSION_FILE}.bak"
+info "Step 4: Updating version in ${VERSION_FILE} and ${LOCK_FILE}..."
+if ! uv version "$NEW_VERSION"; then
+    error "uv version failed. Please resolve before releasing."
+fi
 success "Version updated to ${NEW_VERSION}"
 
 # Step 5: Update CITATION.cff so its version and date-released track the
@@ -254,19 +248,9 @@ sed -i.bak \
 rm -f "${README_FILE}.bak"
 success "${README_FILE} citation block updated"
 
-# Step 7: Regenerate uv.lock so it records the new project version. Without
-# this the lockfile drifts (pyproject says X.Y.Z, lock still says the old
-# version) and the next `uv run` rewrites uv.lock outside of a release commit.
+# Step 7: Update CHANGELOG.md
 echo ""
-info "Step 7: Regenerating ${LOCK_FILE}..."
-if ! uv lock; then
-    error "uv lock failed. Please resolve before releasing."
-fi
-success "${LOCK_FILE} updated"
-
-# Step 8: Update CHANGELOG.md
-echo ""
-info "Step 8: Updating CHANGELOG.md..."
+info "Step 7: Updating CHANGELOG.md..."
 sed -i.bak "s/## \[*[Uu]nreleased\]*/## [${NEW_VERSION}] - ${TODAY}/" "$CHANGELOG_FILE"
 rm -f "${CHANGELOG_FILE}.bak"
 success "CHANGELOG.md updated"
@@ -291,9 +275,9 @@ if ! confirm "Stage and commit these changes?"; then
     fi
 fi
 
-# Step 9: Commit changes
+# Step 8: Commit changes
 echo ""
-info "Step 9: Staging and committing changes..."
+info "Step 8: Staging and committing changes..."
 git add "$VERSION_FILE" "$CITATION_FILE" "$CHANGELOG_FILE" "$LOCK_FILE" "$README_FILE" FAQ.md
 
 echo ""
@@ -316,11 +300,11 @@ fi
 git commit -m "Bump version to ${NEW_VERSION}"
 success "Changes committed"
 
-# Step 10: Push to remote
+# Step 9: Push to remote
 echo ""
 REMOTE_URL=$(git remote get-url origin)
 CURRENT_BRANCH=$(git branch --show-current)
-info "Step 10: Push to remote"
+info "Step 9: Push to remote"
 echo ""
 info "This will push:"
 echo "  • Branch: ${CURRENT_BRANCH}"
@@ -385,9 +369,9 @@ while true; do
     sleep 30
 done
 
-# Step 11: Create and push tag
+# Step 10: Create and push tag
 echo ""
-info "Step 11: Create and push tag"
+info "Step 10: Create and push tag"
 echo ""
 info "This will create:"
 echo "  • Tag: v${NEW_VERSION}"

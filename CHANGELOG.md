@@ -44,6 +44,7 @@
 - Disable onnxruntime telemetry.
 - App requires macOS 26 or later.
 - [Dev] Settings and settings files use new, clearer names.
+- [Dev] Build with `uv_build` and set the version with `uv version`.
 - [Dev] A failed build fails the build task instead of packaging an empty app.
 - [Dev] Upgrade dependencies.
 ### Removed
