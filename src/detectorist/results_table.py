@@ -15,6 +15,15 @@ def _is_score_column(column: int) -> bool:
     return column % 2 == 1
 
 
+def format_score(score: float) -> str:
+    """
+    A score with two decimals, capped at 0.99. Rounding would show 1.00 for
+    0.995 and up, which a family or genus often reaches as the sum of its
+    species' probabilities, and no score means certainty.
+    """
+    return f"{min(score, 0.99):.2f}"
+
+
 class ResultsTable(QTreeWidget):
     """
     Lists the shown image's detections, one row each, with what the classifier
@@ -53,11 +62,11 @@ class ResultsTable(QTreeWidget):
         scroll_position = self.verticalScrollBar().value()
         super().clear()
         for detection in sorted(detections, key=lambda d: d.score, reverse=True):
-            cells = [detection.class_name, f"{detection.score:.2f}"]
+            cells = [detection.class_name, format_score(detection.score)]
             if (taxonomy := taxonomy_by_box.get(detection.box)) is not None:
                 ranks = identified_ranks(taxonomy, threshold)
                 for rank in ranks:
-                    cells += [display_name(rank.name), f"{rank.score:.2f}"]
+                    cells += [display_name(rank.name), format_score(rank.score)]
                 if not ranks:
                     cells.append("Unidentified")
             item = QTreeWidgetItem(cells)
