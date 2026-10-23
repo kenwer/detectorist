@@ -34,7 +34,7 @@ Detectorist is the right tool for you if you:
 
 Note: The classifiers only know the species they were trained on (see [AI model info](#ai-model-info)). The identifications are suggestions to be verified by an expert.
 
-![Main application interface](https://github.com/user-attachments/assets/2735df96-1f1a-4e36-a3be-a6f1da4b3eed)
+![Main application interface](https://github.com/user-attachments/assets/8ba0c70e-4824-4b45-9ea9-49d1cb9d1b5d)
 
 
 ## Download
