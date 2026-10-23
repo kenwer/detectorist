@@ -15,7 +15,7 @@ import os
 
 import pytest
 from PySide6.QtCore import QEvent, QItemSelectionModel, QMimeData, QPointF, QRect, Qt, QUrl
-from PySide6.QtGui import QDragEnterEvent, QDropEvent, QMouseEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeySequence, QMouseEvent
 from PySide6.QtWidgets import QApplication, QDialogButtonBox, QFileDialog, QMessageBox, QProgressDialog
 
 from detectorist import __version__, detectorist_app
@@ -26,7 +26,7 @@ from detectorist.export_dialog import ExportDialog
 from detectorist.image_label import DETECTION_BORDER_COLOR_RGB
 from detectorist.image_object import APPLEDOUBLE_MAGIC
 from detectorist.structures import Detection, RankedName, Taxonomy
-from detectorist.utils import contract_user_path
+from detectorist.utils import contract_user_path, file_manager_name
 from tests.fakes import make_images
 
 IMAGE_SIZE = (200, 100)
@@ -422,6 +422,12 @@ def test_arrow_keys_move_through_the_list(qtbot, window, folder, monkeypatch):
     qtbot.keyClick(window, Qt.Key.Key_Up, Qt.KeyboardModifier.ControlModifier)
     assert window.ui.image_list_view.currentIndex().row() == 0
 
+    qtbot.keyClick(window, Qt.Key.Key_End)
+    assert window.ui.image_list_view.currentIndex().row() == 2
+
+    qtbot.keyClick(window, Qt.Key.Key_Home)
+    assert window.ui.image_list_view.currentIndex().row() == 0
+
 
 def test_result_for_another_image_is_ignored(qtbot, window, folder, monkeypatch, detector_factory):
     make_images(folder, ["a.png"], IMAGE_SIZE)
@@ -568,7 +574,7 @@ def test_export_writes_crops_csv_and_settings(qtbot, window, folder, monkeypatch
 
     kind, title, text, kwargs = toasts[-1]
     assert (kind, title, text) == ("success", "Detectorist", "Finished exporting images.")
-    assert kwargs["link_text"] == "Show in file manager"
+    assert kwargs["link_text"] == f"Reveal in {file_manager_name()}"
     assert window.ui.open_output_folder_action.isEnabled()
 
     kwargs["on_link"]()
@@ -785,7 +791,7 @@ def test_batch_with_a_failing_image_finishes_and_warns(qtbot, window, folder, mo
     csv_name = DETECTIONS_CSV_NAME
     assert (kind, text) == ("warning", f"Finished exporting images, but 1 image failed. See {csv_name} for details.")
     assert kwargs["duration"] == 0
-    assert kwargs["link_text"] == "Show in file manager"
+    assert kwargs["link_text"] == f"Reveal in {file_manager_name()}"
 
 
 def test_batch_whose_model_fails_to_load_reports_it_and_restores_the_actions(qtbot, window, folder, monkeypatch, detector_factory, toasts):
@@ -1129,11 +1135,11 @@ def test_copy_filenames_puts_them_on_the_clipboard(window, folder, monkeypatch, 
     assert toasts[-1][:3] == ("success", "Copied to clipboard", "Copied 1 filename.")
 
 
-def test_locate_reveals_the_image_in_the_file_manager(window, folder, monkeypatch, spawned):
+def test_reveal_shows_the_image_in_the_file_manager(window, folder, monkeypatch, spawned):
     make_images(folder, ["a.png"], IMAGE_SIZE)
     open_folder(window, folder, monkeypatch)
 
-    window.ui.locate_image_in_filemanager_action.trigger()
+    window.ui.reveal_image_action.trigger()
 
     # The command differs per platform (open -R, explorer /select, xdg-open
     # on the parent folder), but each one is handed a path inside the folder.
@@ -1694,6 +1700,20 @@ def test_export_is_one_action_on_ctrl_e_in_the_file_menu(window):
     file_menu = [action.text() for action in window.ui.menu_file.actions() if action.text()]
     assert file_menu[file_menu.index("Export Images..."):][:2] == ["Export Images...", "Open Output Folder"]
     assert [action.text() for action in window.menuBar().actions()] == ["File", "View", "Help"]
+
+
+def test_actions_use_the_platform_shortcuts(window):
+    assert window.ui.open_images_action.shortcuts() == QKeySequence.keyBindings(QKeySequence.StandardKey.Open)
+    assert window.ui.copy_filenames_to_clipboard_action.shortcuts() == QKeySequence.keyBindings(QKeySequence.StandardKey.Copy)
+    assert window.ui.quit_action.shortcuts() == QKeySequence.keyBindings(QKeySequence.StandardKey.Quit)
+    assert [key.toString() for key in window.ui.remove_selected_images_from_list_action.shortcuts()] == ["Del", "Backspace"]
+    assert window.ui.reveal_image_action.shortcut().toString() == "Ctrl+R"
+    assert window.ui.shortcuts_action.shortcuts() == [
+        QKeySequence("Ctrl+/"), *QKeySequence.keyBindings(QKeySequence.StandardKey.HelpContents)]
+
+
+def test_quit_is_the_last_action_of_the_file_menu(window):
+    assert [action for action in window.ui.menu_file.actions() if action.text()][-1] is window.ui.quit_action
 
 
 def test_export_dialog_names_the_class_filter(qtbot, window, folder, monkeypatch, detector_factory):

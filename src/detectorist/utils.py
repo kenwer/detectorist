@@ -1,5 +1,6 @@
 import gzip
 import os
+import subprocess
 import sys
 from collections.abc import Callable
 from threading import Lock
@@ -189,3 +190,29 @@ def contract_user_path(path: str) -> str:
 
     return path
 
+
+def reveal_in_file_manager(path: str) -> None:
+    """Opens a folder in the native (OS specific) file manager, revealing the file if a file path is provided."""
+    path = os.path.normpath(path)
+    if sys.platform == 'win32':  # Windows
+        if os.path.isfile(path):
+            subprocess.Popen(['explorer', '/select,', path])
+        else:
+            subprocess.Popen(['explorer', path])
+    elif sys.platform == 'darwin':  # macOS
+        if os.path.isfile(path):
+            subprocess.Popen(['open', '-R', path])
+        else:
+            subprocess.Popen(['open', path])
+    elif os.name == 'posix':  # Linux
+        dir_path = os.path.dirname(path) if os.path.isfile(path) else path
+        subprocess.Popen(['xdg-open', dir_path])
+
+
+def file_manager_name(platform: str = sys.platform) -> str:
+    """The name users know the platform's file manager by, as in "Reveal in Finder"."""
+    if platform == "darwin":
+        return "Finder"
+    if platform == "win32":
+        return "File Explorer"
+    return "File Manager"

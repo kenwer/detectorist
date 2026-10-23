@@ -1,7 +1,6 @@
 import html
 import logging
 import os
-import subprocess
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -17,6 +16,7 @@ from PySide6.QtCore import (
     QTimer,
     Signal,
 )
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -60,10 +60,12 @@ from .utils import (
     SharedFactory,
     contract_user_path,
     count_noun,
+    file_manager_name,
     get_model_path,
     list_model_files,
     long_path,
     resolve_short_path,
+    reveal_in_file_manager,
     strip_model_ext,
 )
 from .worker import DetectionWorker
@@ -229,8 +231,21 @@ class DetectoristApp(QMainWindow):
         # Add actions (of the context menu) to the QListView (for its shortcut to be active)
         # Since we add it to the QListView, it's only active if it has focus, aligning with Cmd+A Ctrl+A behavior
         self.ui.image_list_view.addAction(self.ui.remove_selected_images_from_list_action)
-        self.ui.image_list_view.addAction(self.ui.locate_image_in_filemanager_action)
+        self.ui.image_list_view.addAction(self.ui.reveal_image_action)
         self.ui.image_list_view.addAction(self.ui.copy_filenames_to_clipboard_action)
+
+        # Platform shortcuts can't be expressed in the .ui file, which only stores fixed key strings
+        self.ui.open_images_action.setShortcuts(QKeySequence.StandardKey.Open)
+        self.ui.copy_filenames_to_clipboard_action.setShortcuts(QKeySequence.StandardKey.Copy)
+        self.ui.quit_action.setShortcuts(QKeySequence.StandardKey.Quit)
+        self.ui.shortcuts_action.setShortcuts(
+            [QKeySequence("Ctrl+/"), *QKeySequence.keyBindings(QKeySequence.StandardKey.HelpContents)])
+        if sys.platform == 'win32':
+            self.ui.quit_action.setText("Exit")
+        self.ui.reveal_image_action.setText(f"Reveal in {file_manager_name()}")
+        # Delete is the convention on Windows and Linux, Backspace on macOS, whose keyboards lack a Delete key
+        self.ui.remove_selected_images_from_list_action.setShortcuts(
+            [QKeySequence(Qt.Key.Key_Delete), QKeySequence(Qt.Key.Key_Backspace)])
 
         # Connect signals
         self.ui.open_images_action.triggered.connect(self.open_images)
@@ -241,7 +256,7 @@ class DetectoristApp(QMainWindow):
         self.ui.image_list_view.selectionModel().selectionChanged.connect(self._update_selection_dependent_actions_state)
         self.ui.about_action.triggered.connect(self.show_about_dialog)
         self.ui.shortcuts_action.triggered.connect(self.show_shortcuts_dialog)
-        self.ui.locate_image_in_filemanager_action.triggered.connect(self._locate_selected_image_in_file_manager)
+        self.ui.reveal_image_action.triggered.connect(self._reveal_selected_image)
         self.ui.copy_filenames_to_clipboard_action.triggered.connect(self._copy_selected_filenames_to_clipboard)
         self.ui.remove_selected_images_from_list_action.triggered.connect(self._remove_selected_images_from_list)
         self.ui.clear_recent_folders_action.triggered.connect(self._clear_recent_folders)
@@ -250,6 +265,7 @@ class DetectoristApp(QMainWindow):
         self.ui.reset_settings_action.triggered.connect(self._reset_settings)
         self.ui.manage_models_action.triggered.connect(self.show_manage_models_dialog)
         self.ui.open_output_folder_action.triggered.connect(self._open_last_output_folder)
+        self.ui.quit_action.triggered.connect(self.close)
 
         # Detection confidence slider/spinbox update the display filter only (no re-inference)
         self.ui.detection_confidence_slider.valueChanged.connect(self._display_filtered_results)
@@ -1116,23 +1132,6 @@ class DetectoristApp(QMainWindow):
         crop_tuples = plan_crops(self._filtered_results(), image.height, image.width, crop_settings, self._taxonomy_by_box)
         self.ui.image_label.set_crop_boxes([QRect(*crop_tuple) for crop_tuple in crop_tuples])
 
-    def _open_native_file_manager(self, path):
-        """Opens a folder in the native (OS specific) file manager, revealing the file if a file path is provided."""
-        path = os.path.normpath(path)
-        if sys.platform == 'win32':  # Windows
-            if os.path.isfile(path):
-                subprocess.Popen(['explorer', '/select,', path])
-            else:
-                subprocess.Popen(['explorer', path])
-        elif sys.platform == 'darwin':  # macOS
-            if os.path.isfile(path):
-                subprocess.Popen(['open', '-R', path])
-            else:
-                subprocess.Popen(['open', path])
-        elif os.name == 'posix':  # Linux
-            dir_path = os.path.dirname(path) if os.path.isfile(path) else path
-            subprocess.Popen(['xdg-open', dir_path])
-
     def _set_last_output_dir(self, path: str):
         """Remembers the latest export directory and enables the reveal action."""
         self._last_output_dir = path
@@ -1141,7 +1140,7 @@ class DetectoristApp(QMainWindow):
     def _open_last_output_folder(self):
         """Reveals the most recent export directory in the native file manager."""
         if self._last_output_dir:
-            self._open_native_file_manager(self._last_output_dir)
+            reveal_in_file_manager(self._last_output_dir)
 
     def _run_batch_with_progress(self, options: ExportOptions, output_dir: str, image_paths: list[str]) -> bool:
         """
@@ -1217,8 +1216,8 @@ class DetectoristApp(QMainWindow):
                         "Detectorist",
                         f"Finished exporting images, but {count_noun(failed_count, 'image')} failed. "
                         f"See {DETECTIONS_CSV_NAME} for details.",
-                        link_text="Show in file manager",
-                        on_link=lambda: self._open_native_file_manager(output_dir),
+                        link_text=f"Reveal in {file_manager_name()}",
+                        on_link=lambda: reveal_in_file_manager(output_dir),
                         duration=0,  # keep the toast up, as the user may not be watching a long run
                     )
                 else:
@@ -1226,8 +1225,8 @@ class DetectoristApp(QMainWindow):
                         self,
                         "Detectorist",
                         "Finished exporting images.",
-                        link_text="Show in file manager",
-                        on_link=lambda: self._open_native_file_manager(output_dir),
+                        link_text=f"Reveal in {file_manager_name()}",
+                        on_link=lambda: reveal_in_file_manager(output_dir),
                     )
             else:
                 self.ui.status_bar.showMessage("Exporting images cancelled.", 5000)
@@ -1323,7 +1322,7 @@ class DetectoristApp(QMainWindow):
     def _update_selection_dependent_actions_state(self):
         """Enables/disables actions based on the current selection in the image list view."""
         has_selection = len(self.ui.image_list_view.selectionModel().selectedIndexes()) > 0
-        self.ui.locate_image_in_filemanager_action.setEnabled(has_selection)
+        self.ui.reveal_image_action.setEnabled(has_selection)
         self.ui.copy_filenames_to_clipboard_action.setEnabled(has_selection)
         self.ui.remove_selected_images_from_list_action.setEnabled(has_selection and not self._batch_running)
 
@@ -1338,7 +1337,7 @@ class DetectoristApp(QMainWindow):
 
         if self.ui.image_list_view.selectionModel().hasSelection():
             menu = QMenu()
-            menu.addAction(self.ui.locate_image_in_filemanager_action)
+            menu.addAction(self.ui.reveal_image_action)
             menu.addSeparator()
             menu.addAction(self.ui.remove_selected_images_from_list_action)
             menu.addAction(self.ui.clear_image_list_action)
@@ -1347,13 +1346,13 @@ class DetectoristApp(QMainWindow):
 
             menu.exec(self.ui.image_list_view.mapToGlobal(position))
 
-    def _locate_selected_image_in_file_manager(self):
+    def _reveal_selected_image(self):
         index = self.ui.image_list_view.currentIndex()
         if not index.isValid():
             return
 
         file_path = self.model.data(index, ImageListModel.FullPathRole)
-        self._open_native_file_manager(file_path)
+        reveal_in_file_manager(file_path)
 
     def _copy_selected_filenames_to_clipboard(self):
         selected_indexes = self.ui.image_list_view.selectionModel().selectedIndexes()
@@ -1402,20 +1401,17 @@ class DetectoristApp(QMainWindow):
             super().keyPressEvent(event) # Pass other key events to the base class
             return
 
-        # Ctrl + Up/Down or Ctrl + Left/Right to jump to the first/last image
-        if modifiers & Qt.KeyboardModifier.ControlModifier: # Cmd key on macOS
-            if key == Qt.Key.Key_Up or key == Qt.Key.Key_Left:
-                self.ui.image_list_view.selectionModel().clear()
-                self.ui.image_list_view.setCurrentIndex(self.model.index(0, 0))
-                event.accept()
-                return
-            elif key == Qt.Key.Key_Down or key == Qt.Key.Key_Right:
-                self.ui.image_list_view.selectionModel().clear()
-                self.ui.image_list_view.setCurrentIndex(self.model.index(self.model.rowCount() - 1, 0))
-                event.accept()
-                return
+        # Home/End, Ctrl + Up/Down or Ctrl + Left/Right to jump to the first/last image
+        ctrl = modifiers & Qt.KeyboardModifier.ControlModifier # Cmd key on macOS
+        first = key == Qt.Key.Key_Home or (ctrl and key in (Qt.Key.Key_Up, Qt.Key.Key_Left))
+        last = key == Qt.Key.Key_End or (ctrl and key in (Qt.Key.Key_Down, Qt.Key.Key_Right))
+        if first or last:
+            self.ui.image_list_view.selectionModel().clear()
+            self.ui.image_list_view.setCurrentIndex(self.model.index(0 if first else self.model.rowCount() - 1, 0))
+            event.accept()
+            return
         # Navigation through the image list using Left/Right keys, stop at the ends
-        else:
+        if not ctrl:
             current_row = self.ui.image_list_view.currentIndex().row()
             next_row = -1 # Initialize with an invalid value
             if key == Qt.Key.Key_Left:

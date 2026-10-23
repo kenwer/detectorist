@@ -500,6 +500,8 @@
     <addaction name="manage_models_action"/>
     <addaction name="separator"/>
     <addaction name="clear_image_list_action"/>
+    <addaction name="separator"/>
+    <addaction name="quit_action"/>
    </widget>
    <widget class="QMenu" name="menu_view">
     <property name="title">
@@ -526,9 +528,6 @@
   <action name="open_images_action">
    <property name="text">
     <string>Open Image(s)...</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+O</string>
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>
@@ -687,25 +686,22 @@
    <property name="toolTip">
     <string>Removes the selected Image(s) from the List. The images are not deleted, just removed from the view</string>
    </property>
-   <property name="shortcut">
-    <string>Backspace</string>
-   </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>
    </property>
   </action>
-  <action name="locate_image_in_filemanager_action">
+  <action name="reveal_image_action">
    <property name="enabled">
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Locate Image in Filemanager</string>
+    <string>Reveal in File Manager</string>
    </property>
    <property name="toolTip">
-    <string>Locate Image in Filemanager</string>
+    <string>Shows the image in its folder</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+L</string>
+    <string>Ctrl+R</string>
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>
@@ -720,9 +716,6 @@
    </property>
    <property name="toolTip">
     <string>Copy Filenames to Clipboard</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+C</string>
    </property>
    <property name="shortcutVisibleInContextMenu">
     <bool>true</bool>
@@ -763,6 +756,14 @@
    </property>
    <property name="toolTip">
     <string>Manage detection models</string>
+   </property>
+  </action>
+  <action name="quit_action">
+   <property name="text">
+    <string>Quit</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::QuitRole</enum>
    </property>
   </action>
  </widget>

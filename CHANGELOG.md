@@ -7,15 +7,22 @@
   - New crop mode `Best classification` which crops the object identified to the deepest rank, with the highest score at that rank.
   - Each detection is labeled with its deepest identified name, e.g. "A. ocellaris" or just the genus or family.
   - Classified detections are colored by family, with a lighter or darker shade per genus.
-- New `View` menu with the following actions/shortcuts:
-  - `B` to toggle visibility of the bounding boxes.
-  - `L` to toggle visibility of the labels.
-  - `M` to toggle visibility of the detection/segment masks.
-  - `H` to hide/show boxes, labels, and masks at once.
 - New `Export Images...` dialog in the File menu replaces the Actions menu and its crop actions. It allows to:
   - export all or the selected images
   - crops or whole images
   - configure the filename pattern and the output folder
+- Keyboard Shortcuts:
+  - New `View` menu actions:
+    - `B` toggles the bounding boxes
+    - `L` toggles the labels
+    - `M` toggles the masks
+    - `H` hides/shows boxes, labels and masks at once
+  - `F1`/`⌘?` open the list of keyboard shortcuts
+  - `Home` jump to the first image
+  - `End` jump to the last image
+  - `Delete` removes the selected image(s) from the list, just like `Backspace`
+  - `Ctrl+R`/`⌘R` reveals the selected image in the file manager
+  - `Alt+F4`/`Ctrl+Q`/`⌘Q` quits the application
 ### Changed
 - Export:
   - Writes into a flat `processed` folder, each file name starting with its taxa or, without a classifier, its class, e.g. `Pomacentridae_Amphiprion_unidentified_IMG_0042_crop.jpg`.
@@ -26,7 +33,8 @@
 - `Auto correct camera exposure bias` moved to the Image group, as it applies to every image shown and exported.
 - Dragging in several folders, or images from different folders, is refused.
 - The detection summary moved from the side panel to the status bar.
-- Masks are now toggled with `M` in the new `View` menu, instead of `H`.
+- `H` now hides/shows boxes, labels and masks at once. Masks are toggled with `M`.
+- The Shortcuts dialos now shows the keys of for the running platform.
 - Disable onnxruntime telemetry.
 - App requires macOS 26 or later.
 - [Dev] Settings and settings files use new, clearer names.
