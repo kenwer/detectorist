@@ -59,23 +59,6 @@ def identified_ranks(taxonomy: Taxonomy, threshold: float) -> list[RankedName]:
     return list(takewhile(lambda rank: rank.score >= threshold, taxonomy))
 
 
-def describe(taxonomy: Taxonomy, threshold: float) -> str:
-    """
-    A taxonomy as one line of tooltip text: the family, the deepest
-    identified rank below it and that rank's score (see identified_ranks),
-    e.g. "Pomacentridae · A. ocellaris 0.44". A species carries its genus
-    as the initial, as in scientific writing. "Unidentified" if no rank is
-    identified.
-    """
-    ranks = identified_ranks(taxonomy, threshold)
-    if not ranks:
-        return "Unidentified"
-    names = [display_name(ranks[0].name)]
-    if len(ranks) > 1:
-        names.append(short_name(ranks[-1].name))
-    return f"{' · '.join(names)} {ranks[-1].score:.2f}"
-
-
 def short_name(name: str) -> str:
     """
     A taxon name with a species' genus cut to its initial, as in scientific

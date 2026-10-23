@@ -34,7 +34,7 @@ from detectorist import __version__
 from .about_dialog import show_about_dialog
 from .batch_output import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
 from .batch_run import CropExportAction, run_batch
-from .classifier import Classifier, class_matches, describe
+from .classifier import Classifier, class_matches
 from .detection_style import taxon_styles
 from .detector import Detector
 from .enum_button_group import EnumButtonGroup
@@ -872,9 +872,8 @@ class DetectoristApp(QMainWindow):
         filtered = self._filtered_results()
         threshold = self.ui.taxon_confidence_slider.value() / 100.0
         self._show_results(filtered, threshold)
-        tooltips = {box: describe(taxonomy, threshold) for box, taxonomy in self._taxonomy_by_box.items()}
         styles = taxon_styles(filtered, self._taxonomy_by_box, threshold)
-        self.ui.image_label.set_detection_boxes(filtered, tooltips, styles)
+        self.ui.image_label.set_detection_boxes(filtered, styles)
         self.update_crop_bands()
 
     def on_class_filter_changed(self):

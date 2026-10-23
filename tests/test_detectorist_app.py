@@ -1171,8 +1171,9 @@ def test_reveal_shows_the_image_in_the_file_manager(window, folder, monkeypatch,
     assert any(os.path.normpath(str(folder)) in argument for argument in spawned[-1])
 
 
-def tooltips(window) -> list[str]:
-    return [band.toolTip() for band in window.ui.image_label.detection_bands]
+def labels(window) -> list[str | None]:
+    """The label of each detection on the image, None for one the classifier has not named."""
+    return [band.detection_style.label for band in window.ui.image_label.detection_bands]
 
 
 def open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, detections):
@@ -1182,7 +1183,7 @@ def open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, d
     open_folder(window, folder, monkeypatch)
     qtbot.waitUntil(lambda: object_count(window) != "-")
     window.ui.classifier_combo_box.setCurrentIndex(1)
-    qtbot.waitUntil(lambda: tooltips(window)[0].startswith("Pomacentridae"))
+    qtbot.waitUntil(lambda: labels(window)[0] is not None)
 
 
 def test_classifier_file_is_offered_apart_from_the_detection_models(species_model, window):
@@ -1208,14 +1209,14 @@ def test_classifier_the_manifest_does_not_know_is_offered_by_its_folder(models_d
     assert classifiers.itemText(1) == "mine"
 
 
-def test_selecting_a_classifier_names_the_displayed_detections_in_their_tooltips(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+def test_selecting_a_classifier_labels_the_displayed_detections(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
     open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FAINT_FISH, CRAB, FISH])
 
     # Above the confidence only, the highest scoring first
     assert classifier_factory.classified == [[FISH.box, CRAB.box]]
     assert classifier_factory.created[0].model_path == os.path.join(window.models_dir, "classifiers", species_model)
     # The species scores 0.44, below the default taxon confidence of 0.50
-    assert tooltips(window) == ["Pomacentridae · Amphiprion 0.97"] * 2
+    assert labels(window) == ["Amphiprion"] * 2
 
 
 def test_taxon_confidence_restyles_the_names_without_a_new_inference(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
@@ -1223,17 +1224,17 @@ def test_taxon_confidence_restyles_the_names_without_a_new_inference(qtbot, spec
 
     window.ui.taxon_confidence_spin_box.setValue(40)
 
-    assert tooltips(window) == ["Pomacentridae · A. ocellaris 0.44"]
+    assert labels(window) == ["A. ocellaris"]
     assert len(classifier_factory.classified) == 1
 
 
 def test_lowering_the_confidence_names_the_detections_it_reveals(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
     open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, FAINT_FISH])
-    assert tooltips(window)[1:] == []
+    assert labels(window)[1:] == []
 
     window.ui.detection_confidence_spin_box.setValue(10)
 
-    qtbot.waitUntil(lambda: len(tooltips(window)) == 2 and tooltips(window)[1].startswith("Pomacentridae"))
+    qtbot.waitUntil(lambda: len(labels(window)) == 2 and labels(window)[1] is not None)
     assert classifier_factory.classified == [[FISH.box], [FAINT_FISH.box]]
 
 
@@ -1245,7 +1246,7 @@ def test_dragging_the_confidence_asks_for_names_once(qtbot, species_model, windo
     for value in (40, 30, 20, 10):
         window.ui.detection_confidence_slider.setValue(value)
 
-    qtbot.waitUntil(lambda: len(tooltips(window)) == 2 and tooltips(window)[1].startswith("Pomacentridae"))
+    qtbot.waitUntil(lambda: len(labels(window)) == 2 and labels(window)[1] is not None)
     assert requests == [0.10]
 
 
@@ -1254,7 +1255,7 @@ def test_deselecting_the_classifier_shows_the_detector_class_again(qtbot, specie
 
     window.ui.classifier_combo_box.setCurrentIndex(0)
 
-    qtbot.waitUntil(lambda: tooltips(window) == ["Fish 0.90"])
+    qtbot.waitUntil(lambda: labels(window) == [None])
 
 
 # Named down to the species at the default taxon confidence of 0.50, unlike TAXONOMY
@@ -1342,22 +1343,22 @@ def border_rgb(window) -> list[tuple]:
 
 
 def test_a_classifier_colors_the_detections_by_family_and_labels_them(qtbot, species_model, window, folder, monkeypatch, detector_factory):
-    labels = window.ui.toggle_labels_action
-    assert not labels.isEnabled()
+    toggle_labels = window.ui.toggle_labels_action
+    assert not toggle_labels.isEnabled()
 
     open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH])
 
     # The only family in the image takes the first palette color
     assert border_rgb(window) == [MASK_COLORS[0]]
-    assert labels.isEnabled()
-    labels.trigger()
+    assert toggle_labels.isEnabled()
+    toggle_labels.trigger()
     assert not window.ui.image_label._labels_visible
 
     window.ui.classifier_combo_box.setCurrentIndex(0)
 
-    qtbot.waitUntil(lambda: tooltips(window) == ["Fish 0.90"])
+    qtbot.waitUntil(lambda: labels(window) == [None])
     assert border_rgb(window) == [DETECTION_BORDER_COLOR_RGB]
-    assert not labels.isEnabled()
+    assert not toggle_labels.isEnabled()
 
 
 def test_results_list_each_detection_with_its_deepest_identified_rank(qtbot, species_model, window, folder, monkeypatch, detector_factory):

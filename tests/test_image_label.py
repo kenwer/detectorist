@@ -175,24 +175,10 @@ def test_resizing_the_label_remaps_the_bands(qtbot, label):
 
 
 def test_widget_points_map_back_to_image_pixels(label):
-    # The tooltip uses this mapping. It has no public caller that returns a
+    # Hit-testing a mask uses this mapping. It has no public caller that returns a
     # value, so the private method is the only place to pin the arithmetic.
     assert label._map_point_from_widget_to_image(QPoint(200, 200)) == QPoint(100, 50)
     assert label._map_point_from_widget_to_image(QPoint(10, 10)) is None  # in the margin above the image
-
-
-def test_tooltip_of_a_detection_is_its_class_and_score_unless_given(label):
-    other = Detection((100, 10, 40, 40), 0.8, "Fish")
-
-    label.set_detection_boxes([FISH, other], {other.box: "Amphiprion ocellaris 0.44"})
-
-    assert [band.toolTip() for band in label.detection_bands] == ["Fish 0.90", "Amphiprion ocellaris 0.44"]
-
-
-def test_a_box_given_as_a_list_is_matched_like_a_tuple(label):
-    label.set_detection_boxes([Detection((20, 20, 40, 40), 0.9, "Fish")], {(20, 20, 40, 40): "Amphiprion"})
-
-    assert label.detection_bands[0].toolTip() == "Amphiprion"
 
 
 def test_highlighting_marks_the_band_of_the_given_box(label):

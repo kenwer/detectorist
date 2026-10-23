@@ -580,7 +580,7 @@
     <string>Show Masks</string>
    </property>
    <property name="toolTip">
-    <string>Toggles the segmentation masks of detected objects. Hovering over a hidden mask still shows its object</string>
+    <string>Toggles the segmentation masks of detected objects</string>
    </property>
    <property name="shortcut">
     <string>M</string>
@@ -600,7 +600,7 @@
     <string>Show Boxes</string>
    </property>
    <property name="toolTip">
-    <string>Toggles the bounding boxes of detected objects. Hovering over a hidden box still shows its object</string>
+    <string>Toggles the bounding boxes of detected objects</string>
    </property>
    <property name="shortcut">
     <string>B</string>

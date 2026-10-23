@@ -17,11 +17,11 @@ from detectorist.classifier import (
     Classifier,
     class_matches,
     classification_window,
-    describe,
     detections_to_classify,
     identified_ranks,
     letterbox,
     roll_up,
+    short_name,
 )
 from detectorist.image_object import ImageObject
 from detectorist.structures import Detection
@@ -277,20 +277,13 @@ def test_detections_to_classify_keeps_every_query_of_the_detector():
     assert len(detections_to_classify(many, 0.0, ["*"])) == 300
 
 
-@pytest.mark.parametrize(("threshold", "expected"), [
-    (0.0, "Pomacentridae · A. ocellaris 0.44"),
-    (0.5, "Pomacentridae · Amphiprion 0.97"),
-    (0.98, "Pomacentridae 0.99"),
-    (1.0, "Unidentified"),
+@pytest.mark.parametrize(("name", "expected"), [
+    ("Amphiprion_ocellaris", "A. ocellaris"),
+    ("Amphiprion", "Amphiprion"),
+    ("ocellaris", "ocellaris"),
 ])
-def test_describe_names_the_family_and_the_deepest_rank_at_or_above_the_threshold(threshold, expected):
-    assert describe(TAXONOMY, threshold) == expected
-
-
-def test_describe_keeps_a_species_name_without_a_genus_part():
-    taxonomy = TAXONOMY._replace(species=TAXONOMY.species._replace(name="ocellaris"))
-
-    assert describe(taxonomy, 0.0) == "Pomacentridae · ocellaris 0.44"
+def test_short_name_cuts_a_species_genus_to_its_initial(name, expected):
+    assert short_name(name) == expected
 
 
 @pytest.mark.parametrize(("threshold", "expected"), [

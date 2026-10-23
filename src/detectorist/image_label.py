@@ -3,7 +3,7 @@ import logging
 import numpy as np
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QLabel, QRubberBand, QToolTip
+from PySide6.QtWidgets import QLabel, QRubberBand
 
 from .detection_style import MASK_COLORS, DetectionStyle, build_class_color_map
 from .image_object import ImageObject
@@ -130,13 +130,9 @@ class ImageLabel(QLabel):
             band.deleteLater()
 
     def mouseMoveEvent(self, event):
-        # QRubberBand ignores the mouse, so the label finds the band under it and shows its tooltip
+        # QRubberBand ignores the mouse, so the label finds the band under it
         band = self._band_at(event.pos())
         self._set_hovered_box(None if band is None else band.box)
-        if band is None:
-            QToolTip.hideText()
-        else:
-            QToolTip.showText(event.globalPos(), band.toolTip(), band)
         super().mouseMoveEvent(event)
 
     def leaveEvent(self, event):
@@ -191,15 +187,13 @@ class ImageLabel(QLabel):
         self._highlight_pixmap = None
         self.update()
 
-    def set_detection_boxes(self, detections, tooltips: dict | None = None, styles: dict | None = None):
+    def set_detection_boxes(self, detections, styles: dict | None = None):
         """
-        Shows the given detections. tooltips maps a detection's box to the text
-        shown on hovering it, in place of its class and score. styles maps a
-        box to its DetectionStyle (see taxon_styles), in place of the color of
-        its class and its detection score.
+        Shows the given detections. styles maps a detection's box to its
+        DetectionStyle (see taxon_styles), in place of the color of its class
+        and its detection score.
         """
         self._clear_detection_bands()
-        tooltips = tooltips or {}
         styles = styles or {}
 
         if self.image is None or self.image.image_data is None:
@@ -230,9 +224,6 @@ class ImageLabel(QLabel):
             band.setGeometry(self._map_rect_from_image_to_widget(rect))
             band.set_highlighted(band.box == self._highlighted_box)
             band.set_labels_visible(self._labels_visible)
-            # Only stored here. QRubberBand ignores the mouse, so mouseMoveEvent
-            # shows it, and only over the mask for a segmentation model.
-            band.setToolTip(tooltips.get(band.box, f"{class_name} {score:.2f}"))
             self.detection_bands.append(band)
         self._update_band_visibility()
 
