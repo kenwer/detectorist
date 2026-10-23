@@ -2,8 +2,13 @@
 
 ## [Unreleased]
 ### Added
+- Species classification:
+  - A classifier, chosen in the new `Classification model` group, names the family, genus and species of each detection. Two classifiers are available from the Model Manager:
+    - `Sulawesi Fish Species Classification`: 1196 species, 359 genera, 82 families.
+    - `Apoidea Species Classification`: 3147 species, 377 genera, 11 families.
 - New results table below the image that lists all classified detections.
 - With a classifier on:
+  - `Min. taxon conf.` sets how confident it must be at a rank.
   - New crop mode `Best classification` which crops the object identified to the deepest rank, with the highest score at that rank.
   - Each detection is labeled with its deepest identified name, e.g. "A. ocellaris" or just the genus or family.
   - Classified detections are colored by family, with a lighter or darker shade per genus.
@@ -35,7 +40,7 @@
 - Dragging in several folders, or images from different folders, is refused.
 - The detection summary moved from the side panel to the status bar.
 - `H` now hides/shows boxes, labels and masks at once. Masks are toggled with `M`.
-- The Shortcuts dialos now shows the keys of for the running platform.
+- The Shortcuts dialog now shows the keys for the running platform.
 - Disable onnxruntime telemetry.
 - App requires macOS 26 or later.
 - [Dev] Settings and settings files use new, clearer names.

@@ -11,16 +11,21 @@ from PySide6.QtWidgets import QDialog, QLabel, QTextBrowser
 
 from detectorist import __version__
 from detectorist.about_dialog import show_about_dialog
-from detectorist.shortcuts_dialog import ShortcutsDialog, shortcuts_for_platform
+from detectorist.shortcuts_dialog import ShortcutsDialog, shortcut_tables, shortcuts_for_platform
+from detectorist.utils import readme_section
 
-SHORTCUTS_MD = Path(__file__).parents[1] / "SHORTCUTS.md"
+README_MD = Path(__file__).parents[1] / "README.md"
 
 
 def test_shortcuts_dialog_renders_the_shortcuts_document(qtbot):
     dialog = ShortcutsDialog()
     qtbot.addWidget(dialog)
 
-    assert dialog.ui.shortcuts_text_browser.toPlainText().strip()
+    text = dialog.ui.shortcuts_text_browser.toPlainText()
+    assert "Global shortcuts" in text
+    # The intro line points to this very dialog and the FAQ follows the section
+    assert "Help -> Keyboard Shortcuts" not in text
+    assert "FAQ" not in text
 
 
 def test_about_dialog_shows_version_changelog_and_acknowledgements(qtbot, monkeypatch):
@@ -34,7 +39,24 @@ def test_about_dialog_shows_version_changelog_and_acknowledgements(qtbot, monkey
     qtbot.addWidget(dialog)
     assert dialog.findChild(QLabel, "version_label").text() == f"Version: {__version__}"
     assert dialog.findChild(QTextBrowser, "changelog_text_browser").toPlainText().strip()
-    assert "RF-DETR" in dialog.findChild(QTextBrowser, "acknowledgements_text_browser").toPlainText()
+    acknowledgements = dialog.findChild(QTextBrowser, "acknowledgements_text_browser").toPlainText()
+    assert "RF-DETR" in acknowledgements
+    # The README section after Acknowledgements must not leak into the dialog
+    assert "@software" not in acknowledgements
+
+
+def test_readme_section_stops_at_the_next_level_2_heading():
+    markdown = "# Title\n\n## Thanks\n\nIntro\n\n### Sub\n\n* item\n\n## Citation\n\nbib\n"
+
+    assert readme_section(markdown, "Thanks") == "Intro\n\n### Sub\n\n* item"
+    assert readme_section(markdown, "Missing") == ""
+
+
+def test_readme_section_of_level_3_stops_at_the_next_level_2_or_3_heading():
+    markdown = "## Usage\n\n### Keys\n\nIntro\n\n#### Global\n\n| a |\n\n### Other\n\nx\n\n## FAQ\n"
+
+    assert readme_section(markdown, "Keys", level=3) == "Intro\n\n#### Global\n\n| a |"
+    assert shortcut_tables(markdown.replace("Keys", "Keyboard shortcuts")) == "## Global\n\n| a |"
 
 
 def test_shortcuts_document_names_the_current_export_actions(qtbot):
@@ -59,6 +81,6 @@ def test_shortcuts_document_names_the_current_export_actions(qtbot):
                 "| ⌘R | **Reveal in Finder** | Shows the image in its folder |"]),
 ])
 def test_shortcuts_show_only_the_keys_of_this_platform(platform, rows):
-    lines = shortcuts_for_platform(SHORTCUTS_MD.read_text(encoding="utf-8"), platform).splitlines()
+    lines = shortcuts_for_platform(shortcut_tables(README_MD.read_text(encoding="utf-8")), platform).splitlines()
 
     assert all(row in lines for row in rows)

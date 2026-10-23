@@ -3,7 +3,7 @@
     "name": "Sulawesi Fish Species Classification",
     "classifies": ["Fish*"],
     "size_mb": 517,
-    "description": "Names the family, genus and species of each detected fish. Used together with a fish detection or segmentation model.",
+    "description": "Names the family, genus and species of each detected fish. Knows 1196 species in 359 genera and 82 families. Used together with a fish detection or segmentation model.",
     "url": "https://github.com/kenwer/detectorist/raw/main/models/classifiers/sulawesi-fish-classification-bc2-224-ft-full-fp16-2026-10-17.onnx.gz",
     "release_date": "2026-10-17",
     "supersedes": [

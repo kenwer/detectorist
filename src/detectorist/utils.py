@@ -1,11 +1,12 @@
 import gzip
 import os
+import re
 import subprocess
 import sys
 from collections.abc import Callable
 from threading import Lock
 
-from PySide6.QtCore import QStandardPaths
+from PySide6.QtCore import QFile, QIODeviceBase, QStandardPaths
 
 from .model_downloader import CLASSIFICATION_MODELS_DIRNAME, MANIFEST_FILENAME
 
@@ -216,3 +217,20 @@ def file_manager_name(platform: str = sys.platform) -> str:
     if platform == "win32":
         return "File Explorer"
     return "File Manager"
+
+
+def read_resource_text(path: str) -> str:
+    resource = QFile(path)
+    if not resource.open(QIODeviceBase.OpenModeFlag.ReadOnly | QIODeviceBase.OpenModeFlag.Text):
+        return ""
+    text = resource.readAll().data().decode("utf-8")
+    resource.close()
+    return text
+
+
+def readme_section(markdown: str, heading: str, level: int = 2) -> str:
+    """Return the body of a README section, up to the next heading of the same or a higher level."""
+    _, found, rest = markdown.partition(f"\n{'#' * level} {heading}\n")
+    if not found:
+        return ""
+    return re.split(rf"\n#{{1,{level}}} ", rest, maxsplit=1)[0].strip()

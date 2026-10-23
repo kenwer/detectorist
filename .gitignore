@@ -11,7 +11,6 @@
 !/FAQ.md
 !/LICENSE
 !/README.md
-!/SHORTCUTS.md
 !/assets/
 !/benchmarks/
 !/docs/
@@ -53,7 +52,6 @@ dist/
 !CHANGELOG.md
 !DEVELOPMENT.md
 !FAQ.md
-!SHORTCUTS.md
 
 # PyQt/PySide generated files
 ui_*.py
