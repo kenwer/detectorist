@@ -199,7 +199,7 @@ def test_dragging_an_image_by_its_windows_short_name_is_accepted(window, folder,
     # Explorer cuts the extension to three letters in the 8.3 short name
     short = folder / "IMG_00~1.HEI"
     monkeypatch.setattr(detectorist_app, "resolve_short_path",
-                        lambda path: image if path == str(short) else path)
+                        lambda path: str(image) if os.path.normpath(path) == str(short) else path)
     assert drag_enter(window, [short])
 
 

@@ -9,7 +9,7 @@ from detectorist.export_dialog import ExportDialog, PreviewImage
 from detectorist.export_planner import CropMode, CropSettings, ExportOptions
 from detectorist.structures import Detection, RankedName, Taxonomy
 
-FOLDER = os.path.join(os.sep, "photos", "reef A")
+FOLDER = os.path.abspath(os.path.join(os.sep, "photos", "reef A"))
 IMAGES = [os.path.join(FOLDER, f"IMG_00{i}.jpg") for i in range(40, 44)]
 RUN_FILES = ["detectorist-detections.csv", "detectorist-settings.json"]
 
