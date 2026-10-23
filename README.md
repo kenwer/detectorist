@@ -99,29 +99,16 @@ Frequently asked questions can be found at the [FAQ page](FAQ.md).
 
 ## AI model info
 
-### Detection models
-* **Fish Detection** - Locates fish using a transformer-based bounding box detection model. Best for batch sorting and cropping.
-  * Trained for 25 epochs on 25641 images of fish (98247 annotations).
-* **Apoidea Detection** - Locates bees, wasps, and related Apoidea species using a transformer-based bounding box detection model. Best for batch sorting and cropping.
-  * Trained for 32 epochs on 25141 images of Apoidea (30505 annotations).
-* **Generic Object Detection** - Detects 80 common object classes (person, bicycle, car, and more) using a transformer-based bounding box detection model.
-
 ### Segmentation models
-* **Fish Segmentation** - Locates fish using a transformer-based instance segmentation model. Best for visualizing detected objects.
-* **Apoidea Segmentation** - Locates bees, wasps, and related Apoidea species using a transformer-based instance segmentation model. Best for visualizing detected objects.
-* **Generic Instance Segmentation** - Detects 80 common object classes (person, bicycle, car, and more) using a transformer-based instance segmentation model.
+* **Fish Segmentation (Focus-Aware)** - Locates fish using a transformer-based instance segmentation model with two classes that separate in-focus from out-of-focus fish.
+* **Apoidea Segmentation (Focus-Aware)** - Locates bees, wasps, and related Apoidea species using a transformer-based instance segmentation model with two classes that separate in-focus from out-of-focus individuals.
 
-### All models
-All models are based on the DETR (DEtection TRansformer) architecture.
+Both models are based on the DETR (DEtection TRansformer) architecture.
 
-| Model | Type | Parameters | Input size | Class indexing | Classes |
-|---|---|---|---|---|---|
-| **Fish Detection** | Detection | 33.9 M | 704px | 1-indexed | `[1]: 'Fish'` |
-| **Apoidea Detection** | Detection | 33.9 M | 704px | 1-indexed | `[1]: 'Apoidea'` |
-| **Generic Object Detection** | Detection | 33.9 M | 704px | 1-indexed | 80 (COCO classes) |
-| **Fish Segmentation** | Segmentation | 36.2 M | 504px | 0-indexed | `[0]: 'Fish'` |
-| **Apoidea Segmentation** | Segmentation | 36.2 M | 504px | 0-indexed | `[0]: 'Apoidea'` |
-| **Generic Instance Segmentation** | Segmentation | 36.2 M | 504px | 0-indexed | 80 (COCO classes) |
+| Model | Parameters | Input size | Class indexing | Classes |
+|---|---|---|---|---|
+| **Fish Segmentation (Focus-Aware)** | 36.2 M | 504px | 0-indexed | `[0]: 'Fish'`, `[1]: 'Fish_out-of-focus'` |
+| **Apoidea Segmentation (Focus-Aware)** | 36.2 M | 504px | 0-indexed | `[0]: 'Apoidea_in-focus'`, `[1]: 'Apoidea_out-of-focus'` |
 
 
 ## Changelog

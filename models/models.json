@@ -1,48 +1,17 @@
 [
   {
-    "name": "Fish Detection",
-    "size_mb": 107,
-    "description": "Locates fish using a transformer-based bounding box detection model. Best for batch sorting and cropping.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-detect-transformer-2026-02-15.onnx.gz",
-    "release_date": "2026-02-15",
-    "supersedes": [
-      "fish-detect-2025-08-01.onnx",
-      "fish-detect-2025-09-11.onnx"
-    ]
-  },
-  {
-    "name": "Fish Segmentation",
-    "size_mb": 115,
-    "description": "Locates fish using a transformer-based instance segmentation model. Best for visualizing detected objects.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-seg-transormer-2026-02-24.onnx.gz",
-    "release_date": "2026-02-24"
-  },
-  {
     "name": "Fish Segmentation (Focus-Aware)",
     "size_mb": 115,
     "description": "Locates fish using a transformer-based instance segmentation model with two classes that separate in-focus from out-of-focus fish.",
     "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-focus-036-seg-transformer-2026-10-18.onnx.gz",
     "release_date": "2026-10-18",
     "supersedes": [
+      "fish-detect-2025-08-01.onnx",
+      "fish-detect-2025-09-11.onnx",
+      "fish-detect-transformer-2026-02-15.onnx.gz",
+      "fish-seg-transormer-2026-02-24.onnx.gz",
       "fish-focus-seg-transformer-2026-09-29.onnx.gz"
     ]
-  },
-  {
-    "name": "Apoidea Detection",
-    "size_mb": 107,
-    "description": "Locates bees, wasps, and related Apoidea species using a transformer-based bounding box detection model. Best for batch sorting and cropping.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-detect-transformer-2026-02-16.onnx.gz",
-    "release_date": "2026-02-16",
-    "supersedes": [
-      "bee-detect-2025-09-10.onnx"
-    ]
-  },
-  {
-    "name": "Apoidea Segmentation",
-    "size_mb": 115,
-    "description": "Locates bees, wasps, and related Apoidea species using a transformer-based instance segmentation model. Best for visualizing detected objects.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-seg-transormer-2026-02-24.onnx.gz",
-    "release_date": "2026-02-16"
   },
   {
     "name": "Apoidea Segmentation (Focus-Aware)",
@@ -51,22 +20,11 @@
     "url": "https://github.com/kenwer/detectorist/raw/main/models/apoidea-focus-042-seg-transformer-2026-10-18.onnx.gz",
     "release_date": "2026-10-18",
     "supersedes": [
+      "bee-detect-2025-09-10.onnx",
+      "apoidea-detect-transformer-2026-02-16.onnx.gz",
+      "apoidea-seg-transormer-2026-02-24.onnx.gz",
       "apoidea-focus-seg-transformer-2026-09-17.onnx.gz",
       "apoidea-focus-seg-transformer-2026-10-05.onnx.gz"
     ]
-  },
-  {
-    "name": "Generic Object Detection",
-    "size_mb": 108,
-    "description": "Detects 80 common object classes (person, bicycle, car, and more) using a transformer-based bounding box detection model.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/generic-detr-l-2026-02-19.onnx.gz",
-    "release_date": "2026-02-19"
-  },
-  {
-    "name": "Generic Instance Segmentation",
-    "size_mb": 108,
-    "description": "Detects 80 common object classes (person, bicycle, car, and more) using a transformer-based instance segmentation model.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/generic-detr-seg-l-2026-02-24.onnx.gz",
-    "release_date": "2026-02-19"
   }
 ]
