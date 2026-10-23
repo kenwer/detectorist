@@ -290,6 +290,10 @@ class DetectoristApp(QMainWindow):
         self.ui.toggle_boxes_action.toggled.connect(self.ui.image_label.set_boxes_visible)
         self.ui.toggle_labels_action.toggled.connect(self.ui.image_label.set_labels_visible)
         self.ui.toggle_all_overlays_action.triggered.connect(self.toggle_all_overlays)
+        # The .ui file's defaults, like the hidden masks, would otherwise only reach the image on a toggle
+        self.ui.image_label.set_masks_visible(self.ui.toggle_masks_action.isChecked())
+        self.ui.image_label.set_boxes_visible(self.ui.toggle_boxes_action.isChecked())
+        self.ui.image_label.set_labels_visible(self.ui.toggle_labels_action.isChecked())
 
         # Connect model signals
         self.model.modelReset.connect(self._update_clear_image_list_action_state)
@@ -354,13 +358,18 @@ class DetectoristApp(QMainWindow):
             QTimer.singleShot(0, self.show_manage_models_dialog)
 
     def _restore_window_layout(self):
-        """Apply the persisted window geometry and splitter state."""
+        """Apply the persisted window geometry, splitter state and shown overlays."""
         if self.settings.window_geometry:
             self.restoreGeometry(self.settings.window_geometry)
         if self.settings.main_splitter_state:
             self.ui.splitter.restoreState(self.settings.main_splitter_state)
         if self.settings.image_splitter_state:
             self.ui.image_splitter.restoreState(self.settings.image_splitter_state)
+        for action, shown in ((self.ui.toggle_masks_action, self.settings.show_masks),
+                              (self.ui.toggle_boxes_action, self.settings.show_boxes),
+                              (self.ui.toggle_labels_action, self.settings.show_labels)):
+            if shown is not None:
+                action.setChecked(shown)
 
     def _load_settings(self):
         """
@@ -424,6 +433,9 @@ class DetectoristApp(QMainWindow):
         self.settings.window_geometry = self.saveGeometry()
         self.settings.main_splitter_state = self.ui.splitter.saveState()
         self.settings.image_splitter_state = self.ui.image_splitter.saveState()
+        self.settings.show_masks = self.ui.toggle_masks_action.isChecked()
+        self.settings.show_boxes = self.ui.toggle_boxes_action.isChecked()
+        self.settings.show_labels = self.ui.toggle_labels_action.isChecked()
 
         # Model selection
         self.settings.detection_model = self.ui.model_select_combo_box.currentData()

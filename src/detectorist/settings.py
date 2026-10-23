@@ -82,6 +82,9 @@ class Settings:
                                   "Sizes of the main splitter's panes, as saved by QSplitter.saveState().")
     image_splitter_state = Setting(GROUP_UI, QByteArray,
                                    "Heights of the image and the results below it, as saved by QSplitter.saveState().")
+    show_masks = Setting(GROUP_UI, bool, "Whether the segmentation masks are drawn over the image.")
+    show_boxes = Setting(GROUP_UI, bool, "Whether the bounding boxes are drawn over the image.")
+    show_labels = Setting(GROUP_UI, bool, "Whether the labels naming the classified taxa are drawn over the image.")
 
     # Recent folders (not exported), read through recent_folders. The key keeps
     # its name from earlier versions, so their lists carry over.

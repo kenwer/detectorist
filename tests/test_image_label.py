@@ -226,6 +226,16 @@ def test_moving_the_mouse_over_a_band_reports_its_box(label):
     assert hovered == [FISH.box, None]
 
 
+def test_a_hovered_band_is_highlighted_until_the_mouse_leaves_it(label):
+    label.set_detection_boxes([FISH])
+
+    move_mouse(label, label.detection_bands[0].geometry().center())
+    assert label.detection_bands[0].highlighted
+
+    move_mouse(label, QPoint(0, 0))
+    assert not label.detection_bands[0].highlighted
+
+
 def test_a_hovered_detection_stays_hovered_until_it_is_gone(label):
     label.set_detection_boxes([FISH])
     hovered = []

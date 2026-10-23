@@ -477,6 +477,7 @@ def test_show_hide_all_hides_every_enabled_overlay_then_shows_them_again(make_wi
     window = make_window()
     ui = window.ui
     # Only the masks and boxes are enabled, as no classifier is selected
+    ui.toggle_masks_action.setChecked(True)
     ui.toggle_boxes_action.setChecked(False)
 
     ui.toggle_all_overlays_action.trigger()
@@ -832,6 +833,30 @@ def test_closing_persists_the_controls_and_a_new_window_restores_them(make_windo
     assert second.ui.crop_ratio_combo_box.currentText() == "4:3 (landscape)"
     assert second.ui.rb_crop_centered_obj.isChecked()
     assert not second.ui.cb_comp_cam_exposure.isChecked()
+
+
+def test_masks_are_hidden_and_boxes_and_labels_shown_by_default(window):
+    assert not window.ui.toggle_masks_action.isChecked()
+    assert not window.ui.image_label._masks_visible
+    assert window.ui.toggle_boxes_action.isChecked()
+    assert window.ui.toggle_labels_action.isChecked()
+
+
+def test_the_shown_overlays_are_restored_in_a_new_window(make_window, settings):
+    first = make_window()
+    first.ui.toggle_masks_action.setChecked(True)
+    first.ui.toggle_boxes_action.setChecked(False)
+    first.ui.toggle_labels_action.setChecked(False)
+
+    first.close()
+    second = make_window()
+
+    assert second.ui.toggle_masks_action.isChecked()
+    assert second.ui.image_label._masks_visible
+    assert not second.ui.toggle_boxes_action.isChecked()
+    assert not second.ui.image_label._boxes_visible
+    assert not second.ui.toggle_labels_action.isChecked()
+    assert not second.ui.image_label._labels_visible
 
 
 def test_a_saved_union_crop_mode_opens_with_the_default_mode(make_window, settings):

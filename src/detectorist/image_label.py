@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
+from PySide6.QtGui import QBrush, QColor, QFont, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel, QRubberBand, QToolTip
 
 from .detection_style import MASK_COLORS, DetectionStyle, build_class_color_map
@@ -27,18 +27,30 @@ class CustomRubberBand(QRubberBand):
         self.box = box
         self.detection_style = detection_style
         self.highlighted = False
+        self.labels_visible = False
+
+    @property
+    def label_shown(self) -> bool:
+        """Whether ImageLabel draws the label of the detection, which then shows the highlight in bold."""
+        return self.labels_visible and self.detection_style is not None and self.detection_style.label is not None
 
     def set_highlighted(self, highlighted: bool):
         if highlighted != self.highlighted:
             self.highlighted = highlighted
             self.update()
 
+    def set_labels_visible(self, visible: bool):
+        if visible != self.labels_visible:
+            self.labels_visible = visible
+            self.update()
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setBrush(QBrush(self.fill_color))
-        # A highlighted border is opaque, as that of a low scoring detection is nearly transparent
+        # A highlighted border is opaque, as that of a low scoring detection is nearly transparent.
+        # It is wide only without a label, as the label then has nothing to show the highlight.
         pen = QPen(QColor(self.border_color.rgb()) if self.highlighted else self.border_color,
-                   3 if self.highlighted else 1)
+                   3 if self.highlighted and not self.label_shown else 1)
         painter.setPen(pen)
         # Inset by half the pen width, so a wide border is not clipped at the band's edges
         inset = pen.width() // 2
@@ -148,6 +160,7 @@ class ImageLabel(QLabel):
     def _set_hovered_box(self, box):
         if box != self._hovered_box:
             self._hovered_box = box
+            self.highlight_box(box)
             self.detection_hovered.emit(box)
 
     def highlight_box(self, box):
@@ -216,6 +229,7 @@ class ImageLabel(QLabel):
                                     detection_style=style)
             band.setGeometry(self._map_rect_from_image_to_widget(rect))
             band.set_highlighted(band.box == self._highlighted_box)
+            band.set_labels_visible(self._labels_visible)
             # Only stored here. QRubberBand ignores the mouse, so mouseMoveEvent
             # shows it, and only over the mask for a segmentation model.
             band.setToolTip(tooltips.get(band.box, f"{class_name} {score:.2f}"))
@@ -312,6 +326,8 @@ class ImageLabel(QLabel):
     def set_labels_visible(self, visible: bool):
         """Shows or hides the labels of the detections (see DetectionStyle)."""
         self._labels_visible = visible
+        for band in self.detection_bands:
+            band.set_labels_visible(visible)
         self.update()
 
     def hide_bands(self):
@@ -428,11 +444,16 @@ class ImageLabel(QLabel):
                 self._draw_labels(painter)
 
     def _draw_labels(self, painter: QPainter):
-        metrics = painter.fontMetrics()
-        for band in self.detection_bands:
+        regular_font = painter.font()
+        bold_font = QFont(regular_font)
+        bold_font.setBold(True)
+        # The highlighted label is drawn last, so labels it overlaps do not cover it
+        for band in sorted(self.detection_bands, key=lambda band: band.highlighted):
             style = band.detection_style
             if style.label is None:
                 continue
+            painter.setFont(bold_font if band.highlighted else regular_font)
+            metrics = painter.fontMetrics()
             box = band.geometry()
             text_rect = metrics.boundingRect(style.label).adjusted(-3, -1, 3, 1)
             # Above the box, or inside it where the box touches the top of the widget

@@ -17,8 +17,8 @@ def _is_score_column(column: int) -> bool:
 class ResultsTable(QTreeWidget):
     """
     Lists the shown image's detections, one row each, with what the classifier
-    named them. Hovering a row reports its detection's box, and the row of a
-    box set with set_bold_box is shown in bold.
+    named them. Hovering a row shows it in bold and reports its detection's
+    box, and the row of a box set with set_bold_box is shown in bold too.
     """
 
     # The box of the detection whose row is under the mouse, or None
@@ -110,4 +110,5 @@ class ResultsTable(QTreeWidget):
         box = None if item is None else item.data(0, BOX_ROLE)
         if box != self._hovered_box:
             self._hovered_box = box
+            self.set_bold_box(box)
             self.row_hovered.emit(box)
