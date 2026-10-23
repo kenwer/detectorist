@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Fixed
+- Sorting the results table by a score column uses the exact score, not the rounded one shown.
+
 ## [0.13.0] - 2026-10-23
 ### Added
 - Species classification:
