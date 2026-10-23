@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Fixed
+- Sorting the results table by score now matches the `Best classification` crop.
+
 ## [0.13.0] - 2026-10-23
 ### Added
 - Species classification:

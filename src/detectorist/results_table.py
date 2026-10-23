@@ -9,10 +9,28 @@ HEADER_LABELS = ["Detected", "Score", "Family", "Score", "Genus", "Score", "Spec
 TAXONOMY_COLUMNS_START = 2
 # Where an item keeps its detection's box, in column 0
 BOX_ROLE = Qt.ItemDataRole.UserRole
+# Where an item keeps a score cell's unrounded score, which sorting compares
+SCORE_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
 def _is_score_column(column: int) -> bool:
     return column % 2 == 1
+
+
+class _ResultItem(QTreeWidgetItem):
+    """
+    A row that sorts score columns by the unrounded score. Their text caps
+    at 0.99, so two species shown as 0.99 would tie and keep the detection
+    order, while the best classification crop frames the higher score.
+    """
+
+    def __lt__(self, other: QTreeWidgetItem) -> bool:
+        column = self.treeWidget().sortColumn()
+        score, other_score = self.data(column, SCORE_ROLE), other.data(column, SCORE_ROLE)
+        # Not super().__lt__, which PySide routes back into this override
+        if score is None or other_score is None:
+            return self.text(column) < other.text(column)
+        return score < other_score
 
 
 def format_score(score: float) -> str:
@@ -63,15 +81,18 @@ class ResultsTable(QTreeWidget):
         super().clear()
         for detection in sorted(detections, key=lambda d: d.score, reverse=True):
             cells = [detection.class_name, format_score(detection.score)]
+            scores = [detection.score]
             if (taxonomy := taxonomy_by_box.get(detection.box)) is not None:
                 ranks = identified_ranks(taxonomy, threshold)
                 for rank in ranks:
                     cells += [display_name(rank.name), format_score(rank.score)]
+                    scores.append(rank.score)
                 if not ranks:
                     cells.append("Unidentified")
-            item = QTreeWidgetItem(cells)
+            item = _ResultItem(cells)
             item.setData(0, BOX_ROLE, detection.box)
-            for column in filter(_is_score_column, range(len(cells))):
+            for column, score in zip(filter(_is_score_column, range(len(cells))), scores, strict=True):
+                item.setData(column, SCORE_ROLE, score)
                 item.setTextAlignment(column, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             self._set_highlighted(item, detection.box == self._highlighted_box)
             self.addTopLevelItem(item)
