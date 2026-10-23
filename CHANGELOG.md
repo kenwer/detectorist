@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.13.0] - 2026-10-23
 ### Added
 - Species classification:
   - A classifier, chosen in the new `Classification model` group, names the family, genus and species of each detection. Two classifiers are available from the Model Manager:

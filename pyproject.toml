@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "detectorist"
-version = "0.12.0"
+version = "0.13.0"
 
 description = "A desktop application for sorting and cropping photos using a machine learning for object detection."
 readme = "README.md"
