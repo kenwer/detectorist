@@ -8,19 +8,21 @@ from .structures import Detection
 
 # 12 visually distinct segmentation-mask colors for the instance segmentation masks.
 # Assigned to class names in sorted order, so each class keeps the same color across every image.
-# Each color is the hue-complement of its partner and pairs are ordered so inter-pair jumps are >= 90°.
+# An image usually holds only a few classes, which take the first colors, so each color is the one
+# furthest in hue from all before it. The first four are 90° apart, and chartreuse, hard to tell from
+# green, comes last.
 MASK_COLORS = [
     (  0, 230,   0),   #  0  green       (120°)
     (230,   0, 230),   #  1  magenta     (300°)
-    (115, 230,   0),   #  2  chartreuse  ( 90°)
-    (115,   0, 230),   #  3  purple      (270°)
-    (  0, 230, 230),   #  4  cyan        (180°)
-    (230,   0,   0),   #  5  red         (  0°)
-    (  0,   0, 230),   #  6  blue        (240°)
-    (230, 230,   0),   #  7  yellow      ( 60°)
-    (  0, 115, 230),   #  8  blue-violet (210°)
-    (230, 115,   0),   #  9  orange      ( 30°)
-    (  0, 230, 115),   # 10  teal        (150°)
+    (230, 115,   0),   #  2  orange      ( 30°)
+    (  0, 115, 230),   #  3  blue-violet (210°)
+    (230,   0,   0),   #  4  red         (  0°)
+    (  0, 230, 230),   #  5  cyan        (180°)
+    (230, 230,   0),   #  6  yellow      ( 60°)
+    (  0,   0, 230),   #  7  blue        (240°)
+    (115,   0, 230),   #  8  purple      (270°)
+    (  0, 230, 115),   #  9  teal        (150°)
+    (115, 230,   0),   # 10  chartreuse  ( 90°)
     (230,   0, 115),   # 11  rose / pink (330°)
 ]
 
@@ -57,18 +59,17 @@ def taxon_styles(detections: list[Detection], taxonomy_by_box: dict, threshold: 
 
     The hue tells the family and a shade of it the genus. Both are spread over
     the families and genera among these detections only, sorted by name, as
-    those of a whole model are too many to tell apart. The opacity follows the
-    score of the deepest identified rank (see identified_ranks), which the
-    label names. A detection not identified down to its family is gray and
-    keeps its detection score.
+    those of a whole model are too many to tell apart. They include the taxa
+    below the threshold, so moving it never recolors another detection. The
+    opacity follows the score of the deepest identified rank (see
+    identified_ranks), which the label names. A detection not identified down
+    to its family is gray and keeps its detection score.
     """
-    classified = [(d, identified_ranks(taxonomy_by_box[d.box], threshold))
-                  for d in detections if d.box in taxonomy_by_box]
-    family_colors = build_class_color_map(sorted({ranks[0].name for _, ranks in classified if ranks}))
+    taxonomies = [taxonomy_by_box[d.box] for d in detections if d.box in taxonomy_by_box]
+    family_colors = build_class_color_map(sorted({t.family.name for t in taxonomies}))
     genera_by_family = defaultdict(set)
-    for _, ranks in classified:
-        if len(ranks) > 1:
-            genera_by_family[ranks[0].name].add(ranks[1].name)
+    for t in taxonomies:
+        genera_by_family[t.family.name].add(t.genus.name)
     # A genus belongs to a single family, so it alone is the key
     genus_shades = {}
     for genera in genera_by_family.values():
@@ -76,7 +77,10 @@ def taxon_styles(detections: list[Detection], taxonomy_by_box: dict, threshold: 
             genus_shades[genus] = GENUS_SHADE_RANGE * (2 * i / (len(genera) - 1) - 1) if len(genera) > 1 else 0
 
     styles = {}
-    for d, ranks in classified:
+    for d in detections:
+        if d.box not in taxonomy_by_box:
+            continue
+        ranks = identified_ranks(taxonomy_by_box[d.box], threshold)
         if not ranks:
             styles[d.box] = DetectionStyle(UNIDENTIFIED_COLOR_RGB, d.score)
             continue
