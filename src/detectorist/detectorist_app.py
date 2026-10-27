@@ -7,14 +7,11 @@ from pathlib import Path
 
 import pillow_heif
 from PySide6.QtCore import (
-    Q_ARG,
-    QMetaObject,
+    QEventLoop,
     QRect,
     QSignalBlocker,
     Qt,
-    QThread,
     QTimer,
-    Signal,
 )
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
@@ -33,14 +30,13 @@ from detectorist import __version__
 
 from .about_dialog import show_about_dialog
 from .batch_output import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
-from .batch_run import CropExportAction, run_batch
+from .batch_run import BatchWriter, CropExportAction
 from .classifier import Classifier, class_matches
 from .detection_style import taxon_styles
 from .detector import Detector
 from .enum_button_group import EnumButtonGroup
 from .export_dialog import ExportDialog, PreviewImage
 from .export_planner import CropMode, CropSettings, ExportOptions, plan_crops
-from .image_cache import PrefetchPlanner
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
 from .image_object import (
@@ -50,14 +46,15 @@ from .image_object import (
     list_supported_images,
     supported_extensions,
 )
+from .jobs import ShowRequest
 from .manage_models import ManageModelsDialog
 from .model_downloader import ModelDownloader
+from .pipeline import BatchOptions, Pipeline, neighbours
 from .settings import Settings
 from .shortcuts_dialog import ShortcutsDialog
 from .toasts import show_error_toast, show_success_toast, show_warning_toast
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
 from .utils import (
-    SharedFactory,
     contract_user_path,
     count_noun,
     file_manager_name,
@@ -68,7 +65,6 @@ from .utils import (
     reveal_in_file_manager,
     strip_model_ext,
 )
-from .worker import DetectionWorker
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +92,10 @@ def image_name_filter(platform: str = sys.platform) -> str:
 
 NO_MODELS_MESSAGE = "No models available<br/>Use File -> Download Models"
 
+# Neighbours offered to the Pipeline on each side of the shown image. It prefetches as many as its
+# image budget holds: on 16 GB of RAM about 7 per side of a 33 MP image.
+PREFETCH_PER_SIDE = 16
+
 # The crop aspect ratio combo box's entries, in order. Settings save the ratio, see aspect_ratio_setting().
 ASPECT_RATIOS: list[tuple[str, tuple[int, int] | str]] = [
     ("Same as source image", "source_image"),
@@ -120,11 +120,6 @@ def aspect_ratio_setting(aspect: tuple[int, int] | str) -> str:
 
 
 class DetectoristApp(QMainWindow):
-    # Signal to request processing in the worker thread
-    request_processing = Signal(str, bool, list, float)  # image_path, exposure_correction, prefetch_paths, min_detection_score
-    request_classifier = Signal(str, list)  # model_path ("" for none), the classes it names (see class_matches)
-    request_classification = Signal(str, float)  # image_path, min_detection_score
-
     def __init__(
         self,
         settings: Settings | None = None,
@@ -136,19 +131,16 @@ class DetectoristApp(QMainWindow):
         Args:
             settings: Persistent settings store. Defaults to the per-user store.
             models_dir: Folder scanned for model files. Defaults to get_model_path().
-            detector_factory: Called with a model path to build a detector, by
-                the worker for interactive use and here for each batch run.
-            classifier_factory: Likewise for the classifier. The worker and the
-                batch runs share the classifier it builds, as it takes
-                hundreds of MB.
+            detector_factory: Called with a model path to build a detector.
+                The Pipeline holds one for browsing and batch runs alike.
+            classifier_factory: Likewise for the classifier.
         """
         super().__init__()
 
         self.settings = settings if settings is not None else Settings()
         self._detector_factory = detector_factory
-        self._classifier_factory = SharedFactory(classifier_factory)
+        self._classifier_factory = classifier_factory
         self.current_image_path = None
-        self._prefetch_planner = PrefetchPlanner()
         self._all_detection_results: list = []
         self._last_detection_time_ms: float = 0.0
         self._last_classification_time_ms: float = 0.0
@@ -270,14 +262,9 @@ class DetectoristApp(QMainWindow):
         # Detection confidence slider/spinbox update the display filter only (no re-inference)
         self.ui.detection_confidence_slider.valueChanged.connect(self._display_filtered_results)
         self.ui.detection_confidence_spin_box.valueChanged.connect(self._display_filtered_results)
-        # The worker only names boxes at or above the detection confidence, so a lower one asks for the rest.
-        # Debounced: the worker handles one request at a time, and the ticks of a drag queued
-        # up there would delay the next image.
-        self._classification_timer = QTimer(self)
-        self._classification_timer.setSingleShot(True)
-        self._classification_timer.setInterval(200)
-        self._classification_timer.timeout.connect(self._request_classification)
-        self.ui.detection_confidence_slider.valueChanged.connect(self._classification_timer.start)
+        # Only boxes at or above the detection confidence are named, so a lower one asks for the rest.
+        # A drag needs no debouncing: the Pipeline serves the latest request only.
+        self.ui.detection_confidence_slider.valueChanged.connect(self._show_current_image)
         self.ui.taxon_confidence_slider.valueChanged.connect(self._display_filtered_results)
 
         # Connect crop controls
@@ -315,33 +302,20 @@ class DetectoristApp(QMainWindow):
         self._loading_indicator_timer.setInterval(200)
         self._loading_indicator_timer.timeout.connect(self._show_loading_indicator)
 
-        # Setup worker thread, to offload image loading and detection, so the GUI remains responsive.
-        self._worker_thread = QThread()
-        self.worker = DetectionWorker(self._detector_factory, self._classifier_factory)
-        self.worker.moveToThread(self._worker_thread)
-
-        # Connect signals/slots for worker
-        # DirectConnection runs process_image on this (GUI) thread: it only
-        # updates lock-protected request state, and the worker loop must see a
-        # new request immediately to abandon stale work and prefetches.
-        self.request_processing.connect(self.worker.process_image, Qt.ConnectionType.DirectConnection)
-        self.worker.model_loaded.connect(self.handle_model_loaded)
-        self.worker.image_loaded.connect(self.handle_image_loaded)
-        self.worker.detection_complete.connect(self.handle_detection_complete)
-        self.worker.error.connect(self.handle_worker_error)
-        self.worker.cache_updated.connect(self.model.setCachedPaths)
-        self.worker.classification_complete.connect(self.handle_classification_complete)
-        self.worker.classifier_error.connect(self.handle_classifier_error)
-        self.request_classifier.connect(self.worker.set_classifier)
-        self.request_classification.connect(self.worker.classify_image)
+        # Decoding and inference run on the Pipeline's own threads, so the GUI remains responsive
+        self.pipeline = Pipeline(self._detector_factory, self._classifier_factory, parent=self)
+        self.pipeline.model_loaded.connect(self.handle_model_loaded)
+        self.pipeline.image_loaded.connect(self.handle_image_loaded)
+        self.pipeline.detection_complete.connect(self.handle_detection_complete)
+        self.pipeline.error.connect(self.handle_pipeline_error)
+        self.pipeline.cache_updated.connect(self.model.setCachedPaths)
+        self.pipeline.classification_complete.connect(self.handle_classification_complete)
+        self.pipeline.classifier_error.connect(self.handle_classifier_error)
         self.ui.model_select_combo_box.currentIndexChanged.connect(self.on_model_selected)
         self.ui.classifier_combo_box.currentIndexChanged.connect(self._on_classifier_chosen)
         self.ui.class_filter_combo_box.currentIndexChanged.connect(self.on_class_filter_changed)
 
-        # Start the thread
-        self._worker_thread.start()
-
-        # Find and populate models (must be after worker setup so _on_model_availability_changed can reach it)
+        # Find and populate models (must be after the Pipeline exists so _on_model_availability_changed can reach it)
         self._refresh_model_list()
 
         # Load settings (must be after UI setup and before triggering model load)
@@ -375,7 +349,7 @@ class DetectoristApp(QMainWindow):
         """
         Apply the persistent settings to the UI. The model combo
         box is set with its signals blocked, so the caller has to follow up
-        with on_model_selected() to load the selected model in the worker. The
+        with on_model_selected() to load the selected model in the Pipeline. The
         classifier is selected once a model it applies to has loaded.
         """
         # Model selection
@@ -506,11 +480,7 @@ class DetectoristApp(QMainWindow):
         # Clear existing list and main image
         self.model.clear()
         self.current_image_path = None
-        self._prefetch_planner.reset()
-        # Files on disk may have changed, so cached decodes are not trustworthy.
-        # The queued invocation runs clear_cache on the worker thread, which is
-        # the only thread allowed to touch the cache (no lock needed there).
-        QMetaObject.invokeMethod(self.worker, "clear_cache", Qt.ConnectionType.QueuedConnection)
+        # The caches stay: the Pipeline notices a changed file by its stamp when decoding it
 
         self.ui.image_label.setText("Loading Images...")
         self.model.setImagePaths(supported_files)
@@ -735,30 +705,36 @@ class DetectoristApp(QMainWindow):
         self._clear_results()
         self.ui.image_exif_label.setText("")
 
-        # Request the worker to load and process the image
+        # Ask the Pipeline to load and process the image
         self.trigger_processing()
 
     def _show_loading_indicator(self):
         """
         Shows the loading placeholder. Only reached when the image did not
         arrive within the timer interval, i.e. it was not served from the
-        worker's cache.
+        Pipeline's cache.
         """
         self.ui.image_label.setText("Loading image...")
         if self.current_image_path:
             self.ui.status_bar.showMessage(f"Loading {os.path.basename(self.current_image_path)}...")
 
     def trigger_processing(self):
-        """Emits a signal to the worker to start processing the current image."""
-        if not self.current_image_path:
+        """Asks the Pipeline for the current image and the neighbours to prefetch."""
+        if not self._show_current_image():
             return
-        if self.ui.model_select_combo_box.count() == 0:
-            return
+        self.pipeline.prefetch(neighbours(self.model.imagePaths(), self.current_image_path, PREFETCH_PER_SIDE))
 
-        exposure_correction = self.ui.cb_comp_cam_exposure.isChecked()
-        prefetch_hints = self._prefetch_planner.hints(self.model.imagePaths(), self.current_image_path)
-        min_detection_score = self.ui.detection_confidence_slider.value() / 100.0
-        self.request_processing.emit(self.current_image_path, exposure_correction, prefetch_hints, min_detection_score)
+    def _show_current_image(self) -> bool:
+        """
+        Tells the Pipeline what the current image should look like: the
+        exposure correction and the detection confidence down to which its
+        boxes are named. Returns whether there is an image and a model to ask for.
+        """
+        if not self.current_image_path or self.ui.model_select_combo_box.count() == 0:
+            return False
+        self.pipeline.show(ShowRequest(self.current_image_path, self.ui.cb_comp_cam_exposure.isChecked(),
+                                       self.ui.detection_confidence_slider.value() / 100.0))
+        return True
 
     def toggle_all_overlays(self):
         """Hides the masks, boxes and labels if any of them is shown, otherwise shows all of them."""
@@ -770,7 +746,7 @@ class DetectoristApp(QMainWindow):
             action.setChecked(show)
 
     def handle_model_loaded(self, success: bool, message: str, class_names: list, is_segmentation: bool):
-        """Handles the result of loading a model in the worker."""
+        """Handles the result of loading a model in the Pipeline."""
         self.ui.image_label.set_class_color_map(class_names)
         self.ui.toggle_masks_action.setEnabled(is_segmentation)
         with QSignalBlocker(self.ui.class_filter_combo_box):
@@ -789,8 +765,12 @@ class DetectoristApp(QMainWindow):
             self._show_message(message)
             logger.error(message)
 
-    def handle_image_loaded(self, image_path: str, image_object: ImageObject):
-        """Handles the image_loaded signal from the worker."""
+    def handle_image_loaded(self, image_path: str, image_object: ImageObject, display):
+        """
+        Handles the image_loaded signal from the Pipeline. The image shown
+        already only gets its new display array, e.g. after the exposure
+        correction setting changed, and keeps its bands.
+        """
         if image_path != self.current_image_path:
             return  # Stale result for a different image
 
@@ -800,7 +780,10 @@ class DetectoristApp(QMainWindow):
             self._show_message(f"Could not load image:\n{image_path}")
             return
 
-        self.ui.image_label.replace_image(image_object)
+        if image_object is self.ui.image_label.image:
+            self.ui.image_label.set_display(display)
+            return
+        self.ui.image_label.replace_image(image_object, display)
         self.ui.status_bar.showMessage(os.path.basename(image_path))
 
         # Update the Image info label
@@ -814,7 +797,7 @@ class DetectoristApp(QMainWindow):
 
 
     def handle_detection_complete(self, image_path: str, results: list, detection_time_ms: float):
-        """Handles the detection_complete signal from the worker."""
+        """Handles the detection_complete signal from the Pipeline."""
         if image_path != self.current_image_path:
             return  # Stale result (this can happen if user quickly switches images)
 
@@ -826,7 +809,7 @@ class DetectoristApp(QMainWindow):
         self._display_filtered_results()
 
     def handle_classification_complete(self, image_path: str, taxonomy_by_box: dict, classification_time_ms: float):
-        """Handles the classification_complete signal from the worker."""
+        """Handles the classification_complete signal from the Pipeline."""
         if image_path != self.current_image_path:
             return
         self._taxonomy_by_box = taxonomy_by_box
@@ -834,13 +817,8 @@ class DetectoristApp(QMainWindow):
         self._last_classification_time_ms = classification_time_ms
         self._display_filtered_results()
 
-    def _request_classification(self):
-        """Asks the worker to name the shown image's boxes down to the current detection confidence."""
-        if self.current_image_path and self.ui.classifier_combo_box.currentData():
-            self.request_classification.emit(self.current_image_path, self.ui.detection_confidence_slider.value() / 100.0)
-
     def handle_classifier_error(self, message: str):
-        """Handles the classifier_error signal from the worker. The detections stay as they are."""
+        """Handles the classifier_error signal from the Pipeline. The detections stay as they are."""
         show_error_toast(self, "Classifier error", message)
 
     def _select_preferred_class_filter(self) -> None:
@@ -881,13 +859,13 @@ class DetectoristApp(QMainWindow):
         self._preferred_class_filter = self._selected_class_filter()
         self._display_filtered_results()
 
-    def handle_worker_error(self, image_path: str, message: str):
-        """Handles an error signal from the worker."""
+    def handle_pipeline_error(self, image_path: str, message: str):
+        """Handles an error signal from the Pipeline."""
         if image_path != self.current_image_path:
             return  # Stale error for a different image (ignored)
 
         self._loading_indicator_timer.stop()
-        logger.error("Worker error for %s: %s", image_path, message)
+        logger.error("Error for %s: %s", image_path, message)
         self._show_message(f"Error: {message}")
         self.ui.status_bar.clearMessage()
         show_error_toast(self, "Could not process image", f"{os.path.basename(image_path)}: {message}")
@@ -896,14 +874,11 @@ class DetectoristApp(QMainWindow):
         if index < 0:
             return
         filename = self.ui.model_select_combo_box.itemData(index)
-        model_path = os.path.join(self.models_dir, filename)
-        # The worker lives in another thread, so we must use invokeMethod to call it safely.
-        QMetaObject.invokeMethod(self.worker, "load_model", Qt.ConnectionType.QueuedConnection, Q_ARG(str, model_path))
+        self.pipeline.load_detector(os.path.join(self.models_dir, filename))
 
     def on_exposure_compensation_toggled(self, checked: bool):
-        if self.ui.image_label.image:
-            self.ui.image_label.image.exposure_correction = checked
-            self.ui.image_label.refresh_pixmap()
+        """Has the Pipeline rebuild the display array. The models always get the corrected image."""
+        self._show_current_image()
 
     def show_about_dialog(self):
         show_about_dialog(self)
@@ -962,7 +937,7 @@ class DetectoristApp(QMainWindow):
             if idx >= 0:
                 combo.setCurrentIndex(idx)
 
-        # If the selected model changed (e.g. first download), load it in the worker.
+        # If the selected model changed (e.g. first download), load it in the Pipeline.
         # on_model_selected is not triggered automatically because signals were blocked.
         new_filename = combo.currentData()
         if new_filename and new_filename != previous_filename:
@@ -1018,19 +993,15 @@ class DetectoristApp(QMainWindow):
 
     def _load_selected_classifier(self):
         """
-        Loads the classifier selected in the combo box in the worker, or
-        unloads it for "No classifier", and has the shown image named again.
+        Loads the classifier selected in the combo box in the Pipeline, or
+        unloads it for "No classifier". The Pipeline names the shown image again.
         """
         filename = self.ui.classifier_combo_box.currentData()
-        model_path = os.path.join(self._model_downloader.classifiers_dir, filename) if filename else ""
-        if not filename:
-            # The worker drops its reference, so this frees the model
-            self._classifier_factory.release()
-        self.request_classifier.emit(model_path, self._model_downloader.classifies(filename) if filename else [])
+        model_path = os.path.join(self._model_downloader.classifiers_dir, filename) if filename else None
+        self.pipeline.load_classifier(model_path, self._model_downloader.classifies(filename) if filename else [])
         self._taxonomy_by_box = {}
         self._classification_pending = bool(filename and self.current_image_path)
         self._display_filtered_results()
-        self._request_classification()
 
     def _find_model_index(self, combo: QComboBox, filename: str | None) -> int:
         """
@@ -1058,7 +1029,7 @@ class DetectoristApp(QMainWindow):
 
         if not has_models:
             self._show_message(NO_MODELS_MESSAGE)
-            QMetaObject.invokeMethod(self.worker, "unload_model", Qt.ConnectionType.QueuedConnection)
+            self.pipeline.unload_detector()
         elif not has_images:
             self._show_welcome_state()
 
@@ -1166,8 +1137,6 @@ class DetectoristApp(QMainWindow):
         self._set_batch_actions_enabled(False)
         progress_dialog = None
         try:
-            model_filename = self.ui.model_select_combo_box.currentData()
-
             total_files = len(image_paths)
             progress_dialog = QProgressDialog("Loading models...", "Cancel", 0, total_files, self)
             progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
@@ -1176,37 +1145,19 @@ class DetectoristApp(QMainWindow):
             # but the window underneath stays fully clickable. Show it immediately
             # so the batch-actions guard below has a visible reason to exist.
             progress_dialog.setMinimumDuration(0)
-            # Shown before the models load, which takes seconds for a classifier
+            # Shown before a model still loading is ready, which takes seconds for a classifier
             progress_dialog.show()
-            QApplication.processEvents()
 
-            # The batch run builds its own detector, as the worker's lives in its thread. The
-            # classifier is the worker's (see SharedFactory), or waits for the worker to load it.
-            batch_detector = self._detector_factory(os.path.join(self.models_dir, model_filename))
             classifier_filename = self.ui.classifier_combo_box.currentData()
-            batch_classifier = (self._classifier_factory(os.path.join(self._model_downloader.classifiers_dir,
-                                                                      classifier_filename),
-                                                         self._model_downloader.classifies(classifier_filename))
-                                if classifier_filename else None)
-
-            def progress(index: int, total: int, file_name: str) -> bool:
-                progress_dialog.setValue(index)
-                progress_dialog.setLabelText(f"Processing {index+1}/{total}: {file_name}")
-                QApplication.processEvents()
-                return not progress_dialog.wasCanceled()
-
-            result = run_batch(
-                image_paths,
-                detector=batch_detector,
-                detection_confidence=self.ui.detection_confidence_slider.value() / 100.0,
-                exposure_correction=self.ui.cb_comp_cam_exposure.isChecked(),
-                output_dir=output_dir,
-                action=CropExportAction(options),
-                progress=progress,
-                class_filter=self._selected_class_filter(),
-                classifier=batch_classifier,
-                taxon_confidence=self.ui.taxon_confidence_slider.value() / 100.0,
-            )
+            writer = BatchWriter(output_dir, CropExportAction(options), with_classification=bool(classifier_filename),
+                                 patterns=self._model_downloader.classifies(classifier_filename)
+                                 if classifier_filename else [],
+                                 taxon_confidence=self.ui.taxon_confidence_slider.value() / 100.0)
+            # Opened here, so a locked CSV file fails the run before any image is processed
+            writer.open()
+            result = self._wait_for_batch_run(progress_dialog, image_paths, writer, BatchOptions(
+                self.ui.detection_confidence_slider.value() / 100.0, self._selected_class_filter(),
+                self.ui.cb_comp_cam_exposure.isChecked()))
             cancelled = result.cancelled
             failed_count = len(result.failed)
 
@@ -1254,14 +1205,51 @@ class DetectoristApp(QMainWindow):
                 progress_dialog.close()
             self._set_batch_actions_enabled(True)
 
+    def _wait_for_batch_run(self, progress_dialog: QProgressDialog, image_paths: list[str], writer: BatchWriter,
+                            options: BatchOptions):
+        """
+        Runs a batch in the Pipeline and waits for it in a local event loop,
+        which keeps the window and the progress dialog responsive. Cancel in
+        the dialog cancels the run. Returns the BatchResult, raises if writing failed.
+        """
+        loop = QEventLoop()
+        outcome = {}
+
+        def on_progress(index: int, total: int, file_name: str):
+            progress_dialog.setValue(index)
+            progress_dialog.setLabelText(f"Processing {index+1}/{total}: {file_name}")
+
+        def on_finished(result):
+            outcome["result"] = result
+            loop.quit()
+
+        def on_failed(message: str):
+            outcome["error"] = message
+            loop.quit()
+
+        connections = [(self.pipeline.batch_progress, on_progress), (self.pipeline.batch_finished, on_finished),
+                       (self.pipeline.batch_failed, on_failed), (progress_dialog.canceled, self.pipeline.cancel_batch_run)]
+        for signal, slot in connections:
+            signal.connect(slot)
+        try:
+            self.pipeline.start_batch_run(image_paths, options, writer)
+            if not outcome:  # an empty run is over at once
+                loop.exec()
+        finally:
+            for signal, slot in connections:
+                signal.disconnect(slot)
+        if "error" in outcome:
+            raise OSError(outcome["error"])
+        return outcome["result"]
+
     def _set_batch_actions_enabled(self, enabled: bool) -> None:
         """
-        Guards against re-entering run_batch. It blocks the GUI thread and
-        pumps QApplication.processEvents() to keep the progress dialog alive,
-        which leaves every action reachable through the app menu bar (unlike
-        toolbar widgets, it isn't covered by the dialog's window modality) for
-        the whole run. Without this, clicking a batch action again mid-run
-        starts a second run_batch writing to the same output directory.
+        Guards against starting a second batch run. The run waits in a local
+        event loop to keep the progress dialog alive, which leaves every action
+        reachable through the app menu bar (unlike toolbar widgets, it isn't
+        covered by the dialog's window modality) for the whole run. Without
+        this, clicking a batch action again mid-run starts a second run
+        writing to the same output directory.
 
         Disabling forces every guarded action off. Re-enabling recomputes each
         action's real state instead of forcing it on, since model/selection
@@ -1443,6 +1431,5 @@ class DetectoristApp(QMainWindow):
         self._save_settings()
         # Clean up resources, if any
         logger.info("Closing application...")
-        self._worker_thread.quit()
-        self._worker_thread.wait()
+        self.pipeline.shutdown()
         super().closeEvent(event)

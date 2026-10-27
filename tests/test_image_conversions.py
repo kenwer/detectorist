@@ -112,4 +112,4 @@ def test_converted_arrays_do_not_alias_source(mode, bpc):
 def test_display_equals_rgb_when_correction_off(mode, bpc):
     image = make_image(mode, bpc)
 
-    np.testing.assert_array_equal(image.image_data_rgb_8bit_display, image.image_data_rgb_8bit)
+    np.testing.assert_array_equal(image.display_rgb_8bit(image.exposure_correction), image.image_data_rgb_8bit)

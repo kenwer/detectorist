@@ -3,6 +3,18 @@
 ## [Unreleased]
 ### Changed
 - `Min. taxon conf.` defaults to 70% instead of 50%.
+- The number of cached images depends on the computer's memory (30% of the RAM, at least 4 GB).
+- Performance improvements:
+  - UI stays responsive while images load and are detected (less computations in the UI thread).
+  - Results of the detections and classifications are also cached.
+  - Lowering `Min. detection conf.` shows classifications immediately.
+  - Export reuses the loaded models, so it starts without delay.
+- [Dev] Rework of the architecture:
+  - Decoding and inference run in a `Pipeline` with an image loader and an inference worker thread, replacing the `DetectionWorker`.
+  - Decoded images and results are kept in two caches limited by size, checked against the file's modification time and size.
+  - Segmentation masks are stored packed, about 1000 times smaller.
+  - Export runs through the `Pipeline`, writing with the new `BatchWriter`.
+  - The `PrefetchPlanner` is replaced by a window of neighbours cut to the cache size.
 
 ### Fixed
 - Sorting the results table by a score column uses the exact score, not the rounded one shown.

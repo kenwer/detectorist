@@ -1,8 +1,8 @@
 """Tests for the main window, DetectoristApp.
 
 A real window is built with a file-backed Settings, a temp models folder and
-a fake detector factory. The DetectionWorker and its QThread are real, so
-the signal wiring between window and worker is what runs in production.
+a fake detector factory. The Pipeline and its QThreads are real, so
+the signal wiring between window and Pipeline is what runs in production.
 
 Tests act through actions and widgets and assert on what the user would see
 (labels, bands, list contents, files on disk, recorded toasts). Modal
@@ -16,7 +16,7 @@ import os
 import pytest
 from PySide6.QtCore import QEvent, QItemSelectionModel, QMimeData, QPointF, QRect, Qt, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeySequence, QMouseEvent
-from PySide6.QtWidgets import QApplication, QDialogButtonBox, QFileDialog, QMessageBox, QProgressDialog
+from PySide6.QtWidgets import QApplication, QDialogButtonBox, QFileDialog, QMessageBox, QProgressDialog, QPushButton
 
 from detectorist import __version__, detectorist_app
 from detectorist.batch_output import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
@@ -703,9 +703,8 @@ def test_import_settings_selects_the_class_filter(window, qtbot, tmp_path, monke
 
 def test_cancelling_a_batch_stops_it_without_a_success_toast(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
-    # The batch detector runs on the GUI thread, so cancelling from inside
-    # detect() is the same as the user pressing Cancel during the first image.
-    detector_factory.on_detect = lambda _name: window.findChild(QProgressDialog).cancel()
+    # Pressing Cancel as the second image starts, once the first one is written
+    during_batch(window, lambda index: index == 1 and window.findChild(QProgressDialog).findChild(QPushButton).click())
 
     export(window)
 
@@ -725,7 +724,7 @@ def test_actions_are_disabled_while_a_batch_runs(qtbot, window, folder, monkeypa
         window.ui.clear_image_list_action,
     ]
     seen_during_run = []
-    detector_factory.on_detect = lambda _name: seen_during_run.append([action.isEnabled() for action in guarded])
+    during_batch(window, lambda _index: seen_during_run.append([action.isEnabled() for action in guarded]))
 
     export(window)
 
@@ -743,7 +742,7 @@ def test_actions_that_load_images_or_change_settings_are_disabled_while_a_batch_
         window.ui.manage_models_action,
     ]
     seen_during_run = []
-    detector_factory.on_detect = lambda _name: seen_during_run.append([action.isEnabled() for action in guarded])
+    during_batch(window, lambda _index: seen_during_run.append([action.isEnabled() for action in guarded]))
 
     export(window)
 
@@ -761,10 +760,10 @@ def test_download_finishing_during_a_batch_keeps_the_batch_actions_disabled(qtbo
     ]
     seen_during_run = []
 
-    def on_detect(_name):
+    def on_progress(_index):
         window._model_downloader.download_finished.emit(MODEL_FILENAME)
         seen_during_run.append([action.isEnabled() for action in batch_actions])
-    detector_factory.on_detect = on_detect
+    during_batch(window, on_progress)
 
     export(window)
 
@@ -772,17 +771,15 @@ def test_download_finishing_during_a_batch_keeps_the_batch_actions_disabled(qtbo
     assert all(action.isEnabled() for action in batch_actions)
 
 
-def fail_detection_of(detector_factory, bad_name):
-    """Makes the detector of the next batch run raise for one image."""
-    def on_detect(name):
-        if name == bad_name:
-            raise ValueError("boom")
-    detector_factory.on_detect = on_detect
+def during_batch(window, on_progress):
+    """Calls on_progress(index) on the GUI thread as each image of the next batch run starts."""
+    window.pipeline.batch_progress.connect(lambda index, _total, _name: on_progress(index))
 
 
 def test_batch_with_a_failing_image_finishes_and_warns(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
-    fail_detection_of(detector_factory, "a.png")
+    # Broken after it was browsed, so the batch run fails to load it
+    (folder / "a.png").write_bytes(b"not an image any more")
 
     export(window)
 
@@ -795,15 +792,15 @@ def test_batch_with_a_failing_image_finishes_and_warns(qtbot, window, folder, mo
     assert kwargs["link_text"] == f"Reveal in {file_manager_name()}"
 
 
-def test_batch_whose_model_fails_to_load_reports_it_and_restores_the_actions(qtbot, window, folder, monkeypatch, detector_factory, toasts):
+def test_batch_that_cannot_write_its_output_reports_it_and_restores_the_actions(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
-    detector_factory.error = OSError("boom")
+    # A file where the output folder should go
+    output.write_text("in the way")
 
     export(window)
 
-    assert window.ui.status_bar.currentMessage() == "Export failed: boom"
-    assert not output.exists()
-    assert [toast[:3] for toast in toasts] == [("error", "Export failed", "boom")]
+    assert window.ui.status_bar.currentMessage().startswith("Export failed: ")
+    assert [toast[:2] for toast in toasts] == [("error", "Export failed")]
     assert window.ui.export_action.isEnabled()
     assert window.ui.open_folder_action.isEnabled()
 
@@ -1238,16 +1235,14 @@ def test_lowering_the_confidence_names_the_detections_it_reveals(qtbot, species_
     assert classifier_factory.classified == [[FISH.box], [FAINT_FISH.box]]
 
 
-def test_dragging_the_confidence_asks_for_names_once(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+def test_dragging_the_confidence_asks_for_names_once(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
     open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, FAINT_FISH])
-    requests = []
-    window.request_classification.connect(lambda path, min_detection_score: requests.append(min_detection_score))
-
     for value in (40, 30, 20, 10):
         window.ui.detection_confidence_slider.setValue(value)
 
     qtbot.waitUntil(lambda: len(labels(window)) == 2 and labels(window)[1] is not None)
-    assert requests == [0.10]
+    # The faint fish is named once, not once per tick of the drag
+    assert classifier_factory.classified == [[FISH.box], [FAINT_FISH.box]]
 
 
 def test_deselecting_the_classifier_shows_the_detector_class_again(qtbot, species_model, window, folder, monkeypatch, detector_factory):
@@ -1798,3 +1793,13 @@ def test_the_settings_file_of_an_export_names_only_what_it_used(qtbot, species_m
     assert exported["export"]["class_filter"] is None
     # Both are still the choice for a model they apply to
     assert (settings.classification_model, settings.export_class_filter) == (species_model, "Fish")
+
+
+def test_closing_the_window_during_a_batch_cancels_it_quietly(qtbot, window, folder, monkeypatch, detector_factory, toasts):
+    open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    during_batch(window, lambda index: index == 0 and window.close())
+
+    export(window)
+
+    assert window.ui.status_bar.currentMessage() == "Exporting images cancelled."
+    assert [toast for toast in toasts if toast[0] == "error"] == []

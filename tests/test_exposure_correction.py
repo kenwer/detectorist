@@ -136,7 +136,7 @@ def test_heif_without_exif_supports_exposure_correction(tmp_path):
 
     # No stored bias means there is nothing to correct, not an error
     assert image.exif_data == {}
-    np.testing.assert_array_equal(image.image_data_rgb_8bit_display, image.image_data_rgb_8bit)
+    np.testing.assert_array_equal(image.display_rgb_8bit(image.exposure_correction), image.image_data_rgb_8bit)
     image.save_cropped(CROP_RECT, output)
     assert ImageObject.create(output).width == 32
 
@@ -170,7 +170,7 @@ def test_display_data_applies_correction_when_enabled(tmp_path):
     image.exposure_correction = True
 
     expected = image_utils.adjust_exposure(image.image_data_rgb_8bit, 1.0, 2.2, 8)
-    np.testing.assert_array_equal(image.image_data_rgb_8bit_display, expected)
+    np.testing.assert_array_equal(image.display_rgb_8bit(image.exposure_correction), expected)
 
 
 def make_transparent_palette_image(path):
@@ -215,4 +215,30 @@ def test_corrected_palette_crop_keeps_its_transparent_pixels(tmp_path, monkeypat
 def test_display_data_is_unchanged_when_disabled(tmp_path):
     image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
 
-    np.testing.assert_array_equal(image.image_data_rgb_8bit_display, image.image_data_rgb_8bit)
+    np.testing.assert_array_equal(image.display_rgb_8bit(image.exposure_correction), image.image_data_rgb_8bit)
+
+
+def test_model_input_is_exposure_corrected_whatever_the_flag(tmp_path):
+    image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
+    corrected = image_utils.adjust_exposure(image.image_data_rgb_8bit, 1.0, 2.2, 8)
+
+    flag_off = image.preprocess_for_onnx_detr(32, 32)
+    image.exposure_correction = True
+    flag_on = image.preprocess_for_onnx_detr(32, 32)
+
+    np.testing.assert_array_equal(flag_off, flag_on)
+    np.testing.assert_array_equal(image.image_data_rgb_8bit_exposure_corrected, corrected)
+    assert not np.array_equal(corrected, image.image_data_rgb_8bit)
+
+
+def test_image_without_bias_is_unchanged_for_models(tmp_path):
+    image = ImageObject.create(make_image(tmp_path / "plain.jpg", bias=(0, 1)))
+
+    np.testing.assert_array_equal(image.image_data_rgb_8bit_exposure_corrected, image.image_data_rgb_8bit)
+
+
+def test_display_is_corrected_only_when_asked(tmp_path):
+    image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
+
+    np.testing.assert_array_equal(image.display_rgb_8bit(False), image.image_data_rgb_8bit)
+    np.testing.assert_array_equal(image.display_rgb_8bit(True), image.image_data_rgb_8bit_exposure_corrected)

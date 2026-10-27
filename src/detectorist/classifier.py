@@ -212,8 +212,8 @@ class Classifier:
         """
         Names what is inside each box of an image.
 
-        The crops come from the image's uncorrected pixels, like the
-        detector's input: the training crops were never exposure corrected.
+        The crops come from the image's exposure corrected pixels, like the
+        detector's input, as the models are trained on corrected images.
 
         Args:
             image: The image the boxes were detected in.
@@ -225,7 +225,7 @@ class Classifier:
         if not boxes:
             return []
 
-        rgb = image.image_data_rgb_8bit
+        rgb = image.image_data_rgb_8bit_exposure_corrected
         crops = []
         for box in boxes:
             x1, y1, x2, y2 = classification_window(box, image.width, image.height, self.margin)

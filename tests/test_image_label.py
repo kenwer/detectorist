@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication
 from detectorist.detection_style import DetectionStyle
 from detectorist.image_label import ImageLabel
 from detectorist.image_object import ImageObject
-from detectorist.structures import Detection
+from detectorist.structures import Detection, PackedMask
 from tests.fakes import make_images
 
 FISH = Detection((20, 20, 40, 40), 0.9, "Fish")
@@ -42,8 +42,8 @@ def test_image_is_forgotten_once_it_is_no_longer_shown(label, replace):
     # Bands only make sense over an image
     assert label.detection_bands == []
     assert label.crop_bands == []
-    # Nothing left that a refresh could bring back
-    label.refresh_pixmap()
+    # A display array arriving late, e.g. after an exposure toggle, brings nothing back
+    label.set_display(np.zeros((100, 200, 3), dtype=np.uint8))
     assert label.pixmap().isNull()
 
 
@@ -95,7 +95,7 @@ def test_crop_band_is_mapped_and_replaced(label):
 
 def test_mask_toggle_hides_only_the_masks(label):
     mask = np.full((32, 32), 255, dtype=np.uint8)
-    label.set_detection_boxes([Detection((20, 20, 40, 40), 0.9, "Fish", mask)])
+    label.set_detection_boxes([Detection((20, 20, 40, 40), 0.9, "Fish", PackedMask.pack(mask))])
     label.set_crop_boxes([QRect(0, 0, 100, 100)])
     # Inside the image, which the mask covers, but clear of both bands
     def pixel():
@@ -155,10 +155,10 @@ def test_detections_with_masks_get_bands(label):
     mask[:, :16] = 255
     label.set_class_color_map(["Fish"])
 
-    label.set_detection_boxes([Detection((20, 20, 40, 40), 0.9, "Fish", mask)])
+    label.set_detection_boxes([Detection((20, 20, 40, 40), 0.9, "Fish", PackedMask.pack(mask))])
 
     assert len(label.detection_bands) == 1
-    assert label.orig_detection_masks[0] is mask
+    assert np.array_equal(label.orig_detection_masks[0], mask)
 
 
 def test_resizing_the_label_remaps_the_bands(qtbot, label):
@@ -256,7 +256,7 @@ def test_a_highlighted_box_is_shown_while_boxes_are_hidden(label):
 
 def test_a_highlighted_mask_is_drawn_while_masks_and_boxes_are_hidden(label):
     mask = np.full((32, 32), 255, dtype=np.uint8)
-    label.set_detection_boxes([Detection((20, 20, 40, 40), 0.9, "Fish", mask)])
+    label.set_detection_boxes([Detection((20, 20, 40, 40), 0.9, "Fish", PackedMask.pack(mask))])
     label.set_masks_visible(False)
     label.set_boxes_visible(False)
     # Inside the image, which the mask covers, but clear of the band

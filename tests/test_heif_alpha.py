@@ -40,7 +40,7 @@ def test_alpha_heif_converts_for_display_and_detection(tmp_path, bit_depth):
     image = ImageObject.create(make_alpha_heif(tmp_path / "alpha.heic", bit_depth))
 
     # Display and the detector both need exactly three 8-bit channels
-    display = image.image_data_rgb_8bit_display
+    display = image.display_rgb_8bit(image.exposure_correction)
     assert display.shape == (SIZE[1], SIZE[0], 3)
     assert display.dtype == np.uint8
     assert image.preprocess_for_onnx_detr(32, 32).shape == (1, 3, 32, 32)

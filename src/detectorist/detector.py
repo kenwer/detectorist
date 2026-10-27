@@ -5,7 +5,7 @@ import numpy as np
 import onnxruntime as ort
 
 from .image_object import ImageObject
-from .structures import Detection
+from .structures import Detection, PackedMask
 from .utils import load_model_bytes
 
 
@@ -65,8 +65,8 @@ class Detector:
         Returns:
             A list of Detection tuples sorted by score descending. Each box is
             an (x, y, w, h) tuple (top-left corner + dimensions). mask is a
-            uint8 array at model input resolution (0 or 255) for segmentation
-            models, or None for detection-only models.
+            PackedMask at model input resolution for segmentation models, or
+            None for detection-only models.
         """
         original_height, original_width = image.height, image.width
 
@@ -133,7 +133,8 @@ class Detector:
                 logits_resized = cv2.resize(mask_logits_all[i], (self.input_width, self.input_height), interpolation=cv2.INTER_LINEAR)
                 with np.errstate(over="ignore"):  # very negative logits cause exp overflow, but 1/(1+inf) = 0.0
                     mask_probs = 1 / (1 + np.exp(-logits_resized))
-                mask = (mask_probs >= 0.5).astype(np.uint8) * 255
+                # Packed right away, as 200 raw masks would take about 50 MB per image
+                mask = PackedMask.pack((mask_probs >= 0.5).astype(np.uint8) * 255)
             final_results.append(Detection(boxes_xywh[i], scores[i], class_name, mask))
 
         # Sort by score descending for consistent ordering (highest-confidence first)

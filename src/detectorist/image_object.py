@@ -491,7 +491,8 @@ class ImageObject (ABC):
     def exposure_correction(self, value: bool):
         """Sets whether exposure correction based on EXIF data is enabled.
         This controls if exposure correction is applied when saving cropped
-        images and in the display data (image_data_rgb_8bit_display)."""
+        images. The models always get the corrected data, and the display
+        passes its own choice to display_rgb_8bit."""
         logger.debug("Setting exposure_correction to %s for image: %s", value, self.image_path)
         self._exposure_correction = value
 
@@ -532,15 +533,21 @@ class ImageObject (ABC):
         return self._convert_8bit(ImageMode.RGB)
 
     @property
-    def image_data_rgb_8bit_display(self) -> np.ndarray:
+    def image_data_rgb_8bit_exposure_corrected(self) -> np.ndarray:
         """
-        Returns image_data in 8-bit RGB format with the exposure correction
-        applied when it is enabled, so the display matches what save_cropped
-        exports. Detection preprocessing deliberately keeps using the
-        uncorrected data, otherwise cached detection results would depend on
-        the correction flag.
+        Returns image_data in 8-bit RGB format with the EXIF exposure
+        correction always applied, whatever exposure_correction says. This is
+        what the models get, as they are trained on exposure corrected
+        images, so detections never depend on the user's checkbox.
         """
-        return self._apply_exposure_correction(self.image_data_rgb_8bit, 8)
+        return self._apply_exposure_correction(self.image_data_rgb_8bit, 8, enabled=True)
+
+    def display_rgb_8bit(self, exposure_correction: bool) -> np.ndarray:
+        """
+        Returns image_data in 8-bit RGB format for display, exposure corrected
+        when asked, so the display matches what save_cropped exports.
+        """
+        return self._apply_exposure_correction(self.image_data_rgb_8bit, 8, enabled=exposure_correction)
 
     def get_exposure_compensation(self) -> float:
         """
@@ -568,15 +575,16 @@ class ImageObject (ABC):
                     pass # Fall through to return 0.0
             return 0.0 # Default return if conversion fails
 
-    def _apply_exposure_correction(self, data: np.ndarray, bits_per_channel: int | None = None) -> np.ndarray:
+    def _apply_exposure_correction(self, data: np.ndarray, bits_per_channel: int | None = None,
+                                   enabled: bool | None = None) -> np.ndarray:
         """
         Apply the EXIF-based exposure correction to pixel data if enabled,
         otherwise return the data unchanged. Owns the correction policy shared
         by all subclasses: the negated ExposureBiasValue is applied as EV
         stops with gamma 2.2 at the given bit depth (defaults to the image's
-        original bit depth).
+        original bit depth). enabled defaults to the exposure_correction flag.
         """
-        if not self._exposure_correction:
+        if not (self._exposure_correction if enabled is None else enabled):
             return data
         ev_comp = -self.get_exposure_compensation()
         logger.debug("Applying exposure correction of %s EV based on EXIF data", ev_comp)
@@ -611,13 +619,13 @@ class ImageObject (ABC):
     def preprocess_for_onnx_yolo(self, input_width: int, input_height: int) -> np.ndarray:
         """
         Preprocesses an image for YOLO CNN model inference.
-        - Converts to 8-bit BGR format.
+        - Converts to 8-bit BGR format, exposure corrected (see image_data_rgb_8bit_exposure_corrected).
         - Resizes to the target dimensions.
         - Converts to float32 and normalizes to [0, 1].
         - Transposes from HWC to CHW format.
         - Adds a batch dimension.
         """
-        bgr_data = self.image_data_bgr_8bit
+        bgr_data = np.ascontiguousarray(self.image_data_rgb_8bit_exposure_corrected[..., ::-1])
 
         resized_image = cv2.resize(bgr_data, (input_width, input_height))
         model_input_image = resized_image.astype(np.float32)
@@ -629,14 +637,15 @@ class ImageObject (ABC):
     def preprocess_for_onnx_detr(self, input_width: int, input_height: int) -> np.ndarray:
         """
         Preprocesses an image for RF-DETR transformer model inference.
-        - Converts to 8-bit RGB format.
+        - Converts to 8-bit RGB format, exposure corrected (see image_data_rgb_8bit_exposure_corrected).
         - Resizes to the target dimensions.
         - Converts to float32 and normalizes to [0, 1].
         - Applies ImageNet normalization (required for DINOv2-based backbone).
         - Transposes from HWC to CHW format.
         - Adds a batch dimension.
         """
-        rgb_data = self.image_data_rgb_8bit
+        # Corrected at full resolution, then resized, like the exported training images
+        rgb_data = self.image_data_rgb_8bit_exposure_corrected
 
         resized_image = cv2.resize(rgb_data, (input_width, input_height))
         model_input_image = resized_image.astype(np.float32)

@@ -1,17 +1,16 @@
 """The Batch Run: one pass of a detector (and a classifier) over a set of images.
 
-Owns the pipeline (load, detect, filter, classify, act, log) plus
-cancellation. The rows it produces and the CSV files they go into are
-batch_output's. Loading runs one image ahead on a background thread so
-decode overlaps detection. Qt-free: progress crosses a callback seam, and the
+Owns the per-image rules (filter, classify, act, log). The BatchWriter
+writes what a run produces, the Pipeline drives the run in the app and
+overlaps decoding with inference, and run_batch drives it synchronously.
+The rows and the CSV files they go into are batch_output's. Qt-free: the
 per-image behaviour is a BatchAction adapter (Export), so the whole run can
 be exercised headless.
 """
 
 import logging
 import os
-from collections.abc import Callable, Mapping
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack, suppress
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -115,10 +114,117 @@ class BatchResult:
 
 
 def _load_image(image_path: str, exposure_correction: bool) -> ImageObject:
-    """Load one image for the pipeline. Runs on the prefetch thread."""
+    """Load one image for run_batch."""
     image = ImageObject.create(image_path)
     image.exposure_correction = exposure_correction
     return image
+
+
+def batch_detections(detections: list[Detection], threshold: float, class_filter: str | None) -> list[Detection]:
+    """What a Batch Run keeps of an image's detections: those at or above threshold, of class_filter if given."""
+    return [d for d in detections if d.score >= threshold and class_filter in (None, d.class_name)]
+
+
+class BatchWriter:
+    """
+    Writes what a Batch Run produces for each image: the action's files and
+    the rows of both CSV files. Images are written in the order given.
+
+    The CSV files only ever hold this run's rows. CSV files from an earlier
+    run are replaced, as are image files the action writes under a name
+    already taken. Without classification, an earlier run's classification
+    CSV is removed, as it would not belong to this run. Other files in the
+    output directory are left alone. Rows are written as each image is, so
+    a cancelled or failed run keeps the rows of the images it got through.
+
+    An image that failed to load gets a "load-error" row, one whose action
+    fails a "process-error" row, and both are listed in the result's
+    failed, so one corrupt file cannot end a batch of thousands. A box
+    missing from the names marks its classification row with
+    "classify-error" (see classification_rows).
+    """
+
+    def __init__(self, output_dir: str, action: BatchAction, with_classification: bool,
+                 patterns: Sequence[str], taxon_confidence: float):
+        """
+        Args:
+            output_dir: Created if missing. Receives the action's output
+                alongside the CSV files.
+            action: The per-image behaviour (e.g. CropExportAction).
+            with_classification: Whether a classifier names the detections,
+                which writes the classification CSV.
+            patterns: The detection classes the classifier names (see class_matches).
+            taxon_confidence: Minimum score of a rank for its name to be written.
+        """
+        self._output_dir = output_dir
+        self._action = action
+        self._with_classification = with_classification
+        self._patterns = tuple(patterns)
+        self._taxon_confidence = taxon_confidence
+        self._csv_files = ExitStack()
+        self._detections_csv = None
+        self._classification_csv = None
+        self._detections_rows: list[DetectionsRow] = []
+        self._classification_rows: list[ClassificationRow] = []
+        self._failed: list[str] = []  # names of the images that could not be loaded or processed
+
+    def open(self) -> None:
+        """
+        Creates the output directory and opens both CSV files before the
+        first image, so a locked one fails the run before anything is written.
+        """
+        os.makedirs(long_path(self._output_dir), exist_ok=True)
+        self._action.prepare(self._output_dir)
+        self._detections_csv = self._csv_files.enter_context(
+            csv_writer(os.path.join(self._output_dir, DETECTIONS_CSV_NAME), DETECTIONS_CSV_HEADER))
+        if self._with_classification:
+            self._classification_csv = self._csv_files.enter_context(
+                csv_writer(os.path.join(self._output_dir, CLASSIFICATION_CSV_NAME), CLASSIFICATION_CSV_HEADER))
+        else:
+            with suppress(FileNotFoundError):
+                os.remove(long_path(os.path.join(self._output_dir, CLASSIFICATION_CSV_NAME)))
+
+    def write(self, image_path: str, image: ImageObject, detections: list[Detection],
+              names: Mapping[Box, Taxonomy]) -> None:
+        """
+        Hands one image to the action and writes its rows. detections are
+        those the run keeps (see batch_detections), names what the
+        classifier said about them, empty without one.
+        """
+        file_name = os.path.basename(image_path)
+        rows: list[ClassificationRow] = []
+        try:
+            if self._with_classification:
+                named = detections_to_classify(detections, 0.0, self._patterns)
+                rows = classification_rows(image, named, names, self._taxon_confidence)
+            cropped = self._action.process(image, detections, names)
+            detections_row = summarize_detections(file_name, detections, cropped)
+        except Exception:
+            logger.exception("%s: could not process image", file_name)
+            detections_row = DetectionsRow(file_name, 0, "process-error", 0, "n/a")
+            # Rows of detections the process-error row no longer lists would contradict it
+            rows = []
+            self._failed.append(file_name)
+        self._add_rows(detections_row, rows)
+
+    def write_failure(self, image_path: str, kind: str = "load-error") -> None:
+        """Writes the row of an image that could not be loaded, or with kind "process-error" not detected."""
+        file_name = os.path.basename(image_path)
+        self._failed.append(file_name)
+        self._add_rows(DetectionsRow(file_name, 0, kind, 0, "n/a"), [])
+
+    def _add_rows(self, detections_row: DetectionsRow, rows: list[ClassificationRow]) -> None:
+        self._detections_rows.append(detections_row)
+        self._detections_csv.writerow(detections_row)
+        if self._classification_csv is not None:
+            self._classification_rows += rows
+            self._classification_csv.writerows(rows)
+
+    def close(self, cancelled: bool) -> BatchResult:
+        """Closes the CSV files and returns the rows written."""
+        self._csv_files.close()
+        return BatchResult(output_dir=self._output_dir, cancelled=cancelled, detections_rows=self._detections_rows,
+                           failed=self._failed, classification_rows=self._classification_rows)
 
 
 def run_batch(image_paths: list[str], detector, detection_confidence: float, exposure_correction: bool,
@@ -126,40 +232,21 @@ def run_batch(image_paths: list[str], detector, detection_confidence: float, exp
               class_filter: str | None = None, classifier: Classifier | None = None,
               taxon_confidence: float = 0.0) -> BatchResult:
     """
-    Runs the detector (and the classifier) over the given images, delegating each one to the action
-    and writing DETECTIONS_CSV_NAME in the output directory with a row per image.
-    With a classifier, CLASSIFICATION_CSV_NAME gets a row per named
-    detection too (see classification_rows).
-
-    The CSV files only ever hold this run's rows. CSV files from an earlier
-    run are replaced, as are image files the action writes under a name
-    already taken. Without a classifier, an earlier run's classification CSV
-    is removed, as it would not belong to this run. Other files in the output
-    directory are left alone.
-    Rows are written as each image finishes, so a cancelled or failed run
-    keeps the rows of the images it got through.
-
-    While an image runs detection and the action, the next image is already
-    decoding on a background thread (pillow-heif and ONNX both release the
-    GIL, so the overlap is real). The lookahead is one image deep because each
-    decoded image can occupy hundreds of MB.
-
-    An image whose load fails is skipped with a "load-error" row instead of
-    aborting the run, so one corrupt file cannot end a batch of thousands.
-    The same goes for an image whose detection or action fails. It gets a
-    "process-error" row. Both kinds are listed in the result's failed. A
-    failing classification is logged and marks the image's classification
-    rows with "classify-error" (see classification_rows). The action still
-    handles the image, as if nothing was named.
+    Runs the detector (and the classifier) over the given images one after
+    the other on the calling thread, writing through a BatchWriter. The app
+    runs batches through the Pipeline instead, which overlaps decoding with
+    inference. This synchronous runner keeps the per-image rules testable
+    without threads.
 
     The detections are classified before the action runs, as the
-    BEST_CLASSIFICATION crop mode picks its crop by their names.
+    BEST_CLASSIFICATION crop mode picks its crop by their names. A failing
+    classification is logged and the image is written as if nothing was named.
 
     Args:
         image_paths: Full paths of the images to process.
         detector: Anything with detect(image) -> list of detections.
         detection_confidence: Minimum score a detection must have to be kept.
-        exposure_correction: Apply the camera exposure bias when loading images.
+        exposure_correction: Apply the camera exposure bias to the exported images.
         output_dir: Created if missing. Receives the action's output
             alongside the CSV files.
         action: The per-image behaviour (e.g. CropExportAction).
@@ -175,80 +262,34 @@ def run_batch(image_paths: list[str], detector, detection_confidence: float, exp
         A BatchResult with the output directory, whether the run was cancelled,
         and the rows written to the CSV files.
     """
-    os.makedirs(long_path(output_dir), exist_ok=True)
-    action.prepare(output_dir)
-
+    writer = BatchWriter(output_dir, action, classifier is not None,
+                         classifier.patterns if classifier is not None else (), taxon_confidence)
+    writer.open()
     total = len(image_paths)
-    new_detections_rows: list[DetectionsRow] = []
-    new_classification_rows: list[ClassificationRow] = []
-    failed: list[str] = []
-    cancelled = False
-
-    # Both CSVs are opened before the first image, so a locked one fails the run before anything is written
-    with ExitStack() as csv_files:
-        detections_csv = csv_files.enter_context(
-            csv_writer(os.path.join(output_dir, DETECTIONS_CSV_NAME), DETECTIONS_CSV_HEADER))
-        classification_csv = (csv_files.enter_context(
-            csv_writer(os.path.join(output_dir, CLASSIFICATION_CSV_NAME), CLASSIFICATION_CSV_HEADER))
-            if classifier is not None else None)
-        if classifier is None:
-            with suppress(FileNotFoundError):
-                os.remove(long_path(os.path.join(output_dir, CLASSIFICATION_CSV_NAME)))
-
-        # The context manager drains any in-flight load on exit (bounded by
-        # one decode), so cancellation and errors cannot leak a thread.
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            next_future = None
-            for i, image_path in enumerate(image_paths):
-                if not progress(i, total, os.path.basename(image_path)):
-                    cancelled = True
-                    break
-
-                future = next_future or executor.submit(_load_image, image_path, exposure_correction)
-                # Queue the next load before waiting on the current one: the
-                # single worker starts it the moment the current load ends,
-                # and a failed load still leaves the lookahead running.
-                next_future = (executor.submit(_load_image, image_paths[i + 1], exposure_correction)
-                               if i + 1 < total else None)
-
-                file_name = os.path.basename(image_path)
-                image_classification_rows: list[ClassificationRow] = []
-                try:
-                    image = future.result()
-                except Exception as e:
-                    logger.warning("%s: could not load image: %s", file_name, e)
-                    detections_row = DetectionsRow(file_name, 0, "load-error", 0, "n/a")
-                    failed.append(file_name)
-                else:
-                    try:
-                        detections = [d for d in detector.detect(image)
-                                      if d.score >= detection_confidence and class_filter in (None, d.class_name)]
-                        taxonomy_by_box: dict[Box, Taxonomy] = {}
-                        if classifier is not None:
-                            named = detections_to_classify(detections, 0.0, classifier.patterns)
-                            try:
-                                taxonomy_by_box = classify_detections(classifier, image, named)
-                            except Exception:
-                                logger.exception("%s: could not classify the detections", file_name)
-                            image_classification_rows = classification_rows(image, named, taxonomy_by_box,
-                                                                            taxon_confidence)
-                        cropped = action.process(image, detections, taxonomy_by_box)
-                        detections_row = summarize_detections(file_name, detections, cropped)
-                    except Exception:
-                        logger.exception("%s: could not process image", file_name)
-                        detections_row = DetectionsRow(file_name, 0, "process-error", 0, "n/a")
-                        # Rows of detections the process-error row no longer lists would contradict it
-                        image_classification_rows = []
-                        failed.append(file_name)
-
-                new_detections_rows.append(detections_row)
-                detections_csv.writerow(detections_row)
-                if classification_csv is not None:
-                    new_classification_rows += image_classification_rows
-                    classification_csv.writerows(image_classification_rows)
-
-    return BatchResult(output_dir=output_dir, cancelled=cancelled, detections_rows=new_detections_rows,
-                       failed=failed, classification_rows=new_classification_rows)
+    for i, image_path in enumerate(image_paths):
+        if not progress(i, total, os.path.basename(image_path)):
+            return writer.close(cancelled=True)
+        try:
+            image = _load_image(image_path, exposure_correction)
+        except Exception as e:
+            logger.warning("%s: could not load image: %s", os.path.basename(image_path), e)
+            writer.write_failure(image_path)
+            continue
+        try:
+            detections = batch_detections(detector.detect(image), detection_confidence, class_filter)
+        except Exception:
+            logger.exception("%s: could not detect objects", os.path.basename(image_path))
+            writer.write_failure(image_path, "process-error")
+            continue
+        names: dict[Box, Taxonomy] = {}
+        if classifier is not None:
+            try:
+                names = classify_detections(classifier, image,
+                                            detections_to_classify(detections, 0.0, classifier.patterns))
+            except Exception:
+                logger.exception("%s: could not classify the detections", os.path.basename(image_path))
+        writer.write(image_path, image, detections, names)
+    return writer.close(cancelled=False)
 
 
 @dataclass

@@ -23,7 +23,7 @@ from detectorist.image_object import ImageObject  # noqa: E402
 from detectorist.structures import ImageMode  # noqa: E402
 
 # Sized like a 33 MP camera frame (7000x4700), the workload the cache
-# comments in image_cache.py are written around.
+# budgets in cache.py are written around.
 HEIGHT, WIDTH = 4700, 7000
 DETR_INPUT = 504  # RF-DETR "Large" model input resolution
 REPEATS = 7

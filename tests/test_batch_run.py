@@ -23,10 +23,11 @@ from detectorist.batch_output import (
     DetectionsRow,
     summarize_detections,
 )
-from detectorist.batch_run import CropExportAction, run_batch
+from detectorist.batch_run import BatchWriter, CropExportAction, batch_detections, run_batch
 from detectorist.export_planner import CropMode, CropSettings, ExportOptions
+from detectorist.image_object import ImageObject
 from detectorist.structures import Detection, RankedName, Taxonomy
-from tests.fakes import FakeClassifier, FakeDetector, make_images
+from tests.fakes import TAXONOMY, FakeClassifier, FakeDetector, make_images
 
 CROP_SETTINGS = CropSettings(mode=CropMode.MOST_CONFIDENT_DETECTION, padding=0.0, aspect=(1, 1))
 
@@ -123,7 +124,7 @@ def test_summarize_detections_reports_the_top_detection_and_the_crop(detections,
 
 def test_load_failure_skips_image_and_continues(tmp_path):
     paths = make_images(tmp_path, ["good_a.png", "good_b.png"])
-    # A nonexistent file makes ImageObject.create raise on the prefetch thread
+    # A nonexistent file makes ImageObject.create raise
     paths.insert(1, str(tmp_path / "missing.png"))
     detector = FakeDetector({"good_a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]})
     output_dir = str(tmp_path / "out")
@@ -550,3 +551,42 @@ def test_export_with_a_classifier_can_name_by_class_and_taxa_or_keep_the_names(t
            FakeClassifier(SPECIES), prefix=prefix)
 
     assert exported(tmp_path) == expected
+
+
+def test_writer_rows_match_run_batch(tmp_path):
+    paths = make_images(tmp_path, ["a.png", "b.png"])
+    fish, crab = Detection((10, 10, 20, 20), 0.9, "Fish"), Detection((5, 5, 10, 10), 0.4, "Crab")
+    detections = {"a.png": [fish, crab], "b.png": []}
+    classifier = FakeClassifier(patterns=["Fish"])
+    expected = run_batch(paths, FakeDetector(detections), 0.5, False, str(tmp_path / "run"),
+                         CropExportAction(ExportOptions(CROP_SETTINGS)), always_continue, classifier=classifier)
+
+    writer = BatchWriter(str(tmp_path / "written"), CropExportAction(ExportOptions(CROP_SETTINGS)),
+                         with_classification=True, patterns=["Fish"], taxon_confidence=0.0)
+    writer.open()
+    for path in paths:
+        kept = batch_detections(detections[os.path.basename(path)], 0.5, None)
+        writer.write(path, ImageObject.create(path), kept, {fish.box: TAXONOMY})
+    result = writer.close(cancelled=False)
+
+    assert result.detections_rows == expected.detections_rows
+    assert result.classification_rows == expected.classification_rows
+    assert not result.cancelled
+
+
+def test_writer_close_cancelled_keeps_rows_written(tmp_path):
+    (path,) = make_images(tmp_path, ["a.png"])
+    writer = BatchWriter(str(tmp_path / "out"), CropExportAction(ExportOptions(CROP_SETTINGS)),
+                         with_classification=False, patterns=[], taxon_confidence=0.0)
+    writer.open()
+    writer.write(path, ImageObject.create(path), [], {})
+    writer.write_failure(str(tmp_path / "gone.png"))
+
+    result = writer.close(cancelled=True)
+
+    assert result.cancelled
+    assert result.failed == ["gone.png"]
+    assert read_detections_csv_rows(str(tmp_path / "out"))[1:] == [
+        ["a.png", "0", "N/A", "0", "no"],
+        ["gone.png", "0", "load-error", "0", "n/a"],
+    ]

@@ -204,6 +204,7 @@ class ImageLabel(QLabel):
         color_map = self.class_color_map if has_masks else {}
         fallback_color = MASK_COLORS[0] if has_masks else DETECTION_BORDER_COLOR_RGB
 
+        mask_areas = []  # each band's mask area in mask pixels, or None
         # Clamp boxes to image bounds and store as QRects so we always have a
         # reference to the original bounding box coordinates in image space.
         for box, score, class_name, mask in detections:
@@ -213,7 +214,9 @@ class ImageLabel(QLabel):
             rect = QRect(x1, y1, x2 - x1, y2 - y1)
             style = styles.get(box) or DetectionStyle(color_map.get(class_name, fallback_color), score)
             self.orig_detection_rects.append(rect)
-            self.orig_detection_masks.append(mask)
+            # Only the masks of the detections shown are unpacked, not all the model returned
+            self.orig_detection_masks.append(None if mask is None else mask.unpack())
+            mask_areas.append(None if mask is None else mask.area)
 
             alpha = int(10 + style.score * (255 - 10))  # Scale score (0.0-1.0) to alpha (10-255)
             alpha_fill = 0 if has_masks else int(style.score * 20)
@@ -227,13 +230,12 @@ class ImageLabel(QLabel):
             self.detection_bands.append(band)
         self._update_band_visibility()
 
-        # Sorted once here rather than on every mouse move, as summing a mask is not cheap.
+        # Sorted once here rather than on every mouse move.
         # Smaller objects come first, as they take priority when overlapping a larger one.
-        # Masks are tested before boxes, as a mask's sum and a box's area are not comparable.
+        # Masks are tested before boxes, as a mask's area and a box's area are not comparable.
         def hit_priority(i):
-            mask = self.orig_detection_masks[i]
-            if mask is not None:
-                return 0, int(mask.sum())
+            if mask_areas[i] is not None:
+                return 0, mask_areas[i]
             rect = self.orig_detection_rects[i]
             return 1, rect.width() * rect.height()
         self._hit_order = [(self.detection_bands[i], self.orig_detection_masks[i])
@@ -328,31 +330,31 @@ class ImageLabel(QLabel):
         self.crop_bands = []
         self.last_crop_rects = None
 
-    def replace_image(self, image_object: ImageObject):
-        """Replaces the image to be shown from the given ImageObject."""
+    def replace_image(self, image_object: ImageObject, display: np.ndarray | None = None):
+        """
+        Replaces the image to be shown. display is its 8-bit RGB display
+        array, built off the GUI thread by the Pipeline. Without one it is
+        built here, uncorrected.
+        """
         self.hide_bands()
         self._set_image(image_object)
-        pixmap = self._create_qpixmap(image_object) # TODO: move the QPixmap creation into the ImageObject class and create the QPixmap during image loading and just use it here
-        self.setPixmap(pixmap)
+        self.setPixmap(self._create_qpixmap(image_object.display_rgb_8bit(False) if display is None else display))
         self.set_detection_boxes([])
 
-    def refresh_pixmap(self):
+    def set_display(self, display: np.ndarray):
         """
-        Rebuilds the pixmap from the current image while keeping the detection
-        and crop bands, e.g. after the exposure correction setting changed.
-        The image geometry is unchanged, so the bands remain valid.
+        Shows another display array of the current image while keeping the
+        detection and crop bands, e.g. after the exposure correction setting
+        changed. The image geometry is unchanged, so the bands remain valid.
         """
         if self.image is not None:
-            self.setPixmap(self._create_qpixmap(self.image))
+            self.setPixmap(self._create_qpixmap(display))
 
-    def _create_qpixmap(self, image: ImageObject) -> QPixmap:
-        """Creates a QPixmap from an ImageObject, ready for display."""
-        # A contiguous 8-bit RGB numpy array, with exposure correction applied when enabled.
-        rgb_image = image.image_data_rgb_8bit_display
-
-        qimage = QImage(rgb_image.data, image.width, image.height, rgb_image.strides[0], QImage.Format.Format_RGB888)
-
-        return QPixmap.fromImage(qimage)
+    @staticmethod
+    def _create_qpixmap(display: np.ndarray) -> QPixmap:
+        """Creates a QPixmap from a contiguous 8-bit RGB array."""
+        height, width = display.shape[:2]
+        return QPixmap.fromImage(QImage(display.data, width, height, display.strides[0], QImage.Format.Format_RGB888))
 
     def setPixmap(self, pixmap):
         super().setText("")

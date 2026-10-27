@@ -148,8 +148,8 @@ def species_model(models_dir) -> str:
 def make_window(qtbot, spawned, settings, models_dir, detector_factory, classifier_factory):
     """Build a real DetectoristApp on test doubles.
 
-    The worker and its QThread are real. qtbot closes each window on
-    teardown, and closeEvent joins the thread, so none outlives its test.
+    The Pipeline and its QThreads are real. qtbot closes each window on
+    teardown, and closeEvent shuts the Pipeline down, so no thread outlives its test.
     """
     # Imported here so the pure tests do not need the generated ui_*.py files
     from detectorist.detectorist_app import DetectoristApp

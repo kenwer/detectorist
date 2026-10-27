@@ -1,3 +1,5 @@
+import zlib
+from dataclasses import dataclass
 from enum import Enum, StrEnum
 from typing import NamedTuple, Self
 
@@ -43,18 +45,45 @@ def clamp_box(box: Box, image_width: int, image_height: int) -> tuple[int, int, 
             min(max(x + w, 0), image_width), min(max(y + h, 0), image_height))
 
 
+@dataclass(frozen=True)
+class PackedMask:
+    """
+    A detection mask stored as bits and compressed. A segmentation model
+    returns 200 masks per image, about 50 MB as uint8 arrays but about 50 KB
+    packed, so the results of thousands of images fit in memory.
+    """
+    data: bytes
+    shape: tuple[int, int]
+    area: int  # number of pixels inside the mask
+
+    @classmethod
+    def pack(cls, mask: np.ndarray) -> PackedMask:
+        """Packs a mask, counting pixels above 127 as inside."""
+        inside = mask > 127
+        return cls(zlib.compress(np.packbits(inside).tobytes(), 1), inside.shape, int(inside.sum()))
+
+    def unpack(self) -> np.ndarray:
+        """The mask as a uint8 array of 0 or 255."""
+        bits = np.unpackbits(np.frombuffer(zlib.decompress(self.data), dtype=np.uint8))
+        return bits[:self.shape[0] * self.shape[1]].reshape(self.shape) * np.uint8(255)
+
+    @property
+    def nbytes(self) -> int:
+        return len(self.data)
+
+
 class Detection(NamedTuple):
     """
     One object the model found in an image.
 
     A NamedTuple so existing tuple indexing and unpacking keep working.
-    The mask is only set by segmentation models: a uint8 array (0 or 255)
-    at model input resolution, scaled by the display layer.
+    The mask is only set by segmentation models: packed, at model input
+    resolution, scaled by the display layer.
     """
     box: Box
     score: float
     class_name: str
-    mask: np.ndarray | None = None
+    mask: PackedMask | None = None
 
 
 class RankedName(NamedTuple):

@@ -38,7 +38,7 @@ def test_gray_file_is_loaded_for_display_and_detection(tmp_path, name, pixels, b
     assert image.mode == ImageMode.GRAY
     assert image.original_bpc == bits
     assert (image.width, image.height) == (64, 48)
-    display = image.image_data_rgb_8bit_display
+    display = image.display_rgb_8bit(image.exposure_correction)
     assert display.shape == (48, 64, 3)
     assert display.dtype == np.uint8
     assert display[:, :32].max() == 0
