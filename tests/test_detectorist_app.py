@@ -1309,6 +1309,61 @@ def test_best_classification_crop_band_waits_for_the_names(qtbot, species_model,
     assert window.ui.image_label.last_crop_rects == [QRect(*CRAB.box)]
 
 
+def pending_bands(window) -> list[bool]:
+    return [band.pending for band in window.ui.image_label.detection_bands]
+
+
+def family_cells(window) -> list[str]:
+    table = window.ui.results_table
+    return [table.topLevelItem(i).text(2) for i in range(table.topLevelItemCount())]
+
+
+def test_detections_awaiting_their_names_are_dashed_and_listed_as_pending(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, CRAB])
+    taxonomy_by_box = window._taxonomy_by_box
+    # The crab is out of the classifier's reach, so no name is coming for it
+    monkeypatch.setattr(window._model_downloader, "classifies", lambda filename: ["Fish"])
+
+    window.handle_detection_complete(window.current_image_path, [FISH, CRAB], 1.0)
+
+    assert pending_bands(window) == [True, False]
+    assert family_cells(window) == ["...", ""]
+    qtbot.waitUntil(lambda: window.ui.status_bar.currentMessage() == "Classifying 1 object...")
+    assert not window.ui.busy_bar.isHidden()
+
+    window.handle_classification_complete(window.current_image_path, taxonomy_by_box, 1.0)
+
+    assert pending_bands(window) == [False, False]
+    assert window.ui.status_bar.currentMessage() == "a.png"
+    assert window.ui.busy_bar.isHidden()
+
+
+def test_lowering_the_confidence_dashes_only_the_detections_it_reveals(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+    open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [FISH, FAINT_FISH])
+    # Held back, so the revealed detection stays unnamed
+    monkeypatch.setattr(window.pipeline, "show", lambda request: None)
+
+    window.ui.detection_confidence_spin_box.setValue(10)
+
+    assert pending_bands(window) == [False, True]
+
+
+def test_a_cached_image_shows_no_activity(qtbot, window, folder, monkeypatch, detector_factory):
+    make_images(folder, ["a.png", "b.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
+    qtbot.waitUntil(lambda: window.ui.status_bar.currentMessage() == "a.png")
+    select_row(window, 1)
+    qtbot.waitUntil(lambda: window.ui.status_bar.currentMessage() == "b.png")
+
+    # a.png is served from the Pipeline's cache within the same call
+    select_row(window, 0)
+
+    assert window.ui.status_bar.currentMessage() == "a.png"
+    assert window.ui.busy_bar.isHidden()
+    qtbot.wait(300)
+    assert window.ui.busy_bar.isHidden()
+
+
 def test_best_classification_crop_band_falls_back_when_the_classifier_fails_to_load(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
     make_images(folder, ["a.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [CRAB, FISH]

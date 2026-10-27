@@ -1,3 +1,5 @@
+from collections.abc import Set
+
 from PySide6.QtCore import QEvent, QPoint, Qt, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QHeaderView, QTreeWidget, QTreeWidgetItem
@@ -70,11 +72,12 @@ class ResultsTable(QTreeWidget):
         self._highlighted_box = None
         self.viewport().setMouseTracking(True)
 
-    def show_detections(self, detections: list, taxonomy_by_box: dict, threshold: float):
+    def show_detections(self, detections: list, taxonomy_by_box: dict, threshold: float, pending: Set = frozenset()):
         """
         Lists the detections, the highest score first unless the user sorted by
         a column. A classified detection's row goes down to the deepest rank at
-        or above threshold, or says "Unidentified" if there is none.
+        or above threshold, or says "Unidentified" if there is none. One whose
+        box is in pending, still to be named, says "..." in place of its name.
         """
         # Kept, as the rows are rebuilt on every slider move and classification
         scroll_position = self.verticalScrollBar().value()
@@ -89,6 +92,8 @@ class ResultsTable(QTreeWidget):
                     scores.append(rank.score)
                 if not ranks:
                     cells.append("Unidentified")
+            elif detection.box in pending:
+                cells.append("...")
             item = _ResultItem(cells)
             item.setData(0, BOX_ROLE, detection.box)
             for column, score in zip(filter(_is_score_column, range(len(cells))), scores, strict=True):

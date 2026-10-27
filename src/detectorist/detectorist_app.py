@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMessageBox,
+    QProgressBar,
     QProgressDialog,
 )
 
@@ -31,7 +32,7 @@ from detectorist import __version__
 from .about_dialog import show_about_dialog
 from .batch_output import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
 from .batch_run import BatchWriter, CropExportAction
-from .classifier import Classifier, class_matches
+from .classifier import Classifier, class_matches, detections_to_classify
 from .detection_style import taxon_styles
 from .detector import Detector
 from .enum_button_group import EnumButtonGroup
@@ -147,6 +148,12 @@ class DetectoristApp(QMainWindow):
         # What the classifier said about the current image's detections, keyed by box
         self._taxonomy_by_box: dict = {}
         self._classification_pending = False
+        # Whether the detections of the current image arrived, after which the names are what is awaited
+        self._detected = False
+        # The step the current image is at, as the status bar names it (see _set_activity), and the
+        # text shown in place of the image meanwhile
+        self._activity: str | None = None
+        self._activity_placeholder: str | None = None
         # The classifier the user chose, by filename. It stays the choice while a
         # detection model is loaded that it does not apply to.
         self._preferred_classifier: str | None = None
@@ -185,6 +192,14 @@ class DetectoristApp(QMainWindow):
         self.ui.image_label.detection_hovered.connect(self.ui.results_table.set_highlighted_box)
         self.ui.results_table.row_hovered.connect(self.ui.image_label.highlight_box)
 
+        # Shown while the current image is at a step. It has no range, as neither decoding nor
+        # detection can tell how far it got.
+        self.ui.busy_bar = QProgressBar()
+        self.ui.busy_bar.setRange(0, 0)
+        self.ui.busy_bar.setTextVisible(False)
+        self.ui.busy_bar.setMaximumWidth(120)
+        self.ui.busy_bar.hide()
+        self.ui.status_bar.addPermanentWidget(self.ui.busy_bar)
         # A permanent widget, so the status bar's messages (the image's name, notices) do not replace it
         self.ui.results_summary_label = QLabel()
         self.ui.status_bar.addPermanentWidget(self.ui.results_summary_label)
@@ -259,12 +274,8 @@ class DetectoristApp(QMainWindow):
         self.ui.open_output_folder_action.triggered.connect(self._open_last_output_folder)
         self.ui.quit_action.triggered.connect(self.close)
 
-        # Detection confidence slider/spinbox update the display filter only (no re-inference)
-        self.ui.detection_confidence_slider.valueChanged.connect(self._display_filtered_results)
+        self.ui.detection_confidence_slider.valueChanged.connect(self._on_detection_confidence_changed)
         self.ui.detection_confidence_spin_box.valueChanged.connect(self._display_filtered_results)
-        # Only boxes at or above the detection confidence are named, so a lower one asks for the rest.
-        # A drag needs no debouncing: the Pipeline serves the latest request only.
-        self.ui.detection_confidence_slider.valueChanged.connect(self._show_current_image)
         self.ui.taxon_confidence_slider.valueChanged.connect(self._display_filtered_results)
 
         # Connect crop controls
@@ -294,13 +305,12 @@ class DetectoristApp(QMainWindow):
         self._model_downloader.download_finished.connect(self._notify_model_download_finished)
         self._model_downloader.download_error.connect(self._notify_model_download_error)
 
-        # Deferred loading placeholder: started when an image is selected,
-        # stopped when it arrives. Cached images arrive within a few
-        # milliseconds, so the placeholder never flashes for them.
-        self._loading_indicator_timer = QTimer(self)
-        self._loading_indicator_timer.setSingleShot(True)
-        self._loading_indicator_timer.setInterval(200)
-        self._loading_indicator_timer.timeout.connect(self._show_loading_indicator)
+        # Defers showing the activity: a cached image arrives within a few
+        # milliseconds, detections and names included, so nothing flashes for it.
+        self._activity_timer = QTimer(self)
+        self._activity_timer.setSingleShot(True)
+        self._activity_timer.setInterval(200)
+        self._activity_timer.timeout.connect(self._show_activity)
 
         # Decoding and inference run on the Pipeline's own threads, so the GUI remains responsive
         self.pipeline = Pipeline(self._detector_factory, self._classifier_factory, parent=self)
@@ -444,15 +454,16 @@ class DetectoristApp(QMainWindow):
 
     def _show_message(self, text: str):
         """Shows text in place of the image, and drops what was detected in it."""
+        self._set_activity(None)
         self.ui.image_label.setText(text)
         self._clear_results()
 
-    def _show_results(self, detections: list, threshold: float):
+    def _show_results(self, detections: list, threshold: float, pending: set):
         """
         Lists the detections in the results table, and sums them up with how
         many of them are classified, and the time each took.
         """
-        self.ui.results_table.show_detections(detections, self._taxonomy_by_box, threshold)
+        self.ui.results_table.show_detections(detections, self._taxonomy_by_box, threshold, pending)
         summary = f"{count_noun(len(detections), 'object')} detected ({self._last_detection_time_ms:.0f} ms)."
         if self._taxonomy_by_box:
             # The time also covers the names of detections the filters hide
@@ -692,15 +703,14 @@ class DetectoristApp(QMainWindow):
 
         self.current_image_path = new_image_path
         self._all_detection_results = []
+        self._detected = False
 
         if self.ui.model_select_combo_box.count() == 0:
             self._show_message(NO_MODELS_MESSAGE)
             self.ui.status_bar.clearMessage()
             return
 
-        # Clear previous results. The loading placeholder is deferred so that
-        # cache hits do not flash "Loading image..." for a single frame.
-        self._loading_indicator_timer.start()
+        self._set_activity(f"Loading {os.path.basename(new_image_path)}...", placeholder="Loading image...")
         self.ui.image_label.hide_bands()
         self._clear_results()
         self.ui.image_exif_label.setText("")
@@ -708,15 +718,34 @@ class DetectoristApp(QMainWindow):
         # Ask the Pipeline to load and process the image
         self.trigger_processing()
 
-    def _show_loading_indicator(self):
+    def _set_activity(self, text: str | None, placeholder: str | None = None):
         """
-        Shows the loading placeholder. Only reached when the image did not
-        arrive within the timer interval, i.e. it was not served from the
-        Pipeline's cache.
+        Names the step the current image is at in the status bar, next to the
+        busy bar, and shows placeholder in place of the image. None ends the
+        activity and names the image again. A step shows once the activity
+        took longer than the timer's interval, and while the busy bar is up
+        the next step replaces it at once.
         """
-        self.ui.image_label.setText("Loading image...")
-        if self.current_image_path:
-            self.ui.status_bar.showMessage(f"Loading {os.path.basename(self.current_image_path)}...")
+        if text == self._activity:
+            return
+        self._activity, self._activity_placeholder = text, placeholder
+        if text is None:
+            self._activity_timer.stop()
+            self.ui.busy_bar.hide()
+            if self.current_image_path:
+                self.ui.status_bar.showMessage(os.path.basename(self.current_image_path))
+            else:
+                self.ui.status_bar.clearMessage()
+        elif not self.ui.busy_bar.isHidden():
+            self._show_activity()
+        elif not self._activity_timer.isActive():
+            self._activity_timer.start()
+
+    def _show_activity(self):
+        if self._activity_placeholder:
+            self.ui.image_label.setText(self._activity_placeholder)
+        self.ui.status_bar.showMessage(self._activity)
+        self.ui.busy_bar.show()
 
     def trigger_processing(self):
         """Asks the Pipeline for the current image and the neighbours to prefetch."""
@@ -754,12 +783,16 @@ class DetectoristApp(QMainWindow):
             self.ui.class_filter_combo_box.addItems(["All classes", *class_names])
         self._select_preferred_class_filter()
         self._all_detection_results = []
+        # An image still loading moves on to detection by itself, see handle_image_loaded
+        image_shown, self._detected = self._detected, False
         self._detector_class_names = class_names
         self._refresh_classifier_list()
         if success:
             logger.info(message)
             # If an image is currently displayed, trigger a new detection with the new model.
             if self.current_image_path:
+                if image_shown:
+                    self._set_activity("Detecting objects...")
                 self.trigger_processing()
         else:
             self._show_message(message)
@@ -774,8 +807,6 @@ class DetectoristApp(QMainWindow):
         if image_path != self.current_image_path:
             return  # Stale result for a different image
 
-        self._loading_indicator_timer.stop()
-
         if not image_object:
             self._show_message(f"Could not load image:\n{image_path}")
             return
@@ -784,7 +815,9 @@ class DetectoristApp(QMainWindow):
             self.ui.image_label.set_display(display)
             return
         self.ui.image_label.replace_image(image_object, display)
+        # Named until the detection step shows, if it takes that long
         self.ui.status_bar.showMessage(os.path.basename(image_path))
+        self._set_activity("Detecting objects...")
 
         # Update the Image info label
         height, width = image_object.height, image_object.width
@@ -802,6 +835,7 @@ class DetectoristApp(QMainWindow):
             return  # Stale result (this can happen if user quickly switches images)
 
         self._all_detection_results = results
+        self._detected = True
         self._last_detection_time_ms = detection_time_ms
         # The names follow with classification_complete
         self._taxonomy_by_box = {}
@@ -845,14 +879,41 @@ class DetectoristApp(QMainWindow):
             return results
         return [d for d in results if d.class_name == selected]
 
+    def _pending_boxes(self) -> set:
+        """
+        The boxes the classifier is still to name. Those out of its reach, by
+        their class or detection score, are not, as no name is coming for them.
+        """
+        filename = self.ui.classifier_combo_box.currentData()
+        if not self._classification_pending or filename is None:
+            return set()
+        to_name = detections_to_classify(self._all_detection_results, self.ui.detection_confidence_slider.value() / 100.0,
+                                         self._model_downloader.classifies(filename))
+        return {d.box for d in to_name} - self._taxonomy_by_box.keys()
+
     def _display_filtered_results(self):
         """Updates the UI with detection results filtered by the current class selection."""
         filtered = self._filtered_results()
         threshold = self.ui.taxon_confidence_slider.value() / 100.0
-        self._show_results(filtered, threshold)
+        # Counted over all detections, as the class filter does not change what is named
+        pending = self._pending_boxes()
+        self._show_results(filtered, threshold, pending)
         styles = taxon_styles(filtered, self._taxonomy_by_box, threshold)
-        self.ui.image_label.set_detection_boxes(filtered, styles)
+        self.ui.image_label.set_detection_boxes(filtered, styles, pending)
         self.update_crop_bands()
+        if self._detected:
+            self._set_activity(f"Classifying {count_noun(len(pending), 'object')}..." if pending else None)
+
+    def _on_detection_confidence_changed(self):
+        """
+        Shows the detections at the new confidence. Only boxes at or above it
+        are named, so a lower one asks the Pipeline for the rest, which reports
+        the names again for any new confidence. A drag needs no debouncing, as
+        the Pipeline serves the latest request only.
+        """
+        self._classification_pending = self._detected and self.ui.classifier_combo_box.currentData() is not None
+        self._show_current_image()
+        self._display_filtered_results()
 
     def on_class_filter_changed(self):
         """Re-displays detection results when the class filter selection changes."""
@@ -864,7 +925,6 @@ class DetectoristApp(QMainWindow):
         if image_path != self.current_image_path:
             return  # Stale error for a different image (ignored)
 
-        self._loading_indicator_timer.stop()
         logger.error("Error for %s: %s", image_path, message)
         self._show_message(f"Error: {message}")
         self.ui.status_bar.clearMessage()

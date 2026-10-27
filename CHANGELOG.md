@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Progress feedback while an image is loaded, detected and classified.
 ### Changed
 - `Min. taxon conf.` defaults to 70% instead of 50%.
 - The number of cached images depends on the computer's memory (30% of the RAM, at least 4 GB).

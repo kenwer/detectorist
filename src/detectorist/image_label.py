@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Set
 
 import numpy as np
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
@@ -19,13 +20,15 @@ CROP_FILL_COLOR_RGBA = (255, 165, 0, 5)
 
 class CustomRubberBand(QRubberBand):
     def __init__(self, shape, border_color, fill_color, parent=None, box: tuple | None = None,
-                 detection_style: DetectionStyle | None = None):
+                 detection_style: DetectionStyle | None = None, pending: bool = False):
         super().__init__(shape, parent)
         self.border_color = border_color
         self.fill_color = fill_color
         # The detection's box and style, as given to ImageLabel.set_detection_boxes
         self.box = box
         self.detection_style = detection_style
+        # Whether the classifier is still to name the detection, which a dashed border shows
+        self.pending = pending
         self.highlighted = False
         self.labels_visible = False
 
@@ -51,6 +54,8 @@ class CustomRubberBand(QRubberBand):
         # It is wide only without a label, as the label then has nothing to show the highlight.
         pen = QPen(QColor(self.border_color.rgb()) if self.highlighted else self.border_color,
                    3 if self.highlighted and not self.label_shown else 1)
+        if self.pending:
+            pen.setStyle(Qt.PenStyle.DashLine)
         painter.setPen(pen)
         # Inset by half the pen width, so a wide border is not clipped at the band's edges
         inset = pen.width() // 2
@@ -187,11 +192,12 @@ class ImageLabel(QLabel):
         self._highlight_pixmap = None
         self.update()
 
-    def set_detection_boxes(self, detections, styles: dict | None = None):
+    def set_detection_boxes(self, detections, styles: dict | None = None, pending: Set = frozenset()):
         """
         Shows the given detections. styles maps a detection's box to its
         DetectionStyle (see taxon_styles), in place of the color of its class
-        and its detection score.
+        and its detection score. The boxes in pending, still to be named,
+        get a dashed border.
         """
         self._clear_detection_bands()
         styles = styles or {}
@@ -223,7 +229,7 @@ class ImageLabel(QLabel):
 
             band = CustomRubberBand(QRubberBand.Shape.Rectangle, border_color=QColor(*style.color, alpha),
                                     fill_color=QColor(*style.color, alpha_fill), parent=self, box=box,
-                                    detection_style=style)
+                                    detection_style=style, pending=box in pending)
             band.setGeometry(self._map_rect_from_image_to_widget(rect))
             band.set_highlighted(band.box == self._highlighted_box)
             band.set_labels_visible(self._labels_visible)
