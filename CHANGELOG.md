@@ -15,7 +15,7 @@
   - Segmentation masks are stored packed, about 1000 times smaller.
   - Export runs through the `Pipeline`, writing with the new `BatchWriter`.
   - The `PrefetchPlanner` is replaced by a window of neighbours cut to the cache size.
-
+- [Dev] Upgrade dependencies.
 ### Fixed
 - Sorting the results table by a score column uses the exact score, not the rounded one shown.
 
