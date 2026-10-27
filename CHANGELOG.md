@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.13.1] - 2026-10-27
 ### Added
 - Progress feedback while an image is loaded, detected and classified.
 ### Changed
