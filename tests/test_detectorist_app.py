@@ -12,9 +12,10 @@ dialogs are replaced per test with monkeypatch.
 import csv
 import json
 import os
+import time
 
 import pytest
-from PySide6.QtCore import QEvent, QItemSelectionModel, QMimeData, QPointF, QRect, Qt, QUrl
+from PySide6.QtCore import QEvent, QEventLoop, QItemSelectionModel, QMimeData, QPointF, QRect, Qt, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeySequence, QMouseEvent
 from PySide6.QtWidgets import QApplication, QDialogButtonBox, QFileDialog, QMessageBox, QProgressDialog, QPushButton
 
@@ -108,10 +109,17 @@ def answer_the_export_dialog(monkeypatch):
 
 
 def export(window, **choices):
-    """Triggers Export and answers its dialog with the choices (scope, crop, prefix, output_dir, cancel)."""
+    """
+    Triggers Export, answers its dialog with the choices (scope, crop, prefix, output_dir, cancel)
+    and waits for the Batch Run to end, as the window does not block on it.
+    """
     EXPORT_CHOICES.clear()
     EXPORT_CHOICES.update(choices)
     window.ui.export_action.trigger()
+    deadline = time.monotonic() + 10
+    while window._batch_running and time.monotonic() < deadline:
+        QApplication.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, 50)
+    assert not window._batch_running, "the Batch Run did not end"
 
 
 def test_window_lists_the_model_and_its_classes(window):
