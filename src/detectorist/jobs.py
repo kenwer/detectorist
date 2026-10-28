@@ -80,6 +80,7 @@ class DecodeJob:
 class DetectJob:
     path: str
     image: ImageObject
+    stamp: FileStamp  # the version of the file image was decoded from
     model_id: ModelId
     token: CancelToken
 

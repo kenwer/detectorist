@@ -510,7 +510,7 @@ class Pipeline(QObject):
                 return None  # waits for the model still loading
             results = self._results.peek(item.path)
             if results is None or results.stamp != item.stamp:
-                batch.inference_job = DetectJob(item.path, item.image, self._detector_id, CancelToken())
+                batch.inference_job = DetectJob(item.path, item.image, item.stamp, self._detector_id, CancelToken())
                 return batch.inference_job
             kept = batch_detections(results.detections, batch.options.detection_threshold, batch.options.class_filter)
             names = {}
@@ -579,7 +579,7 @@ class Pipeline(QObject):
             results = self._valid_results(path)
             if results is None:
                 if path not in self._detect_failed:
-                    return DetectJob(path, loaded.image, self._detector_id, CancelToken())
+                    return DetectJob(path, loaded.image, loaded.stamp, self._detector_id, CancelToken())
                 continue
             if self._classifier_id is not None:
                 boxes = results.unnamed_boxes(self._threshold(), self._patterns)
@@ -700,14 +700,10 @@ class Pipeline(QObject):
         self._inference_job = None
         if self._batch_owns(job):
             self._batch.inference_job = None
-            if not job.token.cancelled and job.model_id == self._detector_id:
-                self._results.put(job.path, ImageResults(self._batch.current.stamp, detections, detection_time_ms))
-        else:
-            loaded = self._images.peek(job.path)
-            # A job for a replaced model, or for an image no longer the one cached, is stale
-            if not job.token.cancelled and job.model_id == self._detector_id and loaded is not None \
-                    and loaded.image is job.image:
-                self._results.put(job.path, ImageResults(loaded.stamp, detections, detection_time_ms))
+        # A job for a replaced model is stale. One for an older version of the file is stored with its stamp,
+        # which tells it apart from the current version.
+        if not job.token.cancelled and job.model_id == self._detector_id:
+            self._results.put(job.path, ImageResults(job.stamp, detections, detection_time_ms))
         self._schedule()
 
     def _on_classified(self, job: ClassifyJob, names: dict, classification_time_ms: float):
