@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, QThread, Signal
 
 from detectorist.image_loader import ImageLoader
 from detectorist.image_object import ImageObject
-from detectorist.jobs import CancelToken, DecodeJob, FileStamp
+from detectorist.jobs import CancelToken, DecodeJob, FileStamp, RedisplayJob
 from tests.fakes import make_images
 
 
@@ -71,22 +71,23 @@ def test_loader_only_rebuilds_the_display_for_a_given_image(qtbot, loader, tmp_p
     lane, submit = loader
     (path,) = make_images(tmp_path, ["a.png"])
     image = ImageObject.create(path)
-    job = DecodeJob(path, True, CancelToken(), image=image)
+    job = RedisplayJob(path, image, True, CancelToken())
 
-    with qtbot.waitSignal(lane.loaded) as blocker:
+    with qtbot.waitSignal(lane.redisplayed) as blocker:
         submit(job)
 
-    _, returned_image, display, stamp = blocker.args
-    assert returned_image is image
+    returned_job, display = blocker.args
+    assert returned_job is job
     np.testing.assert_array_equal(display, image.display_rgb_8bit(True))
-    assert stamp is None
 
 
-def test_batch_image_carries_the_exposure_flag_for_export(qtbot, loader, tmp_path):
+def test_batch_image_carries_the_exposure_flag_for_export_and_has_no_display(qtbot, loader, tmp_path):
     lane, submit = loader
     (path,) = make_images(tmp_path, ["a.png"])
 
     with qtbot.waitSignal(lane.loaded) as blocker:
         submit(DecodeJob(path, True, CancelToken(), for_batch=True))
 
-    assert blocker.args[1].exposure_correction
+    _, image, display, _ = blocker.args
+    assert image.exposure_correction
+    assert display is None

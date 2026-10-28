@@ -65,15 +65,23 @@ class ShowRequest:
 @dataclass(eq=False)
 class DecodeJob:
     """
-    Decode an image and build its display array. With image set, only the
-    display array is rebuilt, e.g. after the exposure checkbox changed.
-    A batch job's image is not cached and carries the exposure flag for export.
+    Decode an image and build its display array, exposure corrected as
+    exposure_correction says. A batch job builds none, as its image is never
+    shown, and sets the image's exposure flag for the export instead.
     """
     path: str
     exposure_correction: bool
     token: CancelToken
-    image: ImageObject | None = None
     for_batch: bool = False
+
+
+@dataclass(eq=False)
+class RedisplayJob:
+    """Rebuild the display array of a decoded image, e.g. after the exposure checkbox changed."""
+    path: str
+    image: ImageObject
+    exposure_correction: bool
+    token: CancelToken
 
 
 @dataclass(eq=False)

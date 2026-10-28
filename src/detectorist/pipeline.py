@@ -23,7 +23,7 @@ from .classifier import Classifier, detections_to_classify
 from .detector import Detector
 from .image_loader import ImageLoader
 from .inference_worker import InferenceWorker
-from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, FileStamp, ModelId, ShowRequest
+from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, FileStamp, ModelId, RedisplayJob, ShowRequest
 from .model_loader import ModelLoader
 from .utils import physical_memory_bytes
 
@@ -108,7 +108,7 @@ class Pipeline(QObject):
     batch_finished = Signal(object)  # BatchResult
     batch_failed = Signal(str)  # error message, e.g. the disk is full
 
-    _decode = Signal(object)  # DecodeJob, to the ImageLoader
+    _decode = Signal(object)  # DecodeJob or RedisplayJob, to the ImageLoader
     _infer = Signal(object)  # DetectJob or ClassifyJob, to the InferenceWorker
     _set_detector = Signal(object, object)  # detector, ModelId
     _set_classifier = Signal(object, object)  # classifier, ModelId
@@ -145,7 +145,7 @@ class Pipeline(QObject):
         self._detect_failed: set[str] = set()  # paths the detector failed on, not retried until shown again
         self._last_cached: list[str] = []  # the paths cache_updated reported last
 
-        self._decode_job: DecodeJob | None = None  # the job the ImageLoader is busy with
+        self._decode_job: DecodeJob | RedisplayJob | None = None  # the job the ImageLoader is busy with
         self._inference_job: DetectJob | ClassifyJob | None = None  # the job the InferenceWorker is busy with
 
         self._detector_id: ModelId | None = None  # the detector the InferenceWorker holds
@@ -164,6 +164,7 @@ class Pipeline(QObject):
         self._loader.moveToThread(self._loader_thread)
         self._decode.connect(self._loader.run)
         self._loader.loaded.connect(self._on_loaded)
+        self._loader.redisplayed.connect(self._on_redisplayed)
         self._loader.failed.connect(self._on_decode_failed)
         self._loader.cancelled.connect(self._on_decode_cancelled)
 
@@ -550,7 +551,7 @@ class Pipeline(QObject):
         if needs_inference:
             job.token.cancel()
 
-    def _next_decode(self) -> DecodeJob | None:
+    def _next_decode(self) -> DecodeJob | RedisplayJob | None:
         if self._batch is not None:
             return self._next_batch_decode()
         for path in self._wanted_paths():
@@ -564,7 +565,7 @@ class Pipeline(QObject):
                     self._prefetched.add(path)
                 return DecodeJob(path, self._exposure(), CancelToken())
             if is_shown and loaded.display_exposure != self._exposure():
-                return DecodeJob(path, self._exposure(), CancelToken(), image=loaded.image)
+                return RedisplayJob(path, loaded.image, self._exposure(), CancelToken())
         return None
 
     def _next_inference(self) -> DetectJob | ClassifyJob | None:
@@ -656,41 +657,41 @@ class Pipeline(QObject):
         return self._batch is not None and job is not None and job in (self._batch.decode_job,
                                                                        self._batch.inference_job)
 
-    def _on_loaded(self, job: DecodeJob, image, display, stamp: FileStamp | None):
+    def _on_loaded(self, job: DecodeJob, image, display, stamp: FileStamp):
         self._decode_job = None
-        if job.for_batch:
-            if self._batch_owns(job):
-                self._batch.decode_job = None
-                if not job.token.cancelled:
-                    self._batch.ready.append(_BatchImage(self._batch.decode_index, job.path, image, stamp))
-        elif not job.token.cancelled:
-            if stamp is None:
-                loaded = self._images.peek(job.path)
-                if loaded is not None and loaded.image is job.image:
-                    loaded.display = display
-                    loaded.display_exposure = job.exposure_correction
-            else:
-                results = self._results.peek(job.path)
-                if results is not None and results.stamp != stamp:
-                    self._results.pop(job.path)  # the file changed since
-                loaded = LoadedImage(image, display, job.exposure_correction, stamp)
-                self._entry_bytes = loaded.nbytes()
-                self._images.put(job.path, loaded)
+        if self._batch_owns(job):
+            self._batch.decode_job = None
+            if not job.token.cancelled:
+                self._batch.ready.append(_BatchImage(self._batch.decode_index, job.path, image, stamp))
+        elif not job.token.cancelled and not job.for_batch:
+            results = self._results.peek(job.path)
+            if results is not None and results.stamp != stamp:
+                self._results.pop(job.path)  # the file changed since
+            loaded = LoadedImage(image, display, job.exposure_correction, stamp)
+            self._entry_bytes = loaded.nbytes()
+            self._images.put(job.path, loaded)
         self._schedule()
 
-    def _on_decode_failed(self, job: DecodeJob, message: str):
+    def _on_redisplayed(self, job: RedisplayJob, display):
         self._decode_job = None
-        if job.for_batch:
-            if self._batch_owns(job):
-                self._batch.decode_job = None
-                self._batch.ready.append(_BatchImage(self._batch.decode_index, job.path, None, None))
+        loaded = self._images.peek(job.path)
+        if not job.token.cancelled and loaded is not None and loaded.image is job.image:
+            loaded.display = display
+            loaded.display_exposure = job.exposure_correction
+        self._schedule()
+
+    def _on_decode_failed(self, job: DecodeJob | RedisplayJob, message: str):
+        self._decode_job = None
+        if self._batch_owns(job):
+            self._batch.decode_job = None
+            self._batch.ready.append(_BatchImage(self._batch.decode_index, job.path, None, None))
         elif not job.token.cancelled:
             self._failed_paths.add(job.path)
             if self._request is not None and job.path == self._request.path:
                 self.error.emit(job.path, message)
         self._schedule()
 
-    def _on_decode_cancelled(self, job: DecodeJob):
+    def _on_decode_cancelled(self, job: DecodeJob | RedisplayJob):
         self._decode_job = None
         if self._batch_owns(job):
             self._batch.decode_job = None
