@@ -31,7 +31,7 @@ from detectorist import __version__
 
 from .about_dialog import show_about_dialog
 from .batch_output import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
-from .batch_run import BatchWriter, CropExportAction
+from .batch_run import BatchOptions, BatchWriter, CropExportAction
 from .classifier import Classifier, class_matches, detections_to_classify
 from .detection_style import taxon_styles
 from .detector import Detector
@@ -50,7 +50,7 @@ from .image_object import (
 from .jobs import ShowRequest
 from .manage_models import ManageModelsDialog
 from .model_downloader import ModelDownloader
-from .pipeline import BatchOptions, Pipeline, neighbours
+from .pipeline import Pipeline, neighbours
 from .settings import Settings
 from .shortcuts_dialog import ShortcutsDialog
 from .toasts import show_error_toast, show_success_toast, show_warning_toast

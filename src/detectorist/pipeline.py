@@ -12,12 +12,10 @@ need no locks.
 """
 import logging
 import os
-from collections import deque
-from dataclasses import dataclass, field
 
 from PySide6.QtCore import QObject, QThread, QThreadPool, Signal
 
-from .batch_run import BatchWriter, batch_detections
+from .batch_run import BatchOptions, BatchRun, BatchWriter
 from .cache import ImageResults, LoadedImage, LruCache, image_cache_budget, results_cache_budget
 from .classifier import Classifier, detections_to_classify
 from .detector import Detector
@@ -48,46 +46,6 @@ def neighbours(paths: list[str], current: str, per_side: int) -> list[str]:
     for distance in range(1, per_side + 1):
         window += [paths[i] for i in (row + distance, row - distance) if 0 <= i < len(paths)]
     return window
-
-
-@dataclass(frozen=True)
-class BatchOptions:
-    """What a batch run keeps of each image's detections, and how its exports look."""
-    detection_threshold: float
-    class_filter: str | None  # keep only this class, None keeps all
-    exposure_correction: bool  # whether the exported images are exposure corrected
-
-
-@dataclass
-class _BatchImage:
-    """One image of a batch run on its way from the decode lane to the writer."""
-    index: int
-    path: str
-    image: object | None  # the ImageObject, None if it failed to load
-    stamp: FileStamp | None
-
-
-@dataclass
-class _BatchRun:
-    """
-    The state of a batch run. Images go through strictly in order: at most
-    one decoded image waits while another is in inference, as each decoded
-    image takes hundreds of MB.
-    """
-    paths: list[str]
-    options: BatchOptions
-    writer: BatchWriter
-    next_decode: int = 0  # index of the next path to decode
-    decode_job: DecodeJob | None = None
-    decode_index: int = 0  # index of the path decode_job decodes
-    ready: deque = field(default_factory=deque)  # decoded _BatchImages waiting for inference
-    current: _BatchImage | None = None  # the image in inference
-    inference_job: DetectJob | ClassifyJob | None = None
-    detect_failed: bool = False  # whether the detector failed on current
-    # In order: ("progress", (index, total, file name)) as an image starts, ("write", (_BatchImage, detections or None, names)),
-    # ("fail", message) when the run cannot go on
-    events: list = field(default_factory=list)
-    written: int = 0
 
 
 class Pipeline(QObject):
@@ -157,7 +115,7 @@ class Pipeline(QObject):
         self._patterns: tuple[str, ...] = ()  # the detection classes the classifier names
         self._loaders: list[ModelLoader] = []  # kept alive until they report
         self._shut_down = False
-        self._batch: _BatchRun | None = None  # the batch run under way, which pauses interactive work
+        self._batch: BatchRun | None = None  # the batch run under way, which pauses interactive work
 
         self._loader_thread = QThread()
         self._loader = ImageLoader()
@@ -249,8 +207,9 @@ class Pipeline(QObject):
         detections whose class matches one of patterns, or unloads it for no
         path. Names of the previous classifier are dropped.
         """
-        if isinstance(self._inference_job, ClassifyJob):
-            self._inference_job.token.cancel()  # its names belong to the old classifier
+        job = self._inference_job
+        if isinstance(job, ClassifyJob) and not self._batch_owns(job):
+            job.token.cancel()  # its names belong to the old classifier
         self._set_classifier.emit(None, None)
         self._classifier_id = None
         self._classifier_wanted = None
@@ -281,17 +240,14 @@ class Pipeline(QObject):
         Images already detected are not detected again. Waits for a model
         still loading.
         """
-        self._batch = _BatchRun(list(paths), options, writer)
+        self._batch = BatchRun(paths, options, writer)
         self._schedule()
 
     def cancel_batch_run(self):
         """Stops the batch run, keeping what was written, and reports it as cancelled."""
-        batch, self._batch = self._batch, None
+        batch = self._end_batch()
         if batch is None:
             return
-        for job in (batch.decode_job, batch.inference_job):
-            if job is not None:
-                job.token.cancel()
         self.batch_finished.emit(batch.writer.close(cancelled=True))
         self._schedule()
 
@@ -302,9 +258,8 @@ class Pipeline(QObject):
         self._failed_paths.clear()
         self._detect_failed.clear()
         self._delivered.clear()
-        for job in (self._decode_job, self._inference_job):
-            if job is not None:
-                job.token.cancel()
+        for job in self._interactive_jobs():
+            job.token.cancel()
         self._schedule()
 
     def shutdown(self):
@@ -316,8 +271,8 @@ class Pipeline(QObject):
         for thread in (self._loader_thread, self._inference_thread):
             thread.quit()
             thread.wait()
-        if self._batch is not None:
-            batch, self._batch = self._batch, None
+        batch = self._end_batch()
+        if batch is not None:
             # Reported, so a caller waiting for the run stops waiting
             self.batch_finished.emit(batch.writer.close(cancelled=True))
         if self._loaders:
@@ -337,7 +292,8 @@ class Pipeline(QObject):
         self._detect_failed.clear()
         # The image too, as the window may have replaced it by a message, e.g. a model that failed to load
         self._delivered.clear()
-        if self._inference_job is not None:
+        # A batch job is left alone: what it detects with the dropped model is dropped as it arrives
+        if self._inference_job is not None and not self._batch_owns(self._inference_job):
             self._inference_job.token.cancel()
 
     def _on_detector_loaded(self, model_id: ModelId, detector, model_path: str):
@@ -378,10 +334,24 @@ class Pipeline(QObject):
         wanted = set(self._fitting_hints())
         if self._request is not None:
             wanted.add(self._request.path)
-        batch_jobs = () if self._batch is None else (self._batch.decode_job, self._batch.inference_job)
-        for job in (self._decode_job, self._inference_job):
-            if job is not None and job.path not in wanted and job not in batch_jobs:
+        for job in self._interactive_jobs():
+            if job.path not in wanted:
                 job.token.cancel()
+
+    def _interactive_jobs(self) -> list[DecodeJob | RedisplayJob | DetectJob | ClassifyJob]:
+        """The lanes' jobs, without those of the batch run under way."""
+        return [job for job in (self._decode_job, self._inference_job)
+                if job is not None and not self._batch_owns(job)]
+
+    def _batch_owns(self, job) -> bool:
+        return self._batch is not None and self._batch.owns(job)
+
+    def _end_batch(self) -> BatchRun | None:
+        """Forgets the batch run under way and cancels its jobs. Returns it, None if there was none."""
+        batch, self._batch = self._batch, None
+        if batch is not None:
+            batch.token.cancel()
+        return batch
 
     def _wanted_paths(self) -> list[str]:
         """The shown path first, then the prefetch hints."""
@@ -433,39 +403,23 @@ class Pipeline(QObject):
         """
         Reports the batch images that started and hands those through
         inference to the writer, in the order they happened, then ends a run
-        that is done. A handler cancelling the run on a progress report
-        therefore finds every image before the reported one written, and
-        nothing after it.
+        that is done or cannot go on (see BatchRun.write_pending).
         """
         batch = self._batch
         try:
-            while batch.events:
-                kind, event = batch.events.pop(0)
-                if kind == "fail":
-                    raise RuntimeError(event)
-                if kind == "progress":
-                    self.batch_progress.emit(*event)
-                    if self._batch is not batch:
-                        return  # cancelled by a handler
-                    continue
-                item, detections, names = event
-                if item.image is None:
-                    batch.writer.write_failure(item.path)
-                elif detections is None:
-                    batch.writer.write_failure(item.path, "process-error")
-                else:
-                    batch.writer.write(item.path, item.image, detections, names)
-                batch.written += 1
-            if batch.written < len(batch.paths):
+            for progress in batch.write_pending():
+                self.batch_progress.emit(*progress)
+                if self._batch is not batch:
+                    return  # cancelled by a handler
+            if batch.failure is not None:
+                raise RuntimeError(batch.failure)
+            if not batch.done:
                 return
-            self._batch = None
+            self._end_batch()
             result = batch.writer.close(cancelled=False)
         except Exception as e:
             logger.error("Batch run failed: %s", e, exc_info=not isinstance(e, RuntimeError))
-            self._batch = None
-            for job in (batch.decode_job, batch.inference_job):
-                if job is not None:
-                    job.token.cancel()
+            self._end_batch()
             try:
                 batch.writer.close(cancelled=True)
             except Exception:
@@ -476,57 +430,14 @@ class Pipeline(QObject):
         self.batch_finished.emit(result)
         self._schedule()
 
-    def _next_batch_decode(self) -> DecodeJob | None:
-        batch = self._batch
-        if batch.decode_job is not None or batch.ready or batch.next_decode >= len(batch.paths):
-            return None
-        batch.decode_job = DecodeJob(batch.paths[batch.next_decode], batch.options.exposure_correction,
-                                     CancelToken(), for_batch=True)
-        batch.decode_index = batch.next_decode
-        batch.next_decode += 1
-        return batch.decode_job
-
     def _next_batch_inference(self) -> DetectJob | ClassifyJob | None:
-        """
-        The next inference job of the batch run. Images that need none (no
-        boxes to name, or failed) move on to the writer here, in order.
-        """
-        batch = self._batch
-        while True:
-            if batch.current is None:
-                if not batch.ready:
-                    return None
-                batch.current = batch.ready.popleft()
-                batch.detect_failed = False
-                batch.events.append(("progress", (batch.current.index, len(batch.paths),
-                                                  os.path.basename(batch.current.path))))
-            item = batch.current
-            if item.image is None or batch.detect_failed:
-                batch.events.append(("write", (item, None, None)))
-                batch.current = None
-                continue
-            if self._detector_id is None:
-                if self._detector_wanted is None:
-                    batch.events.append(("fail", "Model not loaded."))
-                return None  # waits for the model still loading
-            results = self._results.peek(item.path)
-            if results is None or results.stamp != item.stamp:
-                batch.inference_job = DetectJob(item.path, item.image, item.stamp, self._detector_id, CancelToken())
-                return batch.inference_job
-            kept = batch_detections(results.detections, batch.options.detection_threshold, batch.options.class_filter)
-            names = {}
-            if self._classifier_requested and not self._classifier_failed:
-                if self._classifier_id is None:
-                    return None
-                kept_boxes = {d.box for d in kept}
-                boxes = [box for box in results.unnamed_boxes(0.0, self._patterns) if box in kept_boxes]
-                if boxes:
-                    batch.inference_job = ClassifyJob(item.path, item.image, boxes, self._classifier_id,
-                                                      CancelToken())
-                    return batch.inference_job
-                names = {box: results.names[box] for box in kept_boxes if box in results.names}
-            batch.events.append(("write", (item, kept, names)))
-            batch.current = None
+        if self._detector_id is None:
+            if self._detector_wanted is None:
+                self._batch.failure = "Model not loaded."
+            return None  # waits for the model still loading
+        return self._batch.next_inference(self._results, self._detector_id,
+                                          self._classifier_requested and not self._classifier_failed,
+                                          self._classifier_id, self._patterns)
 
     def _preempt_for_shown(self):
         """
@@ -553,7 +464,7 @@ class Pipeline(QObject):
 
     def _next_decode(self) -> DecodeJob | RedisplayJob | None:
         if self._batch is not None:
-            return self._next_batch_decode()
+            return self._batch.next_decode()
         for path in self._wanted_paths():
             is_shown = self._request is not None and path == self._request.path
             # A hint evicted for lack of room is not decoded again, which would evict the next one, endlessly
@@ -652,17 +563,10 @@ class Pipeline(QObject):
             self._last_cached = cached
             self.cache_updated.emit(cached)
 
-    def _batch_owns(self, job) -> bool:
-        """Whether job is one the batch run under way sent."""
-        return self._batch is not None and job is not None and job in (self._batch.decode_job,
-                                                                       self._batch.inference_job)
-
     def _on_loaded(self, job: DecodeJob, image, display, stamp: FileStamp):
         self._decode_job = None
         if self._batch_owns(job):
-            self._batch.decode_job = None
-            if not job.token.cancelled:
-                self._batch.ready.append(_BatchImage(self._batch.decode_index, job.path, image, stamp))
+            self._batch.on_decoded(job, image, stamp)
         elif not job.token.cancelled and not job.for_batch:
             results = self._results.peek(job.path)
             if results is not None and results.stamp != stamp:
@@ -683,8 +587,7 @@ class Pipeline(QObject):
     def _on_decode_failed(self, job: DecodeJob | RedisplayJob, message: str):
         self._decode_job = None
         if self._batch_owns(job):
-            self._batch.decode_job = None
-            self._batch.ready.append(_BatchImage(self._batch.decode_index, job.path, None, None))
+            self._batch.on_decoded(job, None, None)
         elif not job.token.cancelled:
             self._failed_paths.add(job.path)
             if self._request is not None and job.path == self._request.path:
@@ -693,14 +596,10 @@ class Pipeline(QObject):
 
     def _on_decode_cancelled(self, job: DecodeJob | RedisplayJob):
         self._decode_job = None
-        if self._batch_owns(job):
-            self._batch.decode_job = None
         self._schedule()
 
     def _on_detected(self, job: DetectJob, detections: list, detection_time_ms: float):
         self._inference_job = None
-        if self._batch_owns(job):
-            self._batch.inference_job = None
         # A job for a replaced model is stale. One for an older version of the file is stored with its stamp,
         # which tells it apart from the current version.
         if not job.token.cancelled and job.model_id == self._detector_id:
@@ -709,8 +608,6 @@ class Pipeline(QObject):
 
     def _on_classified(self, job: ClassifyJob, names: dict, classification_time_ms: float):
         self._inference_job = None
-        if self._batch_owns(job):
-            self._batch.inference_job = None
         results = self._results.peek(job.path)
         # Names of a cancelled job are kept: they are valid for the classifier that gave them
         if job.model_id == self._classifier_id and results is not None:
@@ -721,12 +618,10 @@ class Pipeline(QObject):
     def _on_inference_failed(self, job: DetectJob | ClassifyJob, message: str):
         self._inference_job = None
         by_batch = self._batch_owns(job)
-        if by_batch:
-            self._batch.inference_job = None
         is_shown = not by_batch and self._request is not None and job.path == self._request.path
         if isinstance(job, DetectJob):
             if by_batch:
-                self._batch.detect_failed = True
+                self._batch.on_detect_failed()
             elif job.model_id == self._detector_id:
                 self._detect_failed.add(job.path)
                 if is_shown:
@@ -741,6 +636,4 @@ class Pipeline(QObject):
 
     def _on_inference_cancelled(self, job: DetectJob | ClassifyJob):
         self._inference_job = None
-        if self._batch_owns(job):
-            self._batch.inference_job = None
         self._schedule()

@@ -13,10 +13,10 @@ from types import SimpleNamespace
 import pytest
 
 from detectorist import inference_worker as inference_worker_module
-from detectorist.batch_run import BatchWriter, CropExportAction
+from detectorist.batch_run import BatchOptions, BatchWriter, CropExportAction
 from detectorist.export_planner import CropMode, CropSettings, ExportOptions
 from detectorist.jobs import ShowRequest
-from detectorist.pipeline import BatchOptions, Pipeline, neighbours
+from detectorist.pipeline import Pipeline, neighbours
 from detectorist.structures import Detection
 from tests.fakes import TAXONOMY, FakeClassifierFactory, FakeDetectorFactory, make_images
 
