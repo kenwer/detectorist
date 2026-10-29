@@ -13,8 +13,8 @@ from types import SimpleNamespace
 import pytest
 
 from detectorist import inference_worker as inference_worker_module
-from detectorist.batch_run import BatchOptions, BatchWriter, CropExportAction
 from detectorist.export_planner import CropMode, CropSettings, ExportOptions
+from detectorist.export_run import DetectionFilter, ExportWriter
 from detectorist.jobs import ShowRequest
 from detectorist.pipeline import Pipeline, neighbours
 from detectorist.structures import Detection
@@ -24,7 +24,7 @@ IMAGE_SIZE = (32, 24)
 FISH = Detection((1, 1, 10, 10), 0.9, "Fish")
 FAINT_FISH = Detection((2, 2, 10, 10), 0.3, "Fish")
 CRAB = Detection((3, 3, 10, 10), 0.8, "Crab")
-BATCH_CROP = CropSettings(mode=CropMode.MOST_CONFIDENT_DETECTION, padding=0.0, aspect=(1, 1))
+EXPORT_CROP = CropSettings(mode=CropMode.MOST_CONFIDENT_DETECTION, padding=0.0, aspect=(1, 1))
 
 
 class Recorder:
@@ -576,14 +576,14 @@ def test_unloading_the_classifier_reports_the_detected_images(qtbot, tmp_path, m
     assert env.rec.cached_now == [path_a]
 
 
-def start_batch(env, paths, output_dir, threshold=0.5, class_filter=None, with_classification=False):
-    writer = BatchWriter(str(output_dir), CropExportAction(ExportOptions(BATCH_CROP)),
-                         with_classification=with_classification, patterns=["Fish"], taxon_confidence=0.0)
+def start_export(env, paths, output_dir, threshold=0.5, class_filter=None, with_classification=False):
+    writer = ExportWriter(str(output_dir), ExportOptions(EXPORT_CROP), exposure_correction=False,
+                          with_classification=with_classification, patterns=["Fish"], taxon_confidence=0.0)
     writer.open()
     finished, progress = [], []
-    env.pipeline.batch_finished.connect(finished.append)
-    env.pipeline.batch_progress.connect(lambda index, total, name: progress.append((index, total, name)))
-    env.pipeline.start_batch_run(paths, BatchOptions(threshold, class_filter), writer)
+    env.pipeline.export_finished.connect(finished.append)
+    env.pipeline.export_progress.connect(lambda index, total, name: progress.append((index, total, name)))
+    env.pipeline.start_export(paths, DetectionFilter(threshold, class_filter), writer)
     return finished, progress
 
 
@@ -591,11 +591,11 @@ def row_names(result) -> list[str]:
     return [row.filename for row in result.detections_rows]
 
 
-def test_batch_run_writes_every_image_in_order(qtbot, tmp_path, make_pipeline):
+def test_export_writes_every_image_in_order(qtbot, tmp_path, make_pipeline):
     paths = make_images(tmp_path, ["a.png", "b.png", "c.png"], IMAGE_SIZE)
     env = make_pipeline({"a.png": [FISH], "c.png": [FISH, CRAB]})
 
-    finished, progress = start_batch(env, paths, tmp_path / "out")
+    finished, progress = start_export(env, paths, tmp_path / "out")
     qtbot.waitUntil(lambda: bool(finished))
 
     assert row_names(finished[0]) == ["a.png", "b.png", "c.png"]
@@ -604,52 +604,52 @@ def test_batch_run_writes_every_image_in_order(qtbot, tmp_path, make_pipeline):
     assert not finished[0].cancelled
 
 
-def test_batch_run_names_the_detections_it_keeps(qtbot, tmp_path, make_pipeline):
+def test_export_names_the_detections_it_keeps(qtbot, tmp_path, make_pipeline):
     (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
     env = make_classifying(make_pipeline, {"a.png": [FISH, FAINT_FISH]})
 
-    finished, _ = start_batch(env, [path_a], tmp_path / "out", with_classification=True)
+    finished, _ = start_export(env, [path_a], tmp_path / "out", with_classification=True)
     qtbot.waitUntil(lambda: bool(finished))
 
     assert env.classifiers.classified == [[FISH.box]]
     assert [row.family for row in finished[0].classification_rows] == ["Pomacentridae"]
 
 
-def test_batch_run_reuses_cached_detections(qtbot, tmp_path, make_pipeline):
+def test_export_reuses_cached_detections(qtbot, tmp_path, make_pipeline):
     path_a, path_b = make_images(tmp_path, ["a.png", "b.png"], IMAGE_SIZE)
     env = make_pipeline({"a.png": [FISH]})
     show(env.pipeline, path_a)
     qtbot.waitUntil(lambda: len(env.rec.completed) == 1)
 
-    finished, _ = start_batch(env, [path_a, path_b], tmp_path / "out")
+    finished, _ = start_export(env, [path_a, path_b], tmp_path / "out")
     qtbot.waitUntil(lambda: bool(finished))
 
     assert detected(env) == ["a.png", "b.png"]
     assert row_names(finished[0]) == ["a.png", "b.png"]
 
 
-def test_batch_run_records_a_load_failure(qtbot, tmp_path, make_pipeline):
+def test_export_records_a_load_failure(qtbot, tmp_path, make_pipeline):
     (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
     broken = tmp_path / "broken.png"
     broken.write_bytes(b"not an image")
     env = make_pipeline()
 
-    finished, _ = start_batch(env, [str(broken), path_a], tmp_path / "out")
+    finished, _ = start_export(env, [str(broken), path_a], tmp_path / "out")
     qtbot.waitUntil(lambda: bool(finished))
 
     assert finished[0].failed == ["broken.png"]
     assert row_names(finished[0]) == ["broken.png", "a.png"]
 
 
-def test_cancel_batch_run_keeps_the_rows_written(qtbot, tmp_path, make_pipeline):
+def test_cancel_export_keeps_the_rows_written(qtbot, tmp_path, make_pipeline):
     paths = make_images(tmp_path, ["a.png", "b.png", "c.png"], IMAGE_SIZE)
     env = make_pipeline()
     release = threading.Event()
     env.detectors.created[0].on_detect = lambda name: name == "b.png" and release.wait(5)
 
-    finished, _ = start_batch(env, paths, tmp_path / "out")
+    finished, _ = start_export(env, paths, tmp_path / "out")
     qtbot.waitUntil(lambda: "b.png" in detected(env))
-    env.pipeline.cancel_batch_run()
+    env.pipeline.cancel_export()
     release.set()
 
     assert finished[0].cancelled
@@ -658,13 +658,13 @@ def test_cancel_batch_run_keeps_the_rows_written(qtbot, tmp_path, make_pipeline)
     assert len(finished) == 1
 
 
-def test_interactive_requests_wait_for_the_batch_run(qtbot, tmp_path, make_pipeline):
+def test_interactive_requests_wait_for_the_export(qtbot, tmp_path, make_pipeline):
     path_a, path_b = make_images(tmp_path, ["a.png", "b.png"], IMAGE_SIZE)
     env = make_pipeline()
     release = threading.Event()
     env.detectors.created[0].on_detect = lambda name: name == "a.png" and release.wait(5)
 
-    finished, _ = start_batch(env, [path_a], tmp_path / "out")
+    finished, _ = start_export(env, [path_a], tmp_path / "out")
     qtbot.waitUntil(lambda: "a.png" in detected(env))
     show(env.pipeline, path_b)
     qtbot.wait(50)
@@ -675,11 +675,11 @@ def test_interactive_requests_wait_for_the_batch_run(qtbot, tmp_path, make_pipel
     assert finished
 
 
-def test_shutdown_during_batch_run_returns(qtbot, tmp_path, make_pipeline):
+def test_shutdown_during_export_returns(qtbot, tmp_path, make_pipeline):
     paths = make_images(tmp_path, [f"{i}.png" for i in range(5)], IMAGE_SIZE)
     env = make_pipeline()
 
-    start_batch(env, paths, tmp_path / "out")
+    start_export(env, paths, tmp_path / "out")
     env.pipeline.shutdown()
 
     assert True  # returning at all is the point, a hang would trip faulthandler_timeout
@@ -690,9 +690,9 @@ def test_cancelling_from_the_progress_signal_keeps_the_images_before(qtbot, tmp_
     env = make_pipeline()
     # a's detection outlasts b's decode, so b is ready the moment a is through inference
     env.detectors.created[0].on_detect = lambda name: name == "a.png" and time.sleep(0.2)
-    env.pipeline.batch_progress.connect(lambda index, total, name: index == 1 and env.pipeline.cancel_batch_run())
+    env.pipeline.export_progress.connect(lambda index, total, name: index == 1 and env.pipeline.cancel_export())
 
-    finished, _ = start_batch(env, paths, tmp_path / "out")
+    finished, _ = start_export(env, paths, tmp_path / "out")
     qtbot.waitUntil(lambda: bool(finished))
 
     assert finished[0].cancelled
@@ -730,26 +730,26 @@ def test_a_new_detector_delivers_the_image_again(qtbot, tmp_path, make_pipeline,
     assert env.rec.shown == [path_a, path_a]
 
 
-def test_batch_run_without_a_detector_fails_instead_of_waiting(qtbot, tmp_path, make_pipeline, models_dir):
+def test_export_without_a_detector_fails_instead_of_waiting(qtbot, tmp_path, make_pipeline, models_dir):
     (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
     env = make_pipeline()
     env.detectors.error = OSError("boom")
     env.pipeline.load_detector(str(models_dir / "b.onnx"))
     qtbot.waitUntil(lambda: len(env.rec.models) == 2)
     failures = []
-    env.pipeline.batch_failed.connect(failures.append)
+    env.pipeline.export_failed.connect(failures.append)
 
-    finished, _ = start_batch(env, [path_a], tmp_path / "out")
+    finished, _ = start_export(env, [path_a], tmp_path / "out")
     qtbot.waitUntil(lambda: bool(failures or finished))
 
     assert failures == ["Model not loaded."]
 
 
-def test_shutdown_during_batch_run_reports_it_cancelled(qtbot, tmp_path, make_pipeline):
+def test_shutdown_during_export_reports_it_cancelled(qtbot, tmp_path, make_pipeline):
     paths = make_images(tmp_path, ["a.png", "b.png"], IMAGE_SIZE)
     env = make_pipeline()
 
-    finished, _ = start_batch(env, paths, tmp_path / "out")
+    finished, _ = start_export(env, paths, tmp_path / "out")
     env.pipeline.shutdown()
 
     assert len(finished) == 1 and finished[0].cancelled

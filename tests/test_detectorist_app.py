@@ -20,10 +20,10 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeySequence, QMouseEvent
 from PySide6.QtWidgets import QApplication, QDialogButtonBox, QFileDialog, QMessageBox, QProgressDialog, QPushButton
 
 from detectorist import __version__, detectorist_app
-from detectorist.batch_output import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
 from detectorist.detection_style import MASK_COLORS
 from detectorist.detector import Detector
 from detectorist.export_dialog import ExportDialog
+from detectorist.export_files import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
 from detectorist.image_label import DETECTION_BORDER_COLOR_RGB
 from detectorist.image_object import APPLEDOUBLE_MAGIC
 from detectorist.structures import Detection, RankedName, Taxonomy
@@ -111,15 +111,15 @@ def answer_the_export_dialog(monkeypatch):
 def export(window, **choices):
     """
     Triggers Export, answers its dialog with the choices (scope, crop, prefix, output_dir, cancel)
-    and waits for the Batch Run to end, as the window does not block on it.
+    and waits for the export to end, as the window does not block on it.
     """
     EXPORT_CHOICES.clear()
     EXPORT_CHOICES.update(choices)
     window.ui.export_action.trigger()
     deadline = time.monotonic() + 10
-    while window._batch_running and time.monotonic() < deadline:
+    while window._exporting and time.monotonic() < deadline:
         QApplication.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, 50)
-    assert not window._batch_running, "the Batch Run did not end"
+    assert not window._exporting, "the export did not end"
 
 
 def test_window_lists_the_model_and_its_classes(window):
@@ -641,7 +641,7 @@ def test_imported_export_choices_start_the_next_export(qtbot, window, folder, mo
     assert (options.crop, options.prefix_class, options.prefix_taxa) == (False, False, False)
 
 
-def test_batch_runs_respect_the_class_filter(qtbot, window, folder, monkeypatch, detector_factory):
+def test_exports_respect_the_class_filter(qtbot, window, folder, monkeypatch, detector_factory):
     make_images(folder, ["a.png", "b.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [FISH, CRAB]
     detector_factory.detections_by_file["b.png"] = [FISH]
@@ -709,10 +709,10 @@ def test_import_settings_selects_the_class_filter(window, qtbot, tmp_path, monke
     qtbot.waitUntil(lambda: window.ui.class_filter_combo_box.currentText() == "Crab")
 
 
-def test_cancelling_a_batch_stops_it_without_a_success_toast(qtbot, window, folder, monkeypatch, detector_factory, toasts):
+def test_cancelling_an_export_stops_it_without_a_success_toast(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     # Pressing Cancel as the second image starts, once the first one is written
-    during_batch(window, lambda index: index == 1 and window.findChild(QProgressDialog).findChild(QPushButton).click())
+    during_export(window, lambda index: index == 1 and window.findChild(QProgressDialog).findChild(QPushButton).click())
 
     export(window)
 
@@ -723,7 +723,7 @@ def test_cancelling_a_batch_stops_it_without_a_success_toast(qtbot, window, fold
     assert not window.ui.open_output_folder_action.isEnabled()
 
 
-def test_actions_are_disabled_while_a_batch_runs(qtbot, window, folder, monkeypatch, detector_factory):
+def test_actions_are_disabled_during_an_export(qtbot, window, folder, monkeypatch, detector_factory):
     open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     guarded = [
         window.ui.open_folder_action,
@@ -732,7 +732,7 @@ def test_actions_are_disabled_while_a_batch_runs(qtbot, window, folder, monkeypa
         window.ui.clear_image_list_action,
     ]
     seen_during_run = []
-    during_batch(window, lambda _index: seen_during_run.append([action.isEnabled() for action in guarded]))
+    during_export(window, lambda _index: seen_during_run.append([action.isEnabled() for action in guarded]))
 
     export(window)
 
@@ -740,7 +740,7 @@ def test_actions_are_disabled_while_a_batch_runs(qtbot, window, folder, monkeypa
     assert all(action.isEnabled() for action in guarded)
 
 
-def test_actions_that_load_images_or_change_settings_are_disabled_while_a_batch_runs(qtbot, window, folder, monkeypatch, detector_factory):
+def test_actions_that_load_images_or_change_settings_are_disabled_during_an_export(qtbot, window, folder, monkeypatch, detector_factory):
     open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     # The macOS menu bar stays usable during the run, as the progress dialog only blocks the window
     guarded = [
@@ -750,7 +750,7 @@ def test_actions_that_load_images_or_change_settings_are_disabled_while_a_batch_
         window.ui.manage_models_action,
     ]
     seen_during_run = []
-    during_batch(window, lambda _index: seen_during_run.append([action.isEnabled() for action in guarded]))
+    during_export(window, lambda _index: seen_during_run.append([action.isEnabled() for action in guarded]))
 
     export(window)
 
@@ -758,10 +758,10 @@ def test_actions_that_load_images_or_change_settings_are_disabled_while_a_batch_
     assert all(action.isEnabled() for action in guarded)
 
 
-def test_download_finishing_during_a_batch_keeps_the_batch_actions_disabled(qtbot, window, folder, monkeypatch, detector_factory, toasts):
+def test_download_finishing_during_an_export_keeps_the_locked_actions_disabled(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     select_row(window, 0)
-    batch_actions = [
+    locked_actions = [
         window.ui.export_action,
         window.ui.remove_selected_images_from_list_action,
         window.ui.clear_image_list_action,
@@ -770,23 +770,23 @@ def test_download_finishing_during_a_batch_keeps_the_batch_actions_disabled(qtbo
 
     def on_progress(_index):
         window._model_downloader.download_finished.emit(MODEL_FILENAME)
-        seen_during_run.append([action.isEnabled() for action in batch_actions])
-    during_batch(window, on_progress)
+        seen_during_run.append([action.isEnabled() for action in locked_actions])
+    during_export(window, on_progress)
 
     export(window)
 
-    assert seen_during_run == [[False] * len(batch_actions)] * 2
-    assert all(action.isEnabled() for action in batch_actions)
+    assert seen_during_run == [[False] * len(locked_actions)] * 2
+    assert all(action.isEnabled() for action in locked_actions)
 
 
-def during_batch(window, on_progress):
-    """Calls on_progress(index) on the GUI thread as each image of the next batch run starts."""
-    window.pipeline.batch_progress.connect(lambda index, _total, _name: on_progress(index))
+def during_export(window, on_progress):
+    """Calls on_progress(index) on the GUI thread as each image of the next export starts."""
+    window.pipeline.export_progress.connect(lambda index, _total, _name: on_progress(index))
 
 
-def test_batch_with_a_failing_image_finishes_and_warns(qtbot, window, folder, monkeypatch, detector_factory, toasts):
+def test_export_with_a_failing_image_finishes_and_warns(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
-    # Broken after it was browsed, so the batch run fails to load it
+    # Broken after it was browsed, so the export fails to load it
     (folder / "a.png").write_bytes(b"not an image any more")
 
     export(window)
@@ -800,7 +800,7 @@ def test_batch_with_a_failing_image_finishes_and_warns(qtbot, window, folder, mo
     assert kwargs["link_text"] == f"Reveal in {file_manager_name()}"
 
 
-def test_batch_that_cannot_write_its_output_reports_it_and_restores_the_actions(qtbot, window, folder, monkeypatch, detector_factory, toasts):
+def test_export_that_cannot_write_its_output_reports_it_and_restores_the_actions(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     # A file where the output folder should go
     output.write_text("in the way")
@@ -1289,7 +1289,7 @@ def test_best_classification_crop_band_frames_a_detection_reaching_past_the_imag
     edge_crab = CRAB._replace(box=(150, 50, 60, 40))
     open_for_best_classification(qtbot, window, folder, monkeypatch, detector_factory, classifier_factory, edge_crab)
 
-    # Moved back inside the image, as the Batch Run would crop it
+    # Moved back inside the image, as the export would crop it
     assert window.ui.image_label.last_crop_rects == [QRect(140, 50, 60, 40)]
 
 
@@ -1568,7 +1568,7 @@ def test_classifier_that_fails_to_load_is_reported(qtbot, species_model, window,
     assert toasts[0][:3] == ("error", "Classifier error", "Error loading classifier: not a classifier")
 
 
-def test_batch_with_a_classifier_writes_the_classification_csv(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+def test_export_with_a_classifier_writes_the_classification_csv(qtbot, species_model, window, folder, monkeypatch, detector_factory):
     output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     window.ui.classifier_combo_box.setCurrentIndex(1)
     window.ui.taxon_confidence_spin_box.setValue(50)
@@ -1584,7 +1584,7 @@ def test_batch_with_a_classifier_writes_the_classification_csv(qtbot, species_mo
         assert len(next(csv.reader(f))) == 5
 
 
-def test_batch_shares_the_classifier_of_the_worker(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
+def test_export_shares_the_classifier_of_the_worker(qtbot, species_model, window, folder, monkeypatch, detector_factory, classifier_factory):
     open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
     window.ui.classifier_combo_box.setCurrentIndex(1)
 
@@ -1858,9 +1858,9 @@ def test_the_settings_file_of_an_export_names_only_what_it_used(qtbot, species_m
     assert (settings.classification_model, settings.export_class_filter) == (species_model, "Fish")
 
 
-def test_closing_the_window_during_a_batch_cancels_it_quietly(qtbot, window, folder, monkeypatch, detector_factory, toasts):
+def test_closing_the_window_during_an_export_cancels_it_quietly(qtbot, window, folder, monkeypatch, detector_factory, toasts):
     open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
-    during_batch(window, lambda index: index == 0 and window.close())
+    during_export(window, lambda index: index == 0 and window.close())
 
     export(window)
 

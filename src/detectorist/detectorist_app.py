@@ -30,14 +30,14 @@ from PySide6.QtWidgets import (
 from detectorist import __version__
 
 from .about_dialog import show_about_dialog
-from .batch_output import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
-from .batch_run import BatchOptions, BatchResult, BatchWriter, CropExportAction
 from .classifier import Classifier, class_matches, detections_to_classify
 from .detection_style import taxon_styles
 from .detector import Detector
 from .enum_button_group import EnumButtonGroup
 from .export_dialog import ExportDialog, PreviewImage
+from .export_files import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
 from .export_planner import CropMode, CropSettings, ExportOptions, plan_crops
+from .export_run import DetectionFilter, ExportResult, ExportWriter
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
 from .image_object import (
@@ -121,8 +121,8 @@ def aspect_ratio_setting(aspect: tuple[int, int] | str) -> str:
 
 
 @dataclass
-class _ExportRun:
-    """An export the window started, until the Pipeline reports the end of its Batch Run."""
+class _RunningExport:
+    """An export the window started, until the Pipeline reports its end."""
     progress_dialog: QProgressDialog
     output_dir: str
     classifier_filename: str | None  # the classifier the run names with, None for none
@@ -141,7 +141,7 @@ class DetectoristApp(QMainWindow):
             settings: Persistent settings store. Defaults to the per-user store.
             models_dir: Folder scanned for model files. Defaults to get_model_path().
             detector_factory: Called with a model path to build a detector.
-                The Pipeline holds one for browsing and batch runs alike.
+                The Pipeline holds one for browsing and exports alike.
             classifier_factory: Likewise for the classifier.
         """
         super().__init__()
@@ -173,7 +173,7 @@ class DetectoristApp(QMainWindow):
         # When the Manage Models dialog is open it reports download progress
         # itself, so app-level toasts are suppressed to avoid double feedback.
         self._models_dialog_open = False
-        self._export_run: _ExportRun | None = None  # the export under way, which keeps the batch actions disabled
+        self._running_export: _RunningExport | None = None  # the export under way, which keeps the actions locked
         self._shortcuts_dialog: ShortcutsDialog | None = None
 
         # Ensure opener is registered (otherwise the native code will segfault)
@@ -329,9 +329,9 @@ class DetectoristApp(QMainWindow):
         self.pipeline.cache_updated.connect(self.model.setCachedPaths)
         self.pipeline.classification_complete.connect(self.handle_classification_complete)
         self.pipeline.classifier_error.connect(self.handle_classifier_error)
-        self.pipeline.batch_progress.connect(self._on_batch_progress)
-        self.pipeline.batch_finished.connect(self._on_batch_finished)
-        self.pipeline.batch_failed.connect(self._on_batch_failed)
+        self.pipeline.export_progress.connect(self._on_export_progress)
+        self.pipeline.export_finished.connect(self._on_export_finished)
+        self.pipeline.export_failed.connect(self._on_export_failed)
         self.ui.model_select_combo_box.currentIndexChanged.connect(self.on_model_selected)
         self.ui.classifier_combo_box.currentIndexChanged.connect(self._on_classifier_chosen)
         self.ui.class_filter_combo_box.currentIndexChanged.connect(self.on_class_filter_changed)
@@ -509,7 +509,7 @@ class DetectoristApp(QMainWindow):
         QApplication.processEvents() # Ensure UI updates
 
         # Enable actions that operate on all loaded images (only if a model is available)
-        can_run = self.ui.model_select_combo_box.count() > 0 and not self._batch_running
+        can_run = self.ui.model_select_combo_box.count() > 0 and not self._exporting
         self.ui.export_action.setEnabled(can_run)
 
         # Select the first image in the list view
@@ -600,7 +600,7 @@ class DetectoristApp(QMainWindow):
         self._update_recent_folders_menu()
 
     def _import_settings(self) -> None:
-        """Import settings from a JSON file exported during a previous batch run."""
+        """Import settings from a JSON file written by a previous export."""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Import Settings",
@@ -1092,8 +1092,8 @@ class DetectoristApp(QMainWindow):
         """React to the model combo box becoming empty or populated."""
         has_models = self.ui.model_select_combo_box.count() > 0
         has_images = self.model.rowCount() > 0
-        # A background download can finish during a Batch Run
-        can_run = has_models and not self._batch_running
+        # A background download can finish during an export
+        can_run = has_models and not self._exporting
 
         # Enable/disable actions that require a model
         self.ui.export_action.setEnabled(can_run and has_images)
@@ -1170,9 +1170,9 @@ class DetectoristApp(QMainWindow):
 
     def update_crop_bands(self):
         """
-        Frames the crops a Batch Run would export for the shown detections. They are
-        planned from the detections as the detector returned them, like in the Batch
-        Run, not from the drawn boxes, which are clamped to the image.
+        Frames the crops an export would write for the shown detections. They are
+        planned from the detections as the detector returned them, like in the
+        export, not from the drawn boxes, which are clamped to the image.
         """
         image = self.ui.image_label.image
         crop_settings = self._get_current_crop_settings()
@@ -1195,19 +1195,19 @@ class DetectoristApp(QMainWindow):
         if self._last_output_dir:
             reveal_in_file_manager(self._last_output_dir)
 
-    def _run_batch_with_progress(self, options: ExportOptions, output_dir: str, image_paths: list[str]) -> None:
+    def _start_export(self, options: ExportOptions, output_dir: str, image_paths: list[str]) -> None:
         """
-        Starts exporting the given images via a Batch Run in the Pipeline,
+        Starts exporting the given images through the Pipeline,
         writing into output_dir, with a window modal progress dialog. When the
-        run ends, _on_batch_finished exports the settings alongside the CSV and
+        run ends, _on_export_finished exports the settings alongside the CSV and
         reports the outcome.
         """
         classifier_filename = self.ui.classifier_combo_box.currentData()
-        action = CropExportAction(options, self.ui.cb_comp_cam_exposure.isChecked())
-        writer = BatchWriter(output_dir, action, with_classification=bool(classifier_filename),
-                             patterns=self._model_downloader.classifies(classifier_filename)
-                             if classifier_filename else [],
-                             taxon_confidence=self.ui.taxon_confidence_slider.value() / 100.0)
+        writer = ExportWriter(output_dir, options, exposure_correction=self.ui.cb_comp_cam_exposure.isChecked(),
+                              with_classification=bool(classifier_filename),
+                              patterns=self._model_downloader.classifies(classifier_filename)
+                              if classifier_filename else [],
+                              taxon_confidence=self.ui.taxon_confidence_slider.value() / 100.0)
         try:
             # Opened before the run, so a locked CSV file fails it before any image is processed
             writer.open()
@@ -1221,32 +1221,33 @@ class DetectoristApp(QMainWindow):
         progress_dialog.setAutoClose(True)
         # Default minimumDuration is 4s, during which the dialog is invisible
         # but the window underneath stays fully clickable. Show it immediately
-        # so the batch-actions guard below has a visible reason to exist.
+        # so the action lock below has a visible reason to exist.
         progress_dialog.setMinimumDuration(0)
-        progress_dialog.canceled.connect(self.pipeline.cancel_batch_run)
+        progress_dialog.canceled.connect(self.pipeline.cancel_export)
         # Shown before a model still loading is ready, which takes seconds for a classifier
         progress_dialog.show()
 
-        self._export_run = _ExportRun(progress_dialog, output_dir, classifier_filename)
-        self._set_batch_actions_enabled(False)
-        batch_options = BatchOptions(self.ui.detection_confidence_slider.value() / 100.0, self._selected_class_filter())
-        self.pipeline.start_batch_run(image_paths, batch_options, writer)
+        self._running_export = _RunningExport(progress_dialog, output_dir, classifier_filename)
+        self._lock_actions_during_export(True)
+        detection_filter = DetectionFilter(self.ui.detection_confidence_slider.value() / 100.0,
+                                           self._selected_class_filter())
+        self.pipeline.start_export(image_paths, detection_filter, writer)
 
-    def _on_batch_progress(self, index: int, total: int, file_name: str):
-        if self._export_run is not None:
-            self._export_run.progress_dialog.setValue(index)
-            self._export_run.progress_dialog.setLabelText(f"Processing {index+1}/{total}: {file_name}")
+    def _on_export_progress(self, index: int, total: int, file_name: str):
+        if self._running_export is not None:
+            self._running_export.progress_dialog.setValue(index)
+            self._running_export.progress_dialog.setLabelText(f"Processing {index+1}/{total}: {file_name}")
 
-    def _on_batch_finished(self, result: BatchResult):
+    def _on_export_finished(self, result: ExportResult):
         """Exports the settings alongside the CSV and reports how the export went."""
-        run = self._end_export_run()
-        if run is None:
+        export = self._end_export()
+        if export is None:
             return
         try:
             # A classifier or class set aside for the loaded model is still the choice, but this run went without it
             self._save_settings()
-            self.settings.export_to_file(Path(run.output_dir) / SETTINGS_JSON_NAME, {
-                Settings.classification_model: run.classifier_filename,
+            self.settings.export_to_file(Path(export.output_dir) / SETTINGS_JSON_NAME, {
+                Settings.classification_model: export.classifier_filename,
                 Settings.export_class_filter: self._selected_class_filter(),
             })
         except Exception as e:
@@ -1258,7 +1259,7 @@ class DetectoristApp(QMainWindow):
             self.ui.status_bar.showMessage("Exporting images cancelled.", 5000)
             return
         self.ui.status_bar.showMessage("Finished exporting images.", 5000)
-        self._set_last_output_dir(run.output_dir)
+        self._set_last_output_dir(export.output_dir)
         if result.failed:
             show_warning_toast(
                 self,
@@ -1266,7 +1267,7 @@ class DetectoristApp(QMainWindow):
                 f"Finished exporting images, but {count_noun(len(result.failed), 'image')} failed. "
                 f"See {DETECTIONS_CSV_NAME} for details.",
                 link_text=f"Reveal in {file_manager_name()}",
-                on_link=lambda: reveal_in_file_manager(run.output_dir),
+                on_link=lambda: reveal_in_file_manager(export.output_dir),
                 duration=0,  # keep the toast up, as the user may not be watching a long run
             )
         else:
@@ -1275,54 +1276,54 @@ class DetectoristApp(QMainWindow):
                 "Detectorist",
                 "Finished exporting images.",
                 link_text=f"Reveal in {file_manager_name()}",
-                on_link=lambda: reveal_in_file_manager(run.output_dir),
+                on_link=lambda: reveal_in_file_manager(export.output_dir),
             )
 
-    def _on_batch_failed(self, message: str):
-        """Reports a Batch Run that could not go on, e.g. because the disk is full."""
-        if self._end_export_run() is not None:
+    def _on_export_failed(self, message: str):
+        """Reports an export that could not go on, e.g. because the disk is full."""
+        if self._end_export() is not None:
             self._report_export_failure(message)
 
-    def _end_export_run(self) -> _ExportRun | None:
-        """Closes the progress dialog and restores the batch actions. Returns the run, None if there was none."""
-        run, self._export_run = self._export_run, None
-        if run is not None:
-            run.progress_dialog.close()
-            run.progress_dialog.deleteLater()
-            self._set_batch_actions_enabled(True)
-        return run
+    def _end_export(self) -> _RunningExport | None:
+        """Closes the progress dialog and unlocks the actions. Returns the export, None if there was none."""
+        export, self._running_export = self._running_export, None
+        if export is not None:
+            export.progress_dialog.close()
+            export.progress_dialog.deleteLater()
+            self._lock_actions_during_export(False)
+        return export
 
     def _report_export_failure(self, message: str):
         self.ui.status_bar.showMessage(f"Export failed: {message}", 5000)
         show_error_toast(self, "Export failed", message, duration=0)
 
     @property
-    def _batch_running(self) -> bool:
-        return self._export_run is not None
+    def _exporting(self) -> bool:
+        return self._running_export is not None
 
-    def _set_batch_actions_enabled(self, enabled: bool) -> None:
+    def _lock_actions_during_export(self, locked: bool) -> None:
         """
-        Guards against starting a second batch run. The window stays
+        Guards against starting a second export. The window stays
         responsive while the Pipeline runs it, which leaves every action
         reachable through the app menu bar (unlike toolbar widgets, it isn't
         covered by the progress dialog's window modality) for the whole run.
-        Without this, clicking a batch action again mid-run starts a second
+        Without this, clicking Export again mid-run starts a second
         run writing to the same output directory.
 
-        Disabling forces every guarded action off. Re-enabling recomputes each
+        Locking forces every guarded action off. Unlocking recomputes each
         action's real state instead of forcing it on, since model/selection
-        state may have changed while the batch was running.
+        state may have changed while the export was running.
 
         The actions that load other images or change the settings are disabled
         too, so the settings JSON exported with the CSV matches what the run
         used and the window still shows the run's images. As loading images
         or a finished download recomputes the action states, those code paths
-        check _batch_running, so they cannot enable a batch action mid-run.
+        check _exporting, so they cannot enable a locked action mid-run.
         """
         for action in (self.ui.recent_folders_menu.menuAction(), self.ui.import_settings_action,
                        self.ui.reset_settings_action, self.ui.manage_models_action):
-            action.setEnabled(enabled)
-        if enabled:
+            action.setEnabled(not locked)
+        if not locked:
             self._on_model_availability_changed()
             self._update_selection_dependent_actions_state()
             self._update_clear_image_list_action_state()
@@ -1338,7 +1339,7 @@ class DetectoristApp(QMainWindow):
     def export_with_dialog(self) -> None:
         """
         Asks in the Export dialog which images to export and how, then starts
-        exporting them via a Batch Run with the current crop settings.
+        exporting them with the current crop settings.
         """
         all_images = self.model.imagePaths()
         crop_settings = self._get_current_crop_settings()
@@ -1367,7 +1368,7 @@ class DetectoristApp(QMainWindow):
         self.settings.export_crop_images = options.crop
         self.settings.export_prefix_class = options.prefix_class
         self.settings.export_prefix_taxa = options.prefix_taxa
-        self._run_batch_with_progress(options, dialog.output_dir(), dialog.images())
+        self._start_export(options, dialog.output_dir(), dialog.images())
 
     def _selected_image_files(self) -> list[str]:
         """Full paths of the selected images, in list order."""
@@ -1379,11 +1380,11 @@ class DetectoristApp(QMainWindow):
         has_selection = len(self.ui.image_list_view.selectionModel().selectedIndexes()) > 0
         self.ui.reveal_image_action.setEnabled(has_selection)
         self.ui.copy_filenames_to_clipboard_action.setEnabled(has_selection)
-        self.ui.remove_selected_images_from_list_action.setEnabled(has_selection and not self._batch_running)
+        self.ui.remove_selected_images_from_list_action.setEnabled(has_selection and not self._exporting)
 
     def _update_clear_image_list_action_state(self):
         """Enables/disables clear_image_list_action based on whether the model has images."""
-        self.ui.clear_image_list_action.setEnabled(self.model.rowCount() > 0 and not self._batch_running)
+        self.ui.clear_image_list_action.setEnabled(self.model.rowCount() > 0 and not self._exporting)
 
     def show_image_list_view_context_menu(self, position):
         index = self.ui.image_list_view.indexAt(position)

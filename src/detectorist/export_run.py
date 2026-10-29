@@ -1,10 +1,10 @@
-"""The Batch Run: one pass of a detector (and a classifier) over a set of images.
+"""The Export: one pass of a detector (and a classifier) over a set of images.
 
-Owns the per-image rules (filter, classify, act, log). A BatchRun decides
-which job a run needs next and the BatchWriter writes what it produces,
-while the Pipeline sends the jobs to its lanes, overlapping decoding with
-inference. The rows and the CSV files they go into are batch_output's.
-Qt-free: the per-image behaviour is a BatchAction adapter (Export).
+Owns the per-image rules (filter, classify, export, log). An ExportRun
+decides which job an export needs next and the ExportWriter writes what it
+produces, while the Pipeline sends the jobs to its lanes, overlapping
+decoding with inference. The rows and the CSV files they go into are
+export_files's. Qt-free.
 """
 
 import logging
@@ -13,9 +13,11 @@ from collections import deque
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import ExitStack, suppress
 from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from typing import Literal
 
-from .batch_output import (
+from .cache import ImageResults, LruCache
+from .classifier import detections_to_classify, identified_ranks
+from .export_files import (
     CLASSIFICATION_CSV_HEADER,
     CLASSIFICATION_CSV_NAME,
     DETECTIONS_CSV_HEADER,
@@ -24,8 +26,6 @@ from .batch_output import (
     DetectionsRow,
     csv_writer,
 )
-from .cache import ImageResults, LruCache
-from .classifier import detections_to_classify, identified_ranks
 from .export_planner import ExportOptions
 from .image_object import ImageObject
 from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, ModelId
@@ -62,36 +62,13 @@ def classification_rows(image: ImageObject, named: list[Detection], taxonomy_by_
     return rows
 
 
-class BatchAction(Protocol):
-    """
-    Per-image behaviour of a Batch Run (e.g. CropExportAction).
-    Actions write image files. The detections and classification CSV rows are
-    BatchWriter's job (see DetectionsRow.from_detections and classification_rows).
-
-    A structural interface: actions don't subclass this, they satisfy it by
-    providing matching prepare() and process() methods.
-    """
-
-    def prepare(self, output_dir: str) -> None:
-        """Create whatever directories the action needs inside output_dir."""
-        ...
-
-    def process(self, image: ImageObject, detections: list[Detection], taxonomy_by_box: Mapping[Box, Taxonomy]) -> bool:
-        """
-        Handle one image and its detections filtered by detection confidence.
-        taxonomy_by_box holds what the classifier named them, empty without
-        one. Returns whether the image was cropped.
-        """
-        ...
-
-
 @dataclass
-class BatchResult:
+class ExportResult:
     """
-    The outcome a Batch Run reports back, so callers can react without
+    The outcome an Export reports back, so callers can react without
     re-reading the output directory. DetectoristApp uses it to export the
     settings alongside the CSV, reveal output_dir, and show finished vs.
-    cancelled (a cancelled crop & export also keeps the images in the image
+    cancelled (a cancelled export also keeps the images in the image
     list). Tests assert on the rows instead of parsing the CSV files.
     """
 
@@ -102,44 +79,54 @@ class BatchResult:
     classification_rows: list[ClassificationRow] = field(default_factory=list)
 
 
-def batch_detections(detections: list[Detection], threshold: float, class_filter: str | None) -> list[Detection]:
-    """What a Batch Run keeps of an image's detections: those at or above threshold, of class_filter if given."""
-    return [d for d in detections if d.score >= threshold and class_filter in (None, d.class_name)]
+@dataclass(frozen=True)
+class DetectionFilter:
+    """Which of an image's detections an Export keeps: those at or above the threshold, of class_filter if given."""
+    detection_threshold: float
+    class_filter: str | None  # keep only this class, None keeps all
+
+    def keep(self, detections: list[Detection]) -> list[Detection]:
+        return [d for d in detections
+                if d.score >= self.detection_threshold and self.class_filter in (None, d.class_name)]
 
 
-class BatchWriter:
+class ExportWriter:
     """
-    Writes what a Batch Run produces for each image: the action's files and
-    the rows of both CSV files. Images are written in the order given.
+    Writes what an Export produces for each image: its crops, or a copy of
+    the whole image, as the options plan, and the rows of both CSV files.
+    Images are written in the order given. Images without detections are
+    copied too, so every input image is accounted for in the output.
 
     The CSV files only ever hold this run's rows. CSV files from an earlier
-    run are replaced, as are image files the action writes under a name
-    already taken. Without classification, an earlier run's classification
+    run are replaced, as are image files of the same name. Files an earlier
+    export named otherwise are left in place. Without classification, an earlier run's classification
     CSV is removed, as it would not belong to this run. Other files in the
     output directory are left alone. Rows are written as each image is, so
     a cancelled or failed run keeps the rows of the images it got through.
 
-    An image that failed to load gets a "load-error" row, one whose action
-    fails a "process-error" row, and both are listed in the result's
-    failed, so one corrupt file cannot end a batch of thousands. A box
+    An image that failed to load gets a "load-error" row, one that could not
+    be exported a "process-error" row, and both are listed in the result's
+    failed, so one corrupt file cannot end an export of thousands. A box
     missing from the names marks its classification row with
     "classify-error" (see classification_rows).
     """
 
-    def __init__(self, output_dir: str, action: BatchAction, with_classification: bool,
+    def __init__(self, output_dir: str, options: ExportOptions, exposure_correction: bool, with_classification: bool,
                  patterns: Sequence[str], taxon_confidence: float):
         """
         Args:
-            output_dir: Created if missing. Receives the action's output
+            output_dir: Created if missing. Receives the exported images
                 alongside the CSV files.
-            action: The per-image behaviour (e.g. CropExportAction).
+            options: How the images are cropped and named.
+            exposure_correction: Whether the exported images are exposure corrected.
             with_classification: Whether a classifier names the detections,
                 which writes the classification CSV.
             patterns: The detection classes the classifier names (see class_matches).
             taxon_confidence: Minimum score of a rank for its name to be written.
         """
         self._output_dir = output_dir
-        self._action = action
+        self._options = options
+        self._exposure_correction = exposure_correction
         self._with_classification = with_classification
         self._patterns = tuple(patterns)
         self._taxon_confidence = taxon_confidence
@@ -156,7 +143,6 @@ class BatchWriter:
         first image, so a locked one fails the run before anything is written.
         """
         os.makedirs(long_path(self._output_dir), exist_ok=True)
-        self._action.prepare(self._output_dir)
         self._detections_csv = self._csv_files.enter_context(
             csv_writer(os.path.join(self._output_dir, DETECTIONS_CSV_NAME), DETECTIONS_CSV_HEADER))
         if self._with_classification:
@@ -169,9 +155,9 @@ class BatchWriter:
     def write(self, image_path: str, image: ImageObject, detections: list[Detection],
               names: Mapping[Box, Taxonomy]) -> None:
         """
-        Hands one image to the action and writes its rows. detections are
-        those the run keeps (see batch_detections), names what the
-        classifier said about them, empty without one.
+        Exports one image and writes its rows. detections are those the run
+        keeps (see DetectionFilter), names what the classifier said about
+        them, empty without one.
         """
         file_name = os.path.basename(image_path)
         rows: list[ClassificationRow] = []
@@ -179,7 +165,7 @@ class BatchWriter:
             if self._with_classification:
                 named = detections_to_classify(detections, 0.0, self._patterns)
                 rows = classification_rows(image, named, names, self._taxon_confidence)
-            cropped = self._action.process(image, detections, names)
+            cropped = self._export_image(image, detections, names)
             detections_row = DetectionsRow.from_detections(file_name, detections, cropped)
         except Exception:
             logger.exception("%s: could not process image", file_name)
@@ -188,6 +174,20 @@ class BatchWriter:
             rows = []
             self._failed.append(file_name)
         self._add_rows(detections_row, rows)
+
+    def _export_image(self, image: ImageObject, detections: list[Detection],
+                      names: Mapping[Box, Taxonomy]) -> bool:
+        """Writes the files the options plan for the image. Returns whether a crop was produced."""
+        file_name = os.path.basename(image.image_path)
+        planned = self._options.plan(file_name, detections, image.height, image.width, names)
+        if planned[0].rect is None:
+            if self._options.crop and detections:
+                logger.warning("%s: no usable crop rectangle, copying the image", file_name)
+            image.copy_image(self._output_dir, planned[0].name)
+            return False
+        for file in planned:
+            image.save_cropped(file.rect, os.path.join(self._output_dir, file.name), self._exposure_correction)
+        return True
 
     def write_failure(self, image_path: str, kind: str = "load-error") -> None:
         """Writes the row of an image that could not be loaded, or with kind "process-error" not detected."""
@@ -202,23 +202,16 @@ class BatchWriter:
             self._classification_rows += rows
             self._classification_csv.writerows(rows)
 
-    def close(self, cancelled: bool) -> BatchResult:
+    def close(self, cancelled: bool) -> ExportResult:
         """Closes the CSV files and returns the rows written."""
         self._csv_files.close()
-        return BatchResult(output_dir=self._output_dir, cancelled=cancelled, detections_rows=self._detections_rows,
+        return ExportResult(output_dir=self._output_dir, cancelled=cancelled, detections_rows=self._detections_rows,
                            failed=self._failed, classification_rows=self._classification_rows)
 
 
-@dataclass(frozen=True)
-class BatchOptions:
-    """What a batch run keeps of each image's detections."""
-    detection_threshold: float
-    class_filter: str | None  # keep only this class, None keeps all
-
-
 @dataclass(eq=False)
-class _BatchImage:
-    """One image of a batch run on its way from the decode lane to the writer."""
+class _ExportImage:
+    """One image of an Export on its way from the decode lane to the writer."""
     index: int
     path: str  # kept apart from image, as an image that failed to load still gets its row
     image: ImageObject | None  # None if it failed to load
@@ -226,9 +219,9 @@ class _BatchImage:
     names: dict[Box, Taxonomy] = field(default_factory=dict)
 
 
-class BatchRun:
+class ExportRun:
     """
-    Decides which job a Batch Run needs next and hands its images to the
+    Decides which job an Export needs next and hands its images to the
     writer, in order. The Pipeline sends the jobs and reports back what came
     of them, one decode and one inference at a time. Images go through
     strictly in order: at most one decoded image waits while another is in
@@ -238,16 +231,16 @@ class BatchRun:
     image already detected is not detected again.
     """
 
-    def __init__(self, paths: list[str], options: BatchOptions, writer: BatchWriter):
+    def __init__(self, paths: list[str], detection_filter: DetectionFilter, writer: ExportWriter):
         self.paths = list(paths)
-        self.options = options
+        self.detection_filter = detection_filter
         self.writer = writer
         self.token = CancelToken()  # carried by every job of the run, cancelled when the run ends
         self.failure: str | None = None  # why the run cannot go on, raised once the images before are written
         self._next_decode = 0  # index of the next path to decode
-        self._ready: _BatchImage | None = None  # decoded, waiting for inference
-        self._current: _BatchImage | None = None  # in inference
-        self._events: deque[tuple[Literal["start", "write"], _BatchImage]] = deque()  # what write_pending reports, in order
+        self._ready: _ExportImage | None = None  # decoded, waiting for inference
+        self._current: _ExportImage | None = None  # in inference
+        self._events: deque[tuple[Literal["start", "write"], _ExportImage]] = deque()  # what write_pending reports, in order
         self._written = 0  # images handed to the writer
 
     def owns(self, job) -> bool:
@@ -266,7 +259,7 @@ class BatchRun:
     def on_decoded(self, image: ImageObject | None) -> None:
         """Takes the image the decode lane loaded last, None if it failed to load."""
         index = self._next_decode - 1
-        self._ready = _BatchImage(index, self.paths[index], image)
+        self._ready = _ExportImage(index, self.paths[index], image)
 
     def on_detect_failed(self) -> None:
         self._finish_current()
@@ -294,8 +287,7 @@ class BatchRun:
                 cached = results.peek(item.path)
                 if cached is None or cached.stamp != item.image.stamp:
                     return DetectJob(item.image, detector_id, self.token)
-                item.detections = batch_detections(cached.detections, self.options.detection_threshold,
-                                                   self.options.class_filter)
+                item.detections = self.detection_filter.keep(cached.detections)
                 if classify:
                     if classifier_id is None:
                         return None
@@ -330,37 +322,3 @@ class BatchRun:
         self._events.append(("write", self._current))
         self._current = None
 
-
-@dataclass
-class CropExportAction:
-    """
-    Exports each image flat into the output directory, as crops or as a copy
-    of the whole image, as the options plan. Images without detections are
-    copied too, so every input image is accounted for in the output.
-
-    A file of the same name from an earlier export is overwritten. Files
-    the earlier export named otherwise are left in place.
-    """
-
-    options: ExportOptions
-    exposure_correction: bool = False  # whether the exported images are exposure corrected
-    # Derived from the output directory once BatchWriter.open calls prepare().
-    # Unset until then, so a premature process() fails loudly with an
-    # AttributeError. This is by design.
-    output_dir: str = field(init=False)
-
-    def prepare(self, output_dir: str) -> None:
-        self.output_dir = output_dir
-
-    def process(self, image: ImageObject, detections: list[Detection], taxonomy_by_box: Mapping[Box, Taxonomy]) -> bool:
-        """Write the files the options plan for the image. Returns whether a crop was produced."""
-        file_name = os.path.basename(image.image_path)
-        planned = self.options.plan(file_name, detections, image.height, image.width, taxonomy_by_box)
-        if planned[0].rect is None:
-            if self.options.crop and detections:
-                logger.warning("%s: no usable crop rectangle, copying the image", file_name)
-            image.copy_image(self.output_dir, planned[0].name)
-            return False
-        for file in planned:
-            image.save_cropped(file.rect, os.path.join(self.output_dir, file.name), self.exposure_correction)
-        return True

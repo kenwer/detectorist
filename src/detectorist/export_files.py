@@ -1,4 +1,4 @@
-"""The files a Batch Run writes besides the action's images.
+"""The files an Export writes besides the images.
 
 The rows and columns of the detections and classification CSV files, and
 the names of the CSV and settings files. Knows nothing about detecting or
@@ -69,7 +69,7 @@ class ClassificationRow(NamedTuple):
 @contextmanager
 def csv_writer(path: str, header: list[str]) -> Iterator[Any]:
     """
-    A csv writer for one of a Batch Run's CSV files, with the header written.
+    A csv writer for one of an Export's CSV files, with the header written.
     The file is created anew, replacing one left by an earlier run. Opening it
     up front fails the run before any image is processed if another program
     holds the file locked, instead of after every image was.

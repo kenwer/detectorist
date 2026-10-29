@@ -1,6 +1,6 @@
 """Plans the files an export writes: the crop rectangles and the file names.
 
-Qt-free, so the crop bands, the batch export and the export dialog preview
+Qt-free, so the crop bands, the export and the export dialog preview
 share one rule, and the preview cannot drift from what the export writes.
 Ranks are counted 1 family, 2 genus, 3 species.
 """

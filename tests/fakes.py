@@ -12,7 +12,7 @@ class FakeDetector:
 
     detected lists the basenames detect() ran on, in call order. on_detect, if
     given, is called with the basename before the detections are returned, so
-    a test can act while a batch run is in flight.
+    a test can act while an export is in flight.
     """
 
     def __init__(self, detections_by_file=None, class_names=None, model_path="fake.onnx", on_detect=None,
@@ -38,7 +38,7 @@ class FakeDetectorFactory:
     Every detector it creates shares detections_by_file and, unless
     class_names_by_model names its file, class_names, so a test can fill it
     in after the window exists. created keeps the detectors in creation order:
-    the worker's first, then one per batch run. Setting error makes the next
+    the worker's first, then one per export. Setting error makes the next
     call raise it, which is how a model that fails to load is simulated.
     """
 
