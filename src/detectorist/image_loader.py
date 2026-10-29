@@ -7,7 +7,7 @@ import logging
 from PySide6.QtCore import QObject, Signal, Slot
 
 from .image_object import ImageObject
-from .jobs import DecodeJob, FileStamp, RedisplayJob
+from .jobs import DecodeJob, RedisplayJob
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class ImageLoader(QObject):
     exactly one of loaded, redisplayed, failed or cancelled. The Pipeline
     decides what to decode and when, this class keeps no state between jobs.
     """
-    loaded = Signal(object, object, object, object)  # DecodeJob, ImageObject, display array or None, FileStamp
+    loaded = Signal(object, object, object)  # DecodeJob, ImageObject, display array or None
     redisplayed = Signal(object, object)  # RedisplayJob, display array
     failed = Signal(object, str)  # job, message
     cancelled = Signal(object)  # job
@@ -38,8 +38,6 @@ class ImageLoader(QObject):
             self.failed.emit(job, f"Could not load image: {e}")
 
     def _decode(self, job: DecodeJob):
-        # Read before decoding, so a file changing meanwhile looks changed the next time
-        stamp = FileStamp.from_path(job.path)
         image = ImageObject.create(job.path)
         if not image:
             self.failed.emit(job, "Could not load image.")
@@ -49,6 +47,6 @@ class ImageLoader(QObject):
             return
         if job.for_batch:
             image.exposure_correction = job.exposure_correction
-            self.loaded.emit(job, image, None, stamp)
+            self.loaded.emit(job, image, None)
         else:
-            self.loaded.emit(job, image, image.display_rgb_8bit(job.exposure_correction), stamp)
+            self.loaded.emit(job, image, image.display_rgb_8bit(job.exposure_correction))

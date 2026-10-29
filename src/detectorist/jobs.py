@@ -3,7 +3,8 @@ The requests, jobs and identities the Pipeline passes between the GUI thread
 and its lanes. Qt-free so they can be unit-tested headless.
 
 Jobs compare by identity: the Pipeline matches a job a lane hands back
-against the one it sent, never against another job with equal fields.
+against the one it sent, never against another job with equal fields. A job
+that carries a decoded image takes its path from the image.
 """
 import os
 import threading
@@ -26,18 +27,6 @@ class CancelToken:
     @property
     def cancelled(self) -> bool:
         return self._event.is_set()
-
-
-@dataclass(frozen=True)
-class FileStamp:
-    """The version of a file a cached result was computed from."""
-    mtime_ns: int
-    size: int
-
-    @classmethod
-    def from_path(cls, path: str) -> FileStamp:
-        stat = os.stat(long_path(path))
-        return cls(stat.st_mtime_ns, stat.st_size)
 
 
 @dataclass(frozen=True)
@@ -78,25 +67,33 @@ class DecodeJob:
 @dataclass(eq=False)
 class RedisplayJob:
     """Rebuild the display array of a decoded image, e.g. after the exposure checkbox changed."""
-    path: str
     image: ImageObject
     exposure_correction: bool
     token: CancelToken
 
+    @property
+    def path(self) -> str:
+        return self.image.image_path
+
 
 @dataclass(eq=False)
 class DetectJob:
-    path: str
     image: ImageObject
-    stamp: FileStamp  # the version of the file image was decoded from
     model_id: ModelId
     token: CancelToken
+
+    @property
+    def path(self) -> str:
+        return self.image.image_path
 
 
 @dataclass(eq=False)
 class ClassifyJob:
-    path: str
     image: ImageObject
     boxes: list[Box]
     model_id: ModelId
     token: CancelToken
+
+    @property
+    def path(self) -> str:
+        return self.image.image_path

@@ -28,7 +28,7 @@ from .cache import ImageResults, LruCache
 from .classifier import detections_to_classify, identified_ranks
 from .export_planner import ExportOptions
 from .image_object import ImageObject
-from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, FileStamp, ModelId
+from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, ModelId
 from .structures import Box, Detection, Taxonomy, clamp_box
 from .utils import long_path
 
@@ -221,9 +221,8 @@ class BatchOptions:
 class _BatchImage:
     """One image of a batch run on its way from the decode lane to the writer."""
     index: int
-    path: str
+    path: str  # kept apart from image, as an image that failed to load still gets its row
     image: ImageObject | None  # None if it failed to load
-    stamp: FileStamp | None
     detections: list[Detection] | None = None  # the ones kept, None until detected or if detection failed
     names: dict[Box, Taxonomy] = field(default_factory=dict)
 
@@ -266,9 +265,10 @@ class BatchRun:
         return DecodeJob(self.paths[self._next_decode - 1], self.options.exposure_correction, self.token,
                          for_batch=True)
 
-    def on_decoded(self, job: DecodeJob, image: ImageObject | None, stamp: FileStamp | None) -> None:
-        """Takes the image the decode lane loaded for job, None if it failed to load."""
-        self._ready = _BatchImage(self._next_decode - 1, job.path, image, stamp)
+    def on_decoded(self, image: ImageObject | None) -> None:
+        """Takes the image the decode lane loaded last, None if it failed to load."""
+        index = self._next_decode - 1
+        self._ready = _BatchImage(index, self.paths[index], image)
 
     def on_detect_failed(self) -> None:
         self._finish_current()
@@ -294,8 +294,8 @@ class BatchRun:
             item = self._current
             if item.image is not None:
                 cached = results.peek(item.path)
-                if cached is None or cached.stamp != item.stamp:
-                    return DetectJob(item.path, item.image, item.stamp, detector_id, self.token)
+                if cached is None or cached.stamp != item.image.stamp:
+                    return DetectJob(item.image, detector_id, self.token)
                 item.detections = batch_detections(cached.detections, self.options.detection_threshold,
                                                    self.options.class_filter)
                 if classify:
@@ -304,7 +304,7 @@ class BatchRun:
                     kept = {d.box for d in item.detections}
                     boxes = [box for box in cached.unnamed_boxes(0.0, patterns) if box in kept]
                     if boxes:
-                        return ClassifyJob(item.path, item.image, boxes, classifier_id, self.token)
+                        return ClassifyJob(item.image, boxes, classifier_id, self.token)
                     item.names = {box: cached.names[box] for box in kept if box in cached.names}
             self._finish_current()
 

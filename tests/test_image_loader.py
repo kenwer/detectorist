@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, QThread, Signal
 
 from detectorist.image_loader import ImageLoader
 from detectorist.image_object import ImageObject
-from detectorist.jobs import CancelToken, DecodeJob, FileStamp, RedisplayJob
+from detectorist.jobs import CancelToken, DecodeJob, RedisplayJob
 from tests.fakes import make_images
 
 
@@ -36,11 +36,10 @@ def test_loader_decodes_and_builds_the_display(qtbot, loader, tmp_path):
     with qtbot.waitSignal(lane.loaded) as blocker:
         submit(job)
 
-    returned_job, image, display, stamp = blocker.args
+    returned_job, image, display = blocker.args
     assert returned_job is job
     assert (image.width, image.height) == (64, 48)
     np.testing.assert_array_equal(display, image.image_data_rgb_8bit)
-    assert stamp == FileStamp.from_path(path)
 
 
 def test_loader_reports_an_unreadable_file(qtbot, loader, tmp_path):
@@ -71,7 +70,7 @@ def test_loader_only_rebuilds_the_display_for_a_given_image(qtbot, loader, tmp_p
     lane, submit = loader
     (path,) = make_images(tmp_path, ["a.png"])
     image = ImageObject.create(path)
-    job = RedisplayJob(path, image, True, CancelToken())
+    job = RedisplayJob(image, True, CancelToken())
 
     with qtbot.waitSignal(lane.redisplayed) as blocker:
         submit(job)
@@ -88,6 +87,6 @@ def test_batch_image_carries_the_exposure_flag_for_export_and_has_no_display(qtb
     with qtbot.waitSignal(lane.loaded) as blocker:
         submit(DecodeJob(path, True, CancelToken(), for_batch=True))
 
-    _, image, display, _ = blocker.args
+    _, image, display = blocker.args
     assert image.exposure_correction
     assert display is None

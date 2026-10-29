@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from fractions import Fraction
 
 import cv2
@@ -101,6 +102,18 @@ def filter_out_appledouble_files(file_paths: list[str]) -> list[str]:
     return result
 
 
+@dataclass(frozen=True)
+class FileStamp:
+    """The version of a file a decoded image or a cached result comes from."""
+    mtime_ns: int
+    size: int
+
+    @classmethod
+    def from_path(cls, path: str) -> FileStamp:
+        stat = os.stat(utils.long_path(path))
+        return cls(stat.st_mtime_ns, stat.st_size)
+
+
 class ImageObject (ABC):
     """
     An abstract base class for image processing.
@@ -119,8 +132,11 @@ class ImageObject (ABC):
         Initializes the ImageObject with an image path.
         Image data loading is handled by subclasses.
         """
-        if not os.path.exists(utils.long_path(image_path)):
-            raise FileNotFoundError(f"Error: Image file not found at '{image_path}'")
+        try:
+            # Read before the subclass decodes, so a file changing meanwhile looks changed the next time
+            self._stamp = FileStamp.from_path(image_path)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Error: Image file not found at '{image_path}'") from None
 
         self._image_path = image_path
         self._image_data = None
@@ -437,6 +453,11 @@ class ImageObject (ABC):
     def image_path(self) -> str:
         """Returns the path to the loaded image."""
         return self._image_path
+
+    @property
+    def stamp(self) -> FileStamp:
+        """The version of the file the image was decoded from."""
+        return self._stamp
 
     @property
     def long_image_path(self) -> str:

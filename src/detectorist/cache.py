@@ -5,8 +5,8 @@ Qt-free so they can be unit-tested headless.
 Pixels are large and cheap to recreate, results are small and expensive, so
 each gets its own LruCache with its own budget. Both are keyed by path and
 never reference each other, so evicting from one cannot leave the other
-inconsistent. A FileStamp stored with each entry tells whether the file
-changed since.
+inconsistent. The FileStamp of each entry tells whether the file changed
+since.
 """
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -14,8 +14,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .classifier import detections_to_classify
-from .image_object import ImageObject
-from .jobs import FileStamp
+from .image_object import FileStamp, ImageObject
 from .structures import Box, Detection, Taxonomy
 
 GB = 10**9
@@ -122,7 +121,10 @@ class LoadedImage:
     image: ImageObject
     display: np.ndarray  # 8-bit RGB, ready for a QImage
     display_exposure: bool  # whether display is exposure corrected
-    stamp: FileStamp
+
+    @property
+    def stamp(self) -> FileStamp:
+        return self.image.stamp
 
     def nbytes(self) -> int:
         return self.image.image_data.nbytes + self.display.nbytes

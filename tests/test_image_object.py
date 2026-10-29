@@ -1,4 +1,4 @@
-"""Tests for list_supported_images and filter_out_appledouble_files.
+"""Tests for list_supported_images, filter_out_appledouble_files and FileStamp.
 
 macOS writes AppleDouble sidecar files (e.g. "._IMG_1234.HIF") next to real
 files when copying to filesystems without resource-fork support. These
@@ -8,10 +8,13 @@ them up as if they were real images.
 
 from detectorist.image_object import (
     APPLEDOUBLE_MAGIC,
+    FileStamp,
+    ImageObject,
     filter_out_appledouble_files,
     is_supported_image,
     list_supported_images,
 )
+from tests.fakes import make_images
 
 
 def test_sidecar_excluded_when_sibling_present(tmp_path):
@@ -85,3 +88,20 @@ def test_is_supported_image_matches_the_extension_in_any_case():
     assert is_supported_image("photo.JPG")
     assert is_supported_image("photo.png")
     assert not is_supported_image("notes.pdf")
+
+
+def test_file_stamp_changes_when_the_file_is_rewritten(tmp_path):
+    path = tmp_path / "a.png"
+    path.write_bytes(b"one")
+    before = FileStamp.from_path(str(path))
+
+    path.write_bytes(b"other content")
+
+    assert FileStamp.from_path(str(path)) != before
+    assert FileStamp.from_path(str(path)) == FileStamp.from_path(str(path))
+
+
+def test_image_carries_the_stamp_of_the_file_it_was_decoded_from(tmp_path):
+    (path,) = make_images(tmp_path, ["a.png"])
+
+    assert ImageObject.create(path).stamp == FileStamp.from_path(path)

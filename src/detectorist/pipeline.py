@@ -20,8 +20,9 @@ from .cache import ImageResults, LoadedImage, LruCache, image_cache_budget, resu
 from .classifier import Classifier, detections_to_classify
 from .detector import Detector
 from .image_loader import ImageLoader
+from .image_object import ImageObject
 from .inference_worker import InferenceWorker
-from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, FileStamp, ModelId, RedisplayJob, ShowRequest
+from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, ModelId, RedisplayJob, ShowRequest
 from .model_loader import ModelLoader
 from .utils import physical_memory_bytes
 
@@ -476,7 +477,7 @@ class Pipeline(QObject):
                     self._prefetched.add(path)
                 return DecodeJob(path, self._exposure(), CancelToken())
             if is_shown and loaded.display_exposure != self._exposure():
-                return RedisplayJob(path, loaded.image, self._exposure(), CancelToken())
+                return RedisplayJob(loaded.image, self._exposure(), CancelToken())
         return None
 
     def _next_inference(self) -> DetectJob | ClassifyJob | None:
@@ -491,12 +492,12 @@ class Pipeline(QObject):
             results = self._valid_results(path)
             if results is None:
                 if path not in self._detect_failed:
-                    return DetectJob(path, loaded.image, loaded.stamp, self._detector_id, CancelToken())
+                    return DetectJob(loaded.image, self._detector_id, CancelToken())
                 continue
             if self._classifier_id is not None:
                 boxes = results.unnamed_boxes(self._threshold(), self._patterns)
                 if boxes:
-                    return ClassifyJob(path, loaded.image, boxes, self._classifier_id, CancelToken())
+                    return ClassifyJob(loaded.image, boxes, self._classifier_id, CancelToken())
         return None
 
     def _valid_results(self, path: str) -> ImageResults | None:
@@ -563,15 +564,15 @@ class Pipeline(QObject):
             self._last_cached = cached
             self.cache_updated.emit(cached)
 
-    def _on_loaded(self, job: DecodeJob, image, display, stamp: FileStamp):
+    def _on_loaded(self, job: DecodeJob, image: ImageObject, display):
         self._decode_job = None
         if self._batch_owns(job):
-            self._batch.on_decoded(job, image, stamp)
+            self._batch.on_decoded(image)
         elif not job.token.cancelled and not job.for_batch:
             results = self._results.peek(job.path)
-            if results is not None and results.stamp != stamp:
+            if results is not None and results.stamp != image.stamp:
                 self._results.pop(job.path)  # the file changed since
-            loaded = LoadedImage(image, display, job.exposure_correction, stamp)
+            loaded = LoadedImage(image, display, job.exposure_correction)
             self._entry_bytes = loaded.nbytes()
             self._images.put(job.path, loaded)
         self._schedule()
@@ -587,7 +588,7 @@ class Pipeline(QObject):
     def _on_decode_failed(self, job: DecodeJob | RedisplayJob, message: str):
         self._decode_job = None
         if self._batch_owns(job):
-            self._batch.on_decoded(job, None, None)
+            self._batch.on_decoded(None)
         elif not job.token.cancelled:
             self._failed_paths.add(job.path)
             if self._request is not None and job.path == self._request.path:
@@ -600,10 +601,10 @@ class Pipeline(QObject):
 
     def _on_detected(self, job: DetectJob, detections: list, detection_time_ms: float):
         self._inference_job = None
-        # A job for a replaced model is stale. One for an older version of the file is stored with its stamp,
-        # which tells it apart from the current version.
+        # A job for a replaced model is stale. One for an older version of the file is stored with its image's
+        # stamp, which tells it apart from the current version.
         if not job.token.cancelled and job.model_id == self._detector_id:
-            self._results.put(job.path, ImageResults(job.stamp, detections, detection_time_ms))
+            self._results.put(job.path, ImageResults(job.image.stamp, detections, detection_time_ms))
         self._schedule()
 
     def _on_classified(self, job: ClassifyJob, names: dict, classification_time_ms: float):

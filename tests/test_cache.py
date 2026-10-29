@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from detectorist.cache import ImageResults, LruCache, image_cache_budget, results_cache_budget
-from detectorist.jobs import FileStamp
+from detectorist.image_object import FileStamp
 from detectorist.structures import Detection, PackedMask
 from tests.fakes import TAXONOMY
 
