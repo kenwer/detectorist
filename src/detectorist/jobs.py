@@ -6,13 +6,12 @@ Jobs compare by identity: the Pipeline matches a job a lane hands back
 against the one it sent, never against another job with equal fields. A job
 that carries a decoded image takes its path from the image.
 """
-import os
 import threading
 from dataclasses import dataclass
 
 from .image_object import ImageObject
 from .structures import Box
-from .utils import long_path
+from .utils import FileStamp
 
 
 class CancelToken:
@@ -27,20 +26,6 @@ class CancelToken:
     @property
     def cancelled(self) -> bool:
         return self._event.is_set()
-
-
-@dataclass(frozen=True)
-class ModelId:
-    """
-    Which model a job runs with. A re-downloaded model gets another mtime,
-    so results of the replaced file are recognized as stale too.
-    """
-    filename: str
-    mtime_ns: int
-
-    @classmethod
-    def from_path(cls, path: str) -> ModelId:
-        return cls(os.path.basename(path), os.stat(long_path(path)).st_mtime_ns)
 
 
 @dataclass(frozen=True)
@@ -73,7 +58,7 @@ class DisplayJob:
 @dataclass(eq=False)
 class DetectJob:
     image: ImageObject
-    model_id: ModelId
+    model_id: FileStamp
     token: CancelToken
 
     @property
@@ -85,7 +70,7 @@ class DetectJob:
 class ClassifyJob:
     image: ImageObject
     boxes: list[Box]
-    model_id: ModelId
+    model_id: FileStamp
     token: CancelToken
 
     @property

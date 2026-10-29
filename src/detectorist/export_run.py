@@ -28,9 +28,9 @@ from .export_files import (
 )
 from .export_planner import ExportOptions
 from .image_object import ImageObject
-from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, ModelId
+from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob
 from .structures import Box, Detection, Taxonomy, clamp_box
-from .utils import long_path
+from .utils import FileStamp, long_path
 
 logger = logging.getLogger(__name__)
 
@@ -264,8 +264,8 @@ class ExportRun:
     def on_detect_failed(self) -> None:
         self._finish_current()
 
-    def next_inference(self, results: LruCache[str, ImageResults], detector_id: ModelId,
-                       classify: bool, classifier_id: ModelId | None,
+    def next_inference(self, results: LruCache[str, ImageResults], detector_id: FileStamp,
+                       classify: bool, classifier_id: FileStamp | None,
                        patterns: Sequence[str]) -> DetectJob | ClassifyJob | None:
         """
         The next inference job, or None while waiting for a decode or the

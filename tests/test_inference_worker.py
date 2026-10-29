@@ -5,12 +5,13 @@ from PySide6.QtCore import QObject, QThread, Signal
 
 from detectorist.image_object import ImageObject
 from detectorist.inference_worker import InferenceWorker
-from detectorist.jobs import CancelToken, ClassifyJob, DetectJob, ModelId
+from detectorist.jobs import CancelToken, ClassifyJob, DetectJob
 from detectorist.structures import Detection
+from detectorist.utils import FileStamp
 from tests.fakes import TAXONOMY, FakeClassifier, FakeDetector, make_images
 
-DETECTOR_ID = ModelId("detector.onnx", 1)
-CLASSIFIER_ID = ModelId("classifier.onnx", 1)
+DETECTOR_ID = FileStamp("detector.onnx", 1, 0)
+CLASSIFIER_ID = FileStamp("classifier.onnx", 1, 0)
 FISH = Detection((1, 1, 10, 10), 0.9, "Fish")
 BOXES = [(i, 0, 5, 5) for i in range(11)]
 
@@ -59,7 +60,7 @@ def test_detect_job_for_another_model_is_cancelled(qtbot, worker, image):
     lane, sender = worker
     detector = FakeDetector({"a.png": [FISH]})
     sender.set_detector.emit(detector, DETECTOR_ID)
-    job = DetectJob(image, ModelId("old.onnx", 1), CancelToken())
+    job = DetectJob(image, FileStamp("old.onnx", 1, 0), CancelToken())
 
     with qtbot.waitSignal(lane.cancelled):
         sender.submit.emit(job)

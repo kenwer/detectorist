@@ -69,8 +69,8 @@ class Pipeline(QObject):
 
     _decode = Signal(object)  # DecodeJob or DisplayJob, to the ImageWorker
     _infer = Signal(object)  # DetectJob or ClassifyJob, to the InferenceWorker
-    _set_detector = Signal(object, object)  # detector, ModelId
-    _set_classifier = Signal(object, object)  # classifier, ModelId
+    _set_detector = Signal(object, object)  # detector, FileStamp of its model file
+    _set_classifier = Signal(object, object)  # classifier, FileStamp of its model file
 
     def __init__(self, detector_factory=Detector, classifier_factory=Classifier,
                  image_budget_bytes: int | None = None, results_budget_bytes: int | None = None,

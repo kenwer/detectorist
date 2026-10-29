@@ -8,11 +8,11 @@ import numpy as np
 import pytest
 
 from detectorist.cache import ImageResults, LruCache, image_cache_budget, results_cache_budget
-from detectorist.image_object import FileStamp
 from detectorist.structures import Detection, PackedMask
+from detectorist.utils import FileStamp
 from tests.fakes import TAXONOMY
 
-STAMP = FileStamp(1, 2)
+STAMP = FileStamp("a.png", 1, 2)
 
 
 def test_lru_evicts_least_recently_used_beyond_budget():

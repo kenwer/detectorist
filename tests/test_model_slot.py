@@ -3,8 +3,8 @@ import threading
 
 import pytest
 
-from detectorist.jobs import ModelId
 from detectorist.model_slot import ModelSlot
+from detectorist.utils import FileStamp
 
 
 @pytest.fixture
@@ -23,11 +23,11 @@ def test_reports_the_loaded_model(qtbot, model_paths):
 
     with qtbot.waitSignal(slot.loaded) as blocker:
         slot.load(path, ["Fish"])
-        assert slot.loading == ModelId.from_path(path)
+        assert slot.loading == FileStamp.from_path(path)
         assert slot.expected
 
     assert blocker.args == [("model", path, (["Fish"],)), path]
-    assert slot.model_id == ModelId.from_path(path)
+    assert slot.model_id == FileStamp.from_path(path)
     assert slot.loading is None
     assert slot.wants(path)
     slot.shutdown()

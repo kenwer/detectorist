@@ -14,8 +14,9 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .classifier import detections_to_classify
-from .image_object import FileStamp, ImageObject
+from .image_object import ImageObject
 from .structures import Box, Detection, Taxonomy
+from .utils import FileStamp
 
 GB = 10**9
 

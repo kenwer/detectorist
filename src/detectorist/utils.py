@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 
 from PySide6.QtCore import QFile, QIODeviceBase, QStandardPaths
 
@@ -79,6 +80,23 @@ def long_path(path: str) -> str:
     if abs_path.startswith("\\\\"):  # UNC path: \\server\share -> \\?\UNC\server\share
         return "\\\\?\\UNC\\" + abs_path[2:]
     return "\\\\?\\" + abs_path
+
+
+@dataclass(frozen=True)
+class FileStamp:
+    """
+    A file as of its last write. A decoded image and its cached results keep
+    the stamp of the image file, a job keeps the one of its model file, so
+    both are recognized as stale once the file is rewritten or replaced.
+    """
+    path: str
+    mtime_ns: int
+    size: int
+
+    @classmethod
+    def from_path(cls, path: str) -> FileStamp:
+        stat = os.stat(long_path(path))
+        return cls(path, stat.st_mtime_ns, stat.st_size)
 
 
 def resolve_short_path(path: str) -> str:

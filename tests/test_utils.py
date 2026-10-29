@@ -1,4 +1,4 @@
-"""Tests for the path and model-name helpers in utils.
+"""Tests for the path and model-name helpers and FileStamp in utils.
 
 The Windows long-path helpers only do work on Windows, so their real cases
 are skipped elsewhere and the pass-through is checked instead.
@@ -108,3 +108,23 @@ def test_long_path_handles_unc_and_already_prefixed_paths():
 
 def test_physical_memory_is_reported():
     assert utils.physical_memory_bytes() > 10**9
+
+
+def test_file_stamp_changes_when_the_file_is_rewritten(tmp_path):
+    path = tmp_path / "a.png"
+    path.write_bytes(b"one")
+    before = utils.FileStamp.from_path(str(path))
+
+    path.write_bytes(b"other content")
+
+    assert utils.FileStamp.from_path(str(path)) != before
+    assert utils.FileStamp.from_path(str(path)) == utils.FileStamp.from_path(str(path))
+
+
+def test_file_stamps_of_two_files_differ_even_with_equal_content_and_mtime(tmp_path):
+    a, b = tmp_path / "a.onnx", tmp_path / "b.onnx"
+    a.write_bytes(b"model")
+    b.write_bytes(b"model")
+    os.utime(b, ns=(a.stat().st_atime_ns, a.stat().st_mtime_ns))
+
+    assert utils.FileStamp.from_path(str(a)) != utils.FileStamp.from_path(str(b))
