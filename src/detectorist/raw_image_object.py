@@ -95,7 +95,7 @@ class RawImageObject(ImageObject):
         else:  # PNG
             image_utils.imwrite(output_path, bgr_image)
 
-    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str, exposure_correction: bool = False):
         """Saves a cropped version of the RAW image as a 16-bit PNG file."""
         output_path = os.path.splitext(output_path)[0] + '.png'
         logger.debug("Cropping RAW image file: %s", self.image_path)
@@ -103,6 +103,6 @@ class RawImageObject(ImageObject):
         x, y, w, h = rect
         cropped_np_array = self._image_data[y:y+h, x:x+w]
 
-        cropped_np_array = self._apply_exposure_correction(cropped_np_array)
+        cropped_np_array = self._apply_exposure_correction(cropped_np_array, enabled=exposure_correction)
 
         self._save_16bit_image(cropped_np_array, output_path)

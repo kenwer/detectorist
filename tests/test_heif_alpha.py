@@ -40,7 +40,7 @@ def test_alpha_heif_converts_for_display_and_detection(tmp_path, bit_depth):
     image = ImageObject.create(make_alpha_heif(tmp_path / "alpha.heic", bit_depth))
 
     # Display and the detector both need exactly three 8-bit channels
-    display = image.display_rgb_8bit(image.exposure_correction)
+    display = image.display_rgb_8bit(False)
     assert display.shape == (SIZE[1], SIZE[0], 3)
     assert display.dtype == np.uint8
     assert image.preprocess_for_onnx_detr(32, 32).shape == (1, 3, 32, 32)
@@ -50,10 +50,9 @@ def test_alpha_heif_converts_for_display_and_detection(tmp_path, bit_depth):
 @pytest.mark.parametrize("exposure_correction", [False, True])
 def test_crop_of_alpha_heif_keeps_the_alpha_channel(tmp_path, bit_depth, exposure_correction):
     image = ImageObject.create(make_alpha_heif(tmp_path / "alpha.heic", bit_depth))
-    image.exposure_correction = exposure_correction
     output = str(tmp_path / "alpha_crop.heic")
 
-    image.save_cropped((8, 8, 32, 24), output)
+    image.save_cropped((8, 8, 32, 24), output, exposure_correction)
 
     with Image.open(output) as saved:
         assert saved.size == (32, 24)

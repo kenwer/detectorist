@@ -41,8 +41,7 @@ def test_corrected_jpeg_crop_resets_exposure_bias(tmp_path):
     output = str(tmp_path / "biased_crop.jpg")
 
     image = ImageObject.create(source)
-    image.exposure_correction = True
-    image.save_cropped(CROP_RECT, output)
+    image.save_cropped(CROP_RECT, output, exposure_correction=True)
 
     assert exposure_bias_of(output) == (0, 1)
 
@@ -52,8 +51,7 @@ def test_corrected_jpeg_crop_updates_exif_dimensions(tmp_path):
     output = str(tmp_path / "biased_crop.jpg")
 
     image = ImageObject.create(source)
-    image.exposure_correction = True
-    image.save_cropped(CROP_RECT, output)
+    image.save_cropped(CROP_RECT, output, exposure_correction=True)
 
     exif = ImageObject.create(output).exif_data["Exif"]
     assert exif[piexif.ExifIFD.PixelXDimension] == 32
@@ -65,8 +63,7 @@ def test_corrected_jpeg_crop_brightens_underexposed_pixels(tmp_path):
     output = str(tmp_path / "biased_crop.jpg")
 
     image = ImageObject.create(source)
-    image.exposure_correction = True
-    image.save_cropped(CROP_RECT, output)
+    image.save_cropped(CROP_RECT, output, exposure_correction=True)
 
     # A stored bias of -1 EV means the correction applies +1 EV
     original_mean = image.image_data.mean()
@@ -77,11 +74,10 @@ def test_corrected_jpeg_crop_brightens_underexposed_pixels(tmp_path):
 def test_every_corrected_jpeg_crop_of_an_image_is_brightened(tmp_path):
     # One image yields several crops in the "all detected objects" crop mode
     image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
-    image.exposure_correction = True
     outputs = [str(tmp_path / f"biased_crop_{i}.jpg") for i in range(2)]
 
     for output in outputs:
-        image.save_cropped(CROP_RECT, output)
+        image.save_cropped(CROP_RECT, output, exposure_correction=True)
 
     first_mean, second_mean = (ImageObject.create(output).image_data.mean() for output in outputs)
     assert second_mean == first_mean
@@ -104,8 +100,7 @@ def test_corrected_heif_crop_resets_exposure_bias_and_dimensions(tmp_path):
     output = str(tmp_path / "biased_crop.heic")
 
     image = ImageObject.create(source)
-    image.exposure_correction = True
-    image.save_cropped(CROP_RECT, output)
+    image.save_cropped(CROP_RECT, output, exposure_correction=True)
 
     exif = ImageObject.create(output).exif_data["Exif"]
     assert exif[piexif.ExifIFD.ExposureBiasValue] == (0, 1)
@@ -132,12 +127,11 @@ def make_heif(path, exif=None):
 def test_heif_without_exif_supports_exposure_correction(tmp_path):
     image = ImageObject.create(make_heif(tmp_path / "plain.heic"))
     output = str(tmp_path / "plain_crop.heic")
-    image.exposure_correction = True
 
     # No stored bias means there is nothing to correct, not an error
     assert image.exif_data == {}
-    np.testing.assert_array_equal(image.display_rgb_8bit(image.exposure_correction), image.image_data_rgb_8bit)
-    image.save_cropped(CROP_RECT, output)
+    np.testing.assert_array_equal(image.display_rgb_8bit(True), image.image_data_rgb_8bit)
+    image.save_cropped(CROP_RECT, output, exposure_correction=True)
     assert ImageObject.create(output).width == 32
 
 
@@ -151,26 +145,24 @@ def test_heif_with_unreadable_exif_still_loads(tmp_path):
 
 def test_correction_policy_negates_the_stored_bias(tmp_path):
     image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
-    image.exposure_correction = True
 
     data = np.full((4, 4, 3), 100, dtype=np.uint8)
     expected = image_utils.adjust_exposure(data, 1.0, 2.2, 8)
-    np.testing.assert_array_equal(image._apply_exposure_correction(data, 8), expected)
+    np.testing.assert_array_equal(image._apply_exposure_correction(data, 8, enabled=True), expected)
 
 
 def test_correction_policy_is_a_no_op_when_disabled(tmp_path):
     image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
 
     data = np.full((4, 4, 3), 100, dtype=np.uint8)
-    np.testing.assert_array_equal(image._apply_exposure_correction(data, 8), data)
+    np.testing.assert_array_equal(image._apply_exposure_correction(data, 8, enabled=False), data)
 
 
 def test_display_data_applies_correction_when_enabled(tmp_path):
     image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
-    image.exposure_correction = True
 
     expected = image_utils.adjust_exposure(image.image_data_rgb_8bit, 1.0, 2.2, 8)
-    np.testing.assert_array_equal(image.display_rgb_8bit(image.exposure_correction), expected)
+    np.testing.assert_array_equal(image.display_rgb_8bit(True), expected)
 
 
 def make_transparent_palette_image(path):
@@ -199,11 +191,10 @@ def test_corrected_palette_crop_keeps_its_transparent_pixels(tmp_path, monkeypat
     source = make_transparent_palette_image(tmp_path / f"palette.{extension}")
     output = str(tmp_path / f"palette_crop.{extension}")
     image = ImageObject.create(source)
-    image.exposure_correction = True
     # PNG and GIF files carry no EXIF the app reads, so the stored bias is set directly
     monkeypatch.setattr(image, "get_exposure_compensation", lambda: compensation)
 
-    image.save_cropped((0, 0, 40, 40), output)
+    image.save_cropped((0, 0, 40, 40), output, exposure_correction=True)
 
     original, corrected = rgba_of(source), rgba_of(output)
     np.testing.assert_array_equal(corrected[..., 3], original[..., 3])
@@ -215,18 +206,13 @@ def test_corrected_palette_crop_keeps_its_transparent_pixels(tmp_path, monkeypat
 def test_display_data_is_unchanged_when_disabled(tmp_path):
     image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
 
-    np.testing.assert_array_equal(image.display_rgb_8bit(image.exposure_correction), image.image_data_rgb_8bit)
+    np.testing.assert_array_equal(image.display_rgb_8bit(False), image.image_data_rgb_8bit)
 
 
-def test_model_input_is_exposure_corrected_whatever_the_flag(tmp_path):
+def test_model_input_is_always_exposure_corrected(tmp_path):
     image = ImageObject.create(make_image(tmp_path / "biased.jpg"))
     corrected = image_utils.adjust_exposure(image.image_data_rgb_8bit, 1.0, 2.2, 8)
 
-    flag_off = image.preprocess_for_onnx_detr(32, 32)
-    image.exposure_correction = True
-    flag_on = image.preprocess_for_onnx_detr(32, 32)
-
-    np.testing.assert_array_equal(flag_off, flag_on)
     np.testing.assert_array_equal(image.image_data_rgb_8bit_exposure_corrected, corrected)
     assert not np.array_equal(corrected, image.image_data_rgb_8bit)
 

@@ -47,7 +47,7 @@ def run_batch(qtbot, tmp_path_factory):
     for name in ("detector.onnx", "classifier.onnx"):
         (models_dir / name).write_bytes(b"model")
 
-    def run(image_paths, detector, detection_confidence, exposure_correction, output_dir, action, progress,
+    def run(image_paths, detector, detection_confidence, output_dir, action, progress,
             class_filter=None, classifier=None, taxon_confidence=0.0):
         writer = BatchWriter(output_dir, action, classifier is not None,
                              classifier.patterns if classifier is not None else (), taxon_confidence)
@@ -66,7 +66,7 @@ def run_batch(qtbot, tmp_path_factory):
                     pipeline.cancel_batch_run()
 
             pipeline.batch_progress.connect(on_progress)
-            pipeline.start_batch_run(image_paths, BatchOptions(detection_confidence, class_filter, exposure_correction),
+            pipeline.start_batch_run(image_paths, BatchOptions(detection_confidence, class_filter),
                                      writer)
             qtbot.waitUntil(lambda: bool(outcome))
         finally:
@@ -86,7 +86,7 @@ def test_crop_export_run(tmp_path, run_batch):
     detector = FakeDetector({"with_fish.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]})
     output_dir = str(tmp_path / "out")
 
-    result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
+    result = run_batch(paths, detector, detection_confidence=0.5,
                        output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue)
 
@@ -108,7 +108,7 @@ def test_source_image_aspect_is_resolved_per_image(tmp_path, run_batch):
     output_dir = str(tmp_path / "out")
     settings = CropSettings(mode=CropMode.MOST_CONFIDENT_DETECTION, padding=0.0, aspect="source_image")
 
-    run_batch(landscape + portrait, detector, detection_confidence=0.5, exposure_correction=False,
+    run_batch(landscape + portrait, detector, detection_confidence=0.5,
               output_dir=output_dir, action=CropExportAction(ExportOptions(settings)),
               progress=always_continue)
 
@@ -123,7 +123,7 @@ def test_detections_below_confidence_are_dropped(tmp_path, run_batch):
     detector = FakeDetector({"faint.png": [Detection((10, 10, 20, 20), 0.4, "Fish")]})
     output_dir = str(tmp_path / "out")
 
-    result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
+    result = run_batch(paths, detector, detection_confidence=0.5,
                        output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue)
 
@@ -138,7 +138,7 @@ def test_class_filter_drops_detections_of_other_classes(tmp_path, run_batch):
     detector = FakeDetector({"both.png": [fish, crab], "fish_only.png": [fish]})
     output_dir = str(tmp_path / "out")
 
-    result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
+    result = run_batch(paths, detector, detection_confidence=0.5,
                        output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue, class_filter="Crab")
 
@@ -169,7 +169,7 @@ def test_load_failure_skips_image_and_continues(tmp_path, run_batch):
     detector = FakeDetector({"good_a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]})
     output_dir = str(tmp_path / "out")
 
-    result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
+    result = run_batch(paths, detector, detection_confidence=0.5,
                        output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue)
 
@@ -194,7 +194,7 @@ def test_processing_failure_skips_image_and_continues(tmp_path, run_batch):
     detector = FakeDetector({"good_a.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]}, on_detect=fail_on_bad)
     output_dir = str(tmp_path / "out")
 
-    result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
+    result = run_batch(paths, detector, detection_confidence=0.5,
                        output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue)
 
@@ -214,7 +214,7 @@ def test_detection_without_area_is_exported_uncropped(tmp_path, run_batch):
     detector = FakeDetector({"flat.png": [Detection((10, 10, 20, 0), 0.9, "Fish")]})
     output_dir = str(tmp_path / "out")
 
-    result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
+    result = run_batch(paths, detector, detection_confidence=0.5,
                        output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=always_continue)
 
@@ -234,7 +234,7 @@ def test_progress_can_cancel_the_run(tmp_path, run_batch):
         seen.append((index, total, filename))
         return index < 1
 
-    result = run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
+    result = run_batch(paths, detector, detection_confidence=0.5,
                        output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                        progress=cancel_after_first)
 
@@ -250,12 +250,12 @@ def test_second_run_replaces_the_csv_of_the_first(tmp_path, run_batch):
 
     paths = make_images(tmp_path, ["a.png", "b.png"])
     detector = FakeDetector({"a.png": [Detection((10, 10, 20, 20), 0.6, "Fish")]})
-    run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
+    run_batch(paths, detector, detection_confidence=0.5,
               output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
               progress=always_continue)
 
     detector2 = FakeDetector({"a.png": [Detection((10, 10, 20, 20), 0.95, "Fish")]})
-    run_batch([paths[0]], detector2, detection_confidence=0.5, exposure_correction=False,
+    run_batch([paths[0]], detector2, detection_confidence=0.5,
               output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
               progress=always_continue)
 
@@ -269,7 +269,7 @@ def test_csv_is_utf8_with_bom_and_keeps_non_latin_filenames(tmp_path, run_batch)
     paths = make_images(tmp_path, ["рыба.png", "魚.png"])
     output_dir = str(tmp_path / "out")
 
-    run_batch(paths, FakeDetector(), detection_confidence=0.5, exposure_correction=False,
+    run_batch(paths, FakeDetector(), detection_confidence=0.5,
               output_dir=output_dir, action=CropExportAction(ExportOptions(CROP_SETTINGS)),
               progress=always_continue)
 
@@ -288,7 +288,7 @@ def test_unwritable_csv_fails_before_any_image_is_processed(tmp_path, run_batch)
     detector = FakeDetector()
 
     with pytest.raises(OSError, match=f"Cannot write {DETECTIONS_CSV_NAME}"):
-        run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
+        run_batch(paths, detector, detection_confidence=0.5,
                   output_dir=str(output_dir), action=CropExportAction(ExportOptions(CROP_SETTINGS)),
                   progress=always_continue)
 
@@ -307,7 +307,7 @@ def run_classified_sort(run_batch, tmp_path, detections_by_file, classifier, tax
     action = CropExportAction(ExportOptions(replace(CROP_SETTINGS, taxon_confidence=taxon_confidence), crop=False,
                                             prefix_class=False, prefix_taxa=True,
                                             classifier_patterns=classifier.patterns if classifier else None))
-    return run_batch(paths, FakeDetector(detections_by_file), detection_confidence=0.5, exposure_correction=False,
+    return run_batch(paths, FakeDetector(detections_by_file), detection_confidence=0.5,
                      output_dir=str(tmp_path / "out"), action=action,
                      progress=always_continue, classifier=classifier, taxon_confidence=taxon_confidence)
 
@@ -438,7 +438,7 @@ def test_best_classification_crop_follows_the_classifier(tmp_path, run_batch):
     paths = make_images(tmp_path, ["a.png"])
     settings = CropSettings(mode=CropMode.BEST_CLASSIFICATION, padding=0.0, aspect="detection_frame", taxon_confidence=0.5)
 
-    run_batch(paths, FakeDetector({"a.png": [genus_only, species]}), detection_confidence=0.5, exposure_correction=False,
+    run_batch(paths, FakeDetector({"a.png": [genus_only, species]}), detection_confidence=0.5,
               output_dir=str(tmp_path / "out"),
               action=CropExportAction(ExportOptions(settings)), progress=always_continue, classifier=classifier, taxon_confidence=0.5)
 
@@ -451,7 +451,7 @@ def test_best_classification_crop_falls_back_to_the_detection_when_the_classifie
     detections = [Detection((5, 5, 10, 10), 0.9, "Fish"), Detection((30, 10, 20, 16), 0.7, "Fish")]
     settings = CropSettings(mode=CropMode.BEST_CLASSIFICATION, padding=0.0, aspect="detection_frame", taxon_confidence=0.5)
 
-    run_batch(paths, FakeDetector({"a.png": detections}), detection_confidence=0.5, exposure_correction=False,
+    run_batch(paths, FakeDetector({"a.png": detections}), detection_confidence=0.5,
               output_dir=str(tmp_path / "out"),
               action=CropExportAction(ExportOptions(settings)), progress=always_continue,
               classifier=FakeClassifier(error=RuntimeError("out of memory")), taxon_confidence=0.5)
@@ -461,7 +461,7 @@ def test_best_classification_crop_falls_back_to_the_detection_when_the_classifie
 
 
 def test_an_image_that_fails_to_load_has_no_classification_rows(tmp_path, run_batch):
-    run_batch([str(tmp_path / "missing.png")], FakeDetector(), detection_confidence=0.5, exposure_correction=False,
+    run_batch([str(tmp_path / "missing.png")], FakeDetector(), detection_confidence=0.5,
               output_dir=str(tmp_path / "out"), action=CropExportAction(ExportOptions(CROP_SETTINGS)),
               progress=always_continue, classifier=FakeClassifier())
 
@@ -484,7 +484,7 @@ def export(run_batch, tmp_path, paths, detector, classifier, crop=True, crop_set
     prefix_class, prefix_taxa = prefix
     action = CropExportAction(ExportOptions(crop_settings, crop=crop, prefix_class=prefix_class, prefix_taxa=prefix_taxa,
                                             classifier_patterns=classifier.patterns if classifier else None))
-    return run_batch(paths, detector, detection_confidence=0.5, exposure_correction=False,
+    return run_batch(paths, detector, detection_confidence=0.5,
                      output_dir=str(tmp_path / "out"), action=action,
                      progress=always_continue, classifier=classifier, taxon_confidence=crop_settings.taxon_confidence)
 
@@ -609,3 +609,16 @@ def test_writer_close_cancelled_keeps_rows_written(tmp_path):
         ["a.png", "0", "N/A", "0", "no"],
         ["gone.png", "0", "load-error", "0", "n/a"],
     ]
+
+
+@pytest.mark.parametrize("exposure_correction", [False, True])
+def test_crop_export_action_saves_crops_with_its_exposure_choice(tmp_path, monkeypatch, exposure_correction):
+    (path,) = make_images(tmp_path, ["a.png"])
+    image = ImageObject.create(path)
+    saved = []
+    monkeypatch.setattr(image, "save_cropped", lambda rect, output_path, correct: saved.append(correct))
+    action = CropExportAction(ExportOptions(CROP_SETTINGS), exposure_correction)
+    action.prepare(str(tmp_path))
+
+    assert action.process(image, [Detection((10, 10, 20, 20), 0.9, "Fish")], {})
+    assert saved == [exposure_correction]

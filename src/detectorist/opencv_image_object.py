@@ -87,7 +87,7 @@ class OpencvImageObject(ImageObject):
             else:
                 raise ValueError(f"Unsupported Pillow image mode in StandardImageObject: {pil_image.mode}")
 
-    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str, exposure_correction: bool = False):
         """Saves a cropped version of the image, preserving original format and EXIF data."""
         logger.debug("Cropping image file: %s", self.image_path)
 
@@ -95,7 +95,7 @@ class OpencvImageObject(ImageObject):
 
         cropped_data = self.image_data[y:y+h, x:x+w]
 
-        cropped_data = self._apply_exposure_correction(cropped_data)
+        cropped_data = self._apply_exposure_correction(cropped_data, enabled=exposure_correction)
 
         # The data is already in BGR/BGRA format, which cv2 expects.
         image_utils.imwrite(output_path, cropped_data)
@@ -107,7 +107,8 @@ class OpencvImageObject(ImageObject):
                 # Copy, as later crops of this image still need the original exposure bias
                 exif_dict = copy.deepcopy(self._exif_dict)
                 self._update_exif_dimensions(exif_dict, w, h)
-                self._neutralize_exposure_bias(exif_dict)
+                if exposure_correction:
+                    self._neutralize_exposure_bias(exif_dict)
                 if piexif.ImageIFD.Orientation in exif_dict.get('0th', {}):
                     # The pixels were turned upright on load. Keeping the tag would make viewers rotate the crop a second time
                     exif_dict['0th'][piexif.ImageIFD.Orientation] = 1

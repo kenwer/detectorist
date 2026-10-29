@@ -90,7 +90,7 @@ class PillowImageObject(ImageObject):
             return cv2.cvtColor(rgb_data, cv2.COLOR_RGB2BGR)
         return rgb_data
 
-    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str, exposure_correction: bool = False):
         """Saves a cropped version of the image, preserving original format."""
         logger.debug("Cropping image file with Pillow: %s", self.image_path)
 
@@ -100,7 +100,7 @@ class PillowImageObject(ImageObject):
 
         # Exposure correction operates on numpy RGB(A) data, so convert,
         # adjust via the shared base class policy, and convert back
-        if self._exposure_correction:
+        if exposure_correction:
             original_mode = pil_cropped_image.mode
 
             if original_mode == 'P':
@@ -108,10 +108,10 @@ class PillowImageObject(ImageObject):
                 # the palette. Quantizing the pixels again would reorder the palette and move
                 # the transparent color to another index.
                 palette = np.array(pil_cropped_image.getpalette(), dtype=np.uint8).reshape(-1, 1, 3)
-                pil_cropped_image.putpalette(self._apply_exposure_correction(palette, 8).flatten().tolist())
+                pil_cropped_image.putpalette(self._apply_exposure_correction(palette, 8, enabled=True).flatten().tolist())
             else:  # 'LA' or 'CMYK'
                 adjust_mode = 'RGBA' if original_mode == 'LA' else 'RGB'
-                adjusted_np = self._apply_exposure_correction(np.array(pil_cropped_image.convert(adjust_mode)), 8)
+                adjusted_np = self._apply_exposure_correction(np.array(pil_cropped_image.convert(adjust_mode)), 8, enabled=True)
                 pil_cropped_image = PILImage.fromarray(adjusted_np).convert(original_mode)
 
         # Preserve format (e.g., GIF) and transparency
@@ -128,7 +128,8 @@ class PillowImageObject(ImageObject):
             try:
                 exif_dict = piexif.load(self._exif)
                 self._update_exif_dimensions(exif_dict, w, h)
-                self._neutralize_exposure_bias(exif_dict)
+                if exposure_correction:
+                    self._neutralize_exposure_bias(exif_dict)
                 save_kwargs['exif'] = piexif.dump(exif_dict)
             except Exception as e:
                 logger.warning("Could not update EXIF data: %s", e)

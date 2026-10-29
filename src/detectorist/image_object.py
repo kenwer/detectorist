@@ -145,8 +145,6 @@ class ImageObject (ABC):
         self._file_extension = os.path.splitext(self.image_path)[1].lower()
         self._exif_dict = None
 
-        self._exposure_correction = False
-
     @staticmethod
     def _parse_fraction(value, round_to=2):
         """
@@ -503,20 +501,6 @@ class ImageObject (ABC):
             return self._image_data.shape[1]
         return 0
 
-    @property
-    def exposure_correction(self) -> bool:
-        """Returns whether exposure correction based on EXIF data is enabled."""
-        return self._exposure_correction
-
-    @exposure_correction.setter
-    def exposure_correction(self, value: bool):
-        """Sets whether exposure correction based on EXIF data is enabled.
-        This controls if exposure correction is applied when saving cropped
-        images. The models always get the corrected data, and the display
-        passes its own choice to display_rgb_8bit."""
-        logger.debug("Setting exposure_correction to %s for image: %s", value, self.image_path)
-        self._exposure_correction = value
-
     def _convert_8bit(self, target: ImageMode) -> np.ndarray:
         """
         Returns the image as a new 8-bit array in the target channel order.
@@ -557,9 +541,9 @@ class ImageObject (ABC):
     def image_data_rgb_8bit_exposure_corrected(self) -> np.ndarray:
         """
         Returns image_data in 8-bit RGB format with the EXIF exposure
-        correction always applied, whatever exposure_correction says. This is
-        what the models get, as they are trained on exposure corrected
-        images, so detections never depend on the user's checkbox.
+        correction always applied. This is what the models get, as they are
+        trained on exposure corrected images, so detections never depend on
+        the user's checkbox.
         """
         return self._apply_exposure_correction(self.image_data_rgb_8bit, 8, enabled=True)
 
@@ -596,16 +580,16 @@ class ImageObject (ABC):
                     pass # Fall through to return 0.0
             return 0.0 # Default return if conversion fails
 
-    def _apply_exposure_correction(self, data: np.ndarray, bits_per_channel: int | None = None,
-                                   enabled: bool | None = None) -> np.ndarray:
+    def _apply_exposure_correction(self, data: np.ndarray, bits_per_channel: int | None = None, *,
+                                   enabled: bool) -> np.ndarray:
         """
         Apply the EXIF-based exposure correction to pixel data if enabled,
         otherwise return the data unchanged. Owns the correction policy shared
         by all subclasses: the negated ExposureBiasValue is applied as EV
         stops with gamma 2.2 at the given bit depth (defaults to the image's
-        original bit depth). enabled defaults to the exposure_correction flag.
+        original bit depth).
         """
-        if not (self._exposure_correction if enabled is None else enabled):
+        if not enabled:
             return data
         ev_comp = -self.get_exposure_compensation()
         logger.debug("Applying exposure correction of %s EV based on EXIF data", ev_comp)
@@ -628,10 +612,8 @@ class ImageObject (ABC):
         Zero out ExposureBiasValue in the EXIF dict after exposure correction
         was baked into the pixels. Without this a corrected crop would still
         claim the original bias and correcting it again would double the
-        adjustment. Does nothing when exposure correction is disabled.
+        adjustment.
         """
-        if not self._exposure_correction:
-            return
         if 'Exif' not in exif_dict:
             exif_dict['Exif'] = {}
         # ExposureBiasValue is SRATIONAL, a (numerator, denominator) tuple
@@ -711,7 +693,7 @@ class ImageObject (ABC):
         shutil.copy2(self.long_image_path, utils.long_path(output_path))
 
     @abstractmethod
-    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str, exposure_correction: bool = False):
         """
         Saves a cropped version of the image to the specified output directory.
         The cropped image retains the original file format and file extension except
@@ -720,6 +702,8 @@ class ImageObject (ABC):
         Args:
             rect (tuple): A tuple of (x, y, width, height) for the crop.
             output_path (str): The full path to save the cropped image file.
+            exposure_correction (bool): Whether to bake the EXIF exposure
+                correction into the pixels (see _apply_exposure_correction).
         """
         pass
 

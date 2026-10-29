@@ -211,10 +211,9 @@ class BatchWriter:
 
 @dataclass(frozen=True)
 class BatchOptions:
-    """What a batch run keeps of each image's detections, and how its exports look."""
+    """What a batch run keeps of each image's detections."""
     detection_threshold: float
     class_filter: str | None  # keep only this class, None keeps all
-    exposure_correction: bool  # whether the exported images are exposure corrected
 
 
 @dataclass(eq=False)
@@ -262,8 +261,8 @@ class BatchRun:
         if self._ready is not None or self._next_decode >= len(self.paths):
             return None
         self._next_decode += 1
-        return DecodeJob(self.paths[self._next_decode - 1], self.options.exposure_correction, self.token,
-                         for_batch=True)
+        # The display is not built for a batch image, so its exposure does not matter
+        return DecodeJob(self.paths[self._next_decode - 1], False, self.token, for_batch=True)
 
     def on_decoded(self, image: ImageObject | None) -> None:
         """Takes the image the decode lane loaded last, None if it failed to load."""
@@ -345,6 +344,7 @@ class CropExportAction:
     """
 
     options: ExportOptions
+    exposure_correction: bool = False  # whether the exported images are exposure corrected
     # Derived from the output directory once BatchWriter.open calls prepare().
     # Unset until then, so a premature process() fails loudly with an
     # AttributeError. This is by design.
@@ -363,5 +363,5 @@ class CropExportAction:
             image.copy_image(self.output_dir, planned[0].name)
             return False
         for file in planned:
-            image.save_cropped(file.rect, os.path.join(self.output_dir, file.name))
+            image.save_cropped(file.rect, os.path.join(self.output_dir, file.name), self.exposure_correction)
         return True

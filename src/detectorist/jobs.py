@@ -56,7 +56,7 @@ class DecodeJob:
     """
     Decode an image and build its display array, exposure corrected as
     exposure_correction says. A batch job builds none, as its image is never
-    shown, and sets the image's exposure flag for the export instead.
+    shown.
     """
     path: str
     exposure_correction: bool

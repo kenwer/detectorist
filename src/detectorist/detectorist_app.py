@@ -1203,7 +1203,8 @@ class DetectoristApp(QMainWindow):
         reports the outcome.
         """
         classifier_filename = self.ui.classifier_combo_box.currentData()
-        writer = BatchWriter(output_dir, CropExportAction(options), with_classification=bool(classifier_filename),
+        action = CropExportAction(options, self.ui.cb_comp_cam_exposure.isChecked())
+        writer = BatchWriter(output_dir, action, with_classification=bool(classifier_filename),
                              patterns=self._model_downloader.classifies(classifier_filename)
                              if classifier_filename else [],
                              taxon_confidence=self.ui.taxon_confidence_slider.value() / 100.0)
@@ -1228,8 +1229,7 @@ class DetectoristApp(QMainWindow):
 
         self._export_run = _ExportRun(progress_dialog, output_dir, classifier_filename)
         self._set_batch_actions_enabled(False)
-        batch_options = BatchOptions(self.ui.detection_confidence_slider.value() / 100.0, self._selected_class_filter(),
-                                     self.ui.cb_comp_cam_exposure.isChecked())
+        batch_options = BatchOptions(self.ui.detection_confidence_slider.value() / 100.0, self._selected_class_filter())
         self.pipeline.start_batch_run(image_paths, batch_options, writer)
 
     def _on_batch_progress(self, index: int, total: int, file_name: str):

@@ -583,7 +583,7 @@ def start_batch(env, paths, output_dir, threshold=0.5, class_filter=None, with_c
     finished, progress = [], []
     env.pipeline.batch_finished.connect(finished.append)
     env.pipeline.batch_progress.connect(lambda index, total, name: progress.append((index, total, name)))
-    env.pipeline.start_batch_run(paths, BatchOptions(threshold, class_filter, False), writer)
+    env.pipeline.start_batch_run(paths, BatchOptions(threshold, class_filter), writer)
     return finished, progress
 
 

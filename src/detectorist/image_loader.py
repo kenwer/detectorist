@@ -46,7 +46,6 @@ class ImageLoader(QObject):
             self.cancelled.emit(job)
             return
         if job.for_batch:
-            image.exposure_correction = job.exposure_correction
             self.loaded.emit(job, image, None)
         else:
             self.loaded.emit(job, image, image.display_rgb_8bit(job.exposure_correction))

@@ -276,7 +276,8 @@ class HeifImageObject(ImageObject):
         line = f"Orientation\t: {self._get_human_readable_exif_orientation(container_orientation)}"
         return f"{summary}\n{line}" if summary else line
 
-    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str, quality=80):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str, exposure_correction: bool = False,
+                     quality=80):
         """
         Saves a cropped version of the HEIF image, preserving its original
         bit depth, metadata, and HEIF format.
@@ -328,7 +329,7 @@ class HeifImageObject(ImageObject):
 
         size = (unrotated_np.shape[1], unrotated_np.shape[0])
 
-        unrotated_np = self._apply_exposure_correction(unrotated_np, bit_depth)
+        unrotated_np = self._apply_exposure_correction(unrotated_np, bit_depth, enabled=exposure_correction)
 
         data = unrotated_np.tobytes()
 
@@ -349,7 +350,8 @@ class HeifImageObject(ImageObject):
             try:
                 exif_dict = piexif.load(exif)
                 self._update_exif_dimensions(exif_dict, size[0], size[1])
-                self._neutralize_exposure_bias(exif_dict)
+                if exposure_correction:
+                    self._neutralize_exposure_bias(exif_dict)
                 updated_exif = piexif.dump(exif_dict)
             except Exception as e:
                 logger.warning("Could not update EXIF data: %s", e)
