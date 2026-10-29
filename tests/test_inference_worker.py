@@ -47,7 +47,7 @@ def image(tmp_path):
 def test_detect_job_reports_detections(qtbot, worker, image):
     lane, sender = worker
     sender.set_detector.emit(FakeDetector({"a.png": [FISH]}), DETECTOR_ID)
-    job = DetectJob(image.image_path, image, FileStamp.of(image.image_path), DETECTOR_ID, CancelToken())
+    job = DetectJob(image.image_path, image, FileStamp.from_path(image.image_path), DETECTOR_ID, CancelToken())
 
     with qtbot.waitSignal(lane.detected) as blocker:
         sender.submit.emit(job)
@@ -60,7 +60,7 @@ def test_detect_job_for_another_model_is_cancelled(qtbot, worker, image):
     lane, sender = worker
     detector = FakeDetector({"a.png": [FISH]})
     sender.set_detector.emit(detector, DETECTOR_ID)
-    job = DetectJob(image.image_path, image, FileStamp.of(image.image_path), ModelId("old.onnx", 1), CancelToken())
+    job = DetectJob(image.image_path, image, FileStamp.from_path(image.image_path), ModelId("old.onnx", 1), CancelToken())
 
     with qtbot.waitSignal(lane.cancelled):
         sender.submit.emit(job)

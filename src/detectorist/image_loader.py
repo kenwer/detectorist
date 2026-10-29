@@ -39,7 +39,7 @@ class ImageLoader(QObject):
 
     def _decode(self, job: DecodeJob):
         # Read before decoding, so a file changing meanwhile looks changed the next time
-        stamp = FileStamp.of(job.path)
+        stamp = FileStamp.from_path(job.path)
         image = ImageObject.create(job.path)
         if not image:
             self.failed.emit(job, "Could not load image.")

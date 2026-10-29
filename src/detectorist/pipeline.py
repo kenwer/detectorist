@@ -182,7 +182,7 @@ class Pipeline(QObject):
         are the results it produced. The same model twice is loaded once.
         """
         try:
-            model_id = ModelId.of(model_path)
+            model_id = ModelId.from_path(model_path)
         except OSError as e:
             self.model_loaded.emit(False, f"Error loading model: {e}", [], False)
             return
@@ -221,7 +221,7 @@ class Pipeline(QObject):
         self._delivered.discard(NAMES)
         if model_path:
             try:
-                model_id = ModelId.of(model_path)
+                model_id = ModelId.from_path(model_path)
             except OSError as e:
                 self._on_classifier_failed(None, str(e))
                 return

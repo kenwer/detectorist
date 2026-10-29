@@ -35,7 +35,7 @@ class FileStamp:
     size: int
 
     @classmethod
-    def of(cls, path: str) -> FileStamp:
+    def from_path(cls, path: str) -> FileStamp:
         stat = os.stat(long_path(path))
         return cls(stat.st_mtime_ns, stat.st_size)
 
@@ -50,7 +50,7 @@ class ModelId:
     mtime_ns: int
 
     @classmethod
-    def of(cls, path: str) -> ModelId:
+    def from_path(cls, path: str) -> ModelId:
         return cls(os.path.basename(path), os.stat(long_path(path)).st_mtime_ns)
 
 

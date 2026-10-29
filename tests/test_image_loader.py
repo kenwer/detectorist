@@ -40,7 +40,7 @@ def test_loader_decodes_and_builds_the_display(qtbot, loader, tmp_path):
     assert returned_job is job
     assert (image.width, image.height) == (64, 48)
     np.testing.assert_array_equal(display, image.image_data_rgb_8bit)
-    assert stamp == FileStamp.of(path)
+    assert stamp == FileStamp.from_path(path)
 
 
 def test_loader_reports_an_unreadable_file(qtbot, loader, tmp_path):
