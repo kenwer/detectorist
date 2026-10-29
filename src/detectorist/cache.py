@@ -152,6 +152,11 @@ class ImageResults:
                 if (class_filter is None or d.class_name == class_filter)
                 and d.box not in self.names and (include_failed or d.box not in self.failed_boxes)]
 
+    def add_names(self, names: dict[Box, Taxonomy], classification_time_ms: float) -> None:
+        """Keeps what one run of the classifier said, adding its time to the others."""
+        self.names.update(names)
+        self.classification_time_ms += classification_time_ms
+
     def clear_names(self) -> None:
         """Forgets what a classifier said, e.g. because another one was loaded."""
         self.names.clear()

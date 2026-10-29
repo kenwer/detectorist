@@ -2,9 +2,11 @@
 
 import os
 
+import numpy as np
 from PIL import Image
 
 from detectorist.structures import RankedName, Taxonomy
+from detectorist.utils import FileStamp
 
 
 class FakeDetector:
@@ -129,3 +131,12 @@ class FakeClassifierFactory:
     def classified(self) -> list[list]:
         """The boxes of every classify() call across all created classifiers."""
         return [boxes for classifier in self.created for boxes in classifier.classified]
+
+
+class FakeImage:
+    """Stands in for an ImageObject, with the fields the ImageStore and Browsing read."""
+
+    def __init__(self, path: str, mtime_ns: int = 1, nbytes: int = 100):
+        self.image_path = path
+        self.stamp = FileStamp(path, mtime_ns, 2)
+        self.image_data = np.zeros(nbytes, dtype=np.uint8)

@@ -10,7 +10,7 @@ import pytest
 from detectorist.cache import ImageResults, ImageStore, LruCache, image_cache_budget, results_cache_budget
 from detectorist.structures import Detection, PackedMask
 from detectorist.utils import FileStamp
-from tests.fakes import TAXONOMY
+from tests.fakes import TAXONOMY, FakeImage
 
 STAMP = FileStamp("a.png", 1, 2)
 
@@ -115,15 +115,6 @@ def test_results_size_counts_packed_masks():
 
     assert results.nbytes() == mask.nbytes + 2 * 64
 
-
-
-class FakeImage:
-    """Stands in for an ImageObject, with the fields the ImageStore reads."""
-
-    def __init__(self, path: str, mtime_ns: int = 1, nbytes: int = 100):
-        self.image_path = path
-        self.stamp = FileStamp(path, mtime_ns, 2)
-        self.image_data = np.zeros(nbytes, dtype=np.uint8)
 
 
 def test_store_hides_results_of_another_version_of_the_file():

@@ -228,12 +228,15 @@ class ExportRun:
     strictly in order: at most one decoded image waits while another is in
     inference, as each decoded image takes hundreds of MB.
 
-    Detections go into the Pipeline's results cache like any others, so an
-    image already detected is not detected again.
+    Its results go into the ImageStore it shares with Browsing, so an image
+    already detected is not detected again, and one exported is shown
+    without inference. The decoded images stay out of the store, so an
+    export does not evict the images browsed.
     """
 
-    def __init__(self, paths: list[str], detection_filter: DetectionFilter, writer: ExportWriter):
+    def __init__(self, paths: list[str], detection_filter: DetectionFilter, writer: ExportWriter, store: ImageStore):
         self.paths = list(paths)
+        self._store = store
         self.detection_filter = detection_filter
         self.writer = writer
         self.token = CancelToken()  # carried by every job of the run, cancelled when the run ends
@@ -262,10 +265,28 @@ class ExportRun:
         index = self._next_decode - 1
         self._ready = _ExportImage(index, self.paths[index], image)
 
+    def on_detected(self, job: DetectJob, detections: list[Detection], detection_time_ms: float,
+                    models: Models) -> None:
+        # Dropped if the detector was replaced meanwhile, as the run fails without one
+        if not job.token.cancelled and job.model_id == models.detector_id:
+            self._store.put_detections(job.image, detections, detection_time_ms)
+
+    def on_classified(self, job: ClassifyJob, names: dict[Box, Taxonomy], classification_time_ms: float,
+                      models: Models) -> None:
+        results = self._store.results_for(job.image)
+        if job.model_id == models.classifier_id and results is not None:
+            results.add_names(names, classification_time_ms)
+
     def on_detect_failed(self) -> None:
         self._finish_current()
 
-    def next_inference(self, store: ImageStore, models: Models) -> DetectJob | ClassifyJob | None:
+    def on_classify_failed(self, job: ClassifyJob, models: Models) -> None:
+        """Marks the boxes failed, so the image moves on to the writer with "classify-error" rows."""
+        results = self._store.results_for(job.image)
+        if job.model_id == models.classifier_id and results is not None:
+            results.failed_boxes.update(job.boxes)
+
+    def next_inference(self, models: Models) -> DetectJob | ClassifyJob | None:
         """
         The next inference job, or None while waiting for a decode or the
         classifier. Images that need none (no boxes to name, or failed) move
@@ -281,7 +302,7 @@ class ExportRun:
                 self._events.append(("start", self._current))
             item = self._current
             if item.image is not None:
-                cached = store.results_for(item.image)
+                cached = self._store.results_for(item.image)
                 if cached is None:
                     return DetectJob(item.image, models.detector_id, self.token)
                 item.detections = self.detection_filter.keep(cached.detections)
