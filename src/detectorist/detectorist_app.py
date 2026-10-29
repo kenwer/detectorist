@@ -1069,8 +1069,11 @@ class DetectoristApp(QMainWindow):
         unloads it for "No classifier". The Pipeline names the shown image again.
         """
         filename = self.ui.classifier_combo_box.currentData()
-        model_path = os.path.join(self._model_downloader.classifiers_dir, filename) if filename else None
-        self.pipeline.load_classifier(model_path, self._model_downloader.classifies(filename) if filename else [])
+        if filename:
+            self.pipeline.load_classifier(os.path.join(self._model_downloader.classifiers_dir, filename),
+                                          self._model_downloader.classifies(filename))
+        else:
+            self.pipeline.unload_classifier()
         self._taxonomy_by_box = {}
         self._classification_pending = bool(filename and self.current_image_path)
         self._display_filtered_results()

@@ -446,7 +446,7 @@ def test_unloading_the_classifier_reports_nothing(qtbot, tmp_path, make_pipeline
     show(env.pipeline, path_a)
     qtbot.waitUntil(lambda: len(env.rec.named) == 1)
 
-    env.pipeline.load_classifier(None, [])
+    env.pipeline.unload_classifier()
     show(env.pipeline, path_a, threshold=0.1)
     qtbot.wait(50)
 
@@ -584,7 +584,7 @@ def test_unloading_the_classifier_reports_the_detected_images(qtbot, tmp_path, m
     qtbot.waitUntil(lambda: len(env.rec.named) == 1)
     assert env.rec.cached_now == []
 
-    env.pipeline.load_classifier(None, [])
+    env.pipeline.unload_classifier()
 
     assert env.rec.cached_now == [path_a]
 
