@@ -700,10 +700,10 @@ def test_cancelling_from_the_progress_signal_keeps_the_images_before(qtbot, tmp_
 
 
 def test_hints_beyond_the_image_budget_are_decoded_once(qtbot, tmp_path, make_pipeline, monkeypatch):
-    from detectorist import image_loader
+    from detectorist import image_worker
     decoded = []
-    create = image_loader.ImageObject.create
-    monkeypatch.setattr(image_loader.ImageObject, "create",
+    create = image_worker.ImageObject.create
+    monkeypatch.setattr(image_worker.ImageObject, "create",
                         staticmethod(lambda path: decoded.append(os.path.basename(path)) or create(path)))
     path_a, *hints = make_images(tmp_path, ["a.png", "b.png", "c.png", "d.png"], IMAGE_SIZE)
     # One 32x24 image with its display takes 32 * 24 * 6 bytes, so two fit
@@ -814,10 +814,10 @@ def test_neighbours_alternate_ahead_and_behind_nearest_first():
 
 
 def test_prefetch_stops_at_what_the_budget_holds(qtbot, tmp_path, make_pipeline, monkeypatch):
-    from detectorist import image_loader
+    from detectorist import image_worker
     decoded = []
-    create = image_loader.ImageObject.create
-    monkeypatch.setattr(image_loader.ImageObject, "create",
+    create = image_worker.ImageObject.create
+    monkeypatch.setattr(image_worker.ImageObject, "create",
                         staticmethod(lambda path: decoded.append(os.path.basename(path)) or create(path)))
     path_a, *hints = make_images(tmp_path, ["a.png", "b.png", "c.png", "d.png", "e.png"], IMAGE_SIZE)
     # One 32x24 image with its display takes 32 * 24 * 6 bytes, so the shown image and two neighbours fit

@@ -26,4 +26,4 @@ def test_model_id_is_filename_and_mtime(tmp_path):
 def test_jobs_compare_by_identity():
     token = CancelToken()
 
-    assert DecodeJob("a.png", False, token) != DecodeJob("a.png", False, token)
+    assert DecodeJob("a.png", token) != DecodeJob("a.png", token)

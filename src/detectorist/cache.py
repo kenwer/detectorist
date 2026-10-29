@@ -117,17 +117,17 @@ class LruCache[K, V]:
 
 @dataclass
 class LoadedImage:
-    """A decoded image with the display array built for it."""
+    """A decoded image and, once built, its display array."""
     image: ImageObject
-    display: np.ndarray  # 8-bit RGB, ready for a QImage
-    display_exposure: bool  # whether display is exposure corrected
+    display: np.ndarray | None = None  # 8-bit RGB, ready for a QImage, None until built
+    display_exposure: bool | None = None  # whether display is exposure corrected, None until built
 
     @property
     def stamp(self) -> FileStamp:
         return self.image.stamp
 
     def nbytes(self) -> int:
-        return self.image.image_data.nbytes + self.display.nbytes
+        return self.image.image_data.nbytes + (self.display.nbytes if self.display is not None else 0)
 
 
 @dataclass

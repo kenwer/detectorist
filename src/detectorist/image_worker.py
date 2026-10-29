@@ -7,30 +7,30 @@ import logging
 from PySide6.QtCore import QObject, Signal, Slot
 
 from .image_object import ImageObject
-from .jobs import DecodeJob, RedisplayJob
+from .jobs import DecodeJob, DisplayJob
 
 logger = logging.getLogger(__name__)
 
 
-class ImageLoader(QObject):
+class ImageWorker(QObject):
     """
-    Runs one DecodeJob or RedisplayJob at a time and answers each with
-    exactly one of loaded, redisplayed, failed or cancelled. The Pipeline
-    decides what to decode and when, this class keeps no state between jobs.
+    Runs one DecodeJob or DisplayJob at a time and answers each with exactly
+    one of decoded, displayed, failed or cancelled. The Pipeline decides what
+    to decode and display and when, this class keeps no state between jobs.
     """
-    loaded = Signal(object, object, object)  # DecodeJob, ImageObject, display array or None
-    redisplayed = Signal(object, object)  # RedisplayJob, display array
+    decoded = Signal(object, object)  # DecodeJob, ImageObject
+    displayed = Signal(object, object)  # DisplayJob, display array
     failed = Signal(object, str)  # job, message
     cancelled = Signal(object)  # job
 
     @Slot(object)
-    def run(self, job: DecodeJob | RedisplayJob):
+    def run(self, job: DecodeJob | DisplayJob):
         if job.token.cancelled:
             self.cancelled.emit(job)
             return
         try:
-            if isinstance(job, RedisplayJob):
-                self.redisplayed.emit(job, job.image.display_rgb_8bit(job.exposure_correction))
+            if isinstance(job, DisplayJob):
+                self.displayed.emit(job, job.image.display_rgb_8bit(job.exposure_correction))
             else:
                 self._decode(job)
         except Exception as e:
@@ -45,7 +45,4 @@ class ImageLoader(QObject):
         if job.token.cancelled:
             self.cancelled.emit(job)
             return
-        if job.for_batch:
-            self.loaded.emit(job, image, None)
-        else:
-            self.loaded.emit(job, image, image.display_rgb_8bit(job.exposure_correction))
+        self.decoded.emit(job, image)

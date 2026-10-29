@@ -261,8 +261,7 @@ class BatchRun:
         if self._ready is not None or self._next_decode >= len(self.paths):
             return None
         self._next_decode += 1
-        # The display is not built for a batch image, so its exposure does not matter
-        return DecodeJob(self.paths[self._next_decode - 1], False, self.token, for_batch=True)
+        return DecodeJob(self.paths[self._next_decode - 1], self.token)
 
     def on_decoded(self, image: ImageObject | None) -> None:
         """Takes the image the decode lane loaded last, None if it failed to load."""

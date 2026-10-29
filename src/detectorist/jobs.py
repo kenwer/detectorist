@@ -53,20 +53,14 @@ class ShowRequest:
 
 @dataclass(eq=False)
 class DecodeJob:
-    """
-    Decode an image and build its display array, exposure corrected as
-    exposure_correction says. A batch job builds none, as its image is never
-    shown.
-    """
+    """Decode the image file at path into an ImageObject."""
     path: str
-    exposure_correction: bool
     token: CancelToken
-    for_batch: bool = False
 
 
 @dataclass(eq=False)
-class RedisplayJob:
-    """Rebuild the display array of a decoded image, e.g. after the exposure checkbox changed."""
+class DisplayJob:
+    """Build the 8-bit display array of a decoded image, exposure corrected as exposure_correction says."""
     image: ImageObject
     exposure_correction: bool
     token: CancelToken

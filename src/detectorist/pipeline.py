@@ -1,7 +1,7 @@
 """
 The Pipeline: the one place that decides what gets decoded, detected and
 classified, and when. It lives on the GUI thread and only keeps books. The
-work runs on two lanes, an ImageLoader and an InferenceWorker, each on a
+work runs on two lanes, an ImageWorker and an InferenceWorker, each on a
 thread of its own and each given one job at a time, so a newer request never
 queues up behind stale work in a lane's event queue.
 
@@ -19,10 +19,10 @@ from .batch_run import BatchOptions, BatchRun, BatchWriter
 from .cache import ImageResults, LoadedImage, LruCache, image_cache_budget, results_cache_budget
 from .classifier import Classifier, detections_to_classify
 from .detector import Detector
-from .image_loader import ImageLoader
 from .image_object import ImageObject
+from .image_worker import ImageWorker
 from .inference_worker import InferenceWorker
-from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, ModelId, RedisplayJob, ShowRequest
+from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ModelId, ShowRequest
 from .model_loader import ModelLoader
 from .utils import physical_memory_bytes
 
@@ -67,7 +67,7 @@ class Pipeline(QObject):
     batch_finished = Signal(object)  # BatchResult
     batch_failed = Signal(str)  # error message, e.g. the disk is full
 
-    _decode = Signal(object)  # DecodeJob or RedisplayJob, to the ImageLoader
+    _decode = Signal(object)  # DecodeJob or DisplayJob, to the ImageWorker
     _infer = Signal(object)  # DetectJob or ClassifyJob, to the InferenceWorker
     _set_detector = Signal(object, object)  # detector, ModelId
     _set_classifier = Signal(object, object)  # classifier, ModelId
@@ -94,7 +94,7 @@ class Pipeline(QObject):
             results_budget_bytes = results_cache_budget(ram)
         self._images: LruCache[str, LoadedImage] = LruCache(self._image_budget, LoadedImage.nbytes)
         self._results: LruCache[str, ImageResults] = LruCache(results_budget_bytes, ImageResults.nbytes)
-        self._entry_bytes: int | None = None  # size of the image cached last, the estimate for the others
+        self._entry_bytes: int | None = None  # size of the image displayed last with its display array, the estimate for the others
 
         self._request: ShowRequest | None = None
         self._hints: list[str] = []  # prefetch paths, nearest first
@@ -104,7 +104,7 @@ class Pipeline(QObject):
         self._detect_failed: set[str] = set()  # paths the detector failed on, not retried until shown again
         self._last_cached: list[str] = []  # the paths cache_updated reported last
 
-        self._decode_job: DecodeJob | RedisplayJob | None = None  # the job the ImageLoader is busy with
+        self._decode_job: DecodeJob | DisplayJob | None = None  # the job the ImageWorker is busy with
         self._inference_job: DetectJob | ClassifyJob | None = None  # the job the InferenceWorker is busy with
 
         self._detector_id: ModelId | None = None  # the detector the InferenceWorker holds
@@ -118,14 +118,14 @@ class Pipeline(QObject):
         self._shut_down = False
         self._batch: BatchRun | None = None  # the batch run under way, which pauses interactive work
 
-        self._loader_thread = QThread()
-        self._loader = ImageLoader()
-        self._loader.moveToThread(self._loader_thread)
-        self._decode.connect(self._loader.run)
-        self._loader.loaded.connect(self._on_loaded)
-        self._loader.redisplayed.connect(self._on_redisplayed)
-        self._loader.failed.connect(self._on_decode_failed)
-        self._loader.cancelled.connect(self._on_decode_cancelled)
+        self._image_thread = QThread()
+        self._image_worker = ImageWorker()
+        self._image_worker.moveToThread(self._image_thread)
+        self._decode.connect(self._image_worker.run)
+        self._image_worker.decoded.connect(self._on_decoded)
+        self._image_worker.displayed.connect(self._on_displayed)
+        self._image_worker.failed.connect(self._on_decode_failed)
+        self._image_worker.cancelled.connect(self._on_decode_cancelled)
 
         self._inference_thread = QThread()
         self._inference = InferenceWorker()
@@ -138,7 +138,7 @@ class Pipeline(QObject):
         self._inference.failed.connect(self._on_inference_failed)
         self._inference.cancelled.connect(self._on_inference_cancelled)
 
-        self._loader_thread.start()
+        self._image_thread.start()
         self._inference_thread.start()
 
     def show(self, request: ShowRequest):
@@ -269,7 +269,7 @@ class Pipeline(QObject):
         for job in (self._decode_job, self._inference_job):
             if job is not None:
                 job.token.cancel()
-        for thread in (self._loader_thread, self._inference_thread):
+        for thread in (self._image_thread, self._inference_thread):
             thread.quit()
             thread.wait()
         batch = self._end_batch()
@@ -339,7 +339,7 @@ class Pipeline(QObject):
             if job.path not in wanted:
                 job.token.cancel()
 
-    def _interactive_jobs(self) -> list[DecodeJob | RedisplayJob | DetectJob | ClassifyJob]:
+    def _interactive_jobs(self) -> list[DecodeJob | DisplayJob | DetectJob | ClassifyJob]:
         """The lanes' jobs, without those of the batch run under way."""
         return [job for job in (self._decode_job, self._inference_job)
                 if job is not None and not self._batch_owns(job)]
@@ -362,8 +362,8 @@ class Pipeline(QObject):
     def _fitting_hints(self) -> list[str]:
         """
         The hints that fit in the image budget next to the shown image,
-        estimating every image at the size of the one cached last. None
-        before the first image is cached, as the size is unknown.
+        estimating every image at the size of the one displayed last. None
+        before the first image is displayed, as the size is unknown.
         """
         if not self._entry_bytes:
             return []
@@ -463,21 +463,29 @@ class Pipeline(QObject):
         if needs_inference:
             job.token.cancel()
 
-    def _next_decode(self) -> DecodeJob | RedisplayJob | None:
+    def _next_decode(self) -> DecodeJob | DisplayJob | None:
+        """
+        Decodes the wanted images that are not cached and builds the display
+        arrays they lack, the shown image first. A hint keeps the exposure it
+        was displayed with until it is shown, so toggling the exposure
+        rebuilds the display of the shown image only.
+        """
         if self._batch is not None:
             return self._batch.next_decode()
         for path in self._wanted_paths():
-            is_shown = self._request is not None and path == self._request.path
-            # A hint evicted for lack of room is not decoded again, which would evict the next one, endlessly
-            if path in self._failed_paths or (not is_shown and path in self._prefetched):
+            if path in self._failed_paths:
                 continue
+            is_shown = self._request is not None and path == self._request.path
             loaded = self._images.peek(path)
             if loaded is None:
+                # A hint evicted for lack of room is not decoded again, which would evict the next one, endlessly
+                if not is_shown and path in self._prefetched:
+                    continue
                 if not is_shown:
                     self._prefetched.add(path)
-                return DecodeJob(path, self._exposure(), CancelToken())
-            if is_shown and loaded.display_exposure != self._exposure():
-                return RedisplayJob(loaded.image, self._exposure(), CancelToken())
+                return DecodeJob(path, CancelToken())
+            if loaded.display is None or (is_shown and loaded.display_exposure != self._exposure()):
+                return DisplayJob(loaded.image, self._exposure(), CancelToken())
         return None
 
     def _next_inference(self) -> DetectJob | ClassifyJob | None:
@@ -550,6 +558,8 @@ class Pipeline(QObject):
         """
         cached = []
         for path, loaded in self._images.items():
+            if loaded.display is None:
+                continue
             results = self._results.peek(path)
             if results is None or results.stamp != loaded.stamp:
                 continue
@@ -564,28 +574,29 @@ class Pipeline(QObject):
             self._last_cached = cached
             self.cache_updated.emit(cached)
 
-    def _on_loaded(self, job: DecodeJob, image: ImageObject, display):
+    def _on_decoded(self, job: DecodeJob, image: ImageObject):
         self._decode_job = None
         if self._batch_owns(job):
             self._batch.on_decoded(image)
-        elif not job.token.cancelled and not job.for_batch:
+        elif not job.token.cancelled:
             results = self._results.peek(job.path)
             if results is not None and results.stamp != image.stamp:
                 self._results.pop(job.path)  # the file changed since
-            loaded = LoadedImage(image, display, job.exposure_correction)
-            self._entry_bytes = loaded.nbytes()
-            self._images.put(job.path, loaded)
+            self._images.put(job.path, LoadedImage(image))
         self._schedule()
 
-    def _on_redisplayed(self, job: RedisplayJob, display):
+    def _on_displayed(self, job: DisplayJob, display):
         self._decode_job = None
         loaded = self._images.peek(job.path)
         if not job.token.cancelled and loaded is not None and loaded.image is job.image:
             loaded.display = display
             loaded.display_exposure = job.exposure_correction
+            # Put again, as the cache sized the entry without its display
+            self._images.put(job.path, loaded)
+            self._entry_bytes = loaded.nbytes()
         self._schedule()
 
-    def _on_decode_failed(self, job: DecodeJob | RedisplayJob, message: str):
+    def _on_decode_failed(self, job: DecodeJob | DisplayJob, message: str):
         self._decode_job = None
         if self._batch_owns(job):
             self._batch.on_decoded(None)
@@ -595,7 +606,7 @@ class Pipeline(QObject):
                 self.error.emit(job.path, message)
         self._schedule()
 
-    def _on_decode_cancelled(self, job: DecodeJob | RedisplayJob):
+    def _on_decode_cancelled(self, job: DecodeJob | DisplayJob):
         self._decode_job = None
         self._schedule()
 
