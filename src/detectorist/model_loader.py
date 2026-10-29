@@ -1,12 +1,25 @@
 """Loads one model of the Pipeline on a pool thread, so a load of several seconds blocks neither the GUI nor inference."""
 import logging
 from collections.abc import Callable
+from enum import Enum, auto
 
 from PySide6.QtCore import QObject, QThreadPool, Signal
 
 from .utils import FileStamp
 
 logger = logging.getLogger(__name__)
+
+
+class ModelState(Enum):
+    """
+    Where a ModelLoader is with its model. load() goes to LOADING, or to
+    FAILED for a file that cannot be read, a finished load to LOADED or
+    FAILED, and unload() back to NONE.
+    """
+    NONE = auto()  # no model asked for
+    LOADING = auto()
+    LOADED = auto()
+    FAILED = auto()  # asked for, but it failed to load
 
 
 class ModelLoader(QObject):
@@ -29,14 +42,14 @@ class ModelLoader(QObject):
         self._generation = 0  # Counts load() and unload(), so a result of an earlier load is recognized as superseded
         self.model_id: FileStamp | None = None  # The model reported last, which the InferenceWorker holds
         self._loading: FileStamp | None = None  # The model being loaded
-        self.requested = False  # Whether a model was asked for since the last unload(), even if it failed to load
+        self.state = ModelState.NONE
         self._done.connect(self._on_done)
         self._error.connect(self._on_error)
 
     @property
     def is_loaded_or_loading(self) -> bool:
         """Whether a model is there or on its way. False for none asked for and for one that failed to load."""
-        return self.model_id is not None or self._loading is not None
+        return self.state in (ModelState.LOADING, ModelState.LOADED)
 
     def needs_load(self, path: str) -> bool:
         """
@@ -52,12 +65,13 @@ class ModelLoader(QObject):
     def load(self, path: str, *args) -> None:
         """Unloads the current model and loads the one at path. A file that cannot be read fails right away."""
         self.unload()
-        self.requested = True
         try:
             model_id = FileStamp.from_path(path)
         except OSError as e:
+            self.state = ModelState.FAILED
             self.failed.emit(str(e))
             return
+        self.state = ModelState.LOADING
         self._loading = model_id
         generation = self._generation
         self._pool.start(lambda: self._load(generation, model_id, path, args))
@@ -67,7 +81,7 @@ class ModelLoader(QObject):
         self._generation += 1
         self.model_id = None
         self._loading = None
-        self.requested = False
+        self.state = ModelState.NONE
 
     def shutdown(self) -> None:
         """Unloads the model and waits for the loads under way."""
@@ -88,10 +102,12 @@ class ModelLoader(QObject):
             return
         self._loading = None
         self.model_id = model_id
+        self.state = ModelState.LOADED
         self.loaded.emit(model, path)
 
     def _on_error(self, generation: int, message: str) -> None:
         if generation != self._generation:
             return
         self._loading = None
+        self.state = ModelState.FAILED
         self.failed.emit(message)

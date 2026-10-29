@@ -23,7 +23,7 @@ from .image_object import ImageObject
 from .image_worker import ImageWorker
 from .inference_worker import InferenceWorker
 from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
-from .model_loader import ModelLoader
+from .model_loader import ModelLoader, ModelState
 from .utils import physical_memory_bytes
 
 logger = logging.getLogger(__name__)
@@ -507,7 +507,8 @@ class Pipeline(QObject):
         if DETECTIONS not in self._delivered:
             self._delivered.add(DETECTIONS)
             self.detection_complete.emit(request.path, results.detections, results.detection_time_ms)
-        if NAMES not in self._delivered and self._classifier.requested and self._names_settled(results):
+        # A classifier that failed to load still reports, without names, as the window waits while one is selected
+        if NAMES not in self._delivered and self._classifier.state is not ModelState.NONE and self._names_settled(results):
             self._delivered.add(NAMES)
             self.classification_complete.emit(request.path, dict(results.names), results.classification_time_ms)
 

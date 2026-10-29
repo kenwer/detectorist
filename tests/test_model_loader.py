@@ -3,7 +3,7 @@ import threading
 
 import pytest
 
-from detectorist.model_loader import ModelLoader
+from detectorist.model_loader import ModelLoader, ModelState
 from detectorist.utils import FileStamp
 
 
@@ -23,10 +23,11 @@ def test_reports_the_loaded_model(qtbot, model_paths):
 
     with qtbot.waitSignal(loader.loaded) as blocker:
         loader.load(path, ["Fish"])
-        assert loader.is_loaded_or_loading
+        assert loader.state is ModelState.LOADING
         assert not loader.needs_load(path)
 
     assert blocker.args == [("model", path, (["Fish"],)), path]
+    assert loader.state is ModelState.LOADED
     assert loader.model_id == FileStamp.from_path(path)
     assert not loader.needs_load(path)
     loader.shutdown()
@@ -41,7 +42,7 @@ def test_reports_a_failing_factory(qtbot, model_paths):
         loader.load(model_paths[0])
 
     assert blocker.args == ["broken"]
-    assert loader.requested and not loader.is_loaded_or_loading
+    assert loader.state is ModelState.FAILED
     loader.shutdown()
 
 
@@ -51,7 +52,7 @@ def test_a_missing_file_fails_right_away(qtbot, tmp_path):
     with qtbot.waitSignal(loader.failed, timeout=0):
         loader.load(str(tmp_path / "missing.onnx"))
 
-    assert loader.requested and not loader.is_loaded_or_loading
+    assert loader.state is ModelState.FAILED
     assert loader.needs_load(str(tmp_path / "missing.onnx"))
 
 
@@ -90,4 +91,4 @@ def test_a_load_cancelled_by_unload_is_not_reported(qtbot, model_paths):
         release.set()
         loader.shutdown()
 
-    assert not loader.requested and not loader.is_loaded_or_loading
+    assert loader.state is ModelState.NONE
