@@ -329,7 +329,8 @@ class DetectoristApp(QMainWindow):
         self.pipeline.cache_updated.connect(self.model.setCachedPaths)
         self.pipeline.classification_complete.connect(self.handle_classification_complete)
         self.pipeline.classifier_error.connect(self.handle_classifier_error)
-        self.pipeline.export_progress.connect(self._on_export_progress)
+        # Queue export progress to the window so the progress dialog cannot re-enter the Pipeline
+        self.pipeline.export_progress.connect(self._on_export_progress, Qt.ConnectionType.QueuedConnection)
         self.pipeline.export_finished.connect(self._on_export_finished)
         self.pipeline.export_failed.connect(self._on_export_failed)
         self.ui.model_select_combo_box.currentIndexChanged.connect(self.on_model_selected)
@@ -1235,8 +1236,10 @@ class DetectoristApp(QMainWindow):
 
     def _on_export_progress(self, index: int, total: int, file_name: str):
         if self._running_export is not None:
-            self._running_export.progress_dialog.setValue(index)
-            self._running_export.progress_dialog.setLabelText(f"Processing {index+1}/{total}: {file_name}")
+            dialog = self._running_export.progress_dialog
+            dialog.setLabelText(f"Processing {index+1}/{total}: {file_name}")
+            # Last, as it processes events, during which the export may end
+            dialog.setValue(index)
 
     def _on_export_finished(self, result: ExportResult):
         """Exports the settings alongside the CSV and reports how the export went."""
