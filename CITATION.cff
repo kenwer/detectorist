@@ -7,8 +7,8 @@ authors:
     given-names: Ken
     email: ken.werner@uni-tuebingen.de
     affiliation: University of Tübingen
-version: 0.13.1
-date-released: 2026-10-27
+version: 0.13.2
+date-released: 2026-10-29
 repository-code: https://github.com/kenwer/detectorist
 license: AGPL-3.0
 abstract: >

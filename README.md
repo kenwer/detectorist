@@ -198,7 +198,7 @@ If you use Detectorist in your work, you can [cite](CITATION.cff) it:
   author  = {Werner, Ken},
   title   = {Detectorist},
   url     = {https://github.com/kenwer/detectorist},
-  version = {0.13.1},
+  version = {0.13.2},
   year    = {2026}
 }
 ```

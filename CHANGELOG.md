@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.13.2] - 2026-10-29
 ### Added
 - The status bar shows the time an image took to load, next to the detection and classification times.
 ### Changed
