@@ -96,6 +96,13 @@ def test_unnamed_boxes_skips_named_failed_and_low_scoring():
     assert results.unnamed_boxes(0.2, ["*"]) == [FISH.box, CRAB.box, FAINT_FISH.box]
 
 
+
+def test_unnamed_boxes_counts_failed_boxes_if_asked_to():
+    results = ImageResults(STAMP, [FISH, FAILED_FISH], 1.0)
+    results.failed_boxes.add(FAILED_FISH.box)
+
+    assert results.unnamed_boxes(0.5, ["Fish"], include_failed=True) == [FISH.box, FAILED_FISH.box]
+
 def test_unnamed_boxes_honours_the_class_filter():
     results = ImageResults(STAMP, [FISH, CRAB], 1.0)
 

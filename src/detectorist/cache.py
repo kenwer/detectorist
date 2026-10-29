@@ -141,15 +141,16 @@ class ImageResults:
     classification_time_ms: float = 0.0  # summed over the runs that filled names
     failed_boxes: set[Box] = field(default_factory=set)  # boxes the classifier failed on, not retried until asked again
 
-    def unnamed_boxes(self, threshold: float, patterns: Sequence[str], class_filter: str | None = None) -> list[Box]:
+    def unnamed_boxes(self, threshold: float, patterns: Sequence[str], class_filter: str | None = None,
+                      include_failed: bool = False) -> list[Box]:
         """
         The boxes still to name: detections at or above threshold whose class
         the classifier names (and is class_filter, if given), highest score
-        first, without a name and not failed before.
+        first, without a name and, unless include_failed, not failed before.
         """
         return [d.box for d in detections_to_classify(self.detections, threshold, patterns)
                 if (class_filter is None or d.class_name == class_filter)
-                and d.box not in self.names and d.box not in self.failed_boxes]
+                and d.box not in self.names and (include_failed or d.box not in self.failed_boxes)]
 
     def clear_names(self) -> None:
         """Forgets what a classifier said, e.g. because another one was loaded."""

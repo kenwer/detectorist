@@ -12,24 +12,49 @@ need no locks.
 """
 import logging
 import os
+from dataclasses import dataclass
+from enum import Enum, auto
 
 from PySide6.QtCore import QObject, QThread, Signal
 
 from .cache import ImageResults, LoadedImage, LruCache, image_cache_budget, results_cache_budget
-from .classifier import Classifier, detections_to_classify
+from .classifier import Classifier
 from .detector import Detector
 from .export_run import DetectionFilter, ExportRun, ExportWriter
 from .image_object import ImageObject
 from .image_worker import ImageWorker
 from .inference_worker import InferenceWorker
 from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
-from .model_loader import ModelLoader, ModelState
+from .model_loader import ModelLoader
+from .model_state import Models, ModelState
+from .structures import Box
 from .utils import physical_memory_bytes
 
 logger = logging.getLogger(__name__)
 
 # What has been reported for the current request, so each is reported once
 IMAGE, DETECTIONS, NAMES, ERROR = "image", "detections", "names", "error"
+
+
+class Work(Enum):
+    """A step a path still needs, see Needs."""
+    DECODE = auto()
+    DISPLAY = auto()  # build the display array
+    DETECT = auto()
+    CLASSIFY = auto()  # name Needs.boxes
+    WAIT = auto()  # results come once a model is loaded or the image is decoded
+
+
+@dataclass(frozen=True)
+class Needs:
+    """What a path still needs from each lane. None means nothing more is coming: done, failed or no model."""
+    image: Work | None  # DECODE or DISPLAY
+    inference: Work | None  # DETECT, CLASSIFY or WAIT
+    boxes: tuple[Box, ...] = ()  # the boxes to name, for CLASSIFY
+
+    @property
+    def settled(self) -> bool:
+        return self.image is None and self.inference is None
 
 
 def neighbours(paths: list[str], current: str, per_side: int) -> list[str]:
@@ -332,6 +357,10 @@ class Pipeline(QObject):
             return []
         return self._hints[:max(self._image_budget // self._entry_bytes - 1, 0)]
 
+    def _models(self) -> Models:
+        return Models(self._detector.model_id, self._detector.state, self._classifier.model_id,
+                      self._classifier.state, self._patterns)
+
     def _threshold(self) -> float:
         return self._request.detection_threshold if self._request is not None else 0.0
 
@@ -395,12 +424,12 @@ class Pipeline(QObject):
         self._schedule()
 
     def _next_export_inference(self) -> DetectJob | ClassifyJob | None:
-        if self._detector.model_id is None:
-            if not self._detector.is_loaded_or_loading:
+        models = self._models()
+        if models.detector_id is None:
+            if not models.detector_state.is_loaded_or_loading:
                 self._export.failure = "Model not loaded."
             return None  # waits for the model still loading
-        return self._export.next_inference(self._results, self._detector.model_id, self._classifier.is_loaded_or_loading,
-                                          self._classifier.model_id, self._patterns)
+        return self._export.next_inference(self._results, models)
 
     def _preempt_for_shown(self):
         """
@@ -413,62 +442,75 @@ class Pipeline(QObject):
         request = self._request
         if self._export is not None or not isinstance(job, ClassifyJob) or request is None or job.path == request.path:
             return
-        loaded = self._images.peek(request.path)
-        if loaded is None:
-            return
-        results = self._valid_results(request.path)
-        if results is None:
-            needs_inference = request.path not in self._detect_failed
-        else:
-            needs_inference = self._classifier.model_id is not None and bool(
-                results.unnamed_boxes(request.detection_threshold, self._patterns))
-        if needs_inference:
+        if self._needs(request.path, self._models()).inference in (Work.DETECT, Work.CLASSIFY):
             job.token.cancel()
 
     def _next_decode(self) -> DecodeJob | DisplayJob | None:
-        """
-        Decodes the wanted images that are not cached and builds the display
-        arrays they lack, the shown image first. A hint keeps the exposure it
-        was displayed with until it is shown, so toggling the exposure
-        rebuilds the display of the shown image only.
-        """
+        """Decodes the wanted images and builds their display arrays, the shown image first."""
         if self._export is not None:
             return self._export.next_decode()
+        models = self._models()
         for path in self._wanted_paths():
-            if path in self._failed_paths:
-                continue
             is_shown = self._request is not None and path == self._request.path
-            loaded = self._images.peek(path)
-            if loaded is None:
-                # A hint evicted for lack of room is not decoded again, which would evict the next one, endlessly
-                if not is_shown and path in self._prefetched:
-                    continue
+            work = self._needs(path, models, as_shown=is_shown).image
+            if work is Work.DECODE:
                 if not is_shown:
+                    # A hint evicted for lack of room is not decoded again, which would evict the next one, endlessly
+                    if path in self._prefetched:
+                        continue
                     self._prefetched.add(path)
                 return DecodeJob(path, CancelToken())
-            if loaded.display is None or (is_shown and loaded.display_exposure != self._exposure()):
-                return DisplayJob(loaded.image, self._exposure(), CancelToken())
+            if work is Work.DISPLAY:
+                return DisplayJob(self._images.peek(path).image, self._exposure(), CancelToken())
         return None
 
     def _next_inference(self) -> DetectJob | ClassifyJob | None:
+        """Detects and names the wanted images, the shown image first."""
         if self._export is not None:
             return self._next_export_inference()
-        if self._detector.model_id is None:
-            return None
+        models = self._models()
         for path in self._wanted_paths():
-            loaded = self._images.peek(path)
-            if loaded is None:
-                continue
-            results = self._valid_results(path)
-            if results is None:
-                if path not in self._detect_failed:
-                    return DetectJob(loaded.image, self._detector.model_id, CancelToken())
-                continue
-            if self._classifier.model_id is not None:
-                boxes = results.unnamed_boxes(self._threshold(), self._patterns)
-                if boxes:
-                    return ClassifyJob(loaded.image, boxes, self._classifier.model_id, CancelToken())
+            needs = self._needs(path, models)
+            if needs.inference is Work.DETECT:
+                return DetectJob(self._images.peek(path).image, models.detector_id, CancelToken())
+            if needs.inference is Work.CLASSIFY:
+                return ClassifyJob(self._images.peek(path).image, list(needs.boxes), models.classifier_id,
+                                   CancelToken())
         return None
+
+    def _needs(self, path: str, models: Models, as_shown: bool = False, retry_failures: bool = False) -> Needs:
+        """
+        What path still needs, the one answer behind scheduling, preemption
+        and what is reported. as_shown also asks for a display at the current
+        exposure, as a hint keeps the exposure it was displayed with until it
+        is shown, so toggling the exposure rebuilds the display of the shown
+        image only. retry_failures counts what failed as still needed, as
+        showing a path again tries it again.
+        """
+        loaded = self._images.peek(path)
+        if path in self._failed_paths and not retry_failures:
+            image = None
+        elif loaded is None:
+            image = Work.DECODE
+        elif loaded.display is None or (as_shown and loaded.display_exposure != self._exposure()):
+            image = Work.DISPLAY
+        else:
+            image = None
+
+        results = self._valid_results(path)
+        if models.detector_id is None:
+            return Needs(image, Work.WAIT if models.detector_state.is_loaded_or_loading else None)
+        if loaded is None:
+            # Without a decode coming, the image failed to load
+            return Needs(image, Work.WAIT if image is Work.DECODE else None)
+        if results is None:
+            detect = retry_failures or path not in self._detect_failed
+            return Needs(image, Work.DETECT if detect else None)
+        if models.classifier_id is not None:
+            boxes = results.unnamed_boxes(self._threshold(), models.patterns, include_failed=retry_failures)
+            if boxes:
+                return Needs(image, Work.CLASSIFY, tuple(boxes))
+        return Needs(image, Work.WAIT if models.classifier_state is ModelState.LOADING else None)
 
     def _valid_results(self, path: str) -> ImageResults | None:
         """The results for path, if they belong to the version of the file decoded last."""
@@ -478,27 +520,19 @@ class Pipeline(QObject):
             return None
         return results
 
-    def _names_settled(self, results: ImageResults) -> bool:
-        """
-        Whether the names to report are all there: nothing is left to name,
-        failed boxes included, as there is nothing more coming for them.
-        """
-        if not self._classifier.is_loaded_or_loading:
-            return True
-        return self._classifier.model_id is not None and not results.unnamed_boxes(self._threshold(), self._patterns)
-
     def _deliver(self):
         """Reports what is ready for the current request and not reported yet, in order."""
         request = self._request
         if request is None:
             return
+        models = self._models()
         loaded = self._images.peek(request.path)
         if IMAGE not in self._delivered:
             if loaded is None or loaded.display_exposure != request.exposure_correction:
                 return
             self._delivered.add(IMAGE)
             self.image_loaded.emit(request.path, loaded.image, loaded.display)
-            if not self._detector.is_loaded_or_loading and ERROR not in self._delivered:
+            if not models.detector_state.is_loaded_or_loading and ERROR not in self._delivered:
                 self._delivered.add(ERROR)
                 self.error.emit(request.path, "Model not loaded.")
         results = self._valid_results(request.path)
@@ -507,32 +541,24 @@ class Pipeline(QObject):
         if DETECTIONS not in self._delivered:
             self._delivered.add(DETECTIONS)
             self.detection_complete.emit(request.path, results.detections, results.detection_time_ms)
-        # A classifier that failed to load still reports, without names, as the window waits while one is selected
-        if NAMES not in self._delivered and self._classifier.state is not ModelState.NONE and self._names_settled(results):
+        # Reported once no more names come. A classifier that failed to load still reports, without names, as the
+        # window waits while one is selected.
+        if (NAMES not in self._delivered and models.classifier_state is not ModelState.NONE
+                and self._needs(request.path, models).inference is None):
             self._delivered.add(NAMES)
             self.classification_complete.emit(request.path, dict(results.names), results.classification_time_ms)
 
     def _update_cached(self):
         """
-        Reports the paths a request would be served for instantly: image and
-        detections cached and, with a classifier, every box at the current
-        threshold named. A box the classifier failed on counts as unnamed,
-        as a request would try it again.
+        Reports the paths a request would be served for without inference:
+        image and detections cached and, with a classifier, every box at the
+        current threshold named. A box the classifier failed on counts as
+        unnamed, as a request would try it again. A display built with the
+        other exposure counts, as the window highlights what is analyzed.
         """
-        cached = []
-        for path, loaded in self._images.items():
-            if loaded.display is None:
-                continue
-            results = self._results.peek(path)
-            if results is None or results.stamp != loaded.stamp:
-                continue
-            if self._classifier.is_loaded_or_loading:
-                if self._classifier.model_id is None:
-                    continue  # still loading, so every image has names to come
-                wanted = detections_to_classify(results.detections, self._threshold(), self._patterns)
-                if any(d.box not in results.names for d in wanted):
-                    continue
-            cached.append(path)
+        models = self._models()
+        cached = [path for path in self._images.keys()
+                  if self._valid_results(path) is not None and self._needs(path, models, retry_failures=True).settled]
         if cached != self._last_cached:
             self._last_cached = cached
             self.cache_updated.emit(cached)

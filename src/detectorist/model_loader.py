@@ -1,25 +1,13 @@
 """Loads one model of the Pipeline on a pool thread, so a load of several seconds blocks neither the GUI nor inference."""
 import logging
 from collections.abc import Callable
-from enum import Enum, auto
 
 from PySide6.QtCore import QObject, QThreadPool, Signal
 
+from .model_state import ModelState
 from .utils import FileStamp
 
 logger = logging.getLogger(__name__)
-
-
-class ModelState(Enum):
-    """
-    Where a ModelLoader is with its model. load() goes to LOADING, or to
-    FAILED for a file that cannot be read, a finished load to LOADED or
-    FAILED, and unload() back to NONE.
-    """
-    NONE = auto()  # no model asked for
-    LOADING = auto()
-    LOADED = auto()
-    FAILED = auto()  # asked for, but it failed to load
 
 
 class ModelLoader(QObject):
@@ -45,11 +33,6 @@ class ModelLoader(QObject):
         self.state = ModelState.NONE
         self._done.connect(self._on_done)
         self._error.connect(self._on_error)
-
-    @property
-    def is_loaded_or_loading(self) -> bool:
-        """Whether a model is there or on its way. False for none asked for and for one that failed to load."""
-        return self.state in (ModelState.LOADING, ModelState.LOADED)
 
     def needs_load(self, path: str) -> bool:
         """

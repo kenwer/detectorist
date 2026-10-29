@@ -3,7 +3,8 @@ import threading
 
 import pytest
 
-from detectorist.model_loader import ModelLoader, ModelState
+from detectorist.model_loader import ModelLoader
+from detectorist.model_state import ModelState
 from detectorist.utils import FileStamp
 
 

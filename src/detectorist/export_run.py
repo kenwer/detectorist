@@ -29,8 +29,9 @@ from .export_files import (
 from .export_planner import ExportOptions
 from .image_object import ImageObject
 from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob
+from .model_state import Models
 from .structures import Box, Detection, Taxonomy, clamp_box
-from .utils import FileStamp, long_path
+from .utils import long_path
 
 logger = logging.getLogger(__name__)
 
@@ -264,17 +265,13 @@ class ExportRun:
     def on_detect_failed(self) -> None:
         self._finish_current()
 
-    def next_inference(self, results: LruCache[str, ImageResults], detector_id: FileStamp,
-                       classify: bool, classifier_id: FileStamp | None,
-                       patterns: Sequence[str]) -> DetectJob | ClassifyJob | None:
+    def next_inference(self, results: LruCache[str, ImageResults], models: Models) -> DetectJob | ClassifyJob | None:
         """
         The next inference job, or None while waiting for a decode or the
         classifier. Images that need none (no boxes to name, or failed) move
-        on to the writer here, in order.
-
-        Args:
-            classify: Whether the run names the detections it keeps.
-            classifier_id: The classifier loaded, None while it is loading.
+        on to the writer here, in order. The detector must be loaded. The
+        detections the run keeps are named if a classifier is loaded or
+        loading.
         """
         while True:
             if self._current is None:
@@ -286,15 +283,15 @@ class ExportRun:
             if item.image is not None:
                 cached = results.peek(item.path)
                 if cached is None or cached.stamp != item.image.stamp:
-                    return DetectJob(item.image, detector_id, self.token)
+                    return DetectJob(item.image, models.detector_id, self.token)
                 item.detections = self.detection_filter.keep(cached.detections)
-                if classify:
-                    if classifier_id is None:
+                if models.classifier_state.is_loaded_or_loading:
+                    if models.classifier_id is None:
                         return None
                     kept = {d.box for d in item.detections}
-                    boxes = [box for box in cached.unnamed_boxes(0.0, patterns) if box in kept]
+                    boxes = [box for box in cached.unnamed_boxes(0.0, models.patterns) if box in kept]
                     if boxes:
-                        return ClassifyJob(item.image, boxes, classifier_id, self.token)
+                        return ClassifyJob(item.image, boxes, models.classifier_id, self.token)
                     item.names = {box: cached.names[box] for box in kept if box in cached.names}
             self._finish_current()
 
