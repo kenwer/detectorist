@@ -33,8 +33,7 @@ from .image_object import ImageObject
 from .image_worker import ImageWorker
 from .inference_worker import InferenceWorker
 from .jobs import ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
-from .model_loader import ModelLoader
-from .model_state import Models
+from .model_loader import ModelLoader, Models
 from .utils import physical_memory_bytes
 
 logger = logging.getLogger(__name__)

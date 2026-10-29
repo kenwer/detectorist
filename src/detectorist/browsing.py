@@ -14,7 +14,7 @@ import numpy as np
 from .cache import ImageStore
 from .image_object import ImageObject
 from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
-from .model_state import Models, ModelState
+from .model_loader import Models, ModelState
 from .structures import Box, Detection, Taxonomy
 
 # What has been reported for the current request, so each is reported once

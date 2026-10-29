@@ -16,7 +16,7 @@ from detectorist.browsing import (
 )
 from detectorist.cache import ImageStore
 from detectorist.jobs import ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
-from detectorist.model_state import Models, ModelState
+from detectorist.model_loader import Models, ModelState
 from detectorist.structures import Detection
 from detectorist.utils import FileStamp
 from tests.fakes import TAXONOMY, FakeImage

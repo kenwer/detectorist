@@ -29,7 +29,7 @@ from .export_files import (
 from .export_planner import ExportOptions
 from .image_object import ImageObject
 from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob
-from .model_state import Models
+from .model_loader import Models
 from .structures import Box, Detection, Taxonomy, clamp_box
 from .utils import long_path
 
