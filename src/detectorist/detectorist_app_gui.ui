@@ -45,6 +45,9 @@
           <verstretch>1</verstretch>
          </sizepolicy>
         </property>
+        <property name="focusPolicy">
+         <enum>Qt::FocusPolicy::ClickFocus</enum>
+        </property>
         <property name="styleSheet">
          <string>background-color: gray;</string>
         </property>
@@ -143,6 +146,9 @@
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
+             <property name="focusPolicy">
+              <enum>Qt::FocusPolicy::TabFocus</enum>
+             </property>
              <property name="toolTip">
               <string>The confidence threshold for filtering detections</string>
              </property>
@@ -219,6 +225,9 @@
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
+             <property name="focusPolicy">
+              <enum>Qt::FocusPolicy::TabFocus</enum>
+             </property>
              <property name="toolTip">
               <string>Names each object down to the deepest rank (family, genus or species) the classifier is at least this confident about</string>
              </property>
@@ -263,6 +272,9 @@
           <layout class="QGridLayout" name="grdlyt_crop">
            <item row="0" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_all_detected_objects">
+             <property name="focusPolicy">
+              <enum>Qt::FocusPolicy::TabFocus</enum>
+             </property>
              <property name="toolTip">
               <string>Crops all detected objects into individual images</string>
              </property>
@@ -279,6 +291,9 @@
            </item>
            <item row="1" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_most_confident_detection">
+             <property name="focusPolicy">
+              <enum>Qt::FocusPolicy::TabFocus</enum>
+             </property>
              <property name="toolTip">
               <string>Crops only the detection the object detector is most confident about into a new image</string>
              </property>
@@ -295,6 +310,9 @@
            </item>
            <item row="2" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_best_classification">
+             <property name="focusPolicy">
+              <enum>Qt::FocusPolicy::TabFocus</enum>
+             </property>
              <property name="toolTip">
               <string>Crops only the best classified object into a new image: the deepest identified rank wins, then the highest score</string>
              </property>
@@ -311,6 +329,9 @@
            </item>
            <item row="3" column="0" colspan="2">
             <widget class="QRadioButton" name="rb_crop_centered_obj">
+             <property name="focusPolicy">
+              <enum>Qt::FocusPolicy::TabFocus</enum>
+             </property>
              <property name="toolTip">
               <string>Crops to the most centrally located of all detected objects only into a new image</string>
              </property>
@@ -363,6 +384,9 @@
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
+             <property name="focusPolicy">
+              <enum>Qt::FocusPolicy::TabFocus</enum>
+             </property>
              <property name="toolTip">
               <string>Adjusts the padding around detected objects as a percentage of the detection bounding box's width/height</string>
              </property>
@@ -411,6 +435,9 @@
            </item>
            <item>
             <widget class="QCheckBox" name="cb_comp_cam_exposure">
+             <property name="focusPolicy">
+              <enum>Qt::FocusPolicy::TabFocus</enum>
+             </property>
              <property name="toolTip">
               <string>Adjust the EV to correct for any exposure bias based on EXIF data, when showing and exporting images</string>
              </property>

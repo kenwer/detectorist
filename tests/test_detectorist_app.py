@@ -437,6 +437,22 @@ def test_arrow_keys_move_through_the_list(qtbot, window, folder, monkeypatch):
     assert window.ui.image_list_view.currentIndex().row() == 0
 
 
+def test_controls_a_click_focuses_leave_the_arrow_keys_to_the_list(qtbot, window, folder, monkeypatch):
+    # Windows styles let a click focus sliders and buttons, which then take the arrow keys for themselves.
+    # The .ui file limits them to Tab focus, as the macOS style does, and lets a click on the image take focus.
+    make_images(folder, ["a.png", "b.png", "c.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
+    ui = window.ui
+    for widget in (ui.detection_confidence_slider, ui.taxon_confidence_slider, ui.padding_slider,
+                   ui.rb_crop_all_detected_objects, ui.cb_comp_cam_exposure):
+        assert not widget.focusPolicy() & Qt.FocusPolicy.ClickFocus, widget.objectName()
+    assert ui.image_label.focusPolicy() & Qt.FocusPolicy.ClickFocus
+
+    # Offscreen windows get no keyboard focus, so the key goes to the image label as if it had focus
+    qtbot.keyClick(ui.image_label, Qt.Key.Key_Right)
+    assert ui.image_list_view.currentIndex().row() == 1
+
+
 def test_result_for_another_image_is_ignored(qtbot, window, folder, monkeypatch, detector_factory):
     make_images(folder, ["a.png"], IMAGE_SIZE)
     detector_factory.detections_by_file["a.png"] = [FISH]

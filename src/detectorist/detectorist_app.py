@@ -185,11 +185,13 @@ class DetectoristApp(QMainWindow):
         self.setWindowTitle(f"Detectorist {__version__}")
 
         # Replace the image_label from the ui file with our custom ImageLabel
-        # but keep/re-use the sizePolicy and alignment from the .ui file
+        # but keep/re-use the sizePolicy, focusPolicy and alignment from the .ui file
         sizePolicy = self.ui.image_label.sizePolicy()
+        focusPolicy = self.ui.image_label.focusPolicy()
         alignment = self.ui.image_label.alignment()
         self.ui.image_label = ImageLabel(self, self.ui.central_widget)
         self.ui.image_label.setSizePolicy(sizePolicy)
+        self.ui.image_label.setFocusPolicy(focusPolicy)
         self.ui.image_label.setAlignment(alignment)
         self.ui.image_splitter.replaceWidget(0, self.ui.image_label)
         # Only the results can be dragged away, the image keeps a minimum height
