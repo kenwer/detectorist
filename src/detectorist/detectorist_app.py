@@ -151,6 +151,8 @@ class DetectoristApp(QMainWindow):
         self._classifier_factory = classifier_factory
         self.current_image_path = None
         self._all_detection_results: list = []
+        # None until the current image is shown
+        self._last_load_time_ms: float | None = None
         self._last_detection_time_ms: float = 0.0
         self._last_classification_time_ms: float = 0.0
         # What the classifier said about the current image's detections, keyed by box
@@ -473,17 +475,26 @@ class DetectoristApp(QMainWindow):
         self._clear_results()
 
     def _show_results(self, detections: list, threshold: float, pending: set):
-        """
-        Lists the detections in the results table, and sums them up with how
-        many of them are classified, and the time each took.
-        """
+        """Lists the detections in the results table, and sums them up."""
         self.ui.results_table.show_detections(detections, self._taxonomy_by_box, threshold, pending)
-        summary = f"{count_noun(len(detections), 'object')} detected ({self._last_detection_time_ms:.0f} ms)."
-        if self._taxonomy_by_box:
-            # The time also covers the names of detections the filters hide
-            classified = sum(d.box in self._taxonomy_by_box for d in detections)
-            summary += f" {classified} of them classified ({self._last_classification_time_ms:.0f} ms)."
-        self.ui.results_summary_label.setText(summary)
+        self._show_summary(detections)
+
+    def _show_summary(self, detections: list):
+        """
+        Sums up the steps the current image went through, with the time each
+        took: loading it and, once it is detected, how many detections are
+        shown and classified. A cached step gives the time it took when it ran.
+        """
+        parts = []
+        if self._last_load_time_ms is not None:
+            parts.append(f"Image loaded ({self._last_load_time_ms:.0f} ms)")
+        if self._detected:
+            parts.append(f"{count_noun(len(detections), 'object')} detected ({self._last_detection_time_ms:.0f} ms)")
+            if self._taxonomy_by_box:
+                # The time also covers the names of detections the filters hide
+                classified = sum(d.box in self._taxonomy_by_box for d in detections)
+                parts.append(f"{classified} of them classified ({self._last_classification_time_ms:.0f} ms)")
+        self.ui.results_summary_label.setText(", ".join(parts) + "." if parts else "")
 
     def _load_images_from_paths(self, file_paths: list[str]) -> bool:
         """
@@ -690,6 +701,7 @@ class DetectoristApp(QMainWindow):
         self.model.clear()
         self.current_image_path = None
         self._all_detection_results = []
+        self._last_load_time_ms = None
 
         self._show_welcome_state()
         self.ui.image_info_label.setText("")
@@ -717,6 +729,7 @@ class DetectoristApp(QMainWindow):
 
         self.current_image_path = new_image_path
         self._all_detection_results = []
+        self._last_load_time_ms = None
         self._detected = False
 
         if self.ui.model_select_combo_box.count() == 0:
@@ -812,7 +825,7 @@ class DetectoristApp(QMainWindow):
             self._show_message(message)
             logger.error(message)
 
-    def handle_image_loaded(self, image_path: str, image_object: ImageObject, display):
+    def handle_image_loaded(self, image_path: str, image_object: ImageObject, display, load_time_ms: float):
         """
         Handles the image_loaded signal from the Pipeline. The image shown
         already only gets its new display array, e.g. after the exposure
@@ -825,6 +838,8 @@ class DetectoristApp(QMainWindow):
             self._show_message(f"Could not load image:\n{image_path}")
             return
 
+        self._last_load_time_ms = load_time_ms
+        self._show_summary(self._filtered_results())
         if image_object is self.ui.image_label.image:
             self.ui.image_label.set_display(display)
             return

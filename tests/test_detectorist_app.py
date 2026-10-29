@@ -12,6 +12,7 @@ dialogs are replaced per test with monkeypatch.
 import csv
 import json
 import os
+import re
 import time
 
 import pytest
@@ -54,7 +55,8 @@ def listed(window) -> list[str]:
 
 def object_count(window) -> str:
     """The number of objects in the results summary, "-" while none is shown."""
-    return window.ui.results_summary_label.text().split(" ")[0] or "-"
+    match = re.search(r"(\d+) objects? detected", window.ui.results_summary_label.text())
+    return match.group(1) if match else "-"
 
 
 def result_rows(window) -> list[list[str]]:
@@ -1460,16 +1462,45 @@ def test_results_list_each_detection_with_its_deepest_identified_rank(qtbot, spe
 
 def test_results_summary_gives_the_detections_and_classifications_with_their_times(qtbot, species_model, window, folder, monkeypatch, detector_factory):
     open_with_classifier(qtbot, window, folder, monkeypatch, detector_factory, [CRAB, FISH])
+    window._last_load_time_ms = 150.0
     window._last_detection_time_ms = 220.0
 
     window.handle_classification_complete(window.current_image_path, window._taxonomy_by_box, 430.0)
 
-    assert window.ui.results_summary_label.text() == "2 objects detected (220 ms). 2 of them classified (430 ms)."
+    assert (window.ui.results_summary_label.text()
+            == "Image loaded (150 ms), 2 objects detected (220 ms), 2 of them classified (430 ms).")
 
     # Only the shown detections are counted, the time stays that of every name of the image
     window.ui.class_filter_combo_box.setCurrentText("Fish")
 
-    assert window.ui.results_summary_label.text() == "1 object detected (220 ms). 1 of them classified (430 ms)."
+    assert (window.ui.results_summary_label.text()
+            == "Image loaded (150 ms), 1 object detected (220 ms), 1 of them classified (430 ms).")
+
+
+def test_results_summary_gives_the_load_time_before_the_detections(qtbot, window, folder, monkeypatch, detector_factory):
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    detector_factory.detections_by_file["a.png"] = [FISH]
+    open_folder(window, folder, monkeypatch)
+    qtbot.waitUntil(lambda: object_count(window) == "1")
+    image = window.ui.image_label.image
+    window._detected = False
+
+    window.handle_image_loaded(window.current_image_path, image, image.display_rgb_8bit(False), 1234.0)
+
+    assert window.ui.results_summary_label.text() == "Image loaded (1234 ms)."
+
+
+def test_rebuilding_the_display_updates_the_load_time_and_keeps_the_detections(qtbot, window, folder, monkeypatch, detector_factory):
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    detector_factory.detections_by_file["a.png"] = [FISH]
+    open_folder(window, folder, monkeypatch)
+    qtbot.waitUntil(lambda: object_count(window) == "1")
+    window._last_detection_time_ms = 220.0
+    image = window.ui.image_label.image
+
+    window.handle_image_loaded(window.current_image_path, image, image.display_rgb_8bit(True), 90.0)
+
+    assert window.ui.results_summary_label.text() == "Image loaded (90 ms), 1 object detected (220 ms)."
 
 
 def test_hovering_a_detection_tints_its_result_row(qtbot, species_model, window, folder, monkeypatch, detector_factory):

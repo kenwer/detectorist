@@ -48,7 +48,7 @@ class Recorder:
         pipeline.cache_updated.connect(self.cached.append)
         pipeline.model_loaded.connect(lambda ok, message, names, _seg: self.models.append((ok, message, names)))
 
-    def _image_loaded(self, path, image, display):
+    def _image_loaded(self, path, image, display, ms):
         self.shown.append(path)
         self.displays.append(display)
 

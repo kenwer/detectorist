@@ -40,9 +40,9 @@ def make_browsing(path="a.png") -> tuple[Browsing, FakeImage]:
 
 def decode_and_display(browsing: Browsing, image: FakeImage, m: Models) -> None:
     decode = browsing.next_decode(m)
-    browsing.on_decoded(decode, image)
+    browsing.on_decoded(decode, image, 30.0)
     display = browsing.next_decode(m)
-    browsing.on_displayed(display, DISPLAY)
+    browsing.on_displayed(display, DISPLAY, 5.0)
 
 
 def test_the_shown_image_is_decoded_then_displayed_then_reported():
@@ -51,13 +51,14 @@ def test_the_shown_image_is_decoded_then_displayed_then_reported():
 
     decode = browsing.next_decode(m)
     assert isinstance(decode, DecodeJob) and decode.path == "a.png"
-    browsing.on_decoded(decode, image)
+    browsing.on_decoded(decode, image, 30.0)
     display = browsing.next_decode(m)
     assert isinstance(display, DisplayJob) and display.image is image
-    browsing.on_displayed(display, DISPLAY)
+    browsing.on_displayed(display, DISPLAY, 5.0)
 
     reports = browsing.reports(m)
     assert [type(r) for r in reports] == [ImageLoaded]
+    assert reports[0].load_time_ms == 35.0
     assert browsing.next_decode(m) is None
 
 

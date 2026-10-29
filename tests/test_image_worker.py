@@ -36,9 +36,10 @@ def test_worker_decodes_an_image(qtbot, worker, tmp_path):
     with qtbot.waitSignal(lane.decoded) as blocker:
         submit(job)
 
-    returned_job, image = blocker.args
+    returned_job, image, decode_time_ms = blocker.args
     assert returned_job is job
     assert (image.width, image.height) == (64, 48)
+    assert decode_time_ms > 0
 
 
 def test_worker_reports_an_unreadable_file(qtbot, worker, tmp_path):
@@ -75,6 +76,7 @@ def test_worker_builds_the_display_of_a_decoded_image(qtbot, worker, tmp_path, e
     with qtbot.waitSignal(lane.displayed) as blocker:
         submit(job)
 
-    returned_job, display = blocker.args
+    returned_job, display, display_time_ms = blocker.args
     assert returned_job is job
     np.testing.assert_array_equal(display, image.display_rgb_8bit(exposure_correction))
+    assert display_time_ms > 0

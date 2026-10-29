@@ -49,6 +49,7 @@ class ImageLoaded:
     path: str
     image: ImageObject
     display: np.ndarray
+    load_time_ms: float  # decode and display, see LoadedImage
 
 
 @dataclass(eq=False)
@@ -193,13 +194,13 @@ class Browsing:
         return (isinstance(job, ClassifyJob) and request is not None and job.path != request.path
                 and self._needs(request.path, models).inference in (Work.DETECT, Work.CLASSIFY))
 
-    def on_decoded(self, job: DecodeJob, image: ImageObject) -> None:
+    def on_decoded(self, job: DecodeJob, image: ImageObject, decode_time_ms: float) -> None:
         if not job.token.cancelled:
-            self._store.put_image(job.path, image)
+            self._store.put_image(job.path, image, decode_time_ms)
 
-    def on_displayed(self, job: DisplayJob, display: np.ndarray) -> None:
+    def on_displayed(self, job: DisplayJob, display: np.ndarray, display_time_ms: float) -> None:
         if not job.token.cancelled:
-            self._store.put_display(job.image, display, job.exposure_correction)
+            self._store.put_display(job.image, display, job.exposure_correction, display_time_ms)
 
     def on_decode_failed(self, job: DecodeJob | DisplayJob, message: str) -> None:
         if job.token.cancelled:
@@ -262,7 +263,7 @@ class Browsing:
             if loaded is None or loaded.display_exposure != request.exposure_correction:
                 return reports
             self._delivered.add(IMAGE)
-            reports.append(ImageLoaded(request.path, loaded.image, loaded.display))
+            reports.append(ImageLoaded(request.path, loaded.image, loaded.display, loaded.load_time_ms))
             if not models.detector_state.is_loaded_or_loading and ERROR not in self._delivered:
                 self._delivered.add(ERROR)
                 reports.append(ImageError(request.path, "Model not loaded."))

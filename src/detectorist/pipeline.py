@@ -63,7 +63,7 @@ class Pipeline(QObject):
     window already handled.
     """
     model_loaded = Signal(bool, str, list, bool)  # success, message, sorted class names, is segmentation model
-    image_loaded = Signal(str, object, object)  # image_path, ImageObject, display array
+    image_loaded = Signal(str, object, object, float)  # image_path, ImageObject, display array, load_time_ms
     detection_complete = Signal(str, list, float)  # image_path, unfiltered detections, detection_time_ms
     # image_path, {box: Taxonomy}, classification_time_ms. The dict goes as object: as a QVariantMap it would lose its tuple keys.
     classification_complete = Signal(str, object, float)
@@ -331,7 +331,7 @@ class Pipeline(QObject):
     def _report(self, report: Report):
         match report:
             case ImageLoaded():
-                self.image_loaded.emit(report.path, report.image, report.display)
+                self.image_loaded.emit(report.path, report.image, report.display, report.load_time_ms)
             case DetectionComplete():
                 self.detection_complete.emit(report.path, report.detections, report.detection_time_ms)
             case ClassificationComplete():
@@ -374,17 +374,17 @@ class Pipeline(QObject):
         self.export_finished.emit(result)
         self._schedule()
 
-    def _on_decoded(self, job: DecodeJob, image: ImageObject):
+    def _on_decoded(self, job: DecodeJob, image: ImageObject, decode_time_ms: float):
         self._decode_job = None
         if self._export_owns(job):
             self._export.on_decoded(image)
         else:
-            self._browsing.on_decoded(job, image)
+            self._browsing.on_decoded(job, image, decode_time_ms)
         self._schedule()
 
-    def _on_displayed(self, job: DisplayJob, display):
+    def _on_displayed(self, job: DisplayJob, display, display_time_ms: float):
         self._decode_job = None
-        self._browsing.on_displayed(job, display)  # an export builds no display arrays
+        self._browsing.on_displayed(job, display, display_time_ms)  # an export builds no display arrays
         self._schedule()
 
     def _on_decode_failed(self, job: DecodeJob | DisplayJob, message: str):

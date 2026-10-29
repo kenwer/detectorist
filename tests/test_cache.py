@@ -120,9 +120,9 @@ def test_results_size_counts_packed_masks():
 def test_store_hides_results_of_another_version_of_the_file():
     store = ImageStore(10_000, 10_000)
     old, new = FakeImage("a.png", mtime_ns=1), FakeImage("a.png", mtime_ns=2)
-    store.put_image("a.png", old)
+    store.put_image("a.png", old, 1.0)
     store.put_detections(old, [FISH], 1.0)
-    store.put_image("a.png", new)
+    store.put_image("a.png", new, 1.0)
 
     assert store.results("a.png") is None
     assert store.results_for(old) is None
@@ -131,7 +131,7 @@ def test_store_hides_results_of_another_version_of_the_file():
 def test_store_hands_out_results_for_the_image_detected():
     store = ImageStore(10_000, 10_000)
     image = FakeImage("a.png")
-    store.put_image("a.png", image)
+    store.put_image("a.png", image, 1.0)
     store.put_detections(image, [FISH], 1.0)
 
     assert store.results("a.png").detections == [FISH]
@@ -142,9 +142,9 @@ def test_store_hands_out_results_for_the_image_detected():
 def test_store_ignores_the_display_of_a_replaced_image():
     store = ImageStore(10_000, 10_000)
     old, new = FakeImage("a.png", mtime_ns=1), FakeImage("a.png", mtime_ns=2)
-    store.put_image("a.png", new)
+    store.put_image("a.png", new, 1.0)
 
-    store.put_display(old, np.zeros(10, dtype=np.uint8), exposure_correction=False)
+    store.put_display(old, np.zeros(10, dtype=np.uint8), exposure_correction=False, display_time_ms=1.0)
 
     assert store.image("a.png").display is None
     assert store.room() == 0
@@ -153,13 +153,24 @@ def test_store_ignores_the_display_of_a_replaced_image():
 def test_store_room_is_estimated_from_the_image_displayed_last():
     store = ImageStore(1_000, 10_000)
     image = FakeImage("a.png", nbytes=150)
-    store.put_image("a.png", image)
+    store.put_image("a.png", image, 1.0)
 
-    store.put_display(image, np.zeros(50, dtype=np.uint8), exposure_correction=True)
+    store.put_display(image, np.zeros(50, dtype=np.uint8), exposure_correction=True, display_time_ms=1.0)
 
     # 1000 bytes hold 5 images of 200 bytes, one of them the shown image
     assert store.room() == 4
     assert store.image("a.png").display_exposure is True
+
+
+def test_store_keeps_the_decode_time_when_the_display_is_rebuilt():
+    store = ImageStore(10_000, 10_000)
+    image = FakeImage("a.png")
+    store.put_image("a.png", image, 900.0)
+    store.put_display(image, np.zeros(10, dtype=np.uint8), exposure_correction=False, display_time_ms=100.0)
+
+    store.put_display(image, np.zeros(10, dtype=np.uint8), exposure_correction=True, display_time_ms=60.0)
+
+    assert store.image("a.png").load_time_ms == 960.0
 
 
 GB = 10**9

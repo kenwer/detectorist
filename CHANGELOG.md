@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- The status bar shows the time an image took to load, next to the detection and classification times.
 ### Changed
 - [Dev] Rework of the architecture, continued:
   - Export runs in an `ExportRun` driven by `Pipeline` signals instead of a nested event loop, writing with the `ExportWriter`.

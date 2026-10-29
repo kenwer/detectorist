@@ -118,10 +118,17 @@ class LruCache[K, V]:
 
 @dataclass
 class LoadedImage:
-    """A decoded image and, once built, its display array."""
+    """A decoded image and, once built, its display array, with the time each took."""
     image: ImageObject
+    decode_time_ms: float
     display: np.ndarray | None = None  # 8-bit RGB, ready for a QImage, None until built
     display_exposure: bool | None = None  # whether display is exposure corrected, None until built
+    display_time_ms: float = 0.0  # of the display built last, as toggling the exposure rebuilds only that
+
+    @property
+    def load_time_ms(self) -> float:
+        """How long the image took to decode and display, what the user waits for before it shows."""
+        return self.decode_time_ms + self.display_time_ms
 
     @property
     def stamp(self) -> FileStamp:
@@ -216,20 +223,22 @@ class ImageStore:
             return 0
         return max(self._image_budget // self._entry_bytes - 1, 0)
 
-    def put_image(self, path: str, image: ImageObject) -> None:
+    def put_image(self, path: str, image: ImageObject, decode_time_ms: float) -> None:
         """Keeps a decoded image, dropping the results of another version of the file."""
         results = self._results.peek(path)
         if results is not None and results.stamp != image.stamp:
             self._results.pop(path)
-        self._images.put(path, LoadedImage(image))
+        self._images.put(path, LoadedImage(image, decode_time_ms))
 
-    def put_display(self, image: ImageObject, display: np.ndarray, exposure_correction: bool) -> None:
+    def put_display(self, image: ImageObject, display: np.ndarray, exposure_correction: bool,
+                    display_time_ms: float) -> None:
         """Keeps the display array built for image, unless image is no longer the one cached."""
         loaded = self._images.peek(image.image_path)
         if loaded is None or loaded.image is not image:
             return
         loaded.display = display
         loaded.display_exposure = exposure_correction
+        loaded.display_time_ms = display_time_ms
         # Put again, as the cache sized the entry without its display
         self._images.put(image.image_path, loaded)
         self._entry_bytes = loaded.nbytes()
