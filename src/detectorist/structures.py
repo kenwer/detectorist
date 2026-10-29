@@ -57,12 +57,12 @@ class PackedMask:
     area: int  # number of pixels inside the mask
 
     @classmethod
-    def pack(cls, mask: np.ndarray) -> PackedMask:
+    def from_mask(cls, mask: np.ndarray) -> PackedMask:
         """Packs a mask, counting pixels above 127 as inside."""
         inside = mask > 127
         return cls(zlib.compress(np.packbits(inside).tobytes(), 1), inside.shape, int(inside.sum()))
 
-    def unpack(self) -> np.ndarray:
+    def to_mask(self) -> np.ndarray:
         """The mask as a uint8 array of 0 or 255."""
         bits = np.unpackbits(np.frombuffer(zlib.decompress(self.data), dtype=np.uint8))
         return bits[:self.shape[0] * self.shape[1]].reshape(self.shape) * np.uint8(255)

@@ -103,7 +103,7 @@ def test_unnamed_boxes_honours_the_class_filter():
 
 
 def test_results_size_counts_packed_masks():
-    mask = PackedMask.pack(np.full((32, 32), 255, dtype=np.uint8))
+    mask = PackedMask.from_mask(np.full((32, 32), 255, dtype=np.uint8))
     results = ImageResults(STAMP, [Detection((0, 0, 4, 4), 0.9, "Fish", mask), FISH], 1.0)
 
     assert results.nbytes() == mask.nbytes + 2 * 64

@@ -80,7 +80,7 @@ def test_masks_are_binary_at_model_input_resolution(tmp_path):
     # Sorting by score puts the model's second detection first, and each
     # mask has to travel with its detection.
     assert all(isinstance(detection.mask, PackedMask) for detection in results)
-    top_half, left_half, empty = (detection.mask.unpack() for detection in results)
+    top_half, left_half, empty = (detection.mask.to_mask() for detection in results)
 
     for mask in (left_half, top_half, empty):
         assert mask.shape == (INPUT_SIZE, INPUT_SIZE)

@@ -134,7 +134,7 @@ class Detector:
                 with np.errstate(over="ignore"):  # very negative logits cause exp overflow, but 1/(1+inf) = 0.0
                     mask_probs = 1 / (1 + np.exp(-logits_resized))
                 # Packed right away, as 200 raw masks would take about 50 MB per image
-                mask = PackedMask.pack((mask_probs >= 0.5).astype(np.uint8) * 255)
+                mask = PackedMask.from_mask((mask_probs >= 0.5).astype(np.uint8) * 255)
             final_results.append(Detection(boxes_xywh[i], scores[i], class_name, mask))
 
         # Sort by score descending for consistent ordering (highest-confidence first)

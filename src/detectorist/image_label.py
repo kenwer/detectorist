@@ -221,7 +221,7 @@ class ImageLabel(QLabel):
             style = styles.get(box) or DetectionStyle(color_map.get(class_name, fallback_color), score)
             self.orig_detection_rects.append(rect)
             # Only the masks of the detections shown are unpacked, not all the model returned
-            self.orig_detection_masks.append(None if mask is None else mask.unpack())
+            self.orig_detection_masks.append(None if mask is None else mask.to_mask())
             mask_areas.append(None if mask is None else mask.area)
 
             alpha = int(10 + style.score * (255 - 10))  # Scale score (0.0-1.0) to alpha (10-255)

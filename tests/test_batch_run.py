@@ -21,7 +21,6 @@ from detectorist.batch_output import (
     DETECTIONS_CSV_NAME,
     ClassificationRow,
     DetectionsRow,
-    summarize_detections,
 )
 from detectorist.batch_run import BatchOptions, BatchWriter, CropExportAction
 from detectorist.export_planner import CropMode, CropSettings, ExportOptions
@@ -159,8 +158,8 @@ def test_class_filter_drops_detections_of_other_classes(tmp_path, run_batch):
     # Detected, but the action did not crop (Sort by Class, or no usable crop rectangle)
     ([Detection((0, 0, 1, 1), 0.9, "Fish")], False, ("a.png", 0.9, "Fish", 1, "no")),
 ])
-def test_summarize_detections_reports_the_top_detection_and_the_crop(detections, cropped, row):
-    assert summarize_detections("a.png", detections, cropped) == row
+def test_detections_row_reports_the_top_detection_and_the_crop(detections, cropped, row):
+    assert DetectionsRow.from_detections("a.png", detections, cropped) == row
 
 
 def test_load_failure_skips_image_and_continues(tmp_path, run_batch):

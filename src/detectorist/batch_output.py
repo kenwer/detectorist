@@ -30,6 +30,19 @@ class DetectionsRow(NamedTuple):
     object_count: int
     cropped: str  # "yes", "no", or "n/a" for an image that failed
 
+    @classmethod
+    def from_detections(cls, file_name: str, detections: list[Detection], cropped: bool) -> DetectionsRow:
+        """
+        The row of one image: its top detection, how many there are, and
+        whether the action cropped the image. "N/A" for the class name when
+        nothing was detected.
+        """
+        if not detections:
+            return cls(file_name, 0, "N/A", 0, "no")
+        top_detection = max(detections, key=lambda d: d.score)
+        return cls(file_name, top_detection.score, top_detection.class_name, len(detections),
+                   "yes" if cropped else "no")
+
 
 class ClassificationRow(NamedTuple):
     """
@@ -51,19 +64,6 @@ class ClassificationRow(NamedTuple):
     genus_score: float | str
     species: str
     species_score: float | str
-
-
-def summarize_detections(file_name: str, detections: list[Detection], cropped: bool) -> DetectionsRow:
-    """
-    The detections CSV row of one image: its top detection, how many there
-    are, and whether the action cropped the image. "N/A" for the class name
-    when nothing was detected.
-    """
-    if not detections:
-        return DetectionsRow(file_name, 0, "N/A", 0, "no")
-    top_detection = max(detections, key=lambda d: d.score)
-    return DetectionsRow(file_name, top_detection.score, top_detection.class_name, len(detections),
-                         "yes" if cropped else "no")
 
 
 @contextmanager

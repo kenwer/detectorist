@@ -23,7 +23,6 @@ from .batch_output import (
     ClassificationRow,
     DetectionsRow,
     csv_writer,
-    summarize_detections,
 )
 from .cache import ImageResults, LruCache
 from .classifier import detections_to_classify, identified_ranks
@@ -67,7 +66,7 @@ class BatchAction(Protocol):
     """
     Per-image behaviour of a Batch Run (e.g. CropExportAction).
     Actions write image files. The detections and classification CSV rows are
-    BatchWriter's job (see summarize_detections and classification_rows).
+    BatchWriter's job (see DetectionsRow.from_detections and classification_rows).
 
     A structural interface: actions don't subclass this, they satisfy it by
     providing matching prepare() and process() methods.
@@ -181,7 +180,7 @@ class BatchWriter:
                 named = detections_to_classify(detections, 0.0, self._patterns)
                 rows = classification_rows(image, named, names, self._taxon_confidence)
             cropped = self._action.process(image, detections, names)
-            detections_row = summarize_detections(file_name, detections, cropped)
+            detections_row = DetectionsRow.from_detections(file_name, detections, cropped)
         except Exception:
             logger.exception("%s: could not process image", file_name)
             detections_row = DetectionsRow(file_name, 0, "process-error", 0, "n/a")
