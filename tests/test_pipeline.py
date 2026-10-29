@@ -259,6 +259,19 @@ def test_load_detector_failure_is_reported(qtbot, make_pipeline, models_dir):
     assert env.rec.models[1] == (False, "Error loading model: boom", [])
 
 
+def test_an_unreadable_detector_file_fails_and_drops_the_previous_detector(qtbot, tmp_path, make_pipeline,
+                                                                          models_dir):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    env = make_pipeline()
+
+    env.pipeline.load_detector(str(models_dir / "missing.onnx"))
+    show(env.pipeline, path_a)
+    qtbot.waitUntil(lambda: bool(env.rec.errors))
+
+    assert env.rec.models[1][0] is False
+    assert env.rec.errors == [(path_a, "Model not loaded.")]
+
+
 def test_loading_the_same_detector_twice_is_skipped(qtbot, make_pipeline, models_dir):
     env = make_pipeline()
 

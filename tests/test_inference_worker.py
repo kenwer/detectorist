@@ -1,4 +1,4 @@
-"""Tests for the InferenceWorker, the inference lane, on a real thread, and the ModelLoader."""
+"""Tests for the InferenceWorker, the inference lane, on a real thread."""
 
 import pytest
 from PySide6.QtCore import QObject, QThread, Signal
@@ -6,7 +6,6 @@ from PySide6.QtCore import QObject, QThread, Signal
 from detectorist.image_object import ImageObject
 from detectorist.inference_worker import InferenceWorker
 from detectorist.jobs import CancelToken, ClassifyJob, DetectJob, ModelId
-from detectorist.model_loader import ModelLoader
 from detectorist.structures import Detection
 from tests.fakes import TAXONOMY, FakeClassifier, FakeDetector, make_images
 
@@ -112,22 +111,3 @@ def test_failing_classifier_reports_failed(qtbot, worker, image):
 
     assert blocker.args == [job, "broken"]
 
-
-def test_model_loader_reports_loaded(qtbot):
-    loader = ModelLoader(lambda path: f"model from {path}", ("a.onnx",), DETECTOR_ID)
-
-    with qtbot.waitSignal(loader.loaded) as blocker:
-        loader.start()
-
-    assert blocker.args == [DETECTOR_ID, "model from a.onnx"]
-
-
-def test_model_loader_reports_failed(qtbot):
-    def factory(path):
-        raise OSError(f"cannot read {path}")
-    loader = ModelLoader(factory, ("a.onnx",), DETECTOR_ID)
-
-    with qtbot.waitSignal(loader.failed) as blocker:
-        loader.start()
-
-    assert blocker.args == [DETECTOR_ID, "cannot read a.onnx"]

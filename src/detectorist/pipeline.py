@@ -13,7 +13,7 @@ need no locks.
 import logging
 import os
 
-from PySide6.QtCore import QObject, QThread, QThreadPool, Signal
+from PySide6.QtCore import QObject, QThread, Signal
 
 from .cache import ImageResults, LoadedImage, LruCache, image_cache_budget, results_cache_budget
 from .classifier import Classifier, detections_to_classify
@@ -22,8 +22,8 @@ from .export_run import DetectionFilter, ExportRun, ExportWriter
 from .image_object import ImageObject
 from .image_worker import ImageWorker
 from .inference_worker import InferenceWorker
-from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ModelId, ShowRequest
-from .model_loader import ModelLoader
+from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
+from .model_slot import ModelSlot
 from .utils import physical_memory_bytes
 
 logger = logging.getLogger(__name__)
@@ -86,8 +86,6 @@ class Pipeline(QObject):
                 Defaults to a share of the RAM (see results_cache_budget).
         """
         super().__init__(parent)
-        self._detector_factory = detector_factory
-        self._classifier_factory = classifier_factory
         ram = physical_memory_bytes()
         self._image_budget = image_budget_bytes if image_budget_bytes is not None else image_cache_budget(ram)
         if results_budget_bytes is None:
@@ -107,14 +105,13 @@ class Pipeline(QObject):
         self._decode_job: DecodeJob | DisplayJob | None = None  # the job the ImageWorker is busy with
         self._inference_job: DetectJob | ClassifyJob | None = None  # the job the InferenceWorker is busy with
 
-        self._detector_id: ModelId | None = None  # the detector the InferenceWorker holds
-        self._detector_wanted: ModelId | None = None  # the detector being loaded
-        self._classifier_id: ModelId | None = None  # the classifier the InferenceWorker holds
-        self._classifier_wanted: ModelId | None = None  # the classifier being loaded
-        self._classifier_requested = False  # whether the UI asked for a classifier
-        self._classifier_failed = False  # whether the requested classifier failed to load
+        self._detector = ModelSlot(detector_factory, self)
+        self._detector.loaded.connect(self._on_detector_loaded)
+        self._detector.failed.connect(self._on_detector_failed)
+        self._classifier = ModelSlot(classifier_factory, self)
+        self._classifier.loaded.connect(self._on_classifier_loaded)
+        self._classifier.failed.connect(self._on_classifier_failed)
         self._patterns: tuple[str, ...] = ()  # the detection classes the classifier names
-        self._loaders: list[ModelLoader] = []  # kept alive until they report
         self._shut_down = False
         self._export: ExportRun | None = None  # the export under way, which pauses interactive work
 
@@ -182,20 +179,11 @@ class Pipeline(QObject):
         is dropped first, so two detectors are never held at once, and so
         are the results it produced. The same model twice is loaded once.
         """
-        try:
-            model_id = ModelId.from_path(model_path)
-        except OSError as e:
-            self.model_loaded.emit(False, f"Error loading model: {e}", [], False)
-            return
-        if model_id in (self._detector_id, self._detector_wanted):
+        if self._detector.wants(model_path):
             logger.debug("Model already loaded, skipping duplicate request: %s", model_path)
             return
         self._drop_detector()
-        self._detector_wanted = model_id
-        loader = ModelLoader(self._detector_factory, (model_path,), model_id)
-        loader.loaded.connect(lambda loaded_id, detector: self._on_detector_loaded(loaded_id, detector, model_path))
-        loader.failed.connect(self._on_detector_failed)
-        self._start_loader(loader)
+        self._detector.load(model_path)
 
     def unload_detector(self):
         """Drops the detector and its results, e.g. when no model is left."""
@@ -212,25 +200,13 @@ class Pipeline(QObject):
         if isinstance(job, ClassifyJob) and not self._export_owns(job):
             job.token.cancel()  # its names belong to the old classifier
         self._set_classifier.emit(None, None)
-        self._classifier_id = None
-        self._classifier_wanted = None
-        self._classifier_failed = False
-        self._classifier_requested = bool(model_path)
+        self._classifier.drop()
         self._patterns = tuple(patterns)
         for _, results in self._results.items():
             results.clear_names()
         self._delivered.discard(NAMES)
         if model_path:
-            try:
-                model_id = ModelId.from_path(model_path)
-            except OSError as e:
-                self._on_classifier_failed(None, str(e))
-                return
-            self._classifier_wanted = model_id
-            loader = ModelLoader(self._classifier_factory, (model_path, list(patterns)), model_id)
-            loader.loaded.connect(self._on_classifier_loaded)
-            loader.failed.connect(self._on_classifier_failed)
-            self._start_loader(loader)
+            self._classifier.load(model_path, list(patterns))
         self._schedule()
 
     def start_export(self, paths: list[str], detection_filter: DetectionFilter, writer: ExportWriter):
@@ -277,19 +253,12 @@ class Pipeline(QObject):
         if run is not None:
             # Reported, so a caller waiting for the run stops waiting
             self.export_finished.emit(run.writer.close(cancelled=True))
-        if self._loaders:
-            QThreadPool.globalInstance().waitForDone()
-
-    def _start_loader(self, loader: ModelLoader):
-        self._loaders.append(loader)
-        loader.loaded.connect(lambda *_: self._loaders.remove(loader))
-        loader.failed.connect(lambda *_: self._loaders.remove(loader))
-        loader.start()
+        self._detector.shutdown()
+        self._classifier.shutdown()
 
     def _drop_detector(self):
         self._set_detector.emit(None, None)
-        self._detector_id = None
-        self._detector_wanted = None
+        self._detector.drop()
         self._results.clear()
         self._detect_failed.clear()
         # The image too, as the window may have replaced it by a message, e.g. a model that failed to load
@@ -298,36 +267,21 @@ class Pipeline(QObject):
         if self._inference_job is not None and not self._export_owns(self._inference_job):
             self._inference_job.token.cancel()
 
-    def _on_detector_loaded(self, model_id: ModelId, detector, model_path: str):
-        if self._shut_down or model_id != self._detector_wanted:
-            return  # superseded by another load
-        self._detector_wanted = None
-        self._detector_id = model_id
-        self._set_detector.emit(detector, model_id)
+    def _on_detector_loaded(self, detector, model_path: str):
+        self._set_detector.emit(detector, self._detector.model_id)
         self.model_loaded.emit(True, f"Loaded model: {model_path}", sorted(detector.class_names.values()),
                                detector.is_segmentation)
         self._schedule()
 
-    def _on_detector_failed(self, model_id: ModelId, message: str):
-        if self._shut_down or model_id != self._detector_wanted:
-            return
-        self._detector_wanted = None
+    def _on_detector_failed(self, message: str):
         self.model_loaded.emit(False, f"Error loading model: {message}", [], False)
         self._schedule()
 
-    def _on_classifier_loaded(self, model_id: ModelId, classifier):
-        if self._shut_down or model_id != self._classifier_wanted:
-            return
-        self._classifier_wanted = None
-        self._classifier_id = model_id
-        self._set_classifier.emit(classifier, model_id)
+    def _on_classifier_loaded(self, classifier, _model_path: str):
+        self._set_classifier.emit(classifier, self._classifier.model_id)
         self._schedule()
 
-    def _on_classifier_failed(self, model_id: ModelId | None, message: str):
-        if self._shut_down or model_id != self._classifier_wanted:
-            return
-        self._classifier_wanted = None
-        self._classifier_failed = True
+    def _on_classifier_failed(self, message: str):
         self.classifier_error.emit(f"Error loading classifier: {message}")
         self._schedule()
 
@@ -433,13 +387,12 @@ class Pipeline(QObject):
         self._schedule()
 
     def _next_export_inference(self) -> DetectJob | ClassifyJob | None:
-        if self._detector_id is None:
-            if self._detector_wanted is None:
+        if self._detector.model_id is None:
+            if not self._detector.expected:
                 self._export.failure = "Model not loaded."
             return None  # waits for the model still loading
-        return self._export.next_inference(self._results, self._detector_id,
-                                          self._classifier_requested and not self._classifier_failed,
-                                          self._classifier_id, self._patterns)
+        return self._export.next_inference(self._results, self._detector.model_id, self._classifier.expected,
+                                          self._classifier.model_id, self._patterns)
 
     def _preempt_for_shown(self):
         """
@@ -459,7 +412,7 @@ class Pipeline(QObject):
         if results is None:
             needs_inference = request.path not in self._detect_failed
         else:
-            needs_inference = self._classifier_id is not None and bool(
+            needs_inference = self._classifier.model_id is not None and bool(
                 results.unnamed_boxes(request.detection_threshold, self._patterns))
         if needs_inference:
             job.token.cancel()
@@ -492,7 +445,7 @@ class Pipeline(QObject):
     def _next_inference(self) -> DetectJob | ClassifyJob | None:
         if self._export is not None:
             return self._next_export_inference()
-        if self._detector_id is None:
+        if self._detector.model_id is None:
             return None
         for path in self._wanted_paths():
             loaded = self._images.peek(path)
@@ -501,12 +454,12 @@ class Pipeline(QObject):
             results = self._valid_results(path)
             if results is None:
                 if path not in self._detect_failed:
-                    return DetectJob(loaded.image, self._detector_id, CancelToken())
+                    return DetectJob(loaded.image, self._detector.model_id, CancelToken())
                 continue
-            if self._classifier_id is not None:
+            if self._classifier.model_id is not None:
                 boxes = results.unnamed_boxes(self._threshold(), self._patterns)
                 if boxes:
-                    return ClassifyJob(loaded.image, boxes, self._classifier_id, CancelToken())
+                    return ClassifyJob(loaded.image, boxes, self._classifier.model_id, CancelToken())
         return None
 
     def _valid_results(self, path: str) -> ImageResults | None:
@@ -522,9 +475,9 @@ class Pipeline(QObject):
         Whether the names to report are all there: nothing is left to name,
         failed boxes included, as there is nothing more coming for them.
         """
-        if not self._classifier_requested or self._classifier_failed:
+        if not self._classifier.expected:
             return True
-        return self._classifier_id is not None and not results.unnamed_boxes(self._threshold(), self._patterns)
+        return self._classifier.model_id is not None and not results.unnamed_boxes(self._threshold(), self._patterns)
 
     def _deliver(self):
         """Reports what is ready for the current request and not reported yet, in order."""
@@ -537,7 +490,7 @@ class Pipeline(QObject):
                 return
             self._delivered.add(IMAGE)
             self.image_loaded.emit(request.path, loaded.image, loaded.display)
-            if self._detector_id is None and self._detector_wanted is None and ERROR not in self._delivered:
+            if not self._detector.expected and ERROR not in self._delivered:
                 self._delivered.add(ERROR)
                 self.error.emit(request.path, "Model not loaded.")
         results = self._valid_results(request.path)
@@ -546,7 +499,7 @@ class Pipeline(QObject):
         if DETECTIONS not in self._delivered:
             self._delivered.add(DETECTIONS)
             self.detection_complete.emit(request.path, results.detections, results.detection_time_ms)
-        if NAMES not in self._delivered and self._classifier_requested and self._names_settled(results):
+        if NAMES not in self._delivered and self._classifier.requested and self._names_settled(results):
             self._delivered.add(NAMES)
             self.classification_complete.emit(request.path, dict(results.names), results.classification_time_ms)
 
@@ -564,8 +517,8 @@ class Pipeline(QObject):
             results = self._results.peek(path)
             if results is None or results.stamp != loaded.stamp:
                 continue
-            if self._classifier_requested and not self._classifier_failed:
-                if self._classifier_id is None:
+            if self._classifier.expected:
+                if self._classifier.model_id is None:
                     continue  # still loading, so every image has names to come
                 wanted = detections_to_classify(results.detections, self._threshold(), self._patterns)
                 if any(d.box not in results.names for d in wanted):
@@ -615,7 +568,7 @@ class Pipeline(QObject):
         self._inference_job = None
         # A job for a replaced model is stale. One for an older version of the file is stored with its image's
         # stamp, which tells it apart from the current version.
-        if not job.token.cancelled and job.model_id == self._detector_id:
+        if not job.token.cancelled and job.model_id == self._detector.model_id:
             self._results.put(job.path, ImageResults(job.image.stamp, detections, detection_time_ms))
         self._schedule()
 
@@ -623,7 +576,7 @@ class Pipeline(QObject):
         self._inference_job = None
         results = self._results.peek(job.path)
         # Names of a cancelled job are kept: they are valid for the classifier that gave them
-        if job.model_id == self._classifier_id and results is not None:
+        if job.model_id == self._classifier.model_id and results is not None:
             results.names.update(names)
             results.classification_time_ms += classification_time_ms
         self._schedule()
@@ -635,13 +588,13 @@ class Pipeline(QObject):
         if isinstance(job, DetectJob):
             if by_export:
                 self._export.on_detect_failed()
-            elif job.model_id == self._detector_id:
+            elif job.model_id == self._detector.model_id:
                 self._detect_failed.add(job.path)
                 if is_shown:
                     self.error.emit(job.path, f"Error processing image: {message}")
         else:
             results = self._results.peek(job.path)
-            if job.model_id == self._classifier_id and results is not None:
+            if job.model_id == self._classifier.model_id and results is not None:
                 results.failed_boxes.update(job.boxes)
                 if is_shown:
                     self.classifier_error.emit(f"{os.path.basename(job.path)}: {message}")
