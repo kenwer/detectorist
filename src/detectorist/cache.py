@@ -160,3 +160,88 @@ class ImageResults:
 
     def nbytes(self) -> int:
         return sum((d.mask.nbytes if d.mask is not None else 0) + DETECTION_BYTES for d in self.detections)
+
+
+class ImageStore:
+    """
+    The decoded images and the results of inference the Pipeline keeps, in
+    two LruCaches of their own budgets. Results are handed out only for the
+    version of the file decoded last, so a file rewritten since is detected
+    again. The image shown is pinned, so it is never evicted.
+    """
+
+    def __init__(self, image_budget_bytes: int, results_budget_bytes: int):
+        self._image_budget = image_budget_bytes
+        self._images: LruCache[str, LoadedImage] = LruCache(image_budget_bytes, LoadedImage.nbytes)
+        self._results: LruCache[str, ImageResults] = LruCache(results_budget_bytes, ImageResults.nbytes)
+        self._entry_bytes: int | None = None  # size of the image displayed last with its display array, the estimate for the others
+
+    def image(self, path: str) -> LoadedImage | None:
+        return self._images.peek(path)
+
+    def results(self, path: str) -> ImageResults | None:
+        """The results for path, unless they belong to another version of the file than the image cached."""
+        results = self._results.peek(path)
+        loaded = self._images.peek(path)
+        if results is None or (loaded is not None and results.stamp != loaded.stamp):
+            return None
+        return results
+
+    def results_for(self, image: ImageObject) -> ImageResults | None:
+        """The results for image, if they belong to its version of the file."""
+        results = self._results.peek(image.image_path)
+        return results if results is not None and results.stamp == image.stamp else None
+
+    def paths(self) -> list[str]:
+        """The paths of the images cached, from least to most recently used."""
+        return self._images.keys()
+
+    def pin(self, path: str) -> None:
+        """Protects the image at path from eviction, e.g. the one shown, and marks it as most recently used."""
+        self._images.get(path)
+        self._images.pin(path)
+
+    def room(self) -> int:
+        """
+        How many more images fit next to the pinned one, estimating each at
+        the size of the image displayed last. 0 before the first is displayed,
+        as the size is unknown.
+        """
+        if not self._entry_bytes:
+            return 0
+        return max(self._image_budget // self._entry_bytes - 1, 0)
+
+    def put_image(self, path: str, image: ImageObject) -> None:
+        """Keeps a decoded image, dropping the results of another version of the file."""
+        results = self._results.peek(path)
+        if results is not None and results.stamp != image.stamp:
+            self._results.pop(path)
+        self._images.put(path, LoadedImage(image))
+
+    def put_display(self, image: ImageObject, display: np.ndarray, exposure_correction: bool) -> None:
+        """Keeps the display array built for image, unless image is no longer the one cached."""
+        loaded = self._images.peek(image.image_path)
+        if loaded is None or loaded.image is not image:
+            return
+        loaded.display = display
+        loaded.display_exposure = exposure_correction
+        # Put again, as the cache sized the entry without its display
+        self._images.put(image.image_path, loaded)
+        self._entry_bytes = loaded.nbytes()
+
+    def put_detections(self, image: ImageObject, detections: list[Detection], detection_time_ms: float) -> None:
+        """Keeps what the detector found in image, replacing any earlier results with their names."""
+        self._results.put(image.image_path, ImageResults(image.stamp, detections, detection_time_ms))
+
+    def clear_names(self) -> None:
+        """Forgets what the classifier said about every image, e.g. because another one was loaded."""
+        for _, results in self._results.items():
+            results.clear_names()
+
+    def clear_results(self) -> None:
+        """Forgets all results, e.g. because another detector was loaded."""
+        self._results.clear()
+
+    def clear(self) -> None:
+        self._images.clear()
+        self._results.clear()

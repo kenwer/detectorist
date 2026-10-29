@@ -17,7 +17,7 @@ from enum import Enum, auto
 
 from PySide6.QtCore import QObject, QThread, Signal
 
-from .cache import ImageResults, LoadedImage, LruCache, image_cache_budget, results_cache_budget
+from .cache import ImageStore, image_cache_budget, results_cache_budget
 from .classifier import Classifier
 from .detector import Detector
 from .export_run import DetectionFilter, ExportRun, ExportWriter
@@ -112,12 +112,8 @@ class Pipeline(QObject):
         """
         super().__init__(parent)
         ram = physical_memory_bytes()
-        self._image_budget = image_budget_bytes if image_budget_bytes is not None else image_cache_budget(ram)
-        if results_budget_bytes is None:
-            results_budget_bytes = results_cache_budget(ram)
-        self._images: LruCache[str, LoadedImage] = LruCache(self._image_budget, LoadedImage.nbytes)
-        self._results: LruCache[str, ImageResults] = LruCache(results_budget_bytes, ImageResults.nbytes)
-        self._entry_bytes: int | None = None  # size of the image displayed last with its display array, the estimate for the others
+        self._store = ImageStore(image_budget_bytes if image_budget_bytes is not None else image_cache_budget(ram),
+                                 results_budget_bytes if results_budget_bytes is not None else results_cache_budget(ram))
 
         self._request: ShowRequest | None = None
         self._hints: list[str] = []  # prefetch paths, nearest first
@@ -171,11 +167,10 @@ class Pipeline(QObject):
         """
         previous, self._request = self._request, request
         if previous is None or previous.path != request.path:
-            self._images.get(request.path)  # refreshes its recency
-            self._images.pin(request.path)
+            self._store.pin(request.path)
             self._failed_paths.discard(request.path)
             self._detect_failed.discard(request.path)
-            results = self._results.peek(request.path)
+            results = self._store.results(request.path)
             if results is not None:
                 results.failed_boxes.clear()
             self._delivered.clear()
@@ -253,8 +248,7 @@ class Pipeline(QObject):
 
     def clear_caches(self):
         """Drops all decoded images and results, and serves the current request from scratch."""
-        self._images.clear()
-        self._results.clear()
+        self._store.clear()
         self._failed_paths.clear()
         self._detect_failed.clear()
         self._delivered.clear()
@@ -281,7 +275,7 @@ class Pipeline(QObject):
     def _drop_detector(self):
         self._set_detector.emit(None, None)
         self._detector.unload()
-        self._results.clear()
+        self._store.clear_results()
         self._detect_failed.clear()
         # The image too, as the window may have replaced it by a message, e.g. a model that failed to load
         self._delivered.clear()
@@ -296,8 +290,7 @@ class Pipeline(QObject):
         self._set_classifier.emit(None, None)
         self._classifier.unload()
         self._patterns = ()
-        for _, results in self._results.items():
-            results.clear_names()
+        self._store.clear_names()
         self._delivered.discard(NAMES)
 
     def _on_detector_loaded(self, detector, model_path: str):
@@ -349,13 +342,10 @@ class Pipeline(QObject):
 
     def _fitting_hints(self) -> list[str]:
         """
-        The hints that fit in the image budget next to the shown image,
-        estimating every image at the size of the one displayed last. None
-        before the first image is displayed, as the size is unknown.
+        The hints that fit in the image budget next to the shown image. None
+        before the first image is displayed (see ImageStore.room).
         """
-        if not self._entry_bytes:
-            return []
-        return self._hints[:max(self._image_budget // self._entry_bytes - 1, 0)]
+        return self._hints[:self._store.room()]
 
     def _models(self) -> Models:
         return Models(self._detector.model_id, self._detector.state, self._classifier.model_id,
@@ -429,7 +419,7 @@ class Pipeline(QObject):
             if not models.detector_state.is_loaded_or_loading:
                 self._export.failure = "Model not loaded."
             return None  # waits for the model still loading
-        return self._export.next_inference(self._results, models)
+        return self._export.next_inference(self._store, models)
 
     def _preempt_for_shown(self):
         """
@@ -461,7 +451,7 @@ class Pipeline(QObject):
                     self._prefetched.add(path)
                 return DecodeJob(path, CancelToken())
             if work is Work.DISPLAY:
-                return DisplayJob(self._images.peek(path).image, self._exposure(), CancelToken())
+                return DisplayJob(self._store.image(path).image, self._exposure(), CancelToken())
         return None
 
     def _next_inference(self) -> DetectJob | ClassifyJob | None:
@@ -472,9 +462,9 @@ class Pipeline(QObject):
         for path in self._wanted_paths():
             needs = self._needs(path, models)
             if needs.inference is Work.DETECT:
-                return DetectJob(self._images.peek(path).image, models.detector_id, CancelToken())
+                return DetectJob(self._store.image(path).image, models.detector_id, CancelToken())
             if needs.inference is Work.CLASSIFY:
-                return ClassifyJob(self._images.peek(path).image, list(needs.boxes), models.classifier_id,
+                return ClassifyJob(self._store.image(path).image, list(needs.boxes), models.classifier_id,
                                    CancelToken())
         return None
 
@@ -487,7 +477,7 @@ class Pipeline(QObject):
         image only. retry_failures counts what failed as still needed, as
         showing a path again tries it again.
         """
-        loaded = self._images.peek(path)
+        loaded = self._store.image(path)
         if path in self._failed_paths and not retry_failures:
             image = None
         elif loaded is None:
@@ -497,7 +487,7 @@ class Pipeline(QObject):
         else:
             image = None
 
-        results = self._valid_results(path)
+        results = self._store.results(path)
         if models.detector_id is None:
             return Needs(image, Work.WAIT if models.detector_state.is_loaded_or_loading else None)
         if loaded is None:
@@ -512,21 +502,13 @@ class Pipeline(QObject):
                 return Needs(image, Work.CLASSIFY, tuple(boxes))
         return Needs(image, Work.WAIT if models.classifier_state is ModelState.LOADING else None)
 
-    def _valid_results(self, path: str) -> ImageResults | None:
-        """The results for path, if they belong to the version of the file decoded last."""
-        results = self._results.peek(path)
-        loaded = self._images.peek(path)
-        if results is None or (loaded is not None and results.stamp != loaded.stamp):
-            return None
-        return results
-
     def _deliver(self):
         """Reports what is ready for the current request and not reported yet, in order."""
         request = self._request
         if request is None:
             return
         models = self._models()
-        loaded = self._images.peek(request.path)
+        loaded = self._store.image(request.path)
         if IMAGE not in self._delivered:
             if loaded is None or loaded.display_exposure != request.exposure_correction:
                 return
@@ -535,7 +517,7 @@ class Pipeline(QObject):
             if not models.detector_state.is_loaded_or_loading and ERROR not in self._delivered:
                 self._delivered.add(ERROR)
                 self.error.emit(request.path, "Model not loaded.")
-        results = self._valid_results(request.path)
+        results = self._store.results(request.path)
         if results is None:
             return
         if DETECTIONS not in self._delivered:
@@ -557,8 +539,8 @@ class Pipeline(QObject):
         other exposure counts, as the window highlights what is analyzed.
         """
         models = self._models()
-        cached = [path for path in self._images.keys()
-                  if self._valid_results(path) is not None and self._needs(path, models, retry_failures=True).settled]
+        cached = [path for path in self._store.paths()
+                  if self._store.results(path) is not None and self._needs(path, models, retry_failures=True).settled]
         if cached != self._last_cached:
             self._last_cached = cached
             self.cache_updated.emit(cached)
@@ -568,21 +550,13 @@ class Pipeline(QObject):
         if self._export_owns(job):
             self._export.on_decoded(image)
         elif not job.token.cancelled:
-            results = self._results.peek(job.path)
-            if results is not None and results.stamp != image.stamp:
-                self._results.pop(job.path)  # the file changed since
-            self._images.put(job.path, LoadedImage(image))
+            self._store.put_image(job.path, image)
         self._schedule()
 
     def _on_displayed(self, job: DisplayJob, display):
         self._decode_job = None
-        loaded = self._images.peek(job.path)
-        if not job.token.cancelled and loaded is not None and loaded.image is job.image:
-            loaded.display = display
-            loaded.display_exposure = job.exposure_correction
-            # Put again, as the cache sized the entry without its display
-            self._images.put(job.path, loaded)
-            self._entry_bytes = loaded.nbytes()
+        if not job.token.cancelled:
+            self._store.put_display(job.image, display, job.exposure_correction)
         self._schedule()
 
     def _on_decode_failed(self, job: DecodeJob | DisplayJob, message: str):
@@ -604,12 +578,12 @@ class Pipeline(QObject):
         # A job for a replaced model is stale. One for an older version of the file is stored with its image's
         # stamp, which tells it apart from the current version.
         if not job.token.cancelled and job.model_id == self._detector.model_id:
-            self._results.put(job.path, ImageResults(job.image.stamp, detections, detection_time_ms))
+            self._store.put_detections(job.image, detections, detection_time_ms)
         self._schedule()
 
     def _on_classified(self, job: ClassifyJob, names: dict, classification_time_ms: float):
         self._inference_job = None
-        results = self._results.peek(job.path)
+        results = self._store.results(job.path)
         # Names of a cancelled job are kept: they are valid for the classifier that gave them
         if job.model_id == self._classifier.model_id and results is not None:
             results.names.update(names)
@@ -628,7 +602,7 @@ class Pipeline(QObject):
                 if is_shown:
                     self.error.emit(job.path, f"Error processing image: {message}")
         else:
-            results = self._results.peek(job.path)
+            results = self._store.results(job.path)
             if job.model_id == self._classifier.model_id and results is not None:
                 results.failed_boxes.update(job.boxes)
                 if is_shown:

@@ -15,7 +15,7 @@ from contextlib import ExitStack, suppress
 from dataclasses import dataclass, field
 from typing import Literal
 
-from .cache import ImageResults, LruCache
+from .cache import ImageStore
 from .classifier import detections_to_classify, identified_ranks
 from .export_files import (
     CLASSIFICATION_CSV_HEADER,
@@ -265,7 +265,7 @@ class ExportRun:
     def on_detect_failed(self) -> None:
         self._finish_current()
 
-    def next_inference(self, results: LruCache[str, ImageResults], models: Models) -> DetectJob | ClassifyJob | None:
+    def next_inference(self, store: ImageStore, models: Models) -> DetectJob | ClassifyJob | None:
         """
         The next inference job, or None while waiting for a decode or the
         classifier. Images that need none (no boxes to name, or failed) move
@@ -281,8 +281,8 @@ class ExportRun:
                 self._events.append(("start", self._current))
             item = self._current
             if item.image is not None:
-                cached = results.peek(item.path)
-                if cached is None or cached.stamp != item.image.stamp:
+                cached = store.results_for(item.image)
+                if cached is None:
                     return DetectJob(item.image, models.detector_id, self.token)
                 item.detections = self.detection_filter.keep(cached.detections)
                 if models.classifier_state.is_loaded_or_loading:

@@ -1,4 +1,4 @@
-"""Tests for the byte bounded LruCache and the ImageResults kept per image.
+"""Tests for the byte bounded LruCache, the ImageResults kept per image and the ImageStore holding both.
 
 The cache never looks into the stored values, so plain strings stand in for
 the heavyweight payloads, sized by their length.
@@ -7,7 +7,7 @@ the heavyweight payloads, sized by their length.
 import numpy as np
 import pytest
 
-from detectorist.cache import ImageResults, LruCache, image_cache_budget, results_cache_budget
+from detectorist.cache import ImageResults, ImageStore, LruCache, image_cache_budget, results_cache_budget
 from detectorist.structures import Detection, PackedMask
 from detectorist.utils import FileStamp
 from tests.fakes import TAXONOMY
@@ -114,6 +114,61 @@ def test_results_size_counts_packed_masks():
     results = ImageResults(STAMP, [Detection((0, 0, 4, 4), 0.9, "Fish", mask), FISH], 1.0)
 
     assert results.nbytes() == mask.nbytes + 2 * 64
+
+
+
+class FakeImage:
+    """Stands in for an ImageObject, with the fields the ImageStore reads."""
+
+    def __init__(self, path: str, mtime_ns: int = 1, nbytes: int = 100):
+        self.image_path = path
+        self.stamp = FileStamp(path, mtime_ns, 2)
+        self.image_data = np.zeros(nbytes, dtype=np.uint8)
+
+
+def test_store_hides_results_of_another_version_of_the_file():
+    store = ImageStore(10_000, 10_000)
+    old, new = FakeImage("a.png", mtime_ns=1), FakeImage("a.png", mtime_ns=2)
+    store.put_image("a.png", old)
+    store.put_detections(old, [FISH], 1.0)
+    store.put_image("a.png", new)
+
+    assert store.results("a.png") is None
+    assert store.results_for(old) is None
+
+
+def test_store_hands_out_results_for_the_image_detected():
+    store = ImageStore(10_000, 10_000)
+    image = FakeImage("a.png")
+    store.put_image("a.png", image)
+    store.put_detections(image, [FISH], 1.0)
+
+    assert store.results("a.png").detections == [FISH]
+    assert store.results_for(image).detections == [FISH]
+    assert store.results_for(FakeImage("a.png", mtime_ns=2)) is None
+
+
+def test_store_ignores_the_display_of_a_replaced_image():
+    store = ImageStore(10_000, 10_000)
+    old, new = FakeImage("a.png", mtime_ns=1), FakeImage("a.png", mtime_ns=2)
+    store.put_image("a.png", new)
+
+    store.put_display(old, np.zeros(10, dtype=np.uint8), exposure_correction=False)
+
+    assert store.image("a.png").display is None
+    assert store.room() == 0
+
+
+def test_store_room_is_estimated_from_the_image_displayed_last():
+    store = ImageStore(1_000, 10_000)
+    image = FakeImage("a.png", nbytes=150)
+    store.put_image("a.png", image)
+
+    store.put_display(image, np.zeros(50, dtype=np.uint8), exposure_correction=True)
+
+    # 1000 bytes hold 5 images of 200 bytes, one of them the shown image
+    assert store.room() == 4
+    assert store.image("a.png").display_exposure is True
 
 
 GB = 10**9
