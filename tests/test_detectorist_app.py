@@ -436,6 +436,12 @@ def test_arrow_keys_move_through_the_list(qtbot, window, folder, monkeypatch):
     qtbot.keyClick(window, Qt.Key.Key_Home)
     assert window.ui.image_list_view.currentIndex().row() == 0
 
+    qtbot.keyClick(window, Qt.Key.Key_Down)
+    assert window.ui.image_list_view.currentIndex().row() == 1
+
+    qtbot.keyClick(window, Qt.Key.Key_Up)
+    assert window.ui.image_list_view.currentIndex().row() == 0
+
 
 def test_controls_a_click_focuses_leave_the_arrow_keys_to_the_list(qtbot, window, folder, monkeypatch):
     # Windows styles let a click focus sliders and buttons, which then take the arrow keys for themselves.

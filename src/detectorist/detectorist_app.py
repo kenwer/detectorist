@@ -1474,13 +1474,14 @@ class DetectoristApp(QMainWindow):
             self.ui.image_list_view.setCurrentIndex(self.model.index(0 if first else self.model.rowCount() - 1, 0))
             event.accept()
             return
-        # Navigation through the image list using Left/Right keys, stop at the ends
+        # Navigation through the image list using the arrow keys, stop at the ends.
+        # The list handles Up/Down itself while it has focus, these cover focus anywhere else.
         if not ctrl:
             current_row = self.ui.image_list_view.currentIndex().row()
             next_row = -1 # Initialize with an invalid value
-            if key == Qt.Key.Key_Left:
+            if key in (Qt.Key.Key_Left, Qt.Key.Key_Up):
                 next_row = max(0, current_row - 1)
-            elif key == Qt.Key.Key_Right:
+            elif key in (Qt.Key.Key_Right, Qt.Key.Key_Down):
                 next_row = min(self.model.rowCount() - 1, current_row + 1)
 
             if next_row != -1 and next_row != current_row: # Only update if a valid new row is calculated and it's different from the current one

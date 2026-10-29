@@ -7,6 +7,7 @@
   - The `ImageWorker` replaces the image loader and decodes images and builds their display arrays as separate jobs.
 ### Fixed
 - On Windows, keep the arrow keys navigating the images after clicking a slider or crop option.
+- Up and Down navigate the images as documented, not only while the image list has focus.
 
 ## [0.13.1] - 2026-10-27
 ### Added
