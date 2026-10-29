@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+### Changed
+- [Dev] Rework of the architecture, continued:
+  - Export runs in an `ExportRun` driven by `Pipeline` signals instead of a nested event loop, writing with the `ExportWriter`.
+  - The `ImageWorker` replaces the image loader and decodes images and builds their display arrays as separate jobs.
+
 ## [0.13.1] - 2026-10-27
 ### Added
 - Progress feedback while an image is loaded, detected and classified.
