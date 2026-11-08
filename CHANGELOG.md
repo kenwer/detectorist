@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.14.0] - 2026-11-08
 ### Added
 - The app checks for new versions and allows to install them from inside the app.
 ### Changed
