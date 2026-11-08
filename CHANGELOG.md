@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Changed
+- Releases ship as installers: a DMG on macOS, a setup.exe on Windows, an AppImage on Linux.
+
 ## [0.13.2] - 2026-10-29
 ### Added
 - The status bar shows the time an image took to load, next to the detection and classification times.

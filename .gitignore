@@ -15,6 +15,7 @@
 !/benchmarks/
 !/docs/
 !/models/
+!/packaging/
 !/pyproject.toml
 !/scripts/
 !/src/

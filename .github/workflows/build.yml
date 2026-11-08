@@ -10,6 +10,7 @@ on:
       - 'uv.lock'
       - '.github/workflows/build.yml'
       - '.github/actions/**'
+      - 'packaging/**'
   workflow_dispatch:
   release:
     types: [published]
@@ -30,25 +31,25 @@ jobs:
             os_name: linux
             arch: x86_64
             build_task: build-linux
-            archive_ext: tar.gz
+            asset: Detectorist-linux-x86_64.AppImage
           - os: ubuntu-24.04-arm
             name: Linux (arm64)
             os_name: linux
             arch: aarch64
             build_task: build-linux
-            archive_ext: tar.gz
+            asset: Detectorist-linux-aarch64.AppImage
           - os: macos-latest
             name: macOS (arm64)
             os_name: macos
             arch: arm64
             build_task: build-mac
-            archive_ext: zip
+            asset: Detectorist-macos-arm64.dmg
           - os: windows-latest
             name: Windows (x86_64)
             os_name: windows
             arch: x86_64
             build_task: build-windows
-            archive_ext: zip
+            asset: Detectorist-windows-x86_64-setup.exe
           # Disabled: opencv-python has no win_arm64 wheels yet
           # https://github.com/opencv/opencv-python/issues/806
           # - os: windows-11-arm
@@ -56,7 +57,7 @@ jobs:
           #   os_name: windows
           #   arch: aarch64
           #   build_task: build-windows
-          #   archive_ext: zip
+          #   asset: Detectorist-windows-aarch64-setup.exe
 
     steps:
       - uses: actions/checkout@v7
@@ -77,30 +78,17 @@ jobs:
       - name: Build
         run: uv run poe ${{ matrix.build_task }}
 
-      - name: Package archive
-        shell: bash
-        run: |
-          VERSION=$(uv run poe -q get_app_version)
-          dist_dir="dist/${{ matrix.os_name }}-${{ matrix.arch }}"
-          versioned="Detectorist-${VERSION}-${{ matrix.os_name }}-${{ matrix.arch }}"
-          archive="Detectorist-${{ matrix.os_name }}-${{ matrix.arch }}.${{ matrix.archive_ext }}"
-          case "${{ matrix.os_name }}" in
-            linux)   (cd "$dist_dir" && tar  -czf  "$archive" "$versioned") ;;
-            macos)   (cd "$dist_dir" && zip  -r -9  "$archive" "${versioned}.app") ;;
-            windows) (cd "$dist_dir" && 7z a -mx=9 "$archive" "${versioned}.exe") ;;
-          esac
-          echo "ARCHIVE=${dist_dir}/${archive}" >> $GITHUB_ENV
-
+      # The build task writes the installer under its release asset name
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Detectorist-${{ matrix.os_name }}-${{ matrix.arch }}.${{ matrix.archive_ext }}
-          path: ${{ env.ARCHIVE }}
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.os_name }}-${{ matrix.arch }}/${{ matrix.asset }}
           if-no-files-found: error
 
       - name: Upload release asset
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v3
         with:
-          files: ${{ env.ARCHIVE }}
+          files: dist/${{ matrix.os_name }}-${{ matrix.arch }}/${{ matrix.asset }}
           fail_on_unmatched_files: true

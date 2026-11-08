@@ -74,7 +74,7 @@ On macOS:
     source .venv/bin/activate
     poe build-mac
     ```
-    This will use Nuitka to compile the Python code into a `.app` bundle in the `dist/macos/` directory.
+    This will use Nuitka to compile the Python code into a `.app` bundle and pack it into `Detectorist-macos-arm64.dmg` in the `dist/macos-arm64/` directory.
 
 ### Windows Executable
 
@@ -83,6 +83,7 @@ On Windows:
     ```shell
     winget install Microsoft.VisualStudio.2022.Community --silent --override "--wait --quiet --addProductLang En-us --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended"
     winget install astral-sh.uv Python.Python.3.14 --scope user
+    winget install JRSoftware.InnoSetup
     ```
 
 2.  **Set up the build environment and run the build:**
@@ -92,7 +93,7 @@ On Windows:
     .venv\Scripts\activate
     poe build-windows
     ```
-    This will use Nuitka to create a standalone executable inside a folder in the `dist/windows/` directory.
+    This will use Nuitka to compile the app into a folder, which Inno Setup (`packaging/windows/detectorist.iss`) wraps into `Detectorist-windows-x86_64-setup.exe` in the `dist/windows-x86_64/` directory.
 
 ### Linux Binary
 
@@ -105,7 +106,7 @@ On Linux:
     source .venv/bin/activate
     poe build-linux
     ```
-    This will use Nuitka to compile the Python code into a x86 Linux ELF binary in the `dist/linux/` directory.
+    This will use Nuitka to compile the app into a folder and wrap it into `Detectorist-linux-<arch>.AppImage` in the `dist/linux-<arch>/` directory.
 
 
 ## Changelog

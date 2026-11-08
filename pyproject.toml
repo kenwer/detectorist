@@ -70,15 +70,35 @@ esac
 """
 
 # set -e fails the build tasks on a failed Nuitka run, which the trailing commands would otherwise hide
+
+# A folder build wrapped in an AppImage instead of a onefile binary, the format Linux users expect.
+# The pinned upstream appimagetool embeds the static type2 runtime, so the AppImage runs without
+# libfuse2. Nuitka's default download is the older AppImageKit one.
 [tool.poe.tasks.build-linux]
 shell = """
 set -e
 ARCH=$(uname -m)
+VERSION=$(poe get_app_version)
 OUTPUT_DIR=dist/linux-$ARCH
 rm -rf "$OUTPUT_DIR"
+APPIMAGETOOL_VERSION=1.9.1
+case "$ARCH" in
+    x86_64) APPIMAGETOOL_SHA256=ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0 ;;
+    aarch64) APPIMAGETOOL_SHA256=f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158 ;;
+    *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+esac
+TOOL_DIR=dist/tools/appimagetool-$APPIMAGETOOL_VERSION-$ARCH
+if ! echo "$APPIMAGETOOL_SHA256  $TOOL_DIR/appimagetool" | sha256sum --check --status 2>/dev/null; then
+    mkdir -p "$TOOL_DIR"
+    curl -fsSL -o "$TOOL_DIR/appimagetool" \
+        "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-$ARCH.AppImage"
+    echo "$APPIMAGETOOL_SHA256  $TOOL_DIR/appimagetool" | sha256sum --check
+fi
+chmod +x "$TOOL_DIR/appimagetool"
+# appimagetool is itself an AppImage, and CI runners may lack FUSE
+export APPIMAGE_EXTRACT_AND_RUN=1
 nuitka \
     --standalone \
-    --onefile \
     --enable-plugin=pyside6 \
     --noinclude-qt-translations \
     --noinclude-dlls='*.cpp.o' \
@@ -87,13 +107,19 @@ nuitka \
     --include-package-data=pyqttoast \
     --disable-ccache \
     --output-dir="$OUTPUT_DIR" \
-    --linux-icon=assets/icon.png \
     --remove-output \
-    --output-filename=Detectorist-$(poe get_app_version)-linux-$ARCH \
+    --company-name=de.ken \
+    --product-name=Detectorist \
+    --product-version=$VERSION \
+    --linux-icon=assets/icon.png \
+    --output-filename=Detectorist \
+    --linux-create-installer \
+    --linux-installer-output="$OUTPUT_DIR/Detectorist-linux-$ARCH.AppImage" \
+    --linux-installer-appimagetool-path="$TOOL_DIR" \
     ./src/detectorist/main.py
 """
 deps = ["compile-ui", "compile-qrc"]
-help = "Build the application for Linux"
+help = "Build the application and its AppImage for Linux"
 
 # No platforminputcontexts plugins: on macOS PySide6-Essentials only ships the virtual keyboard one,
 # without the QtVirtualKeyboard frameworks it links against, so Nuitka fails to resolve it
@@ -120,15 +146,35 @@ nuitka \
     --macos-app-name=Detectorist \
     --macos-app-version=$VERSION \
     --macos-signed-app-name=de.ken.detectorist \
-    --output-filename=Detectorist-$VERSION-macos-$ARCH \
+    --output-filename=Detectorist \
     ./src/detectorist/main.py
-mv  "$OUTPUT_DIR/main.app" \
-    "$OUTPUT_DIR/Detectorist-$VERSION-macos-$ARCH.app"
+# Unversioned, so Dock items survive an update
+APP="$OUTPUT_DIR/Detectorist.app"
+mv "$OUTPUT_DIR/main.app" "$APP"
+# Plain hdiutil rather than create-dmg: no Finder AppleScript to hang on a headless runner.
+# The staging folder puts the app next to an Applications link for drag-to-install.
+STAGE="$OUTPUT_DIR/dmg-stage"
+mkdir "$STAGE"
+mv "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+# GitHub's macOS runners intermittently fail hdiutil with "Resource busy" (actions/runner-images#7522)
+for attempt in 1 2 3 4 5; do
+    hdiutil create -volname Detectorist -srcfolder "$STAGE" -fs HFS+ -format ULFO -ov \
+        "$OUTPUT_DIR/Detectorist-macos-$ARCH.dmg" && break
+    [ "$attempt" = 5 ] && exit 1
+    echo "hdiutil failed (attempt $attempt/5), retrying..."
+    sleep 10
+done
+mv "$STAGE/Detectorist.app" "$APP"
+rm -rf "$STAGE"
 """
 deps = ["compile-ui", "compile-qrc"]
-help = "Build the application for macOS"
+help = "Build the application and its DMG for macOS"
 
 
+# A folder build wrapped in an Inno Setup installer instead of a onefile exe: nothing is extracted
+# on each start, which made it slow and tripped virus scanners.
+# MSYS_NO_PATHCONV keeps Git Bash from rewriting ISCC's /D options as paths.
 [tool.poe.tasks.build-windows]
 shell = """
 set -e
@@ -138,11 +184,8 @@ OUTPUT_DIR=dist/windows-$ARCH
 rm -rf "$OUTPUT_DIR"
 nuitka.cmd \
     --standalone \
-    --onefile \
-    --onefile-tempdir-spec={PROGRAM_DIR}/.runtime/{PID}_{TIME} \
     --enable-plugin=pyside6 \
     --windows-icon-from-ico=assets/icon.ico \
-    --onefile-windows-splash-screen-image=assets/splash.png \
     --noinclude-qt-translations \
     --noinclude-dlls='*.cpp.o' \
     --noinclude-dlls='*.qsb' \
@@ -155,13 +198,25 @@ nuitka.cmd \
     --windows-product-version=$VERSION \
     --windows-file-version=$VERSION \
     --windows-console-mode=attach \
-    --output-filename=Detectorist-$VERSION-windows-$ARCH \
+    --output-filename=Detectorist.exe \
     --assume-yes-for-downloads \
     --msvc=latest \
     ./src/detectorist/main.py
+mv "$OUTPUT_DIR/main.dist" "$OUTPUT_DIR/Detectorist.dist"
+# Preinstalled on GitHub's Windows runners, elsewhere: winget install JRSoftware.InnoSetup
+ISCC=$(command -v ISCC || echo "/c/Program Files (x86)/Inno Setup 6/ISCC.exe")
+# The installer's version resource takes exactly four numbers
+MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' "$ISCC" \
+    "/DAppVersion=$VERSION" \
+    "/DNumericVersion=$VERSION.0" \
+    "/DSourceDir=$(cygpath -w "$PWD/$OUTPUT_DIR/Detectorist.dist")" \
+    "/DOutputDir=$(cygpath -w "$PWD/$OUTPUT_DIR")" \
+    "/DOutputBaseFilename=Detectorist-windows-$ARCH-setup" \
+    "/DIconFile=$(cygpath -w "$PWD/assets/icon.ico")" \
+    packaging/windows/detectorist.iss
 """
 deps = ["compile-ui", "compile-qrc"]
-help = "Build the application for Windows"
+help = "Build the application and its setup.exe for Windows"
 
 
 [tool.vscode.tasks]

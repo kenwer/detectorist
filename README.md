@@ -38,15 +38,18 @@ Note: The classifiers only know the species they were trained on (see [AI model 
 
 
 ## Download
-Download the binary for your operating system and start the application.
-- macOS (Apple Silicon with macOS >=26): [Detectorist-macos-arm64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-macos-arm64.zip)
+Download the installer for your operating system and install the application.
+- macOS (Apple Silicon with macOS >=26): [Detectorist-macos-arm64.dmg](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-macos-arm64.dmg)
+  - Open the DMG and drag Detectorist into the Applications folder.
   - Note: The macOS app is not signed with a certificate from the Apple Developer Program. But you can still open the app as described in the [FAQ](FAQ.md).
   - Note: Intel Macs are no longer supported. The last release with an Intel build is [v0.11.0](https://github.com/kenwer/detectorist/releases/tag/v0.11.0).
-- Windows (x86_64): [Detectorist-windows-x86_64.zip](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-windows-x86_64.zip)
-  - Note: The compiled Windows executable is not signed and since it extracts additional contents to load afterwards it's common that Anti Virus/Malware tools like Defender detect the application as malicious.
+- Windows (x86_64): [Detectorist-windows-x86_64-setup.exe](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-windows-x86_64-setup.exe)
+  - The installer needs no administrator rights and adds Detectorist to the Start menu.
+  - Note: The installer is not signed, so Microsoft Defender SmartScreen warns before running it. See the [FAQ](FAQ.md).
   - Note: Windows aarch64 is not supported [yet](https://github.com/microsoft/onnxruntime/issues/27123) because `onnxruntime` doesn't provide wheels for that platform. Windows ARM users might use the x86_64 version via emulation.
-- Linux (x86_64): [Detectorist-linux-x86_64.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-x86_64.tar.gz)
-- Linux (aarch64): [Detectorist-linux-aarch64.tar.gz](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-aarch64.tar.gz)
+- Linux (x86_64): [Detectorist-linux-x86_64.AppImage](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-x86_64.AppImage)
+- Linux (aarch64): [Detectorist-linux-aarch64.AppImage](https://github.com/kenwer/detectorist/releases/latest/download/Detectorist-linux-aarch64.AppImage)
+  - Make the AppImage executable (`chmod +x Detectorist-linux-*.AppImage`) and run it. Where FUSE is unavailable, for example in a container, run it with `APPIMAGE_EXTRACT_AND_RUN=1`.
   - Note: On Linux you can also easily run Detectorist from the source as described below.
 
 
