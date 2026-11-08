@@ -101,6 +101,27 @@ def show_success_toast(
     )
 
 
+def show_info_toast(
+    parent: QWidget,
+    title: str,
+    text: str,
+    *,
+    link_text: str | None = None,
+    on_link: Callable[[], None] | None = None,
+    duration: int | None = None,
+) -> Toast:
+    """Show a non-blocking information toast, optionally ending in a clickable link."""
+    return _show_toast(
+        parent,
+        title,
+        text,
+        ToastPreset.INFORMATION,
+        link_text=link_text,
+        on_link=on_link,
+        duration=duration,
+    )
+
+
 def show_error_toast(
     parent: QWidget,
     title: str,

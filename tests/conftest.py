@@ -261,3 +261,17 @@ def stalled_server():
     release.set()
     server.shutdown()
     server.server_close()
+
+
+@pytest.fixture
+def local_http_server():
+    """A local HTTP server for the update feed and download tests. See FakeServer."""
+    from tests.update_helpers import FakeServer, QuietServer, fake_server_handler
+
+    state = FakeServer()
+    server = QuietServer(("127.0.0.1", 0), fake_server_handler(state))
+    state.port = server.server_address[1]
+    threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
+    yield state
+    server.shutdown()
+    server.server_close()

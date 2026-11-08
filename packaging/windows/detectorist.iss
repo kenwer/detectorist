@@ -1,6 +1,7 @@
 ; Inno Setup script for the Detectorist Windows installer.
 ; The build-windows poe task compiles it with ISCC.exe and passes the values
-; below as /D defines.
+; below as /D defines. The in-app updater runs the result with
+; /VERYSILENT /SUPPRESSMSGBOXES /RELAUNCH right before the app exits.
 
 #ifndef AppVersion
   #error Pass /DAppVersion=<version>
@@ -46,9 +47,6 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-; The Restart Manager finds a running Detectorist.exe and offers to close it,
-; since its files cannot be replaced while it runs
-CloseApplications=yes
 
 [InstallDelete]
 ; The folder holds only the app, so an update leaves exactly the new version
@@ -62,3 +60,49 @@ Name: "{autoprograms}\Detectorist"; Filename: "{app}\Detectorist.exe"
 
 [Run]
 Filename: "{app}\Detectorist.exe"; Description: "Launch Detectorist"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Detectorist.exe"; Flags: nowait; Check: ShouldRelaunch
+
+[Code]
+const
+  { Must match MUTEX_NAME in src/detectorist/running_mutex.py }
+  RunningMutex = 'DetectoristRunning';
+
+function ShouldRelaunch: Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if CompareText(ParamStr(I), '/RELAUNCH') = 0 then
+      Result := True;
+end;
+
+function InitializeSetup: Boolean;
+var
+  Tries: Integer;
+begin
+  if WizardSilent then
+  begin
+    { The updater starts Setup while the app is still shutting down }
+    Tries := 0;
+    while CheckForMutexes(RunningMutex) and (Tries < 120) do
+    begin
+      Sleep(500);
+      Tries := Tries + 1;
+    end;
+  end
+  else
+    while CheckForMutexes(RunningMutex) do
+      if MsgBox('Detectorist is running. Close it, then select Retry.', mbError, MB_RETRYCANCEL) = IDCANCEL then
+        Break;
+  Result := not CheckForMutexes(RunningMutex);
+  if not Result then
+    Log('Detectorist is still running, Setup stops');
+end;
+
+function InitializeUninstall: Boolean;
+begin
+  Result := not CheckForMutexes(RunningMutex);
+  if not Result then
+    MsgBox('Detectorist is running. Close it, then uninstall again.', mbError, MB_OK);
+end;

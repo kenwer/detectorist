@@ -217,6 +217,10 @@ class Settings:
         for setting in self._portable():
             self._write(setting, None)
 
+    def sync(self) -> None:
+        """Writes pending changes to the store now. os._exit skips the QSettings destructor that would."""
+        self._settings.sync()
+
     def export_to_file(self, path: Path, used: dict[Setting, Any] | None = None) -> None:
         """
         Writes the portable settings to a JSON file, an unset one as its default or null.

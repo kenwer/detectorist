@@ -52,6 +52,7 @@ Download the installer for your operating system and install the application.
   - Make the AppImage executable (`chmod +x Detectorist-linux-*.AppImage`) and run it. Where FUSE is unavailable, for example in a container, run it with `APPIMAGE_EXTRACT_AND_RUN=1`.
   - Note: On Linux you can also easily run Detectorist from the source as described below.
 
+Updates: at every start the app checks for updates. When a newer version is available, the info at the status bar offers to download it in the background. Once downloaded, select `Install and relaunch` to install it. `Help -> Check for Updates...` checks on demand. Because the app is not signed, macOS may ask again for access to folders such as removable drives after an update.
 
 ## Key features
 -   **Image browser:** Open a folder, or drop it onto the window to step through its images. The app reads JPG, PNG, BMP, 10-bit HEIC/HEIF and Sony RAW (.arw).
