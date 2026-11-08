@@ -243,14 +243,20 @@ select = [
     "UP",   # Pyupgrade (modernize Python code)
 ]
 
-[tool.pytest.ini_options]
+[tool.pytest]
 testpaths = ["tests"]
-# --no-qt-log: pytest-qt swaps a Python Qt message handler in and out per test.
-# PySide6 can segfault when a non-Python thread logs through that handler while
-# it is being removed. Qt messages go to stderr instead.
-# --durations: list the slowest tests, but only those over a second, so a
-# healthy run prints nothing extra and a slow one names the culprit.
-addopts = "-ra -q --no-qt-log --durations=15 --durations-min=1.0"
+addopts = [
+    "-ra",
+    "-q",
+    # pytest-qt swaps a Python Qt message handler in and out per test. PySide6 can segfault
+    # when a non-Python thread logs through that handler while it is being removed.
+    # Qt messages go to stderr instead.
+    "--no-qt-log",
+    # List the slowest tests, but only those over a second, so a healthy run prints
+    # nothing extra and a slow one names the culprit.
+    "--durations=15",
+    "--durations-min=1.0",
+]
 pythonpath = ["src"]
 # Dump all-thread tracebacks to stderr when a single test exceeds this many
 # seconds, so a hang identifies itself in CI logs (it does not kill the test).
