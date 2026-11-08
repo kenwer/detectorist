@@ -5,6 +5,7 @@
 - The app checks for new versions and allows to install them from inside the app.
 ### Changed
 - Releases ship as installers: a DMG on macOS, a setup.exe on Windows, an AppImage on Linux.
+- [Dev] Upgrade dependencies.
 
 ## [0.13.2] - 2026-10-29
 ### Added
