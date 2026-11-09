@@ -6,33 +6,34 @@ build-backend = "uv_build"
 name = "detectorist"
 version = "0.14.0"
 
-description = "A desktop application for sorting and cropping photos using a machine learning for object detection."
+description = "A desktop application that identifies and crops animals in large photo sets using on-device machine learning."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "numpy",
     "onnxruntime",
     "opencv-python",
     "packaging",
+    "piexif",
     "pillow-heif",
     "PySide6-Essentials>=6.12",
-    "rawpy",
-    "numpy",
-    "piexif",
     # Pinned: the success-toast link reaches a private label attr (_Toast__text_label);
     # re-verify that hook before bumping. See src/detectorist/toasts.py
     "pyqt-toast-notification==1.3.3",
+    "rawpy",
     "truststore>=0.10.5",
 ]
 
 [dependency-groups]
 dev = [
-    "ruff",
-    "nuitka",
+    # Nuitka converts the PNG app icon with it, nothing imports it directly
     "imageio",
-    "poethepoet",
     "md-toc",
+    "nuitka",
+    "poethepoet",
     "pytest>=9.1.1",
     "pytest-qt>=4.5",
+    "ruff",
 ]
 
 [project.scripts]
@@ -47,14 +48,15 @@ compile-ui = { shell = "for f in src/detectorist/*.ui; do base=\"${f%.ui}\"; out
 # --format-version 1 omits per-file timestamps for reproducible output as setting SOURCE_DATE_EPOCH=0 does not work (Qt treats 0 as "not set" see QTBUG-62511).
 compile-qrc = { shell = "for f in src/detectorist/*.qrc; do pyside6-rcc --format-version 1 \"$f\" -o \"${f%.qrc}_rc.py\"; done", help = "Compile Qt resource files to Python files" }
 
-run-app = { cmd = "uv run src/detectorist/main.py", help = "Run the application" }
-run = { sequence = ["compile-ui", "compile-qrc", "run-app"], help = "Compile UI and resource files and run the application" }
-test = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest" }], help = "Compile UI/resources, then run all tests" }
-test-fast = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest -m 'not slow'" }], help = "Compile UI/resources, then run only the fast tests" }
-test-slow = { sequence = ["compile-ui", "compile-qrc", { cmd = "pytest -m slow" }], help = "Compile UI/resources, then run only the slow tests that load the real models from ./models" }
-install-hooks = { cmd = "git config core.hooksPath .githooks", help = "Point git at the repo's tracked hooks (pre-push runs test-fast)" }
+compile-qt = { sequence = ["compile-ui", "compile-qrc"], help = "Compile Qt UI and resource files" }
 
-get_app_version = { cmd = "uv version --short --frozen", help = "Get the application version" }
+run-app = { cmd = "python src/detectorist/main.py", help = "Run the application" }
+run = { sequence = ["compile-qt", "run-app"], help = "Compile UI and resource files and run the application" }
+# cmd tasks forward extra arguments, so `poe test -k name` reaches pytest
+test = { cmd = "pytest", deps = ["compile-qt"], help = "Compile UI/resources, then run all tests" }
+test-fast = { cmd = "pytest -m 'not slow'", deps = ["compile-qt"], help = "Compile UI/resources, then run only the fast tests" }
+test-slow = { cmd = "pytest -m slow", deps = ["compile-qt"], help = "Compile UI/resources, then run only the slow tests that load the real models from ./models" }
+install-hooks = { cmd = "git config core.hooksPath .githooks", help = "Point git at the repo's tracked hooks (pre-push runs test-fast)" }
 
 clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
 
@@ -120,7 +122,7 @@ esac
 shell = """
 set -e
 ARCH=$(uname -m)
-VERSION=$(poe get_app_version)
+VERSION=$(uv version --short --frozen)
 OUTPUT_DIR=dist/linux-$ARCH
 rm -rf "$OUTPUT_DIR"
 APPIMAGETOOL_VERSION=1.9.1
@@ -161,7 +163,7 @@ nuitka \
     --linux-installer-appimagetool-path="$TOOL_DIR" \
     ./src/detectorist/main.py
 """
-deps = ["compile-ui", "compile-qrc"]
+deps = ["compile-qt"]
 help = "Build the application and its AppImage for Linux"
 
 # No platforminputcontexts plugins: on macOS PySide6-Essentials only ships the virtual keyboard one,
@@ -170,7 +172,7 @@ help = "Build the application and its AppImage for Linux"
 shell = """
 set -e
 ARCH=$(uname -m)
-VERSION=$(poe get_app_version)
+VERSION=$(uv version --short --frozen)
 OUTPUT_DIR=dist/macos-$ARCH
 rm -rf "$OUTPUT_DIR"
 nuitka \
@@ -211,9 +213,8 @@ done
 mv "$STAGE/Detectorist.app" "$APP"
 rm -rf "$STAGE"
 """
-deps = ["compile-ui", "compile-qrc"]
+deps = ["compile-qt"]
 help = "Build the application and its DMG for macOS"
-
 
 # A folder build wrapped in an Inno Setup installer instead of a onefile exe: nothing is extracted
 # on each start, which made it slow and tripped virus scanners.
@@ -222,7 +223,7 @@ help = "Build the application and its DMG for macOS"
 shell = """
 set -e
 ARCH=$(uname -m)
-VERSION=$(poe get_app_version)
+VERSION=$(uv version --short --frozen)
 OUTPUT_DIR=dist/windows-$ARCH
 rm -rf "$OUTPUT_DIR"
 nuitka.cmd \
@@ -258,20 +259,14 @@ MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' "$ISCC" \
     "/DIconFile=$(cygpath -w "$PWD/assets/icon.ico")" \
     packaging/windows/detectorist.iss
 """
-deps = ["compile-ui", "compile-qrc"]
+deps = ["compile-qt"]
 help = "Build the application and its setup.exe for Windows"
-
-
-[tool.vscode.tasks]
-compile-ui = "poe compile-ui"
-compile-qrc = "poe compile-qrc"
-run = "poe run-app"
-build-and-run = "poe run"
 
 [tool.ruff]
 line-length = 120
 # Exclude files generated from .ui and .qrc sources
 extend-exclude = ["src/detectorist/ui_*.py", "src/detectorist/*_rc.py"]
+
 [tool.ruff.lint]
 # Never enforce `E501` (line length violations).
 ignore = ["E501"]

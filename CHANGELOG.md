@@ -5,6 +5,7 @@
 - [Dev] `upgrade-python` and `upgrade-deps` poe tasks.
 ### Changed
 - [Dev] Pin Python in `.python-version` and ignore system Pythons, which makes the build reproducible.
+- [Dev] Simplify `pyproject.toml` and add a `compile-qt` poe task that runs `compile-ui` and `compile-qrc`.
 ### Fixed
 - Certificate error. Updates now verify certificates with the OS trust store.
 
