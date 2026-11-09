@@ -63,6 +63,43 @@ bench = { cmd = "python benchmarks/bench_conversions.py", help = "Time the image
 lint = { cmd = "ruff check src tests", help = "Run ruff linter" }
 fmt = { cmd = "ruff format src tests", help = "Run ruff formatter" }
 
+# uv ships the list of downloadable Pythons inside its own release, so upgrade uv first to see new patches
+[tool.poe.tasks.upgrade-python]
+help = "Pin the newest patch release of the pinned Python minor version and sync"
+# Hides the "Poe =>" echo of the whole script, the task's own output still shows
+verbosity = -1
+args = [{ name = "dry-run", type = "boolean", help = "Only report whether a newer patch release exists" }]
+shell = """
+set -e
+PINNED=$(cat .python-version)
+LATEST=$(uv python list "${PINNED%.*}" --only-downloads | head -n 1 | cut -d- -f2)
+if [ -z "$LATEST" ]; then
+    echo "uv lists no downloads for Python ${PINNED%.*}"
+    exit 1
+elif [ "$PINNED" = "$LATEST" ]; then
+    echo "Python $PINNED is the newest ${PINNED%.*} release known to uv $(uv --version | cut -d' ' -f2)"
+elif [ -n "$dry_run" ]; then
+    echo "Python $LATEST is available (pinned: $PINNED)"
+else
+    uv python pin "$LATEST"
+    uv sync
+fi
+"""
+
+[tool.poe.tasks.upgrade-deps]
+help = "Upgrade all locked dependencies and sync"
+verbosity = -1
+args = [{ name = "dry-run", type = "boolean", help = "Only report which locked versions would change" }]
+shell = """
+set -e
+if [ -n "$dry_run" ]; then
+    uv lock --upgrade --dry-run
+else
+    uv lock --upgrade
+    uv sync
+fi
+"""
+
 [tool.poe.tasks.build]
 help = "Build for the current platform"
 shell = """

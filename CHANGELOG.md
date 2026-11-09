@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- [Dev] `upgrade-python` and `upgrade-deps` poe tasks.
 ### Changed
 - [Dev] Pin Python in `.python-version` and ignore system Pythons, which makes the build reproducible.
 ### Fixed
