@@ -7,7 +7,7 @@ import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 
-from .feed import USER_AGENT, Update, UpdateError
+from .feed import TLS_CONTEXT, USER_AGENT, Update, UpdateError
 
 _CHUNK = 1 << 20
 
@@ -44,7 +44,8 @@ def download(
     if have:
         headers["Range"] = f"bytes={have}-"
     try:
-        with urllib.request.urlopen(urllib.request.Request(update.asset_url, headers=headers), timeout=30) as response:
+        request = urllib.request.Request(update.asset_url, headers=headers)
+        with urllib.request.urlopen(request, timeout=30, context=TLS_CONTEXT) as response:
             if response.status == 206:
                 with part.open("rb") as existing:
                     digest = hashlib.file_digest(existing, "sha256")

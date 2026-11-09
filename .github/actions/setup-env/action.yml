@@ -6,8 +6,6 @@ runs:
   steps:
     - name: Install uv
       uses: astral-sh/setup-uv@v10.3.2
-      with:
-        python-version: '3.14'
 
     - name: Install system dependencies
       # Importing QtWidgets and QtGui needs libEGL and the xcb libraries on

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+### Changed
+- [Dev] Pin Python in `.python-version` and ignore system Pythons, which makes the build reproducible.
+### Fixed
+- Certificate error. Updates now verify certificates with the OS trust store.
+
 ## [0.14.0] - 2026-11-08
 ### Added
 - The app checks for new versions and allows to install them from inside the app.

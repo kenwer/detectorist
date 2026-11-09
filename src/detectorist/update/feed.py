@@ -5,10 +5,12 @@ import json
 import logging
 import platform
 import re
+import ssl
 import sys
 import urllib.request
 from dataclasses import dataclass
 
+import truststore
 from packaging.version import InvalidVersion, Version
 
 from detectorist import __version__
@@ -17,6 +19,7 @@ _log = logging.getLogger(__name__)
 
 DEFAULT_FEED_URL = "https://api.github.com/repos/kenwer/detectorist/releases/latest"
 USER_AGENT = f"Detectorist/{__version__}"
+TLS_CONTEXT = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)  # Verifies certs with the OS trust store
 
 _SHA256 = re.compile(r"sha256:([0-9a-f]{64})")
 
@@ -55,7 +58,7 @@ def fetch_latest_release(url: str, timeout: float = 10.0) -> dict:
     """The release JSON at url. Every failure becomes UpdateError."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"})
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout, context=TLS_CONTEXT) as response:
             return json.loads(response.read())
     except (OSError, http.client.HTTPException, json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise UpdateError(f"Could not read the release feed: {exc}") from exc

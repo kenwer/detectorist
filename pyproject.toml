@@ -21,6 +21,7 @@ dependencies = [
     # Pinned: the success-toast link reaches a private label attr (_Toast__text_label);
     # re-verify that hook before bumping. See src/detectorist/toasts.py
     "pyqt-toast-notification==1.3.3",
+    "truststore>=0.10.5",
 ]
 
 [dependency-groups]
@@ -36,6 +37,10 @@ dev = [
 
 [project.scripts]
 detectorist = "detectorist.main:main"
+
+[tool.uv]
+# Ignore system Pythons, so every build bundles the uv-managed Python that .python-version names
+python-preference = "only-managed"
 
 [tool.poe.tasks]
 compile-ui = { shell = "for f in src/detectorist/*.ui; do base=\"${f%.ui}\"; out=\"${base%/*}/ui_${base##*/}.py\"; pyside6-uic --from-imports \"$f\" -o \"$out\"; done", help = "Compile Qt UI files to Python files with relative imports" }

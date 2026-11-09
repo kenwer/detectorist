@@ -5,6 +5,7 @@
 !/.githooks/
 !/.github/
 !/.gitignore
+!/.python-version
 !/CHANGELOG.md
 !/CITATION.cff
 !/DEVELOPMENT.md
