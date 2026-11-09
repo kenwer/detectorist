@@ -4,6 +4,8 @@
 ### Changed
 - [Dev] Nuitka moved to a `build` dependency group that the build tasks install, so `uv sync` no longer installs it.
 - [Dev] Run the app from source with `python -m detectorist`.
+### Fixed
+- [Dev] The macOS Dock shows the app icon when running from source.
 
 ## [0.14.1] - 2026-11-09
 ### Added

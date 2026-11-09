@@ -9,8 +9,10 @@ os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
 
 import onnxruntime as ort  # noqa: E402
 from PySide6.QtCore import QTimer  # noqa: E402
+from PySide6.QtGui import QIcon  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+import detectorist.resources_rc  # noqa: F401, E402  registers :/icons/* resources
 from detectorist import __version__  # noqa: E402
 from detectorist.detectorist_app import DetectoristApp  # noqa: E402
 from detectorist.running_mutex import hold_running_mutex  # noqa: E402
@@ -43,6 +45,7 @@ def main():
 
     app = QApplication(sys.argv)
     app.setApplicationName("detectorist")
+    app.setWindowIcon(QIcon(":/icons/icon.svg"))
     hold_running_mutex()
     window = DetectoristApp()
     # Nuitka defines __compiled__ in every compiled module
