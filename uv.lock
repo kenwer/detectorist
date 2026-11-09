@@ -29,10 +29,11 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
-dev = [
+build = [
     { name = "imageio" },
-    { name = "md-toc" },
     { name = "nuitka" },
+]
+dev = [
     { name = "poethepoet" },
     { name = "pytest" },
     { name = "pytest-qt" },
@@ -41,27 +42,28 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "numpy" },
-    { name = "onnxruntime" },
-    { name = "opencv-python" },
-    { name = "packaging" },
-    { name = "piexif" },
-    { name = "pillow-heif" },
+    { name = "numpy", specifier = ">=2.5" },
+    { name = "onnxruntime", specifier = ">=1.31" },
+    { name = "opencv-python", specifier = ">=5.0" },
+    { name = "packaging", specifier = ">=26.0" },
+    { name = "piexif", specifier = ">=1.1.3" },
+    { name = "pillow-heif", specifier = ">=1.8" },
     { name = "pyqt-toast-notification", specifier = "==1.3.3" },
     { name = "pyside6-essentials", specifier = ">=6.12" },
-    { name = "rawpy" },
+    { name = "rawpy", specifier = ">=0.28" },
     { name = "truststore", specifier = ">=0.10.5" },
 ]
 
 [package.metadata.requires-dev]
+build = [
+    { name = "imageio", specifier = ">=2.38" },
+    { name = "nuitka", specifier = ">=4.3" },
+]
 dev = [
-    { name = "imageio" },
-    { name = "md-toc" },
-    { name = "nuitka" },
-    { name = "poethepoet" },
+    { name = "poethepoet", specifier = ">=0.49" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-qt", specifier = ">=4.5" },
-    { name = "ruff" },
+    { name = "ruff", specifier = ">=0.17" },
 ]
 
 [[package]]
@@ -70,15 +72,6 @@ version = "25.12.19"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e8/2d/d2a548598be01649e2d46231d151a6c56d10b964d94043a335ae56ea2d92/flatbuffers-25.12.19-py2.py3-none-any.whl", hash = "sha256:7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4", size = 26661, upload-time = "2025-12-19T23:16:13.622Z" },
-]
-
-[[package]]
-name = "fpyutils"
-version = "4.0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1b/31/9441a8aa548a65d852a12c67036796691b5a90ca49ab09e4437759d9b91f/fpyutils-4.0.1.tar.gz", hash = "sha256:5ee8448b09863d5905ad22cf5f6c8af79d3b314617ac8fbded48eb2a414988e6", size = 21898, upload-time = "2023-11-08T22:06:45.319Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5f/ba/4a0aa00af38dde32e9b575052217b1e8d34e31106a079a74d83caafc26af/fpyutils-4.0.1-py3-none-any.whl", hash = "sha256:006cfbdbd87915d8a1c5b7062b6c8d2f4f9fd12c3e707d89c27e6abd6c67c6b2", size = 24073, upload-time = "2023-11-08T22:06:43.777Z" },
 ]
 
 [[package]]
@@ -101,18 +94,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/01/e1/2069291243c926a2ff1cd706c7f3eeb9b62144bf60f77c9fb9ff2fb26bd3/iniconfig-2.3.1.tar.gz", hash = "sha256:67f4b9c50da0dedf52af349e7749a80a9057a5031199791b906c3bb3ae878960", size = 21209, upload-time = "2026-10-06T22:48:38.076Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/56/43/4ca9e49d27a1fcf6bece6f6aec0ea46bb9112489b93d4b688fb415457bdb/iniconfig-2.3.1-py3-none-any.whl", hash = "sha256:9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7", size = 7552, upload-time = "2026-10-06T22:48:36.959Z" },
-]
-
-[[package]]
-name = "md-toc"
-version = "9.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "fpyutils" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/84/7a/9733159c68f9d44a621e9cd58bb367a8183ce5fdbbfb81b1325dc0e872d5/md_toc-9.1.0.tar.gz", hash = "sha256:7914cdf1bd2d452e1b9ef95804b3a212d2463eb277c06e05ff49a11b3fd6e4d4", size = 96704, upload-time = "2026-10-01T16:37:52.003Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8f/b7/2dabca9909307c8c1288358c58c3ee3ea6b991e2c92e7c47f05c36137070/md_toc-9.1.0-py3-none-any.whl", hash = "sha256:7cf184bee206b738ea0d9a639bfbb146e6e3988b87786f8c792035e49c67f483", size = 73001, upload-time = "2026-10-01T16:37:50.299Z" },
 ]
 
 [[package]]

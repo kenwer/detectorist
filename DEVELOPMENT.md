@@ -13,7 +13,7 @@ To run the application from source code, I recommend to use `Python 3.14` and `u
 
     ```shell
     uv venv
-    uv sync --group dev
+    uv sync
     ```
 
 3. **Run from source:**
@@ -27,7 +27,7 @@ To run the application from source code, I recommend to use `Python 3.14` and `u
     ```shell
     uv run detectorist
     # or
-    python3 detectorist/main.py
+    uv run python -m detectorist
     ```
 
 
@@ -70,7 +70,7 @@ On macOS:
 2.  **Set up the build environment and run the build:**
     ```shell
     uv venv -p "$HOMEBREW_PREFIX/bin/python3.14" .venv
-    uv sync --group dev
+    uv sync
     source .venv/bin/activate
     poe build-mac
     ```
@@ -89,7 +89,7 @@ On Windows:
 2.  **Set up the build environment and run the build:**
     ```shell
     uv venv -p 3.14 .venv
-    uv sync --group dev
+    uv sync
     .venv\Scripts\activate
     poe build-windows
     ```
@@ -102,7 +102,7 @@ On Linux:
 2.  **Set up the build environment and run the build:**
     ```shell
     uv venv -p `which python3` .venv
-    uv sync --group dev
+    uv sync
     source .venv/bin/activate
     poe build-linux
     ```

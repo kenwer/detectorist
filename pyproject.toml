@@ -5,35 +5,37 @@ build-backend = "uv_build"
 [project]
 name = "detectorist"
 version = "0.14.1"
-
 description = "A desktop application that identifies and crops animals in large photo sets using on-device machine learning."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = [
-    "numpy",
-    "onnxruntime",
-    "opencv-python",
-    "packaging",
-    "piexif",
-    "pillow-heif",
+    "numpy>=2.5",
+    "onnxruntime>=1.31",
+    "opencv-python>=5.0",
+    "packaging>=26.0",
+    "piexif>=1.1.3",
+    "pillow-heif>=1.8",
     "PySide6-Essentials>=6.12",
     # Pinned: the success-toast link reaches a private label attr (_Toast__text_label);
     # re-verify that hook before bumping. See src/detectorist/toasts.py
     "pyqt-toast-notification==1.3.3",
-    "rawpy",
+    "rawpy>=0.28",
     "truststore>=0.10.5",
 ]
 
 [dependency-groups]
 dev = [
-    # Nuitka converts the PNG app icon with it, nothing imports it directly
-    "imageio",
-    "md-toc",
-    "nuitka",
-    "poethepoet",
+    "poethepoet>=0.49",
     "pytest>=9.1.1",
     "pytest-qt>=4.5",
-    "ruff",
+    "ruff>=0.17",
+]
+
+# Only the build-* tasks need these, so they stay out of the default groups a plain `uv sync` installs
+build = [
+    # Nuitka converts the PNG app icon with it, nothing imports it directly
+    "imageio>=2.38",
+    "nuitka>=4.3",
 ]
 
 [project.scripts]
@@ -47,21 +49,16 @@ python-preference = "only-managed"
 compile-ui = { shell = "for f in src/detectorist/*.ui; do base=\"${f%.ui}\"; out=\"${base%/*}/ui_${base##*/}.py\"; pyside6-uic --from-imports \"$f\" -o \"$out\"; done", help = "Compile Qt UI files to Python files with relative imports" }
 # --format-version 1 omits per-file timestamps for reproducible output as setting SOURCE_DATE_EPOCH=0 does not work (Qt treats 0 as "not set" see QTBUG-62511).
 compile-qrc = { shell = "for f in src/detectorist/*.qrc; do pyside6-rcc --format-version 1 \"$f\" -o \"${f%.qrc}_rc.py\"; done", help = "Compile Qt resource files to Python files" }
-
 compile-qt = { sequence = ["compile-ui", "compile-qrc"], help = "Compile Qt UI and resource files" }
-
-run-app = { cmd = "python src/detectorist/main.py", help = "Run the application" }
+run-app = { cmd = "python -m detectorist", help = "Run the application" }
 run = { sequence = ["compile-qt", "run-app"], help = "Compile UI and resource files and run the application" }
 # cmd tasks forward extra arguments, so `poe test -k name` reaches pytest
 test = { cmd = "pytest", deps = ["compile-qt"], help = "Compile UI/resources, then run all tests" }
 test-fast = { cmd = "pytest -m 'not slow'", deps = ["compile-qt"], help = "Compile UI/resources, then run only the fast tests" }
 test-slow = { cmd = "pytest -m slow", deps = ["compile-qt"], help = "Compile UI/resources, then run only the slow tests that load the real models from ./models" }
 install-hooks = { cmd = "git config core.hooksPath .githooks", help = "Point git at the repo's tracked hooks (pre-push runs test-fast)" }
-
 clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
-
 bench = { cmd = "python benchmarks/bench_conversions.py", help = "Time the image conversion hot paths" }
-
 lint = { cmd = "ruff check src tests", help = "Run ruff linter" }
 fmt = { cmd = "ruff format src tests", help = "Run ruff formatter" }
 
@@ -113,8 +110,12 @@ case "$(uname -s)" in
 esac
 """
 
-# set -e fails the build tasks on a failed Nuitka run, which the trailing commands would otherwise hide
+[tool.poe.tasks.sync-build]
+cmd = "uv sync --group build"
+help = "Install the build group (Nuitka) into the venv"
 
+# Each build-* task starts with set -e, so a failed Nuitka run fails the task instead of being hidden by the trailing commands.
+#
 # A folder build wrapped in an AppImage instead of a onefile binary, the format Linux users expect.
 # The pinned upstream appimagetool embeds the static type2 runtime, so the AppImage runs without
 # libfuse2. Nuitka's default download is the older AppImageKit one.
@@ -163,7 +164,7 @@ nuitka \
     --linux-installer-appimagetool-path="$TOOL_DIR" \
     ./src/detectorist/main.py
 """
-deps = ["compile-qt"]
+deps = ["compile-qt", "sync-build"]
 help = "Build the application and its AppImage for Linux"
 
 # No platforminputcontexts plugins: on macOS PySide6-Essentials only ships the virtual keyboard one,
@@ -213,7 +214,7 @@ done
 mv "$STAGE/Detectorist.app" "$APP"
 rm -rf "$STAGE"
 """
-deps = ["compile-qt"]
+deps = ["compile-qt", "sync-build"]
 help = "Build the application and its DMG for macOS"
 
 # A folder build wrapped in an Inno Setup installer instead of a onefile exe: nothing is extracted
@@ -259,7 +260,7 @@ MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' "$ISCC" \
     "/DIconFile=$(cygpath -w "$PWD/assets/icon.ico")" \
     packaging/windows/detectorist.iss
 """
-deps = ["compile-qt"]
+deps = ["compile-qt", "sync-build"]
 help = "Build the application and its setup.exe for Windows"
 
 [tool.ruff]
@@ -295,7 +296,6 @@ addopts = [
     "--durations=15",
     "--durations-min=1.0",
 ]
-pythonpath = ["src"]
 # Dump all-thread tracebacks to stderr when a single test exceeds this many
 # seconds, so a hang identifies itself in CI logs (it does not kill the test).
 faulthandler_timeout = 120
