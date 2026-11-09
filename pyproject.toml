@@ -87,7 +87,8 @@ case "$ARCH" in
     aarch64) APPIMAGETOOL_SHA256=f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158 ;;
     *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
-TOOL_DIR=dist/tools/appimagetool-$APPIMAGETOOL_VERSION-$ARCH
+# Absolute, because Nuitka re-resolves the found tool against PATH and a relative path fails that
+TOOL_DIR=$PWD/dist/tools/appimagetool-$APPIMAGETOOL_VERSION-$ARCH
 if ! echo "$APPIMAGETOOL_SHA256  $TOOL_DIR/appimagetool" | sha256sum --check --status 2>/dev/null; then
     mkdir -p "$TOOL_DIR"
     curl -fsSL -o "$TOOL_DIR/appimagetool" \
