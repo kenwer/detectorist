@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "detectorist"
-version = "0.14.0"
+version = "0.14.1"
 
 description = "A desktop application that identifies and crops animals in large photo sets using on-device machine learning."
 readme = "README.md"
