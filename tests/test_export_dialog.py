@@ -105,15 +105,39 @@ def test_preview_labels_are_bold(make_dialog, label):
     assert found.charFormat().fontWeight() == QFont.Weight.Bold
 
 
-@pytest.mark.parametrize("selected", [(), IMAGES[:1], IMAGES[1:3]])
-def test_scope_defaults_to_all_images(make_dialog, selected):
+@pytest.mark.parametrize("selected", [(), IMAGES[:1]])
+def test_scope_defaults_to_all_images_without_several_selected(make_dialog, selected):
     assert make_dialog(selected).images() == IMAGES
+
+
+def test_scope_defaults_to_several_selected_images(make_dialog):
+    dialog = make_dialog(IMAGES[1:3])
+    assert dialog.images() == IMAGES[1:3]
+    assert export_button(dialog).text() == "Export 2 Images"
 
 
 def test_all_images_is_the_first_choice(make_dialog):
     dialog = make_dialog()
-    layout = dialog.ui.images_group_box.layout()
+    layout = dialog.ui.hlyt_scope
     assert layout.indexOf(dialog.ui.rb_all) < layout.indexOf(dialog.ui.rb_selected)
+
+
+def test_scope_choices_share_a_row_apart_from_the_skip_choices(make_dialog):
+    dialog = make_dialog()
+    layout = dialog.ui.hlyt_scope
+    assert layout.indexOf(dialog.ui.rb_all) >= 0
+    assert layout.indexOf(dialog.ui.rb_selected) >= 0
+    assert layout.indexOf(dialog.ui.cb_skip_no_detection) == -1
+    assert layout.itemAt(layout.count() - 1).spacerItem() is not None
+
+
+def test_all_images_can_be_chosen_instead_of_several_selected(make_dialog):
+    dialog = make_dialog(IMAGES[1:3])
+
+    dialog.ui.rb_all.setChecked(True)
+
+    assert dialog.images() == IMAGES
+    assert export_button(dialog).text() == "Export 4 Images"
 
 
 @pytest.mark.parametrize("selected", [IMAGES[:1], IMAGES[1:3]])

@@ -23,21 +23,32 @@
        </property>
        <layout class="QVBoxLayout" name="vlyt_images">
         <item>
-         <widget class="QRadioButton" name="rb_all">
-          <property name="text">
-           <string>All images</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="rb_selected">
-          <property name="text">
-           <string>Selected images</string>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="hlyt_scope">
+          <item>
+           <widget class="QRadioButton" name="rb_all">
+            <property name="text">
+             <string>All images</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="rb_selected">
+            <property name="text">
+             <string>Selected images</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="scope_spacer">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+           </spacer>
+          </item>
+         </layout>
         </item>
         <item>
          <widget class="QLabel" name="class_filter_label">

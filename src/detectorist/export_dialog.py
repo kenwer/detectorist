@@ -45,7 +45,8 @@ class ExportDialog(QDialog):
         Args:
             all_images: Full paths of the images in the list, all in one folder.
             selected_images: Full paths of the selected images, offered
-                as the second choice after all images.
+                as the second choice after all images, and chosen when
+                there are several.
             options: The crop and prefix choices to start from. Without
                 classifier patterns, the taxa prefix is unavailable, but
                 stays chosen for the next export with a classifier.
@@ -73,6 +74,8 @@ class ExportDialog(QDialog):
         self.ui.rb_all.setText(f"All images ({len(all_images)})")
         self.ui.rb_selected.setText(f"Selected images ({len(selected_images)})")
         self.ui.rb_selected.setEnabled(bool(selected_images))
+        # One selected image is usually just the one being looked at, while several are picked on purpose
+        self.ui.rb_selected.setChecked(len(selected_images) > 1)
         self.ui.class_filter_label.setText(f"Only {class_filter} detections (Show filter)" if class_filter else "")
         self.ui.class_filter_label.setVisible(bool(class_filter))
 
