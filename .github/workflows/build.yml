@@ -11,6 +11,7 @@ on:
       - '.github/workflows/build.yml'
       - '.github/actions/**'
       - 'packaging/**'
+      - 'scripts/strip_macos_bundle.py'
   workflow_dispatch:
   release:
     types: [published]

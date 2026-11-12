@@ -197,15 +197,17 @@ nuitka \
 # Unversioned, so Dock items survive an update
 APP="$OUTPUT_DIR/Detectorist.app"
 mv "$OUTPUT_DIR/main.app" "$APP"
+python scripts/strip_macos_bundle.py "$APP"
 # Plain hdiutil rather than create-dmg: no Finder AppleScript to hang on a headless runner.
 # The staging folder puts the app next to an Applications link for drag-to-install.
 STAGE="$OUTPUT_DIR/dmg-stage"
 mkdir "$STAGE"
 mv "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
+# ULMO (LZMA) makes the DMG about 30% smaller than ULFO (LZFSE) and needs macOS 10.15, below what Qt 6 requires.
 # GitHub's macOS runners intermittently fail hdiutil with "Resource busy" (actions/runner-images#7522)
 for attempt in 1 2 3 4 5; do
-    hdiutil create -volname Detectorist -srcfolder "$STAGE" -fs HFS+ -format ULFO -ov \
+    hdiutil create -volname Detectorist -srcfolder "$STAGE" -fs HFS+ -format ULMO -ov \
         "$OUTPUT_DIR/Detectorist-macos-$ARCH.dmg" && break
     [ "$attempt" = 5 ] && exit 1
     echo "hdiutil failed (attempt $attempt/5), retrying..."

@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 ### Changed
+- The macOS download is smaller due to stripped symbols.
 - [Dev] Nuitka moved to a `build` dependency group that the build tasks install, so `uv sync` no longer installs it.
 - [Dev] Run the app from source with `python -m detectorist`.
 ### Fixed
