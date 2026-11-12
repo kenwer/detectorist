@@ -239,7 +239,8 @@ def test_export_writes_every_portable_setting_with_its_json_type(settings, tmp_p
                       "classification_model": None, "classification_min_confidence_percent": 61},
             "image": {"correct_exposure": True},
             "crop": {"mode": "best_classification", "aspect_ratio": "detection_frame", "padding_percent": 15},
-            "export": {"crop_images": True, "prefix_class": False, "prefix_taxa": True, "class_filter": "Fish"},
+            "export": {"crop_images": True, "prefix_class": False, "prefix_taxa": True,
+                       "skip_no_detection": False, "skip_unidentified": False, "class_filter": "Fish"},
         },
     }
 

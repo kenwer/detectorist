@@ -152,14 +152,28 @@ def test_class_filter_drops_detections_of_other_classes(tmp_path, run_export):
     assert os.path.isfile(os.path.join(output_dir, "no-detection_fish_only.png"))
 
 
-@pytest.mark.parametrize(("detections", "cropped", "row"), [
-    ([], False, ("a.png", 0, "N/A", 0, "no")),
-    ([Detection((0, 0, 1, 1), 0.6, "Crab"), Detection((0, 0, 1, 1), 0.9, "Fish")], True, ("a.png", 0.9, "Fish", 2, "yes")),
-    # Detected, but not cropped (no usable crop rectangle)
-    ([Detection((0, 0, 1, 1), 0.9, "Fish")], False, ("a.png", 0.9, "Fish", 1, "no")),
+def test_a_skipped_image_writes_no_file_but_keeps_its_row(tmp_path, run_export):
+    paths = make_images(tmp_path, ["with_fish.png", "empty.png"])
+    detector = FakeDetector({"with_fish.png": [Detection((10, 10, 20, 20), 0.9, "Fish")]})
+    output_dir = str(tmp_path / "out")
+
+    result = run_export(paths, detector, detection_confidence=0.5, output_dir=output_dir,
+                        options=ExportOptions(CROP_SETTINGS, skip_no_detection=True), progress=always_continue)
+
+    assert sorted(name for name in os.listdir(output_dir) if name.endswith(".png")) == ["Fish_with_fish_crop.png"]
+    assert result.detections_rows == [
+        ("with_fish.png", 0.9, "Fish", 1, "yes"),
+        ("empty.png", 0, "N/A", 0, "skipped"),
+    ]
+    assert result.skipped == ["empty.png"]
+
+
+@pytest.mark.parametrize(("detections", "row"), [
+    ([], ("a.png", 0, "N/A", 0, "no")),
+    ([Detection((0, 0, 1, 1), 0.6, "Crab"), Detection((0, 0, 1, 1), 0.9, "Fish")], ("a.png", 0.9, "Fish", 2, "no")),
 ])
-def test_detections_row_reports_the_top_detection_and_the_crop(detections, cropped, row):
-    assert DetectionsRow.from_detections("a.png", detections, cropped) == row
+def test_detections_row_reports_the_top_detection(detections, row):
+    assert DetectionsRow.from_detections("a.png", detections, "no") == row
 
 
 def test_load_failure_skips_image_and_continues(tmp_path, run_export):
@@ -305,8 +319,7 @@ def run_classified_sort(run_export, tmp_path, detections_by_file, classifier, ta
     """Export the images named in detections_by_file uncropped with a classifier. Returns the ExportResult."""
     paths = make_images(tmp_path, list(detections_by_file))
     options = ExportOptions(replace(CROP_SETTINGS, taxon_confidence=taxon_confidence), crop=False,
-                            prefix_class=False, prefix_taxa=True,
-                            classifier_patterns=classifier.patterns if classifier else None)
+                            prefix_class=False, prefix_taxa=True, has_classifier=classifier is not None)
     return run_export(paths, FakeDetector(detections_by_file), detection_confidence=0.5,
                      output_dir=str(tmp_path / "out"), options=options,
                      progress=always_continue, classifier=classifier, taxon_confidence=taxon_confidence)
@@ -483,7 +496,7 @@ def export(run_export, tmp_path, paths, detector, classifier, crop=True, crop_se
     """
     prefix_class, prefix_taxa = prefix
     options = ExportOptions(crop_settings, crop=crop, prefix_class=prefix_class, prefix_taxa=prefix_taxa,
-                            classifier_patterns=classifier.patterns if classifier else None)
+                            has_classifier=classifier is not None)
     return run_export(paths, detector, detection_confidence=0.5,
                      output_dir=str(tmp_path / "out"), options=options,
                      progress=always_continue, classifier=classifier, taxon_confidence=crop_settings.taxon_confidence)
@@ -521,14 +534,6 @@ def test_a_failed_classification_names_the_crop_unidentified(tmp_path, run_expor
            FakeClassifier(error=RuntimeError("out of memory")))
 
     assert exported(tmp_path) == ["unidentified_fish_crop.png"]
-
-
-def test_a_class_the_classifier_does_not_name_keeps_its_class_name(tmp_path, run_export):
-    crab = Detection((10, 10, 20, 20), 0.9, "Crab")
-
-    export(run_export, tmp_path, make_images(tmp_path, ["a.png"]), FakeDetector({"a.png": [crab]}), FakeClassifier(patterns=("Fish",)))
-
-    assert exported(tmp_path) == ["Crab_a_crop.png"]
 
 
 def test_unsafe_class_names_are_made_safe(tmp_path, run_export):

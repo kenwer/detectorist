@@ -1,5 +1,7 @@
 """Tests for the export planner: crop rectangles and file names."""
 
+from dataclasses import replace
+
 import pytest
 
 from detectorist.export_planner import (
@@ -213,9 +215,9 @@ OTHER = Detection((40, 10, 10, 10), 0.8, "Fish")
 TAXONOMY = {FISH.box: Taxonomy(*FULL), OTHER.box: Taxonomy(*FULL[:2], RankedName("Amphiprion_ocellaris", 0.3))}
 
 
-def names(detections, crop=True, prefix_class=False, prefix_taxa=True, patterns=("*",), settings=SETTINGS):
+def names(detections, crop=True, prefix_class=False, prefix_taxa=True, has_classifier=True, settings=SETTINGS):
     options = ExportOptions(settings, crop=crop, prefix_class=prefix_class, prefix_taxa=prefix_taxa,
-                            classifier_patterns=patterns)
+                            has_classifier=has_classifier)
     return [file.name for file in options.plan("IMG.jpg", detections, 48, 64, TAXONOMY)]
 
 
@@ -232,10 +234,6 @@ def test_plan_by_class_and_taxa_names_the_class_first():
     assert names([FISH], prefix_class=True) == ["Fish_Pomacentridae_Amphiprion_ocellaris_IMG_crop.jpg"]
 
 
-def test_plan_by_class_and_taxa_names_a_class_the_classifier_skips_once():
-    assert names([FISH], prefix_class=True, patterns=("Crab",)) == ["Fish_IMG_crop.jpg"]
-
-
 def test_plan_without_a_prefix_keeps_the_file_name():
     assert names([FISH], prefix_taxa=False) == ["IMG_crop.jpg"]
     assert names([FISH], crop=False, prefix_taxa=False) == ["IMG.jpg"]
@@ -243,27 +241,73 @@ def test_plan_without_a_prefix_keeps_the_file_name():
 
 
 def test_plan_without_crop_copies_the_whole_image_once():
-    options = ExportOptions(SETTINGS, crop=False, prefix_class=False, prefix_taxa=True, classifier_patterns=("*",))
+    options = ExportOptions(SETTINGS, crop=False, prefix_class=False, prefix_taxa=True, has_classifier=True)
     (planned,) = options.plan("IMG.jpg", [FISH, OTHER], 48, 64, TAXONOMY)
     assert planned == (None, "Pomacentridae_Amphiprion_ocellaris_IMG.jpg")
 
 
 def test_plan_by_taxa_without_a_classifier_names_by_class():
-    assert names([FISH], patterns=None) == ["Fish_IMG_crop.jpg"]
+    assert names([FISH], has_classifier=False) == ["Fish_IMG_crop.jpg"]
 
 
 def test_plan_of_an_image_without_detections():
     assert names([]) == ["no-detection_IMG.jpg"]
 
 
-@pytest.mark.parametrize(("crop", "prefix_class", "prefix_taxa", "patterns", "scheme"), [
-    (True, False, True, ("*",), "<Family>_<Genus>_<Species>_<Filename>_crop[_<n>].HIF"),
-    (True, True, True, ("*",), "<Class>_<Family>_<Genus>_<Species>_<Filename>_crop[_<n>].HIF"),
-    (True, True, False, ("*",), "<Class>_<Filename>_crop[_<n>].HIF"),
-    (True, False, True, None, "<Class>_<Filename>_crop[_<n>].HIF"),
-    (False, False, False, ("*",), "<Filename>.HIF"),
+# Scores higher than FISH, but the classifier names no family for it
+UNKNOWN = Detection((30, 30, 10, 10), 0.95, "Fish")
+WITH_UNKNOWN = {**TAXONOMY, UNKNOWN.box: Taxonomy(RankedName("Pomacentridae", 0.2), *FULL[1:])}
+
+
+def skipping_names(detections, skip_no_detection=True, skip_unidentified=True, has_classifier=True,
+                   mode=CropMode.EACH_OBJECT, crop=True):
+    options = ExportOptions(replace(SETTINGS, mode=mode), crop=crop, has_classifier=has_classifier,
+                            skip_no_detection=skip_no_detection, skip_unidentified=skip_unidentified)
+    return [file.name for file in options.plan("IMG.jpg", detections, 48, 64, WITH_UNKNOWN)]
+
+
+def test_plan_skips_an_image_without_detections_if_asked():
+    assert skipping_names([], skip_unidentified=False) == []
+    assert skipping_names([], skip_unidentified=False, has_classifier=False) == []
+
+
+def test_plan_skipping_unidentified_leaves_out_their_crops():
+    assert skipping_names([FISH, UNKNOWN]) == ["Pomacentridae_Amphiprion_ocellaris_IMG_crop.jpg"]
+
+
+def test_plan_skipping_unidentified_lets_the_crop_mode_pick_among_the_identified():
+    assert skipping_names([FISH, UNKNOWN], mode=CropMode.MOST_CONFIDENT_DETECTION) == [
+        "Pomacentridae_Amphiprion_ocellaris_IMG_crop.jpg"]
+    assert skipping_names([FISH, UNKNOWN], crop=False) == ["Pomacentridae_Amphiprion_ocellaris_IMG.jpg"]
+
+
+def test_plan_skipping_unidentified_skips_an_image_without_an_identified_detection():
+    assert skipping_names([UNKNOWN]) == []
+
+
+def test_plan_counts_a_detection_the_classifier_failed_on_as_unidentified():
+    assert skipping_names([Detection((1, 1, 5, 5), 0.9, "Fish")]) == []
+
+
+@pytest.mark.parametrize(("skip_no_detection", "has_classifier"), [
+    # Skipping unidentified detections takes skipping images without detections
+    (False, True),
+    # Without a classifier nothing is identified, so the choice is set aside
+    (True, False),
 ])
-def test_name_scheme_spells_out_what_plan_names(crop, prefix_class, prefix_taxa, patterns, scheme):
+def test_plan_keeps_unidentified_detections_unless_both_apply(skip_no_detection, has_classifier):
+    planned = skipping_names([FISH, UNKNOWN], skip_no_detection=skip_no_detection, has_classifier=has_classifier)
+    assert len(planned) == 2
+
+
+@pytest.mark.parametrize(("crop", "prefix_class", "prefix_taxa", "has_classifier", "scheme"), [
+    (True, False, True, True, "<Family>_<Genus>_<Species>_<Filename>_crop[_<n>].HIF"),
+    (True, True, True, True, "<Class>_<Family>_<Genus>_<Species>_<Filename>_crop[_<n>].HIF"),
+    (True, True, False, True, "<Class>_<Filename>_crop[_<n>].HIF"),
+    (True, False, True, False, "<Class>_<Filename>_crop[_<n>].HIF"),
+    (False, False, False, True, "<Filename>.HIF"),
+])
+def test_name_scheme_spells_out_what_plan_names(crop, prefix_class, prefix_taxa, has_classifier, scheme):
     options = ExportOptions(SETTINGS, crop=crop, prefix_class=prefix_class, prefix_taxa=prefix_taxa,
-                            classifier_patterns=patterns)
+                            has_classifier=has_classifier)
     assert options.name_scheme(".HIF") == scheme

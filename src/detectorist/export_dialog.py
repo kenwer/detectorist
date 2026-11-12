@@ -81,15 +81,25 @@ class ExportDialog(QDialog):
         self.ui.crop_summary_label.setVisible(bool(crop_summary))
         self.ui.cb_prefix_class.setChecked(options.prefix_class)
         self.ui.cb_prefix_taxa.setChecked(options.prefix_taxa)
-        if options.classifier_patterns is None:
+        if not options.has_classifier:
             self.ui.cb_prefix_taxa.setEnabled(False)
             self.ui.cb_prefix_taxa.setText("Taxa (no classifier)")
             self.ui.cb_prefix_taxa.setToolTip("Select a classifier in the main window to name files by "
                                               "family, genus and species")
 
+        self.ui.cb_skip_no_detection.setChecked(options.skip_no_detection)
+        self.ui.cb_skip_unidentified.setChecked(options.skip_unidentified)
+        # Hidden rather than disabled: without a classifier nothing is identified, and the taxa choice
+        # already points to classifiers. Its check stays for the next export with a classifier.
+        self.ui.cb_skip_unidentified.setVisible(options.has_classifier)
+        # An image without detections has none identified either, so skipping those implies skipping these
+        self.ui.cb_skip_unidentified.setEnabled(options.skip_no_detection)
+        self.ui.cb_skip_no_detection.toggled.connect(self.ui.cb_skip_unidentified.setEnabled)
+
         # rb_selected toggles on every change between the two, rb_all would signal each change again
         self.ui.rb_selected.toggled.connect(self._update_preview)
-        for check_box in (self.ui.cb_crop, self.ui.cb_prefix_class, self.ui.cb_prefix_taxa):
+        for check_box in (self.ui.cb_crop, self.ui.cb_prefix_class, self.ui.cb_prefix_taxa,
+                          self.ui.cb_skip_no_detection, self.ui.cb_skip_unidentified):
             check_box.toggled.connect(self._update_preview)
         self.ui.choose_button.clicked.connect(self._choose_folder)
         self.ui.default_link_label.linkActivated.connect(self._reset_folder)
@@ -104,9 +114,11 @@ class ExportDialog(QDialog):
         return self._selected_images if self.ui.rb_selected.isChecked() else self._all_images
 
     def options(self) -> ExportOptions:
-        """The options given, with the crop and prefix chosen."""
+        """The options given, with the crop, prefix and skipping chosen."""
         return replace(self._options, crop=self.ui.cb_crop.isChecked(), prefix_class=self.ui.cb_prefix_class.isChecked(),
-                       prefix_taxa=self.ui.cb_prefix_taxa.isChecked())
+                       prefix_taxa=self.ui.cb_prefix_taxa.isChecked(),
+                       skip_no_detection=self.ui.cb_skip_no_detection.isChecked(),
+                       skip_unidentified=self.ui.cb_skip_unidentified.isChecked())
 
     def output_dir(self) -> str:
         return self._other_folder or os.path.join(self._image_folder, OUTPUT_DIR_NAME)
@@ -167,7 +179,11 @@ class ExportDialog(QDialog):
         more = [f"...and {len(images) - 1} more images"] if len(images) > 1 else []
         options = self.options()
         preview_image = self._preview_image
-        names = preview_image.file_names(options) if preview_image and preview_image.path in images else None
+        # The example shows how files are named, so it ignores the skip choices, which could leave the
+        # shown image without files
+        example_options = replace(options, skip_no_detection=False, skip_unidentified=False)
+        names = (preview_image.file_names(example_options)
+                 if preview_image and preview_image.path in images else None)
         example = [count_noun(len(images), "image")] if names is None else names + more
         ext = os.path.splitext(names[0] if names else images[0])[1]
         scheme = [options.name_scheme(ext), *more]

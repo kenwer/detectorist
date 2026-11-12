@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Literal, NamedTuple
 
-from .classifier import class_matches, identified_ranks
+from .classifier import identified_ranks
 from .structures import Box, Detection, RankedName, SettingEnum, Taxonomy
 
 # A crop rectangle as (x, y, w, h) in image pixel space.
@@ -55,14 +55,16 @@ class PlannedFile(NamedTuple):
 
 @dataclass(frozen=True)
 class ExportOptions:
-    """How an export crops and names the images."""
+    """How an export crops, names and skips the images."""
 
     crop_settings: CropSettings
     # The defaults are also the Export dialog's first choices, see Settings
     crop: bool = True  # False copies each image whole
     prefix_class: bool = False  # names start with the detected class
     prefix_taxa: bool = True  # then with the identified ranks, see taxon_prefix. Without a classifier, the class.
-    classifier_patterns: tuple[str, ...] | None = None  # the classes the classifier names, None without one
+    has_classifier: bool = False  # whether a classifier names the detections, which taxa and skip_unidentified take
+    skip_no_detection: bool = False  # plan nothing for an image without detections
+    skip_unidentified: bool = False  # also leave out unidentified detections, see _skips_unidentified
 
     def plan(self, file_name: str, detections: list[Detection], image_height: int, image_width: int,
              taxonomy_by_box: Mapping[Box, Taxonomy]) -> list[PlannedFile]:
@@ -76,12 +78,20 @@ class ExportOptions:
         or the top score where the mode crops each object or no box has an area.
 
         The prefix is the class, then the taxa, as far as prefix_class and
-        prefix_taxa ask for them. The taxa name a detection only where the
-        classifier names its class (classifier_patterns). Elsewhere the class
-        stands in for them, so the files still sort by what they show. A
+        prefix_taxa ask for them. Without a classifier the class stands in for
+        the taxa, so the files still sort by what they show. A
         detection missing from taxonomy_by_box, because the classifier failed,
         is "unidentified". An image without detections is "no-detection".
+
+        With skip_no_detection, an image without detections plans no file.
+        With skip_unidentified as well, and a classifier, only the detections
+        identified to family at the taxon confidence count, so the crop mode
+        picks among them, and an image without one plans no file either.
         """
+        if self._skips_unidentified():
+            detections = [d for d in detections if self._identified(taxonomy_by_box.get(d.box))]
+        if self.skip_no_detection and not detections:
+            return []
         stem, ext = os.path.splitext(file_name)
 
         def part_name(part: PrefixPart, detection: Detection) -> str:
@@ -96,9 +106,7 @@ class ExportOptions:
             if detection is None:
                 prefix = [NO_DETECTION] if self.prefix_class or self.prefix_taxa else []
             else:
-                named_by_classifier = self._taxa_apply() and class_matches(self.classifier_patterns,
-                                                                           detection.class_name)
-                prefix = [part_name(part, detection) for part in self._prefix_parts(named_by_classifier)]
+                prefix = [part_name(part, detection) for part in self._prefix_parts()]
             return f"{'_'.join([*prefix, stem])}{suffix}{ext}"
 
         targets = _plan_crop_targets(detections, image_height, image_width, self.crop_settings, taxonomy_by_box)
@@ -115,20 +123,33 @@ class ExportOptions:
 
     def name_scheme(self, ext: str) -> str:
         """The names plan() gives, with placeholders for the parts that vary, for the Export preview."""
-        prefix = [_PLACEHOLDERS[part] for part in self._prefix_parts(self._taxa_apply())]
+        prefix = [_PLACEHOLDERS[part] for part in self._prefix_parts()]
         # Several crops of one image are numbered, a single crop is not
         return f"{'_'.join([*prefix, '<Filename>'])}{'_crop[_<n>]' if self.crop else ''}{ext}"
 
+    def _identified(self, taxonomy: Taxonomy | None) -> bool:
+        """Whether the classifier named a detection to at least its family, see identified_ranks."""
+        return taxonomy is not None and bool(identified_ranks(taxonomy, self.crop_settings.taxon_confidence))
+
+    def _skips_unidentified(self) -> bool:
+        """
+        Whether plan() leaves out unidentified detections. An image without
+        detections has none identified either, so this takes skip_no_detection,
+        and a classifier to identify them.
+        """
+        return self.skip_no_detection and self.skip_unidentified and self.has_classifier
+
     def _taxa_apply(self) -> bool:
         """Whether names hold taxa, which takes a classifier."""
-        return self.prefix_taxa and self.classifier_patterns is not None
+        return self.prefix_taxa and self.has_classifier
 
-    def _prefix_parts(self, named_by_classifier: bool) -> list[PrefixPart]:
+    def _prefix_parts(self) -> list[PrefixPart]:
         """What the name of a detection starts with (see plan), shared with name_scheme() so the two agree."""
+        taxa = self._taxa_apply()
         parts: list[PrefixPart] = []
-        if self.prefix_class or (self.prefix_taxa and not named_by_classifier):
+        if self.prefix_class or (self.prefix_taxa and not taxa):
             parts.append("class")
-        if named_by_classifier:
+        if taxa:
             parts.append("taxa")
         return parts
 

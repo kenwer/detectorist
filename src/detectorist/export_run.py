@@ -26,7 +26,7 @@ from .export_files import (
     DetectionsRow,
     csv_writer,
 )
-from .export_planner import ExportOptions
+from .export_planner import ExportOptions, PlannedFile
 from .image_object import ImageObject
 from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob
 from .model_loader import Models
@@ -77,6 +77,7 @@ class ExportResult:
     cancelled: bool
     detections_rows: list[DetectionsRow]
     failed: list[str] = field(default_factory=list)  # Filenames of the images that could not be loaded or processed
+    skipped: list[str] = field(default_factory=list)  # Filenames of the images the options wrote no file for
     classification_rows: list[ClassificationRow] = field(default_factory=list)
 
 
@@ -96,7 +97,8 @@ class ExportWriter:
     Writes what an Export produces for each image: its crops, or a copy of
     the whole image, as the options plan, and the rows of both CSV files.
     Images are written in the order given. Images without detections are
-    copied too, so every input image is accounted for in the output.
+    copied too, unless the options skip them, and every input image gets
+    its detections row, "skipped" in its cropped column if no file was written.
 
     The CSV files only ever hold this run's rows. CSV files from an earlier
     run are replaced, as are image files of the same name. Files an earlier
@@ -137,6 +139,7 @@ class ExportWriter:
         self._detections_rows: list[DetectionsRow] = []
         self._classification_rows: list[ClassificationRow] = []
         self._failed: list[str] = []  # names of the images that could not be loaded or processed
+        self._skipped: list[str] = []  # names of the images the options wrote no file for
 
     def open(self) -> None:
         """
@@ -166,7 +169,13 @@ class ExportWriter:
             if self._with_classification:
                 named = detections_to_classify(detections, 0.0, self._patterns)
                 rows = classification_rows(image, named, names, self._taxon_confidence)
-            cropped = self._export_image(image, detections, names)
+            planned = self._options.plan(file_name, detections, image.height, image.width, names)
+            self._write_files(image, detections, planned)
+            if not planned:
+                cropped = "skipped"
+                self._skipped.append(file_name)
+            else:
+                cropped = "no" if planned[0].rect is None else "yes"
             detections_row = DetectionsRow.from_detections(file_name, detections, cropped)
         except Exception:
             logger.exception("%s: could not process image", file_name)
@@ -176,19 +185,15 @@ class ExportWriter:
             self._failed.append(file_name)
         self._add_rows(detections_row, rows)
 
-    def _export_image(self, image: ImageObject, detections: list[Detection],
-                      names: Mapping[Box, Taxonomy]) -> bool:
-        """Writes the files the options plan for the image. Returns whether a crop was produced."""
-        file_name = os.path.basename(image.image_path)
-        planned = self._options.plan(file_name, detections, image.height, image.width, names)
-        if planned[0].rect is None:
+    def _write_files(self, image: ImageObject, detections: list[Detection], planned: list[PlannedFile]) -> None:
+        """Writes the planned files of the image: its crops, a copy of it, or nothing if it is skipped."""
+        if planned and planned[0].rect is None:
             if self._options.crop and detections:
-                logger.warning("%s: no usable crop rectangle, copying the image", file_name)
+                logger.warning("%s: no usable crop rectangle, copying the image", os.path.basename(image.image_path))
             image.copy_image(self._output_dir, planned[0].name)
-            return False
+            return
         for file in planned:
             image.save_cropped(file.rect, os.path.join(self._output_dir, file.name), self._exposure_correction)
-        return True
 
     def write_failure(self, image_path: str, kind: str = "load-error") -> None:
         """Writes the row of an image that could not be loaded, or with kind "process-error" not detected."""
@@ -207,7 +212,7 @@ class ExportWriter:
         """Closes the CSV files and returns the rows written."""
         self._csv_files.close()
         return ExportResult(output_dir=self._output_dir, cancelled=cancelled, detections_rows=self._detections_rows,
-                           failed=self._failed, classification_rows=self._classification_rows)
+                           failed=self._failed, skipped=self._skipped, classification_rows=self._classification_rows)
 
 
 @dataclass(eq=False)

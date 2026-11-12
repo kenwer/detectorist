@@ -1283,11 +1283,14 @@ class DetectoristApp(QMainWindow):
             return
         self.ui.status_bar.showMessage("Finished exporting images.", 5000)
         self._set_last_output_dir(export.output_dir)
+        finished = "Finished exporting images"
+        if result.skipped:
+            finished += f", {count_noun(len(result.skipped), 'image')} skipped"
         if result.failed:
             show_warning_toast(
                 self,
                 "Detectorist",
-                f"Finished exporting images, but {count_noun(len(result.failed), 'image')} failed. "
+                f"{finished}, but {count_noun(len(result.failed), 'image')} failed. "
                 f"See {DETECTIONS_CSV_NAME} for details.",
                 link_text=f"Reveal in {file_manager_name()}",
                 on_link=lambda: reveal_in_file_manager(export.output_dir),
@@ -1297,7 +1300,7 @@ class DetectoristApp(QMainWindow):
             show_success_toast(
                 self,
                 "Detectorist",
-                "Finished exporting images.",
+                f"{finished}.",
                 link_text=f"Reveal in {file_manager_name()}",
                 on_link=lambda: reveal_in_file_manager(export.output_dir),
             )
@@ -1369,10 +1372,11 @@ class DetectoristApp(QMainWindow):
         if not all_images or crop_settings is None:
             return
         classifier_filename = self.ui.classifier_combo_box.currentData()
-        patterns = tuple(self._model_downloader.classifies(classifier_filename)) if classifier_filename else None
         options = ExportOptions(crop_settings, crop=self.settings.export_crop_images,
                                 prefix_class=self.settings.export_prefix_class,
-                                prefix_taxa=self.settings.export_prefix_taxa, classifier_patterns=patterns)
+                                prefix_taxa=self.settings.export_prefix_taxa, has_classifier=bool(classifier_filename),
+                                skip_no_detection=self.settings.export_skip_no_detection,
+                                skip_unidentified=self.settings.export_skip_unidentified)
 
         # Only the shown image has its detections at hand
         image = self.ui.image_label.image
@@ -1391,6 +1395,8 @@ class DetectoristApp(QMainWindow):
         self.settings.export_crop_images = options.crop
         self.settings.export_prefix_class = options.prefix_class
         self.settings.export_prefix_taxa = options.prefix_taxa
+        self.settings.export_skip_no_detection = options.skip_no_detection
+        self.settings.export_skip_unidentified = options.skip_unidentified
         self._start_export(options, dialog.output_dir(), dialog.images())
 
     def _selected_image_files(self) -> list[str]:

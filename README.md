@@ -81,8 +81,9 @@ Updates: at every start the app checks for updates. When a newer version is avai
     - The Confidence threshold specifies the minimum confidence how sure the model must be about detecting an object before it reports that detection.
 -   Optionally configure the crop mode, aspect ratio and padding, then choose `Export Images...` in the File menu (`Ctrl+E`). The Export dialog previews the files and lets you choose:
     - All images, or only the selected ones.
+    - Whether to skip images without detections and, with a classifier, also crops not identified to family. Skipped images are still listed in `detectorist-detections.csv`, marked `skipped`.
     - Whether to crop each detection (`Fish_IMG_0042_crop.jpg`) or copy the whole image (`Fish_IMG_0042.jpg`).
-    - What the file names start with: the class, the taxa (with a classifier), both, or nothing (`Fish_in-focus_Pomacentridae_Amphiprion_ocellaris_IMG_0042_crop.jpg`). Taxa name every rank that reaches the taxon confidence and `unidentified` for the rest (`Pomacentridae_Amphiprion_unidentified_IMG_0042_crop.jpg`). Detections of a class the classifier does not name keep their class instead. Images without detections start with `no-detection_`.
+    - What the file names start with: the class, the taxa (with a classifier), both, or nothing (`Fish_in-focus_Pomacentridae_Amphiprion_ocellaris_IMG_0042_crop.jpg`). Taxa name every rank that reaches the taxon confidence and `unidentified` for the rest (`Pomacentridae_Amphiprion_unidentified_IMG_0042_crop.jpg`). Images without detections start with `no-detection_`.
     - The output folder: a `processed` subdirectory of the image folder, or another folder. The original images are never changed.
     - Only the detections of the class chosen in `Show` are exported, as the dialog notes.
     - Files from an earlier export are overwritten where the names match and kept otherwise.

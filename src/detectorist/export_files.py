@@ -28,20 +28,18 @@ class DetectionsRow(NamedTuple):
     highest_score: float
     class_name: str
     object_count: int
-    cropped: str  # "yes", "no", or "n/a" for an image that failed
+    cropped: str  # "yes", "no", "skipped" for an image the options leave out, or "n/a" for one that failed
 
     @classmethod
-    def from_detections(cls, file_name: str, detections: list[Detection], cropped: bool) -> DetectionsRow:
+    def from_detections(cls, file_name: str, detections: list[Detection], cropped: str) -> DetectionsRow:
         """
-        The row of one image: its top detection, how many there are, and
-        whether the action cropped the image. "N/A" for the class name when
-        nothing was detected.
+        The row of one image: its top detection and how many there are. "N/A"
+        for the class name when nothing was detected.
         """
         if not detections:
-            return cls(file_name, 0, "N/A", 0, "no")
+            return cls(file_name, 0, "N/A", 0, cropped)
         top_detection = max(detections, key=lambda d: d.score)
-        return cls(file_name, top_detection.score, top_detection.class_name, len(detections),
-                   "yes" if cropped else "no")
+        return cls(file_name, top_detection.score, top_detection.class_name, len(detections), cropped)
 
 
 class ClassificationRow(NamedTuple):

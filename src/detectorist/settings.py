@@ -124,6 +124,14 @@ class Settings:
                                  "Whether exported file names hold the identified family, genus and species, "
                                  "as last chosen in the Export dialog. Kept while no classifier is selected.",
                                  default=ExportOptions.prefix_taxa)
+    export_skip_no_detection = Setting(GROUP_EXPORT, bool,
+                                       "Whether Export writes no file for images without detections, "
+                                       "as last chosen in the Export dialog.",
+                                       default=ExportOptions.skip_no_detection)
+    export_skip_unidentified = Setting(GROUP_EXPORT, bool,
+                                       "Whether Export also leaves out detections not identified to family, "
+                                       "as last chosen in the Export dialog. Kept while no classifier is selected.",
+                                       default=ExportOptions.skip_unidentified)
     export_class_filter = Setting(GROUP_EXPORT, str,
                                   "The class chosen in Show, whose detections alone are exported, or None for all classes.")
 

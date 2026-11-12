@@ -98,6 +98,8 @@ def answer_the_export_dialog(monkeypatch):
             prefix_class, prefix_taxa = choices["prefix"]
             dialog.ui.cb_prefix_class.setChecked(prefix_class)
             dialog.ui.cb_prefix_taxa.setChecked(prefix_taxa)
+        if "skip_no_detection" in choices:
+            dialog.ui.cb_skip_no_detection.setChecked(choices["skip_no_detection"])
         if "output_dir" in choices:
             monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *args, **kwargs: str(choices["output_dir"]))
             dialog.ui.choose_button.click()
@@ -112,7 +114,7 @@ def answer_the_export_dialog(monkeypatch):
 
 def export(window, **choices):
     """
-    Triggers Export, answers its dialog with the choices (scope, crop, prefix, output_dir, cancel)
+    Triggers Export, answers its dialog with the choices (scope, crop, prefix, skip_no_detection, output_dir, cancel)
     and waits for the export to end, as the window does not block on it.
     """
     EXPORT_CHOICES.clear()
@@ -603,7 +605,8 @@ def test_export_writes_crops_csv_and_settings(qtbot, window, folder, monkeypatch
     assert (output / DETECTIONS_CSV_NAME).is_file()
     exported = json.loads((output / SETTINGS_JSON_NAME).read_text())["settings"]
     assert exported["model"]["detection_min_confidence_percent"] == 50
-    assert exported["export"] == {"crop_images": True, "prefix_class": False, "prefix_taxa": True, "class_filter": None}
+    assert exported["export"] == {"crop_images": True, "prefix_class": False, "prefix_taxa": True,
+                                  "skip_no_detection": False, "skip_unidentified": False, "class_filter": None}
 
     kind, title, text, kwargs = toasts[-1]
     assert (kind, title, text) == ("success", "Detectorist", "Finished exporting images.")
@@ -612,6 +615,17 @@ def test_export_writes_crops_csv_and_settings(qtbot, window, folder, monkeypatch
 
     kwargs["on_link"]()
     assert spawned[-1][-1] == os.path.normpath(str(output))
+
+
+def test_skipping_images_without_detections_counts_them_in_the_toast(qtbot, window, folder, monkeypatch,
+                                                                     detector_factory, toasts):
+    output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+
+    export(window, skip_no_detection=True)
+
+    assert sorted(path.name for path in output.glob("*.png")) == ["Fish_a_crop.png"]
+    assert toasts[-1][:3] == ("success", "Detectorist", "Finished exporting images, 1 image skipped.")
+    assert window.settings.export_skip_no_detection
 
 
 def test_export_of_the_selection_processes_only_the_selection(qtbot, window, folder, monkeypatch, detector_factory):

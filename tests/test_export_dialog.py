@@ -21,11 +21,13 @@ PREVIEW_IMAGE = PreviewImage(IMAGES[0], [FISH], 100, 100, {FISH.box: Taxonomy(
 
 @pytest.fixture
 def make_dialog(qtbot):
-    def make(selected=(), has_classifier=True, crop=True, prefix_class=False, prefix_taxa=True, class_filter=None):
+    def make(selected=(), has_classifier=True, crop=True, prefix_class=False, prefix_taxa=True, class_filter=None,
+             skip_no_detection=False, skip_unidentified=False, preview_image=PREVIEW_IMAGE):
         options = ExportOptions(CropSettings(CropMode.EACH_OBJECT, 0.0, (1, 1)), crop=crop,
                                 prefix_class=prefix_class, prefix_taxa=prefix_taxa,
-                                classifier_patterns=("*",) if has_classifier else None)
-        dialog = ExportDialog(IMAGES, list(selected), options=options, preview_image=PREVIEW_IMAGE,
+                                has_classifier=has_classifier,
+                                skip_no_detection=skip_no_detection, skip_unidentified=skip_unidentified)
+        dialog = ExportDialog(IMAGES, list(selected), options=options, preview_image=preview_image,
                               run_files=RUN_FILES, class_filter=class_filter)
         qtbot.addWidget(dialog)
         return dialog
@@ -144,6 +146,34 @@ def test_taxa_is_unavailable_without_a_classifier_but_stays_chosen(make_dialog):
     assert not dialog.ui.cb_prefix_taxa.isEnabled()
     assert dialog.ui.cb_prefix_taxa.text() == "Taxa (no classifier)"
     assert dialog.options().prefix_taxa
+
+
+def test_skip_choices_start_from_the_given_options(make_dialog):
+    options = make_dialog(skip_no_detection=True, skip_unidentified=True).options()
+    assert (options.skip_no_detection, options.skip_unidentified) == (True, True)
+
+
+def test_skipping_unidentified_is_offered_only_with_a_classifier_but_stays_chosen(make_dialog):
+    assert not make_dialog().ui.cb_skip_unidentified.isHidden()
+    dialog = make_dialog(has_classifier=False, skip_no_detection=True, skip_unidentified=True)
+    assert dialog.ui.cb_skip_unidentified.isHidden()
+    assert dialog.options().skip_unidentified
+
+
+def test_skipping_unidentified_takes_skipping_images_without_detections(make_dialog):
+    dialog = make_dialog()
+    assert not dialog.ui.cb_skip_unidentified.isEnabled()
+    dialog.ui.cb_skip_no_detection.setChecked(True)
+    assert dialog.ui.cb_skip_unidentified.isEnabled()
+
+
+@pytest.mark.parametrize(("preview_image", "name"), [
+    (PreviewImage(IMAGES[0], [], 100, 100, {}), "no-detection_IMG_0040.jpg"),
+    (PreviewImage(IMAGES[0], [FISH], 100, 100, {}), "unidentified_IMG_0040_crop.jpg"),
+])
+def test_example_names_the_files_of_an_image_the_skip_choices_leave_out(make_dialog, preview_image, name):
+    dialog = make_dialog(skip_no_detection=True, skip_unidentified=True, preview_image=preview_image)
+    assert f"    {name}" in preview_lines(dialog)
 
 
 def test_output_defaults_to_processed_in_the_image_folder(make_dialog):

@@ -49,6 +49,33 @@
           </property>
          </widget>
         </item>
+        <item>
+         <widget class="QCheckBox" name="cb_skip_no_detection">
+          <property name="toolTip">
+           <string>Write no file for these images. They are still listed in the detections CSV, marked skipped.</string>
+          </property>
+          <property name="text">
+           <string>Skip images without detections</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="hlyt_skip_unidentified">
+          <property name="leftMargin">
+           <number>20</number>
+          </property>
+          <item>
+           <widget class="QCheckBox" name="cb_skip_unidentified">
+            <property name="toolTip">
+             <string>Leave out detections the classifier names below the taxon confidence even at family level. An image without an identified detection is skipped.</string>
+            </property>
+            <property name="text">
+             <string>Also skip crops not identified to family</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
        </layout>
       </widget>
      </item>
