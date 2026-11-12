@@ -312,15 +312,15 @@ class HeifImageObject(ImageObject):
             unrotated_np = np.rot90(cropped_np_array, 2)
         elif orientation == 4: # Mirrored vertical
             unrotated_np = np.flipud(cropped_np_array)
-        elif orientation == 5: # Mirrored horizontal then rotated 90 CCW (by pillow-heif, which is rot270)
-            # To reverse: rot90(data) then fliplr
-            unrotated_np = np.fliplr(np.rot90(cropped_np_array, 1))
+        elif orientation == 5: # Transposed, i.e. mirrored along the main diagonal
+            # A transpose is its own inverse
+            unrotated_np = np.fliplr(np.rot90(cropped_np_array, -1))
         elif orientation == 6: # Rotated 90 CW (by pillow-heif, which is rot270)
             # To reverse: rot90
             unrotated_np = np.rot90(cropped_np_array, 1)
-        elif orientation == 7: # Mirrored horizontal then rotated 90 CW (by pillow-heif, which is rot90)
-            # To reverse: rot270(data) then fliplr
-            unrotated_np = np.fliplr(np.rot90(cropped_np_array, -1))
+        elif orientation == 7: # Transversed, i.e. mirrored along the anti-diagonal
+            # A transverse is its own inverse
+            unrotated_np = np.fliplr(np.rot90(cropped_np_array, 1))
         elif orientation == 8: # Rotated 90 CCW (by pillow-heif, which is rot90)
             # To reverse: rot270
             unrotated_np = np.rot90(cropped_np_array, -1)

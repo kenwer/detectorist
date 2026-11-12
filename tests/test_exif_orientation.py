@@ -1,12 +1,15 @@
-"""Tests for the EXIF orientation handling of JPEG images.
+"""Tests for the EXIF orientation handling of JPEG and HEIF images.
 
 OpenCV decodes the stored pixel layout and ignores the EXIF Orientation tag,
 so OpencvImageObject turns the data upright itself. Pillow's exif_transpose
-is the reference for what "upright" means for each tag value.
+is the reference for what "upright" means for each tag value. libheif turns
+HEIF images upright while decoding, so HeifImageObject turns a crop back
+before saving it with the original orientation.
 """
 
 import numpy as np
 import piexif
+import pillow_heif
 import pytest
 from PIL import Image, ImageOps
 
@@ -114,3 +117,32 @@ def test_crop_of_portrait_jpeg_is_saved_upright(tmp_path):
     assert piexif.load(output)["0th"][piexif.ImageIFD.Orientation] == 1
     # The source image keeps reporting its original orientation
     assert image.exif_data["0th"][piexif.ImageIFD.Orientation] == ROTATE_90_CW
+
+
+def make_oriented_heif(path, orientation):
+    """
+    Writes a 64x32 HEIF whose stored quadrants are four gray levels, tagged
+    with the given EXIF orientation. pillow-heif also records the orientation
+    in the container, as iPhones do, so libheif decodes the image upright.
+    """
+    pixels = np.zeros((32, 64, 3), dtype=np.uint8)
+    pixels[:16, :32], pixels[:16, 32:], pixels[16:, :32], pixels[16:, 32:] = 40, 100, 160, 220
+    exif = piexif.dump({"0th": {piexif.ImageIFD.Orientation: orientation}, "Exif": {}, "GPS": {}, "1st": {}})
+    pillow_heif.from_pillow(Image.fromarray(pixels)).save(str(path), exif=exif, quality=100)
+    return str(path)
+
+
+@pytest.mark.parametrize("orientation", range(1, 9))
+def test_crop_of_oriented_heif_shows_what_was_selected(tmp_path, orientation):
+    image = ImageObject.create(make_oriented_heif(tmp_path / "oriented.heic", orientation))
+    output = str(tmp_path / "oriented_crop.heic")
+    # The left half of the upright image, which spans two quadrants of every orientation
+    rect = (0, 0, image.width // 2, image.height)
+
+    image.save_cropped(rect, output)
+
+    shown = image.image_data[:, : image.width // 2].astype(int)
+    saved = ImageObject.create(output).image_data.astype(int)
+    assert saved.shape == shown.shape
+    # HEIF is lossy, so allow for a little compression noise
+    assert np.abs(saved - shown).max() < 12
