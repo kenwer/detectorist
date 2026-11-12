@@ -18,7 +18,7 @@ from detectorist.export_run import DetectionFilter, ExportWriter
 from detectorist.jobs import ShowRequest
 from detectorist.pipeline import Pipeline, neighbours
 from detectorist.structures import Detection
-from tests.fakes import TAXONOMY, FakeClassifierFactory, FakeDetectorFactory, make_images
+from tests.fakes import TAXONOMY, FakeClassifier, FakeClassifierFactory, FakeDetectorFactory, make_images
 
 IMAGE_SIZE = (32, 24)
 FISH = Detection((1, 1, 10, 10), 0.9, "Fish")
@@ -858,3 +858,85 @@ def test_prefetch_stops_at_what_the_budget_holds(qtbot, tmp_path, make_pipeline,
     qtbot.wait(300)
 
     assert decoded == ["a.png", "b.png", "c.png"]
+
+
+LISTED = TAXONOMY._replace(list_fit=FakeClassifier.LIST_FIT)
+
+
+def test_a_species_list_names_the_shown_image_again_from_the_list(qtbot, tmp_path, make_pipeline):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    env = make_classifying(make_pipeline, {"a.png": [FISH]})
+    show(env.pipeline, path_a)
+    qtbot.waitUntil(lambda: len(env.rec.named) == 1)
+
+    env.pipeline.set_species(["Amphiprion_ocellaris"])
+    qtbot.waitUntil(lambda: len(env.rec.named) == 2)
+
+    assert env.rec.named[1] == (path_a, {FISH.box: LISTED})
+    assert env.classifiers.classified == [[FISH.box], [FISH.box]]
+    assert len(env.rec.completed) == 1
+
+
+def test_setting_the_same_species_list_again_names_nothing_again(qtbot, tmp_path, make_pipeline):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    env = make_classifying(make_pipeline, {"a.png": [FISH]})
+    qtbot.waitUntil(lambda: env.pipeline.classifier is not None)
+    env.pipeline.set_species(["Amphiprion_ocellaris"])
+    show(env.pipeline, path_a)
+    qtbot.waitUntil(lambda: len(env.rec.named) == 1)
+
+    env.pipeline.set_species(["Amphiprion_ocellaris"])
+    qtbot.wait(50)
+
+    assert env.rec.named == [(path_a, {FISH.box: LISTED})]
+    assert len(env.classifiers.classified) == 1
+
+
+def test_names_of_a_job_under_the_previous_species_list_are_dropped(qtbot, tmp_path, make_pipeline):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    env = make_classifying(make_pipeline, {"a.png": [FISH]})
+    qtbot.waitUntil(lambda: bool(env.classifiers.created))
+    started, release = threading.Event(), threading.Event()
+    # Holds the first classify() until the list has changed
+    env.classifiers.created[0].on_classify = lambda: started.is_set() or (started.set() or release.wait(5))
+    show(env.pipeline, path_a)
+    qtbot.waitUntil(started.is_set)
+
+    env.pipeline.set_species(["Amphiprion_ocellaris"])
+    release.set()
+    qtbot.waitUntil(lambda: len(env.classifiers.classified) == 2)
+    qtbot.waitUntil(lambda: bool(env.rec.named))
+
+    assert env.rec.named == [(path_a, {FISH.box: LISTED})]
+
+
+def test_a_species_list_set_while_loading_names_from_the_first_job(qtbot, tmp_path, make_pipeline, models_dir):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    env = make_classifying(make_pipeline, {"a.png": [FISH]}, patterns=None)
+
+    env.pipeline.load_classifier(str(models_dir / "species.onnx"), ["Fish"])
+    env.pipeline.set_species(["Amphiprion_ocellaris", "Not_known"])
+    show(env.pipeline, path_a)
+    qtbot.waitUntil(lambda: bool(env.rec.named))
+
+    assert env.pipeline.species == {"Amphiprion_ocellaris"}
+    assert env.rec.named == [(path_a, {FISH.box: LISTED})]
+    assert len(env.classifiers.classified) == 1
+
+
+def test_another_classifier_starts_without_a_species_list(qtbot, tmp_path, make_pipeline, models_dir):
+    (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
+    env = make_classifying(make_pipeline, {"a.png": [FISH]})
+    # Connected after the first classifier has loaded, so only the second one is recorded
+    qtbot.waitUntil(lambda: env.pipeline.classifier is not None)
+    loaded = []
+    env.pipeline.classifier_loaded.connect(loaded.append)
+    env.pipeline.set_species(["Amphiprion_ocellaris"])
+
+    env.pipeline.load_classifier(str(models_dir / "other.onnx"), ["Fish"])
+    qtbot.waitUntil(lambda: bool(loaded))
+    show(env.pipeline, path_a)
+    qtbot.waitUntil(lambda: bool(env.rec.named))
+
+    assert loaded == [env.classifiers.created[1]]
+    assert env.rec.named == [(path_a, {FISH.box: TAXONOMY})]

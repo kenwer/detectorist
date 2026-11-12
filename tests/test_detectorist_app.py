@@ -16,11 +16,21 @@ import re
 import time
 
 import pytest
+from PIL import Image
 from PySide6.QtCore import QEvent, QEventLoop, QItemSelectionModel, QMimeData, QPointF, QRect, Qt, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeySequence, QMouseEvent
-from PySide6.QtWidgets import QApplication, QDialogButtonBox, QFileDialog, QMessageBox, QProgressDialog, QPushButton
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QMessageBox,
+    QProgressDialog,
+    QPushButton,
+)
 
-from detectorist import __version__, detectorist_app
+from detectorist import __version__, detectorist_app, species_list_controls
+from detectorist.classifier import Classifier
 from detectorist.detection_style import MASK_COLORS
 from detectorist.detector import Detector
 from detectorist.export_dialog import ExportDialog
@@ -29,7 +39,7 @@ from detectorist.image_label import DETECTION_BORDER_COLOR_RGB
 from detectorist.image_object import APPLEDOUBLE_MAGIC
 from detectorist.structures import Detection, RankedName, Taxonomy
 from detectorist.utils import contract_user_path, file_manager_name
-from tests.fakes import make_images
+from tests.fakes import FakeClassifier, make_images
 
 IMAGE_SIZE = (200, 100)
 FISH = Detection((20, 20, 40, 40), 0.9, "Fish")
@@ -1572,7 +1582,7 @@ def test_classifier_settings_and_columns_are_set_aside_without_a_classifier(qtbo
     qtbot.waitUntil(lambda: result_rows(window) == [["Fish", "0.90"]])
     table = window.ui.results_table
     # Only the detector's class and confidence
-    assert [table.isColumnHidden(c) for c in range(table.columnCount())] == [False, False] + [True] * 6
+    assert [table.isColumnHidden(c) for c in range(table.columnCount())] == [False, False] + [True] * 7
 
 
 def test_classifier_that_fails_to_load_is_reported(qtbot, species_model, window, classifier_factory, toasts):
@@ -1595,7 +1605,7 @@ def test_export_with_a_classifier_writes_the_classification_csv(qtbot, species_m
         rows = list(csv.reader(f))
     # Only a.png has a detection. The species scores below the taxon confidence
     assert [row[0] for row in rows[1:]] == ["a.png"]
-    assert rows[1][8:] == ["Pomacentridae", "0.99", "Amphiprion", "0.97", "", ""]
+    assert rows[1][8:] == ["Pomacentridae", "0.99", "Amphiprion", "0.97", "", "", ""]
     with open(output / DETECTIONS_CSV_NAME, newline="", encoding="utf-8-sig") as f:
         assert len(next(csv.reader(f))) == 5
 
@@ -1847,3 +1857,266 @@ def test_closing_the_window_during_an_export_cancels_it_quietly(qtbot, window, f
 
     assert window.ui.status_bar.currentMessage() == "Exporting images cancelled."
     assert [toast for toast in toasts if toast[0] == "error"] == []
+
+
+def species_list(*species: str, on: bool = True) -> dict:
+    """One entry of the classification_species_lists setting."""
+    return {"species": list(species), "on": on}
+
+
+def list_fit_column(window) -> int:
+    return window.ui.results_table.columnCount() - 1
+
+
+def test_the_species_list_button_needs_a_loaded_classifier(qtbot, species_model, window):
+    assert not window.ui.species_list_button.isEnabled()
+
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+    window.ui.classifier_combo_box.setCurrentIndex(0)
+
+    assert not window.ui.species_list_button.isEnabled()
+
+
+def test_a_species_list_from_the_dialog_is_saved_and_names_from_the_list(qtbot, species_model, window, folder,
+                                                                         monkeypatch, detector_factory, settings):
+    open_two_images_with_classifier(qtbot, window, folder, monkeypatch, detector_factory)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+    table = window.ui.results_table
+    assert table.isColumnHidden(list_fit_column(window))
+
+    def tick_ocellaris(dialog):
+        dialog.ui.species_tree.topLevelItem(0).child(0).child(1).setCheckState(0, Qt.CheckState.Checked)
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(species_list_controls.SpeciesListDialog, "exec", tick_ocellaris)
+    window.ui.species_list_button.click()
+    qtbot.waitUntil(lambda: table.topLevelItemCount() == 1 and table.topLevelItem(0).text(list_fit_column(window)) != "")
+
+    assert settings.classification_species_lists == {species_model: species_list("Amphiprion_ocellaris")}
+    assert not table.isColumnHidden(list_fit_column(window))
+    assert table.topLevelItem(0).text(list_fit_column(window)) == "0.50"
+
+
+def test_species_the_classifier_does_not_know_are_removed_and_reported(qtbot, species_model, make_window, settings,
+                                                                       toasts):
+    settings.classification_species_lists = {species_model: species_list("Amphiprion_ocellaris", "Scarus_iseri")}
+    window = make_window()
+
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+
+    assert settings.classification_species_lists == {species_model: species_list("Amphiprion_ocellaris")}
+    [(kind, _title, text, _kwargs)] = toasts
+    assert kind == "warning"
+    assert "Scarus iseri" in text
+    assert "now empty" not in text
+
+
+def test_a_species_list_left_empty_by_unknown_species_says_so(qtbot, species_model, make_window, settings, toasts):
+    settings.classification_species_lists = {species_model: species_list("Scarus_iseri")}
+    window = make_window()
+
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+
+    assert settings.classification_species_lists is None
+    assert "now empty, so the classifier names any species" in toasts[0][2]
+    assert window.ui.results_table.isColumnHidden(list_fit_column(window))
+
+
+def test_the_species_list_of_a_superseded_classifier_moves_to_its_successor(qtbot, species_model, make_window,
+                                                                            settings, models_dir):
+    (models_dir / "classifiers" / "models.json").write_text(json.dumps([{
+        "name": "Tiny Species", "url": f"https://example.invalid/{species_model}", "size_mb": 1,
+        "release_date": "2026-01-01", "supersedes": ["tiny-classify-v0.onnx"],
+    }]))
+    settings.classification_species_lists = {"tiny-classify-v0.onnx": species_list("Amphiprion_ocellaris", on=False)}
+    window = make_window()
+
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+
+    assert settings.classification_species_lists == {species_model: species_list("Amphiprion_ocellaris", on=False)}
+    assert not window.ui.species_list_check_box.isChecked()
+
+
+def test_importing_settings_applies_the_species_list_of_the_loaded_classifier(qtbot, species_model, window,
+                                                                              monkeypatch, tmp_path, classifier_factory):
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+    window.settings.classification_model = species_model
+    window.settings.classification_species_lists = {species_model: species_list("Amphiprion_ocellaris")}
+    import_path = tmp_path / "import.json"
+    window.settings.export_to_file(import_path)
+    window.settings.classification_species_lists = None
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(import_path), ""))
+
+    window.ui.import_settings_action.trigger()
+
+    assert window.pipeline.species == {"Amphiprion_ocellaris"}
+    assert not window.ui.results_table.isColumnHidden(list_fit_column(window))
+    assert len(classifier_factory.created) == 1
+
+
+def test_a_species_list_for_an_image_with_nothing_to_name_leaves_nothing_pending(qtbot, species_model, window, folder,
+                                                                                 monkeypatch, detector_factory):
+    # Without detections, the image is reported named as soon as the list is set
+    make_images(folder, ["a.png"], IMAGE_SIZE)
+    open_folder(window, folder, monkeypatch)
+    qtbot.waitUntil(lambda: object_count(window) == "0")
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+    qtbot.waitUntil(lambda: not window._classification_pending)
+    window.settings.classification_species_lists = {species_model: species_list("Amphiprion_ocellaris")}
+
+    window._species_list_controls.apply()
+    qtbot.wait(100)
+
+    assert window.pipeline.species == {"Amphiprion_ocellaris"}
+    assert not window._classification_pending
+
+
+def test_a_species_list_of_every_species_is_kept_but_restricts_nothing(qtbot, species_model, make_window, settings):
+    lists = {species_model: species_list(*FakeClassifier.species)}
+    settings.classification_species_lists = lists
+    window = make_window()
+
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+
+    assert settings.classification_species_lists == lists
+    assert window.pipeline.species == frozenset()
+    assert window.ui.results_table.isColumnHidden(list_fit_column(window))
+
+
+def test_an_export_records_the_species_lists_in_its_settings_file(qtbot, species_model, window, folder, monkeypatch,
+                                                                   detector_factory):
+    output = open_two_images_with_classifier(qtbot, window, folder, monkeypatch, detector_factory)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+    window.settings.classification_species_lists = {species_model: species_list("Amphiprion_ocellaris")}
+    window._species_list_controls.apply()
+
+    export(window)
+
+    exported = json.loads((output / SETTINGS_JSON_NAME).read_text())["settings"]["model"]
+    assert exported["classification_species_lists"] == {species_model: species_list("Amphiprion_ocellaris")}
+    with open(output / CLASSIFICATION_CSV_NAME, newline="", encoding="utf-8-sig") as f:
+        assert list(csv.reader(f))[1][-1] == str(FakeClassifier.LIST_FIT)
+
+
+def test_reset_settings_clears_the_species_lists(qtbot, species_model, window, monkeypatch, settings):
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+    settings.classification_species_lists = {species_model: species_list("Amphiprion_ocellaris")}
+    window._species_list_controls.apply()
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+
+    window.ui.reset_settings_action.trigger()
+
+    assert settings.classification_species_lists is None
+    assert window.pipeline.species == frozenset()
+
+
+def test_changing_the_species_list_renames_the_shown_detections(qtbot, species_model, make_window, folder,
+                                                                monkeypatch, detector_factory):
+    # The real classifier on the tiny model, which names a red square Amphiprion ocellaris
+    window = make_window(classifier_factory=Classifier)
+    image = Image.new("RGB", IMAGE_SIZE, (0, 0, 0))
+    image.paste((255, 0, 0), (10, 30, 50, 70))
+    image.save(folder / "a.png")
+    detector_factory.detections_by_file["a.png"] = [Detection((10, 30, 40, 40), 0.9, "Fish")]
+    open_folder(window, folder, monkeypatch)
+    qtbot.waitUntil(lambda: object_count(window) == "1")
+    window.ui.taxon_confidence_spin_box.setValue(1)
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(lambda: "Amphiprion ocellaris" in result_rows(window)[0])
+
+    def tick_halichoeres(dialog):
+        dialog.ui.species_tree.topLevelItem(0).setCheckState(0, Qt.CheckState.Checked)  # Labridae, which sorts first
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(species_list_controls.SpeciesListDialog, "exec", tick_halichoeres)
+    window.ui.species_list_button.click()
+    qtbot.waitUntil(lambda: result_rows(window)[0][2] == "Labridae")
+
+    assert result_rows(window)[0][4] == "Halichoeres"
+    assert "Amphiprion ocellaris" not in result_rows(window)[0]
+
+    # Clearing the list names the fish as before
+    monkeypatch.setattr(species_list_controls.SpeciesListDialog, "exec",
+                        lambda dialog: (dialog._clear(), QDialog.DialogCode.Accepted)[1])
+    window.ui.species_list_button.click()
+    qtbot.waitUntil(lambda: "Amphiprion ocellaris" in result_rows(window)[0])
+    assert window.ui.results_table.isColumnHidden(list_fit_column(window))
+
+
+def test_the_species_list_button_summarises_the_list(qtbot, species_model, make_window, settings):
+    settings.classification_species_lists = {species_model: species_list("Amphiprion_ocellaris", "Chromis_viridis")}
+    window = make_window()
+    button = window.ui.species_list_button
+    assert button.text() == "All"
+
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    # The saved list is counted while the classifier loads
+    assert button.text() == "2 species"
+    qtbot.waitUntil(button.isEnabled)
+    assert button.text() == "2 species"
+
+    window.ui.classifier_combo_box.setCurrentIndex(0)
+    assert button.text() == "All"
+
+
+def test_switching_the_species_list_off_keeps_it_and_names_any_species(qtbot, species_model, make_window, settings):
+    settings.classification_species_lists = {species_model: species_list("Amphiprion_ocellaris")}
+    window = make_window()
+    check_box = window.ui.species_list_check_box
+    assert not check_box.isEnabled()
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+    assert check_box.isEnabled() and check_box.isChecked()
+
+    check_box.setChecked(False)
+
+    assert settings.classification_species_lists == {species_model: species_list("Amphiprion_ocellaris", on=False)}
+    assert window.pipeline.species == frozenset()
+    assert window.ui.results_table.isColumnHidden(list_fit_column(window))
+    assert window.ui.species_list_button.text() == "All (list off)"
+
+    check_box.setChecked(True)
+
+    assert settings.classification_species_lists == {species_model: species_list("Amphiprion_ocellaris")}
+    assert window.pipeline.species == {"Amphiprion_ocellaris"}
+    assert not window.ui.results_table.isColumnHidden(list_fit_column(window))
+
+
+def test_a_species_list_switched_off_stays_off_in_a_new_window(qtbot, species_model, make_window, settings):
+    settings.classification_species_lists = {species_model: species_list("Amphiprion_ocellaris", on=False)}
+    window = make_window()
+
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    assert not window.ui.species_list_check_box.isChecked()
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+
+    assert not window.ui.species_list_check_box.isChecked()
+    assert window.pipeline.species == frozenset()
+
+
+def test_editing_a_switched_off_species_list_switches_it_on(qtbot, species_model, make_window, settings, monkeypatch):
+    settings.classification_species_lists = {species_model: species_list("Amphiprion_ocellaris", on=False)}
+    window = make_window()
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+    monkeypatch.setattr(species_list_controls.SpeciesListDialog, "exec", lambda dialog: QDialog.DialogCode.Accepted)
+
+    window.ui.species_list_button.click()
+
+    assert window.ui.species_list_check_box.isChecked()
+    assert window.pipeline.species == {"Amphiprion_ocellaris"}
+    assert settings.classification_species_lists == {species_model: species_list("Amphiprion_ocellaris")}
+
+
+def test_without_a_species_list_there_is_nothing_to_switch(qtbot, species_model, window):
+    window.ui.classifier_combo_box.setCurrentIndex(1)
+    qtbot.waitUntil(window.ui.species_list_button.isEnabled)
+
+    assert not window.ui.species_list_check_box.isEnabled()
+    assert not window.ui.species_list_check_box.isChecked()

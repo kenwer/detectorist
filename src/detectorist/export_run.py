@@ -30,7 +30,7 @@ from .export_planner import ExportOptions, PlannedFile
 from .image_object import ImageObject
 from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob
 from .model_loader import Models
-from .structures import Box, Detection, Taxonomy, clamp_box
+from .structures import RANK_COUNT, Box, Detection, Taxonomy, clamp_box
 from .utils import long_path
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,8 @@ def classification_rows(image: ImageObject, named: list[Detection], taxonomy_by_
     below it, as in the tooltip (see identified_ranks). A detection without
     any identified rank still gets its row, so it is counted. So does one
     missing from taxonomy_by_box because the classifier failed, with
-    "classify-error" as its family.
+    "classify-error" as its family. The list fit is empty without a species
+    list.
 
     The box is clamped to the image (see clamp_box).
     """
@@ -54,12 +55,14 @@ def classification_rows(image: ImageObject, named: list[Detection], taxonomy_by_
         x1, y1, x2, y2 = clamp_box(detection.box, image.width, image.height)
         taxonomy = taxonomy_by_box.get(detection.box)
         if taxonomy is None:
-            names = ["classify-error"] + [""] * (2 * len(Taxonomy._fields) - 1)
+            names = ["classify-error"] + [""] * (2 * RANK_COUNT - 1)
+            list_fit = ""
         else:
             ranks = identified_ranks(taxonomy, taxon_confidence)
-            names = [value for rank in ranks for value in rank] + ["", ""] * (len(taxonomy) - len(ranks))
+            names = [value for rank in ranks for value in rank] + ["", ""] * (RANK_COUNT - len(ranks))
+            list_fit = "" if taxonomy.list_fit is None else taxonomy.list_fit
         rows.append(ClassificationRow(file_name, number, detection.class_name, detection.score,
-                                      x1, y1, x2 - x1, y2 - y1, *names))
+                                      x1, y1, x2 - x1, y2 - y1, *names, list_fit))
     return rows
 
 

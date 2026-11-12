@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Self, overload
 
@@ -16,14 +17,17 @@ class Setting[T]:
     One stored setting, read back as its type, or as its default while it is
     unset. Setting it to None unsets it, since an INI file has no way to store
     None. The key is the attribute name without its group prefix, unless given.
+    A value that validate rejects reads as the default and is not imported.
     """
 
-    def __init__(self, group: str, value_type: type[T], doc: str, key: str = "", default: T | None = None):
+    def __init__(self, group: str, value_type: type[T], doc: str, key: str = "", default: T | None = None,
+                 validate: Callable[[T], bool] | None = None):
         self.group = group
         self.type = value_type
         self.__doc__ = doc
         self.key = key
         self.default = default
+        self.validate = validate
 
     def __set_name__(self, owner: type, name: str) -> None:
         self.key = self.key or name.removeprefix(f"{self.group}_")
@@ -45,6 +49,12 @@ class Setting[T]:
 
     def __set__(self, settings: Settings, value: T | None) -> None:
         settings._write(self, value)
+
+
+def _are_species_lists(value: dict) -> bool:
+    """Whether value is shaped as Settings.classification_species_lists describes."""
+    return all(isinstance(entry, dict) and type(entry.get("on")) is bool and isinstance(entry.get("species"), list)
+               and all(isinstance(name, str) for name in entry["species"]) for entry in value.values())
 
 
 class Settings:
@@ -100,6 +110,11 @@ class Settings:
         GROUP_MODEL, int,
         "Minimum score in percent (1 to 100) a family, genus or species must reach for its name "
         "to be shown and written to the classification CSV.")
+    classification_species_lists = Setting(
+        GROUP_MODEL, dict,
+        "Species list per classifier, keyed by its file name, each {\"species\": [...], \"on\": bool} with the "
+        "species in the model's Genus_species form. A classifier with a list switched on names only those species, "
+        "one without names any.", validate=_are_species_lists)
 
     # Image settings
     image_correct_exposure = Setting(GROUP_IMAGE, bool,
@@ -169,7 +184,14 @@ class Settings:
     def _read(self, setting: Setting) -> Any:
         if not self._settings.contains(setting.path):
             return setting.default
-        return self._settings.value(setting.path, type=setting.type)
+        # PySide6 has no type conversion to dict, and QSettings keeps a map's type as it stores it
+        if setting.type is dict:
+            value = self._settings.value(setting.path)
+            if not isinstance(value, dict):
+                return setting.default
+        else:
+            value = self._settings.value(setting.path, type=setting.type)
+        return setting.default if setting.validate and not setting.validate(value) else value
 
     def _write(self, setting: Setting, value: Any) -> None:
         if value is None:
@@ -271,5 +293,8 @@ class Settings:
             if value is not None and type(value) is not setting.type:
                 raise ValueError(f"{path.name} is not a settings file: {setting.group}.{setting.key} "
                                  f"must be a {setting.type.__name__}")
+            if value is not None and setting.validate and not setting.validate(value):
+                raise ValueError(f"{path.name} is not a settings file: {setting.group}.{setting.key} "
+                                 "is not shaped as its description says")
         for setting, value in values.items():
             self._write(setting, value)

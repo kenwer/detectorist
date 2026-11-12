@@ -10,7 +10,7 @@ import time
 from PySide6.QtCore import QObject, Signal, Slot
 
 from .classifier import CROPS_PER_RUN
-from .jobs import ClassifyJob, DetectJob
+from .jobs import ClassifierId, ClassifyJob, DetectJob
 from .utils import FileStamp
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class InferenceWorker(QObject):
         self._detector = None
         self._detector_id: FileStamp | None = None
         self._classifier = None
-        self._classifier_id: FileStamp | None = None
+        self._classifier_id: ClassifierId | None = None
 
     @Slot(object, object)
     def set_detector(self, detector, model_id: FileStamp | None):
@@ -42,8 +42,11 @@ class InferenceWorker(QObject):
         self._detector, self._detector_id = detector, model_id
 
     @Slot(object, object)
-    def set_classifier(self, classifier, model_id: FileStamp | None):
-        """Replaces the classifier. None unloads it, which frees the model."""
+    def set_classifier(self, classifier, model_id: ClassifierId | None):
+        """
+        Replaces the classifier, also with the same model naming from another
+        species list. None unloads it, which frees the model.
+        """
         self._classifier, self._classifier_id = classifier, model_id
 
     @Slot(object)

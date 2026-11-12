@@ -53,6 +53,8 @@ from .model_downloader import ModelDownloader
 from .pipeline import Pipeline, neighbours
 from .settings import Settings
 from .shortcuts_dialog import ShortcutsDialog
+from .species_list_controls import SpeciesListControls
+from .species_lists import SpeciesLists
 from .toasts import show_error_toast, show_success_toast, show_warning_toast
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
 from .utils import (
@@ -333,6 +335,11 @@ class DetectoristApp(QMainWindow):
         self.pipeline.cache_updated.connect(self.model.setCachedPaths)
         self.pipeline.classification_complete.connect(self.handle_classification_complete)
         self.pipeline.classifier_error.connect(self.handle_classifier_error)
+        self.pipeline.names_dropped.connect(self._on_names_dropped)
+        self.pipeline.classifier_loaded.connect(self._update_list_fit_column)
+        self._species_list_controls = SpeciesListControls(
+            self.ui.species_list_button, self.ui.species_list_check_box, self.pipeline,
+            SpeciesLists(self.settings, self._model_downloader.successor_of), self._model_name, self)
         # Queue export progress to the window so the progress dialog cannot re-enter the Pipeline
         self.pipeline.export_progress.connect(self._on_export_progress, Qt.ConnectionType.QueuedConnection)
         self.pipeline.export_finished.connect(self._on_export_finished)
@@ -632,6 +639,8 @@ class DetectoristApp(QMainWindow):
             return
         self._load_settings()
         self.on_model_selected(self.ui.model_select_combo_box.currentIndex())
+        # A classifier that stays loaded keeps its old list otherwise
+        self._species_list_controls.apply()
         self.ui.status_bar.showMessage("Settings imported.", 3000)
 
     def _export_settings(self) -> None:
@@ -989,12 +998,15 @@ class DetectoristApp(QMainWindow):
         finally:
             self._models_dialog_open = False
 
+    def _model_name(self, filename: str) -> str:
+        """The name a model file is shown by: its manifest name, else the file name without its extension."""
+        return self._model_downloader.filename_to_name.get(filename) or strip_model_ext(filename)
+
     def _notify_model_download_finished(self, filename: str):
         """Toasts a completed background download when the Manage Models dialog isn't shown."""
         if self._models_dialog_open:
             return
-        name = self._model_downloader.filename_to_name.get(filename) or strip_model_ext(filename)
-        show_success_toast(self, "Model downloaded", f"{name} is ready to use.")
+        show_success_toast(self, "Model downloaded", f"{self._model_name(filename)} is ready to use.")
 
     def _notify_model_download_error(self, message: str):
         """Toasts a failed background download when the Manage Models dialog isn't shown."""
@@ -1011,15 +1023,13 @@ class DetectoristApp(QMainWindow):
         previous_filename = self.ui.model_select_combo_box.currentData()
         self.ui.model_select_combo_box.clear()
 
-        name_map = self._model_downloader.filename_to_name
         onnx_files = list_model_files(self.models_dir)
         self._refresh_classifier_list()
 
         combo = self.ui.model_select_combo_box
         with QSignalBlocker(combo):
             for filename in onnx_files:
-                display_name = name_map.get(filename) or strip_model_ext(filename)
-                combo.addItem(display_name, filename)
+                combo.addItem(self._model_name(filename), filename)
 
             # Restore previous selection by filename
             idx = self._find_model_index(combo, previous_filename)
@@ -1042,7 +1052,6 @@ class DetectoristApp(QMainWindow):
         """
         combo = self.ui.classifier_combo_box
         previous_filename = combo.currentData()
-        name_map = self._model_downloader.filename_to_name
         applicable = [
             filename for filename in list_model_files(self._model_downloader.classifiers_dir)
             if any(class_matches(self._model_downloader.classifies(filename), name) for name in self._detector_class_names)
@@ -1052,7 +1061,7 @@ class DetectoristApp(QMainWindow):
             combo.clear()
             combo.addItem("No classifier", None)
             for filename in applicable:
-                combo.addItem(name_map.get(filename) or strip_model_ext(filename), filename)
+                combo.addItem(self._model_name(filename), filename)
             combo.setCurrentIndex(max(self._find_model_index(combo, self._preferred_classifier), 0))
         combo.setEnabled(combo.count() > 1)
         self._update_classifier_controls()
@@ -1074,7 +1083,7 @@ class DetectoristApp(QMainWindow):
         species columns for "No classifier", as nothing is classified then.
         """
         active = self.ui.classifier_combo_box.currentData() is not None
-        for widget in (self.ui.taxon_confidence_label, self.ui.taxon_confidence_slider,
+        for widget in (self.ui.species_list_label, self.ui.taxon_confidence_label, self.ui.taxon_confidence_slider,
                        self.ui.taxon_confidence_spin_box, self.ui.toggle_labels_action,
                        self.ui.rb_crop_best_classification):
             widget.setEnabled(active)
@@ -1083,7 +1092,8 @@ class DetectoristApp(QMainWindow):
     def _load_selected_classifier(self):
         """
         Loads the classifier selected in the combo box in the Pipeline, or
-        unloads it for "No classifier". The Pipeline names the shown image again.
+        unloads it for "No classifier". The Pipeline names the shown image
+        again (see _on_names_dropped), from the species list once loaded.
         """
         filename = self.ui.classifier_combo_box.currentData()
         if filename:
@@ -1091,9 +1101,18 @@ class DetectoristApp(QMainWindow):
                                           self._model_downloader.classifies(filename))
         else:
             self.pipeline.unload_classifier()
+        self._species_list_controls.classifier_chosen(filename)
+
+    def _on_names_dropped(self):
+        """Forgets the shown names, as the Pipeline names the image again for another classifier or species list."""
         self._taxonomy_by_box = {}
-        self._classification_pending = bool(filename and self.current_image_path)
+        self._classification_pending = self._detected and self.ui.classifier_combo_box.currentData() is not None
+        self._update_list_fit_column()
         self._display_filtered_results()
+
+    def _update_list_fit_column(self):
+        """Shows the results' list fit column while the classifier is restricted to a species list."""
+        self.ui.results_table.set_list_fit_visible(bool(self.pipeline.species))
 
     def _find_model_index(self, combo: QComboBox, filename: str | None) -> int:
         """

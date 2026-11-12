@@ -20,7 +20,8 @@ DETECTIONS_CSV_NAME = "detectorist-detections.csv"
 CLASSIFICATION_CSV_NAME = "detectorist-classification.csv"
 SETTINGS_JSON_NAME = "detectorist-settings.json"
 CLASSIFICATION_CSV_HEADER = ["Filename", "Detection", "Class name", "Confidence score", "x", "y", "w", "h",
-                             "Family", "Family score", "Genus", "Genus score", "Species", "Species score"]
+                             "Family", "Family score", "Genus", "Genus score", "Species", "Species score",
+                             "List fit"]
 
 class DetectionsRow(NamedTuple):
     """One detections.csv row, its fields in the order of DETECTIONS_CSV_HEADER."""
@@ -46,7 +47,8 @@ class ClassificationRow(NamedTuple):
     """
     One classification.csv row, its fields in the order of
     CLASSIFICATION_CSV_HEADER. A rank below the taxon confidence has an
-    empty name and score.
+    empty name and score. The list fit is empty without a species list (see
+    Taxonomy).
     """
     filename: str
     detection: int  # Numbered from 1 within the image
@@ -62,6 +64,7 @@ class ClassificationRow(NamedTuple):
     genus_score: float | str
     species: str
     species_score: float | str
+    list_fit: float | str
 
 
 @contextmanager

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- Add support for species lists, which restrict the classifier to the picked species:
+  - Each classifier keeps its own list, which can be switched off without losing it.
+  - A List fit column in the results and the classification CSV gives the summed probability of the listed species before they are rescaled to sum to 1.
+
 ## [0.14.2] - 2026-11-12
 ### Added
 - The Export dialog can skip images without detections and, with a classifier, crops not identified to family.

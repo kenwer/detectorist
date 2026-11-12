@@ -20,8 +20,10 @@ from detectorist.classifier import (
     detections_to_classify,
     identified_ranks,
     letterbox,
+    restrict_to_list,
     roll_up,
     short_name,
+    species_restriction,
 )
 from detectorist.image_object import ImageObject
 from detectorist.structures import Detection
@@ -281,9 +283,59 @@ def test_short_name_cuts_a_species_genus_to_its_initial(name, expected):
 
 
 @pytest.mark.parametrize(("threshold", "expected"), [
-    (0.0, list(TAXONOMY)),
+    (0.0, list(TAXONOMY.ranks)),
     (0.98, [TAXONOMY.family]),
     (1.0, []),
 ])
 def test_identified_ranks_stop_at_the_first_rank_below_the_threshold(threshold, expected):
     assert identified_ranks(TAXONOMY, threshold) == expected
+
+
+def test_restrict_to_list_rescales_the_listed_species_and_reports_their_share():
+    # The unlisted species takes 0.55, as a look-alike from another region would
+    probs = np.array([[0.4, 0.55, 0.05]])
+    listed = np.array([True, False, True])
+
+    restricted, fit = restrict_to_list(probs, listed)
+
+    assert restricted[0] == pytest.approx([0.4 / 0.45, 0.0, 0.05 / 0.45])
+    assert fit == pytest.approx([0.45])
+
+
+def test_restrict_to_list_leaves_a_row_without_listed_probability_at_zero():
+    restricted, fit = restrict_to_list(np.array([[0.0, 1.0]]), np.array([True, False]))
+
+    assert restricted.tolist() == [[0.0, 0.0]]
+    assert fit.tolist() == [0.0]
+
+
+@pytest.mark.parametrize(("species", "expected"), [
+    (["Aa_bb", "Not_known"], {"Aa_bb"}),
+    (["Aa_bb", "Cc_dd"], set()),
+    ([], set()),
+])
+def test_species_restriction_drops_unknown_names_and_restricts_nothing_for_every_species(species, expected):
+    assert species_restriction(species, ["Aa_bb", "Cc_dd"]) == expected
+
+
+def test_with_species_names_only_listed_species_and_reports_the_list_fit(classifier, tmp_path):
+    image = painted_image(tmp_path)
+    listed = ["Amphiprion_ocellaris", "Halichoeres_hortulanus"]
+    restricted = classifier.with_species(listed)
+
+    [red, dark] = restricted.classify(image, [RED_BOX, DARK_BOX])
+    [unrestricted_dark] = classifier.classify(image, [DARK_BOX])
+
+    assert red.species.name == "Amphiprion_ocellaris"
+    # The dark box is Halichoeres_marginatus, which is not listed, so it is forced onto a listed species
+    assert unrestricted_dark.species.name == "Halichoeres_marginatus"
+    assert dark.species.name in listed
+    assert dark.list_fit < red.list_fit
+    assert unrestricted_dark.list_fit is None
+
+
+def test_with_species_ignores_names_the_model_does_not_know(classifier):
+    restricted = classifier.with_species(["Amphiprion_ocellaris", "Not_a_species"])
+
+    assert restricted.listed.tolist() == [name == "Amphiprion_ocellaris" for name in classifier.species]
+    assert classifier.listed is None

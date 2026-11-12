@@ -6,6 +6,7 @@
 - [Key features](#key-features)
 - [Using Detectorist](#using-detectorist)
   - [Typical usage scenario](#typical-usage-scenario)
+  - [Species lists](#species-lists)
   - [Keyboard shortcuts](#keyboard-shortcuts)
     - [Global shortcuts](#global-shortcuts)
     - [Image navigation shortcuts](#image-navigation-shortcuts)
@@ -58,6 +59,7 @@ Updates: at every start the app checks for updates. When a newer version is avai
 -   **Image browser:** Open a folder, or drop it onto the window to step through its images. The app reads JPG, PNG, BMP, 10-bit HEIC/HEIF and Sony RAW (.arw).
 -   **Detection and segmentation:** Bounding box and instance mask are shown for each individual.
 -   **Species classification:** Names family, genus and species for each detection, each with its own score.
+-   **Species lists:** Restrict a classifier to the species known to occur at a site, with a List fit score that flags objects likely not on the list.
 -   **Adjustable thresholds:** Detection and taxon confidence thresholds can be changed interactively to see the effect on detection and classification in real time.
 -   **Class filter:** Restricts the displayed and exported detections to one class, e.g. in-focus individuals only.
 -   **Results table:** Lists the detections of the current image with their class, taxa and scores.
@@ -88,6 +90,17 @@ Updates: at every start the app checks for updates. When a newer version is avai
     - Only the detections of the class chosen in `Show` are exported, as the dialog notes.
     - Files from an earlier export are overwritten where the names match and kept otherwise.
     - Next to the images go `detectorist-detections.csv`, `detectorist-classification.csv` (with a classifier) and `detectorist-settings.json`, which records the settings used, such as models, confidence levels and the Show filter. Import it with `Import Settings...` in the File menu to repeat the export.
+
+### Species lists
+A species list restricts a classifier to the species known to occur at a site. Pick the species with the button next to the classifier choice, and switch the list on or off with the checkbox. Each classifier keeps its own list.
+
+With a list, the classifier sets the probability of every unlisted species to 0 and rescales the listed ones to sum to 1. The species, genus and family scores are computed from these rescaled probabilities. They answer the question: if this object is one of the listed species, which one is it? A look-alike outside the list can no longer win, nor lower the score of a listed species.
+
+The rescaling hides how much probability the classifier gave the listed species in the first place. The List fit keeps it: the summed probability of the listed species before rescaling. It is shown in the results table and written to `detectorist-classification.csv`.
+
+Example: the classifier gives an object 0.6 for the unlisted species A, 0.3 for the listed species B and 0.1 for the listed species C. With the list, B gets 0.75 and C 0.25, and the List fit is 0.4. The score of 0.75 for B looks confident, but the List fit shows that the classifier mostly saw a species not on the list.
+
+A low List fit thus points to a species missing from the list, or to an object the classifier does not know. Such detections are worth checking.
 
 ### Keyboard shortcuts
 The shortcuts are also listed in the app's `Help -> Keyboard Shortcuts` menu.

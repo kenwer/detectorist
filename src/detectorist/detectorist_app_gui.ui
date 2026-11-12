@@ -208,6 +208,49 @@
             </widget>
            </item>
            <item row="1" column="0">
+            <widget class="QLabel" name="species_list_label">
+             <property name="toolTip">
+              <string>Names each object as one of the listed species. An object of a species not on the list gets the closest listed one, with a low List fit in the results and the classification CSV</string>
+             </property>
+             <property name="text">
+              <string>Species list</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1" colspan="2">
+            <layout class="QHBoxLayout" name="hlyt_species_list">
+             <item>
+              <widget class="QCheckBox" name="species_list_check_box">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="toolTip">
+                <string>Apply the species list. Unticked, the list is kept and the classifier names any species</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="species_list_button">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>1</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="toolTip">
+                <string>Pick the species the classifier names from</string>
+               </property>
+               <property name="text">
+                <string>All</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="2" column="0">
             <widget class="QLabel" name="taxon_confidence_label">
              <property name="toolTip">
               <string>Names each object down to the deepest rank (family, genus or species) the classifier is at least this confident about</string>
@@ -217,7 +260,7 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="1">
+           <item row="2" column="1">
             <widget class="QSlider" name="taxon_confidence_slider">
              <property name="sizePolicy">
               <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
@@ -248,7 +291,7 @@
              </property>
             </widget>
            </item>
-           <item row="1" column="2">
+           <item row="2" column="2">
             <widget class="QSpinBox" name="taxon_confidence_spin_box">
              <property name="minimum">
               <number>1</number>

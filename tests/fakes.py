@@ -1,5 +1,6 @@
 """Test doubles and small helpers shared across the suite."""
 
+import copy
 import os
 
 import numpy as np
@@ -84,9 +85,18 @@ class FakeClassifier:
     """Stands in for Classifier, giving every box the same taxonomy, or
     the one taxonomy_by_box holds for it.
 
-    classified lists the boxes of each classify() call, in call order. Setting
-    error makes the next call raise it.
+    classified lists the boxes of each classify() call, in call order, shared
+    with the copies with_species() makes. Setting error makes the next call
+    raise it. A copy with a species list (listed) gives its taxonomies a
+    list fit of LIST_FIT. on_classify, if set, is called first in every
+    classify(), so a test can hold a job on the worker.
     """
+    LIST_FIT = 0.5
+    species = ["Amphiprion_clarkii", "Amphiprion_ocellaris", "Chromis_viridis"]
+    genera = ["Amphiprion", "Chromis"]
+    families = ["Pomacentridae"]
+    genus_of = [0, 0, 1]
+    family_of = [0, 0, 0]
 
     def __init__(self, taxonomy=TAXONOMY, model_path="fake-classifier.onnx", error=None, patterns=("*",),
                  taxonomy_by_box=None):
@@ -96,12 +106,24 @@ class FakeClassifier:
         self.error = error
         self.patterns = tuple(patterns)
         self.classified: list[list] = []
+        self.listed: frozenset[str] | None = None
+        self.on_classify = None
+
+    def with_species(self, species):
+        restricted = copy.copy(self)
+        restricted.listed = frozenset(species)
+        return restricted
 
     def classify(self, image, boxes):
+        if self.on_classify is not None:
+            self.on_classify()
         if self.error is not None:
             raise self.error
         self.classified.append(list(boxes))
-        return [self.taxonomy_by_box.get(box, self.taxonomy) for box in boxes]
+        taxonomies = [self.taxonomy_by_box.get(box, self.taxonomy) for box in boxes]
+        if self.listed is not None:
+            return [taxonomy._replace(list_fit=self.LIST_FIT) for taxonomy in taxonomies]
+        return taxonomies
 
 
 class FakeClassifierFactory:

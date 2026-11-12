@@ -92,13 +92,27 @@ class RankedName(NamedTuple):
     score: float
 
 
+# The ranks of Taxonomy.ranks
+RANK_COUNT = 3
+
+
 class Taxonomy(NamedTuple):
     """
     What a classifier makes of one detection. The chain is consistent: the
     genus belongs to the family and the species to the genus, so the scores
     never rise going down. The species name is in the model's Genus_species
     form.
+
+    list_fit is the share of the model's probability that fell on the species
+    list the scores were rescaled to, or None without a species list. A low
+    value hints that the detection is something not on the list.
     """
     family: RankedName
     genus: RankedName
     species: RankedName
+    list_fit: float | None = None
+
+    @property
+    def ranks(self) -> tuple[RankedName, RankedName, RankedName]:
+        """The family, genus and species, from the top down."""
+        return self.family, self.genus, self.species

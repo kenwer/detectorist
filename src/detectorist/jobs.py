@@ -66,11 +66,22 @@ class DetectJob:
         return self.image.image_path
 
 
+@dataclass(frozen=True)
+class ClassifierId:
+    """
+    The classifier a ClassifyJob is for: its model file and the species list
+    it names from, so names given before the list changed are recognized as
+    stale like those of a replaced model.
+    """
+    model: FileStamp
+    species: frozenset[str]
+
+
 @dataclass(eq=False)
 class ClassifyJob:
     image: ImageObject
     boxes: list[Box]
-    model_id: FileStamp
+    model_id: ClassifierId
     token: CancelToken
 
     @property

@@ -338,7 +338,8 @@ def test_every_named_detection_gets_a_classification_row(tmp_path, run_export):
 
     run_classified_sort(run_export, tmp_path, {"a.png": detections}, FakeClassifier())
 
-    names = ["Pomacentridae", "0.99", "Amphiprion", "0.97", "Amphiprion_ocellaris", "0.44"]
+    # The list fit is empty without a species list
+    names = ["Pomacentridae", "0.99", "Amphiprion", "0.97", "Amphiprion_ocellaris", "0.44", ""]
     assert read_classification_csv_rows(str(tmp_path / "out")) == [
         CLASSIFICATION_CSV_HEADER,
         ["a.png", "1", "Fish", "0.9", "10", "10", "20", "20", *names],
@@ -422,7 +423,7 @@ def test_a_failing_classifier_marks_the_classification_rows_of_the_image(tmp_pat
 
     assert result.failed == []
     assert result.detections_rows == [("a.png", 0.9, "Fish", 2, "no")]
-    names = ["classify-error", "", "", "", "", ""]
+    names = ["classify-error", "", "", "", "", "", ""]
     assert read_classification_csv_rows(str(tmp_path / "out")) == [
         CLASSIFICATION_CSV_HEADER,
         ["a.png", "1", "Fish", "0.9", "10", "10", "20", "20", *names],
@@ -630,3 +631,11 @@ def test_writer_saves_crops_with_its_exposure_choice(tmp_path, monkeypatch, expo
 
     assert saved == [exposure_correction]
     assert writer.close(cancelled=False).detections_rows[0].cropped == "yes"
+
+
+def test_a_classification_row_holds_the_list_fit_of_a_species_list(tmp_path, run_export):
+    detection = Detection((10, 10, 20, 20), 0.9, "Fish")
+
+    run_classified_sort(run_export, tmp_path, {"a.png": [detection]}, FakeClassifier().with_species(["Aa_bb"]))
+
+    assert read_classification_csv_rows(str(tmp_path / "out"))[1][-1] == str(FakeClassifier.LIST_FIT)

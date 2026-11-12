@@ -209,7 +209,8 @@ def test_export_writes_every_portable_setting_with_its_json_type(settings, tmp_p
         "app_version": __version__,
         "settings": {
             "model": {"detection_model": "fish.onnx.gz", "detection_min_confidence_percent": 52,
-                      "classification_model": None, "classification_min_confidence_percent": 61},
+                      "classification_model": None, "classification_min_confidence_percent": 61,
+                      "classification_species_lists": None},
             "image": {"correct_exposure": True},
             "crop": {"mode": "best_classification", "aspect_ratio": "detection_frame", "padding_percent": 15},
             "export": {"crop_images": True, "prefix_class": False, "prefix_taxa": True,
@@ -289,6 +290,10 @@ def test_import_of_a_file_without_settings_changes_nothing(settings, tmp_path):
     '{"settings": {"model": {"detection_min_confidence_percent": "33"}}}',
     '{"settings": {"image": {"correct_exposure": 1}}}',
     '{"settings": {"crop": {"padding_percent": true}}}',
+    '{"settings": {"model": {"classification_species_lists": ["Aa_bb"]}}}',
+    '{"settings": {"model": {"classification_species_lists": {"fish.onnx.gz": ["Aa_bb"]}}}}',
+    '{"settings": {"model": {"classification_species_lists": {"fish.onnx.gz": {"species": [1], "on": true}}}}}',
+    '{"settings": {"model": {"classification_species_lists": {"fish.onnx.gz": {"species": ["Aa_bb"], "on": 1}}}}}',
 ])
 def test_import_of_json_that_is_not_a_settings_file_is_rejected(settings, tmp_path, content):
     settings.detection_min_confidence_percent = 60
@@ -301,3 +306,18 @@ def test_import_of_json_that_is_not_a_settings_file_is_rejected(settings, tmp_pa
 
     assert settings.detection_min_confidence_percent == 60
     assert settings.crop_padding_percent == 10
+
+
+def test_species_lists_survive_a_reopen_and_an_export_and_import(settings, settings_file, tmp_path):
+    # A single species and a switched off list, which a store could flatten to a string and an int
+    lists = {"fish.onnx.gz": {"species": ["Scarus_iseri", "Stegastes_partitus"], "on": True},
+             "bees.onnx.gz": {"species": ["Bombus_terrestris"], "on": False}}
+    settings.classification_species_lists = lists
+    export_path = tmp_path / "exported.json"
+
+    assert reopen(settings_file).classification_species_lists == lists
+    settings.export_to_file(export_path)
+    settings.classification_species_lists = None
+    settings.import_from_file(export_path)
+
+    assert settings.classification_species_lists == lists

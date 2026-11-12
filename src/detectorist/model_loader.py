@@ -10,6 +10,7 @@ from enum import Enum, auto
 
 from PySide6.QtCore import QObject, QThreadPool, Signal
 
+from .jobs import ClassifierId
 from .utils import FileStamp
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class Models:
     """The detector and the classifier as the Pipeline has them at one moment."""
     detector_id: FileStamp | None  # set once loaded, the stamp a DetectJob carries
     detector_state: ModelState
-    classifier_id: FileStamp | None  # set once loaded, the stamp a ClassifyJob carries
+    classifier_id: ClassifierId | None  # set once loaded, the id a ClassifyJob carries
     classifier_state: ModelState
     patterns: tuple[str, ...]  # the detection classes the classifier names
 

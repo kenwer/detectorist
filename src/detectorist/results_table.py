@@ -5,18 +5,17 @@ from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QHeaderView, QTreeWidget, QTreeWidgetItem
 
 from .classifier import display_name, identified_ranks
+from .structures import RANK_COUNT
 
-# The detector's class and score, then a name and score per rank the classifier names
-HEADER_LABELS = ["Detected", "Score", "Family", "Score", "Genus", "Score", "Species", "Score"]
-TAXONOMY_COLUMNS_START = 2
+# The detector's class and score, a name and score per rank the classifier names, then the list fit
+HEADER_LABELS = ["Detected", "Score", "Family", "Score", "Genus", "Score", "Species", "Score", "List fit"]
+TAXONOMY_COLUMNS = range(2, 2 + 2 * RANK_COUNT)
+LIST_FIT_COLUMN = TAXONOMY_COLUMNS.stop
+SCORE_COLUMNS = (1, *TAXONOMY_COLUMNS[1::2], LIST_FIT_COLUMN)
 # Where an item keeps its detection's box, in column 0
 BOX_ROLE = Qt.ItemDataRole.UserRole
 # Where an item keeps a score cell's unrounded score, which sorting compares
 SCORE_ROLE = Qt.ItemDataRole.UserRole + 1
-
-
-def _is_score_column(column: int) -> bool:
-    return column % 2 == 1
 
 
 class _ResultItem(QTreeWidgetItem):
@@ -44,6 +43,13 @@ def format_score(score: float) -> str:
     return f"{min(score, 0.99):.2f}"
 
 
+def _set_score(item: QTreeWidgetItem, column: int, score: float) -> None:
+    """Shows a score right-aligned in column, keeping it unrounded for sorting."""
+    item.setText(column, format_score(score))
+    item.setData(column, SCORE_ROLE, score)
+    item.setTextAlignment(column, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+
 class ResultsTable(QTreeWidget):
     """
     Lists the shown image's detections, one row each, with what the classifier
@@ -57,15 +63,18 @@ class ResultsTable(QTreeWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setHeaderLabels(HEADER_LABELS)
+        self.headerItem().setToolTip(LIST_FIT_COLUMN, "Share of the model's confidence that fell on the listed "
+                                     "species. Low values suggest a species not on the list")
         # The scores fit their header, the names share the rest of the width
         header = self.header()
         header.setStretchLastSection(False)
         for column in range(len(HEADER_LABELS)):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents if _is_score_column(column)
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents if column in SCORE_COLUMNS
                                         else QHeaderView.ResizeMode.Stretch)
         self.setSortingEnabled(True)
         # Unsorted until the user clicks a column header, so the rows keep the highest score first
         self.sortByColumn(-1, Qt.SortOrder.AscendingOrder)
+        self.set_list_fit_visible(False)
         # Where the mouse last was over the viewport, or None, as rows can change under a resting mouse
         self._mouse_pos: QPoint | None = None
         self._hovered_box = None
@@ -78,27 +87,26 @@ class ResultsTable(QTreeWidget):
         a column. A classified detection's row goes down to the deepest rank at
         or above threshold, or says "Unidentified" if there is none. One whose
         box is in pending, still to be named, says "..." in place of its name.
+        The list fit column is filled for a detection named from a species list.
         """
         # Kept, as the rows are rebuilt on every slider move and classification
         scroll_position = self.verticalScrollBar().value()
         super().clear()
         for detection in sorted(detections, key=lambda d: d.score, reverse=True):
-            cells = [detection.class_name, format_score(detection.score)]
-            scores = [detection.score]
+            item = _ResultItem([detection.class_name])
+            item.setData(0, BOX_ROLE, detection.box)
+            _set_score(item, SCORE_COLUMNS[0], detection.score)
             if (taxonomy := taxonomy_by_box.get(detection.box)) is not None:
                 ranks = identified_ranks(taxonomy, threshold)
-                for rank in ranks:
-                    cells += [display_name(rank.name), format_score(rank.score)]
-                    scores.append(rank.score)
+                for column, rank in zip(TAXONOMY_COLUMNS[::2], ranks, strict=False):  # ranks stop at the threshold
+                    item.setText(column, display_name(rank.name))
+                    _set_score(item, column + 1, rank.score)
                 if not ranks:
-                    cells.append("Unidentified")
+                    item.setText(TAXONOMY_COLUMNS.start, "Unidentified")
+                if taxonomy.list_fit is not None:
+                    _set_score(item, LIST_FIT_COLUMN, taxonomy.list_fit)
             elif detection.box in pending:
-                cells.append("...")
-            item = _ResultItem(cells)
-            item.setData(0, BOX_ROLE, detection.box)
-            for column, score in zip(filter(_is_score_column, range(len(cells))), scores, strict=True):
-                item.setData(column, SCORE_ROLE, score)
-                item.setTextAlignment(column, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                item.setText(TAXONOMY_COLUMNS.start, "...")
             self._set_highlighted(item, detection.box == self._highlighted_box)
             self.addTopLevelItem(item)
         self.verticalScrollBar().setValue(scroll_position)
@@ -110,8 +118,12 @@ class ResultsTable(QTreeWidget):
 
     def set_taxonomy_visible(self, visible: bool):
         """Shows or hides the columns of the names the classifier gives."""
-        for column in range(TAXONOMY_COLUMNS_START, self.columnCount()):
+        for column in TAXONOMY_COLUMNS:
             self.setColumnHidden(column, not visible)
+
+    def set_list_fit_visible(self, visible: bool):
+        """Shows or hides the list fit column, which only a species list fills."""
+        self.setColumnHidden(LIST_FIT_COLUMN, not visible)
 
     def set_highlighted_box(self, box):
         """

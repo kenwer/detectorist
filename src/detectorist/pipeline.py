@@ -12,6 +12,7 @@ Outcomes come back as queued signals, so the caches and queues are only
 touched on the GUI thread and need no locks.
 """
 import logging
+from collections.abc import Collection
 
 from PySide6.QtCore import QObject, QThread, Signal
 
@@ -26,13 +27,13 @@ from .browsing import (
     Report,
 )
 from .cache import ImageStore, image_cache_budget, results_cache_budget
-from .classifier import Classifier
+from .classifier import Classifier, species_restriction
 from .detector import Detector
 from .export_run import DetectionFilter, ExportRun, ExportWriter
 from .image_object import ImageObject
 from .image_worker import ImageWorker
 from .inference_worker import InferenceWorker
-from .jobs import ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
+from .jobs import ClassifierId, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
 from .model_loader import ModelLoader, Models
 from .utils import physical_memory_bytes
 
@@ -69,6 +70,8 @@ class Pipeline(QObject):
     classification_complete = Signal(str, object, float)
     error = Signal(str, str)  # image_path, error_message
     classifier_error = Signal(str)  # error_message
+    classifier_loaded = Signal(object)  # the loaded classifier, without a species list
+    names_dropped = Signal()  # the names given so far are void: another classifier or species list
     cache_updated = Signal(list)  # cached paths a request would be served for without further work
     export_progress = Signal(int, int, str)  # index, total, file name of the image an export starts on
     export_finished = Signal(object)  # ExportResult
@@ -77,7 +80,7 @@ class Pipeline(QObject):
     _decode = Signal(object)  # DecodeJob or DisplayJob, to the ImageWorker
     _infer = Signal(object)  # DetectJob or ClassifyJob, to the InferenceWorker
     _set_detector = Signal(object, object)  # detector, FileStamp of its model file
-    _set_classifier = Signal(object, object)  # classifier, FileStamp of its model file
+    _set_classifier = Signal(object, object)  # classifier, its ClassifierId
 
     def __init__(self, detector_factory=Detector, classifier_factory=Classifier,
                  image_budget_bytes: int | None = None, results_budget_bytes: int | None = None,
@@ -110,6 +113,10 @@ class Pipeline(QObject):
         self._classifier.loaded.connect(self._on_classifier_loaded)
         self._classifier.failed.connect(self._on_classifier_failed)
         self._patterns: tuple[str, ...] = ()  # the detection classes the classifier names
+        self._loaded_classifier = None  # as loaded, without a species list
+        # The species set_species asked for, which the classifier is restricted to once loaded
+        self._requested_species: frozenset[str] = frozenset()
+        self._species: frozenset[str] = frozenset()  # the species the loaded classifier is restricted to
         self._shut_down = False
 
         self._image_thread = QThread()
@@ -167,8 +174,9 @@ class Pipeline(QObject):
     def load_classifier(self, model_path: str, patterns: list[str]):
         """
         Loads the classifier at model_path in the background, naming the
-        detections whose class matches one of patterns. Names of the previous
-        classifier are dropped.
+        detections whose class matches one of patterns. It names any species
+        unless set_species is called, which may be before it has loaded.
+        Names of the previous classifier are dropped.
         """
         self._drop_classifier()
         self._patterns = tuple(patterns)
@@ -178,6 +186,33 @@ class Pipeline(QObject):
     def unload_classifier(self):
         """Drops the classifier and the names it gave."""
         self._drop_classifier()
+        self._schedule()
+
+    @property
+    def classifier(self):
+        """The loaded classifier without a species list, or None while none is loaded."""
+        return self._loaded_classifier
+
+    @property
+    def species(self) -> frozenset[str]:
+        """The species the loaded classifier is restricted to, empty for any (see species_restriction)."""
+        return self._species
+
+    def set_species(self, species: Collection[str]):
+        """
+        Names only the given species from now on, or any species for none.
+        Names given under another restriction are dropped. While the
+        classifier is loading, the species are kept until it has loaded.
+        """
+        self._requested_species = frozenset(species)
+        if self._loaded_classifier is None:
+            return
+        restriction = species_restriction(self._requested_species, self._loaded_classifier.species)
+        if restriction == self._species:
+            return
+        self._species = restriction
+        self._drop_names()
+        self._hand_classifier_to_worker()
         self._schedule()
 
     def start_export(self, paths: list[str], detection_filter: DetectionFilter, writer: ExportWriter):
@@ -232,13 +267,20 @@ class Pipeline(QObject):
             self._inference_job.token.cancel()
 
     def _drop_classifier(self):
-        job = self._inference_job
-        if isinstance(job, ClassifyJob) and not self._export_owns(job):
-            job.token.cancel()  # its names belong to the old classifier
         self._set_classifier.emit(None, None)
         self._classifier.unload()
         self._patterns = ()
+        self._loaded_classifier = None
+        self._requested_species = self._species = frozenset()
+        self._drop_names()
+
+    def _drop_names(self):
+        """Forgets the names given so far, before the next schedule can report new ones."""
+        job = self._inference_job
+        if isinstance(job, ClassifyJob) and not self._export_owns(job):
+            job.token.cancel()  # its names belong to the old classifier or species list
         self._browsing.on_classifier_dropped()
+        self.names_dropped.emit()
 
     def _on_detector_loaded(self, detector, model_path: str):
         self._set_detector.emit(detector, self._detector.model_id)
@@ -251,15 +293,27 @@ class Pipeline(QObject):
         self._schedule()
 
     def _on_classifier_loaded(self, classifier, _model_path: str):
-        self._set_classifier.emit(classifier, self._classifier.model_id)
+        self._loaded_classifier = classifier
+        self._species = species_restriction(self._requested_species, classifier.species)
+        self._hand_classifier_to_worker()
+        self.classifier_loaded.emit(classifier)
         self._schedule()
+
+    def _hand_classifier_to_worker(self):
+        classifier = self._loaded_classifier
+        self._set_classifier.emit(classifier.with_species(self._species) if self._species else classifier,
+                                  self._classifier_id())
+
+    def _classifier_id(self) -> ClassifierId | None:
+        model = self._classifier.model_id
+        return ClassifierId(model, self._species) if model is not None else None
 
     def _on_classifier_failed(self, message: str):
         self.classifier_error.emit(f"Error loading classifier: {message}")
         self._schedule()
 
     def _models(self) -> Models:
-        return Models(self._detector.model_id, self._detector.state, self._classifier.model_id,
+        return Models(self._detector.model_id, self._detector.state, self._classifier_id(),
                       self._classifier.state, self._patterns)
 
     def _cancel_unwanted(self):

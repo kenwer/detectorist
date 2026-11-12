@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SpeciesListDialog</class>
+ <widget class="QDialog" name="SpeciesListDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>480</width>
+    <height>560</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>360</width>
+    <height>320</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>Species list</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,1,0,0">
+   <item>
+    <layout class="QHBoxLayout" name="filters_layout" stretch="1,0">
+     <item>
+      <widget class="QLineEdit" name="search_line_edit">
+       <property name="placeholderText">
+        <string>Search family, genus or species...</string>
+       </property>
+       <property name="clearButtonEnabled">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="selected_only_check_box">
+       <property name="text">
+        <string>Show selected only</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QTreeWidget" name="species_tree">
+     <attribute name="headerVisible">
+      <bool>false</bool>
+     </attribute>
+     <column>
+      <property name="text">
+       <string notr="true">Species</string>
+      </property>
+     </column>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="footer_layout">
+     <item>
+      <widget class="QPushButton" name="clear_button">
+       <property name="toolTip">
+        <string>Untick all species, so the classifier names any species</string>
+       </property>
+       <property name="text">
+        <string>Clear</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="footer_spacer">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QLabel" name="count_label"/>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="button_box">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <connections>
+  <connection>
+   <sender>button_box</sender>
+   <signal>accepted()</signal>
+   <receiver>SpeciesListDialog</receiver>
+   <slot>accept()</slot>
+  </connection>
+  <connection>
+   <sender>button_box</sender>
+   <signal>rejected()</signal>
+   <receiver>SpeciesListDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

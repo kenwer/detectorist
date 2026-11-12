@@ -11,10 +11,11 @@ functions tested against values from that code.
 """
 
 import ast
+import copy
 import fnmatch
 import json
 import math
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from itertools import takewhile
 
 import numpy as np
@@ -56,7 +57,7 @@ def identified_ranks(taxonomy: Taxonomy, threshold: float) -> list[RankedName]:
     down. Stopping at the first rank below the threshold keeps a name from
     showing without the ranks above it.
     """
-    return list(takewhile(lambda rank: rank.score >= threshold, taxonomy))
+    return list(takewhile(lambda rank: rank.score >= threshold, taxonomy.ranks))
 
 
 def short_name(name: str) -> str:
@@ -124,8 +125,39 @@ def letterbox(rgb: np.ndarray, size: int) -> np.ndarray:
     return np.asarray(canvas)
 
 
+def restrict_to_list(probs: np.ndarray, listed: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Species probabilities restricted to a species list: the unlisted ones set
+    to 0 and the listed ones rescaled to sum to 1, so a look-alike outside the
+    list neither wins nor lowers the score of a listed species.
+
+    Args:
+        probs: One row of species probabilities per crop.
+        listed: Whether each species is on the list.
+
+    Returns:
+        The rescaled rows, and per row the list fit: the share of its
+        probability the listed species had before rescaling. A row whose
+        listed species all have 0 stays 0, so no rank passes a threshold.
+    """
+    restricted = np.where(listed, probs, 0.0)
+    fit = restricted.sum(axis=1)
+    scale = np.divide(1.0, fit, out=np.zeros_like(fit), where=fit > 0)
+    return restricted * scale[:, np.newaxis], fit
+
+
+def species_restriction(species: Collection[str], known: Sequence[str]) -> frozenset[str]:
+    """
+    The species a list restricts a classifier to, given the species it knows:
+    names it does not know are dropped, and a list of every known species
+    becomes empty, as it changes no name. Empty means no restriction.
+    """
+    restriction = frozenset(species).intersection(known)
+    return frozenset() if len(restriction) == len(known) else restriction
+
+
 def roll_up(probs: np.ndarray, species: Sequence[str], genera: Sequence[str], families: Sequence[str],
-            genus_of: np.ndarray, family_of: np.ndarray) -> Taxonomy:
+            genus_of: np.ndarray, family_of: np.ndarray, list_fit: float | None = None) -> Taxonomy:
     """
     Species probabilities of one detection as a family, a genus and a species.
 
@@ -152,6 +184,7 @@ def roll_up(probs: np.ndarray, species: Sequence[str], genera: Sequence[str], fa
         RankedName(families[family], float(family_scores[family])),
         RankedName(genera[genus], float(genus_scores[genus])),
         RankedName(species[best], float(probs[best])),
+        list_fit,
     )
 
 
@@ -166,7 +199,8 @@ class Classifier:
 
     classify() may run on several threads at once (the worker and a batch
     run share one instance): it only reads the attributes, and an ONNX
-    Runtime session can run concurrently.
+    Runtime session can run concurrently. A species list is applied through
+    with_species(), which returns a copy rather than changing this one.
     """
 
     def __init__(self, model_path: str, patterns: Sequence[str] = ("*",)):
@@ -207,6 +241,17 @@ class Classifier:
         self.model_path = model_path
         self.patterns = tuple(patterns)
         self.input_name = self.session.get_inputs()[0].name
+        self.listed: np.ndarray | None = None  # whether each species is on the species list, None for no list
+
+    def with_species(self, species: Collection[str]) -> Classifier:
+        """
+        A copy naming only the given species, sharing this one's model. Names
+        the model does not know are ignored, so at least one known name is
+        needed for any name to pass a threshold.
+        """
+        restricted = copy.copy(self)
+        restricted.listed = np.isin(self.species, list(species))
+        return restricted
 
     def classify(self, image: ImageObject, boxes: Sequence[Box]) -> list[Taxonomy]:
         """
@@ -235,6 +280,10 @@ class Classifier:
         for start in range(0, len(crops), CROPS_PER_RUN):
             pixels = np.stack(crops[start:start + CROPS_PER_RUN]).astype(np.float32).transpose(0, 3, 1, 2) / 255
             probs = self.session.run(None, {self.input_name: pixels})[0]
-            taxonomies += [roll_up(row, self.species, self.genera, self.families, self.genus_of, self.family_of)
-                           for row in probs]
+            fits = [None] * len(probs)
+            if self.listed is not None:
+                probs, fit_array = restrict_to_list(probs, self.listed)
+                fits = fit_array.tolist()
+            taxonomies += [roll_up(row, self.species, self.genera, self.families, self.genus_of, self.family_of, fit)
+                           for row, fit in zip(probs, fits, strict=True)]
         return taxonomies
