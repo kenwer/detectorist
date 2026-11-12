@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.14.2] - 2026-11-12
 ### Added
 - The Export dialog can skip images without detections and, with a classifier, crops not identified to family.
 ### Changed
