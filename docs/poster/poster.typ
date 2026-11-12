@@ -129,7 +129,7 @@
     #text(weight: "bold", fill: accent-dark)[github.com/kenwer/detectorist]
     #v(10pt)
     #text(size: 9.5pt, fill: muted)[
-      Ken Werner · ken.werner\@uni-tuebingen.de · AGPL-3.0 licensed
+      Ken Werner · ken.werner\@uni-tuebingen.de · AGPL-3.0-or-later licensed
     ]
   ],
   align(center)[

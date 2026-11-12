@@ -209,4 +209,4 @@ If you use Detectorist in your work, you can [cite](CITATION.cff) it:
 ```
 
 ## License
-This project is licensed under the AGPL-3.0 license. See the LICENSE file for the full text.
+This project is licensed under the AGPL-3.0-or-later license. See the LICENSE file for the full text.
