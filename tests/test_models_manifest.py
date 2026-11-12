@@ -2,7 +2,7 @@
 
 The app fetches these files from the main branch, so a typo here reaches every
 user without a release. These checks need only the JSON files, not the model
-files, and run in the fast tier.
+files, so CI runs them.
 """
 
 import json

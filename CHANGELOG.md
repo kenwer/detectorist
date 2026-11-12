@@ -8,6 +8,7 @@
 - The macOS download is smaller due to stripped symbols.
 - [Dev] Nuitka moved to a `build` dependency group that the build tasks install, so `uv sync` no longer installs it.
 - [Dev] Run the app from source with `python -m detectorist`.
+- [Dev] The tests that load the shipped models only run with poe test-shipped-models. `poe test-fast` is gone.
 ### Fixed
 - [Dev] The macOS Dock shows the app icon when running from source.
 

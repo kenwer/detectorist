@@ -1,7 +1,7 @@
-"""Smoke tests that load the real models from ./models.
+"""Tests that load the shipped models from ./models.
 
-Slow and opt-in (pytest -m slow). The model files are Git LFS objects of
-more than 100 MB each. A checkout without them, such as CI, holds small
+Opt-in (poe test-shipped-models), so they never run in CI. The model files are
+Git LFS objects of more than 100 MB each. A checkout without them holds small
 pointer files instead, and each test then skips itself.
 
 These check that a shipped model satisfies what Detector, or for a
@@ -21,7 +21,7 @@ from detectorist.image_object import ImageObject
 from detectorist.model_downloader import model_filename_from_url
 from tests.fakes import make_images
 
-pytestmark = pytest.mark.slow
+pytestmark = pytest.mark.shipped_models
 
 MODELS_DIR = Path(__file__).parent.parent / "models"
 CLASSIFIERS_DIR = MODELS_DIR / "classifiers"

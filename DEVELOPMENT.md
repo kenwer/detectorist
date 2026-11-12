@@ -36,17 +36,16 @@ To run the application from source code, I recommend to use `Python 3.14` and `u
 The tests use `pytest` with `pytest-qt` and run headless on Qt's offscreen platform.
 
 ```shell
-uv run poe test        # everything
-uv run poe test-fast   # skips the slow tier, takes a few seconds
-uv run poe test-slow   # only the slow tier
+uv run poe test                 # the tests CI runs, takes under a minute
+uv run poe test-shipped-models  # only the tests that load the shipped models
 uv run poe lint
 ```
 
-The fast tier needs no model files. `Detector` is tested against two tiny ONNX models in `tests/data`, whose outputs are fixed values defined in `tests/tiny_models.py`. After changing those values, regenerate the files with `uv run --script scripts/make_test_models.py`.
+`poe test` needs no model files. `Detector` and `Classifier` are tested against tiny ONNX models in `tests/data`, whose outputs are fixed values defined in `tests/tiny_models.py`. After changing those values, regenerate the files with `uv run --script scripts/make_test_models.py`.
 
-The slow tier loads every detection model listed in `models/models.json` and every classifier listed in `models/classifiers/models.json`. A model whose Git LFS file has not been fetched is skipped, which is why this tier does nothing in CI.
+The shipped model tests in `tests/test_shipped_models.py` load every detection model listed in `models/models.json` and every classifier listed in `models/classifiers/models.json`. They only run when asked for with `poe test-shipped-models`, since CI does not fetch the Git LFS model files. A model whose file has not been fetched is skipped.
 
-To run the fast tier before every push, enable the tracked git hook once per clone:
+To run the tests before every push, enable the tracked git hook once per clone:
 
 ```shell
 uv run poe install-hooks

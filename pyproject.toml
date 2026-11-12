@@ -53,10 +53,9 @@ compile-qt = { sequence = ["compile-ui", "compile-qrc"], help = "Compile Qt UI a
 run-app = { cmd = "python -m detectorist", help = "Run the application" }
 run = { sequence = ["compile-qt", "run-app"], help = "Compile UI and resource files and run the application" }
 # cmd tasks forward extra arguments, so `poe test -k name` reaches pytest
-test = { cmd = "pytest", deps = ["compile-qt"], help = "Compile UI/resources, then run all tests" }
-test-fast = { cmd = "pytest -m 'not slow'", deps = ["compile-qt"], help = "Compile UI/resources, then run only the fast tests" }
-test-slow = { cmd = "pytest -m slow", deps = ["compile-qt"], help = "Compile UI/resources, then run only the slow tests that load the real models from ./models" }
-install-hooks = { cmd = "git config core.hooksPath .githooks", help = "Point git at the repo's tracked hooks (pre-push runs test-fast)" }
+test = { cmd = "pytest", deps = ["compile-qt"], help = "Compile UI/resources, then run the tests CI runs" }
+test-shipped-models = { cmd = "pytest -m shipped_models", deps = ["compile-qt"], help = "Compile UI/resources, then run only the tests that load the shipped models from ./models" }
+install-hooks = { cmd = "git config core.hooksPath .githooks", help = "Point git at the repo's tracked hooks (pre-push runs test)" }
 clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
 bench = { cmd = "python benchmarks/bench_conversions.py", help = "Time the image conversion hot paths" }
 lint = { cmd = "ruff check src tests", help = "Run ruff linter" }
@@ -297,11 +296,13 @@ addopts = [
     # nothing extra and a slow one names the culprit.
     "--durations=15",
     "--durations-min=1.0",
+    # The shipped model tests only run when asked for. A later -m on the command line replaces this one.
+    "-m", "not shipped_models",
 ]
 # Dump all-thread tracebacks to stderr when a single test exceeds this many
 # seconds, so a hang identifies itself in CI logs (it does not kill the test).
 faulthandler_timeout = 120
 qt_api = "pyside6"
 markers = [
-    "slow: opt-in tests that load the real models from ./models (run with: pytest -m slow)",
+    "shipped_models: opt-in tests that load the shipped models from Git LFS, never run in CI (run with: poe test-shipped-models)",
 ]
