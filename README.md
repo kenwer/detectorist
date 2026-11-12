@@ -201,6 +201,7 @@ If you use Detectorist in your work, you can [cite](CITATION.cff) it:
 ```bibtex
 @software{Werner_Detectorist_2026,
   author  = {Werner, Ken},
+  orcid   = {0009-0008-4940-5080},
   title   = {Detectorist},
   url     = {https://github.com/kenwer/detectorist},
   version = {0.14.2},
