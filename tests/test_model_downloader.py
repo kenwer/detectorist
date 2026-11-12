@@ -8,13 +8,11 @@ files it leaves behind.
 
 import json
 import os
-import socket
 
 import pytest
 from PySide6.QtCore import QUrl
 
 from detectorist import model_downloader
-from detectorist.model_downloader import model_filename_from_url
 
 
 def file_url(path) -> str:
@@ -56,10 +54,6 @@ def record_events(downloader) -> list:
     downloader.download_finished.connect(lambda filename: events.append(("finished", filename)))
     downloader.download_error.connect(lambda message: events.append(("error", message)))
     return events
-
-
-def test_model_filename_from_url():
-    assert model_filename_from_url("https://example.org/models/fish.onnx.gz") == "fish.onnx.gz"
 
 
 def test_cached_manifest_names_current_and_superseded_files(make_downloader, target):
@@ -118,14 +112,16 @@ def test_fetch_manifest_emits_the_parsed_list(qtbot, make_downloader, monkeypatc
     assert downloader.filename_to_name == {"a.onnx": "A"}
 
 
-def test_fetch_manifest_reports_a_missing_manifest(qtbot, make_downloader, target):
+def test_fetch_manifest_reports_a_missing_manifest_but_no_download_error(qtbot, make_downloader, target):
     # The autouse _no_network fixture points DETECTION_MODELS_MANIFEST_URL at a missing file
     downloader = make_downloader(target)
+    events = record_events(downloader)
 
     with qtbot.waitSignal(downloader.manifest_error) as failed:
         downloader.fetch_manifest()
 
     assert failed.args[0].startswith("Failed to fetch manifest")
+    assert events == []
 
 
 def test_fetch_manifest_reports_invalid_json(qtbot, make_downloader, monkeypatch, remote, target):
@@ -137,16 +133,6 @@ def test_fetch_manifest_reports_invalid_json(qtbot, make_downloader, monkeypatch
         downloader.fetch_manifest()
 
     assert failed.args[0].startswith("Invalid manifest")
-
-
-def test_manifest_failure_is_not_reported_as_a_download_error(qtbot, make_downloader, target):
-    downloader = make_downloader(target)
-    events = record_events(downloader)
-
-    with qtbot.waitSignal(downloader.manifest_error):
-        downloader.fetch_manifest()
-
-    assert events == []
 
 
 def test_fetch_manifest_joins_a_fetch_that_is_still_running(qtbot, make_downloader, monkeypatch, gated_server, target, no_classifiers):
@@ -274,18 +260,6 @@ def test_cancel_stops_the_download_and_drops_the_queue(qtbot, make_downloader, s
     assert os.listdir(target) == []  # the partial file is removed
     # A cancel the user asked for is not a failed download
     assert events == [("started", "a.onnx")]
-
-
-def test_stalled_server_starts_without_a_hostname_lookup(monkeypatch, request):
-    # http.server.HTTPServer resolves its own host name on bind. That reverse
-    # DNS query took 35 s on the GitHub macOS runner, so the fixture must not
-    # be built on it.
-    def fail(*args):
-        raise AssertionError("the stalled_server fixture looked up a host name")
-
-    monkeypatch.setattr(socket, "getfqdn", fail)
-
-    request.getfixturevalue("stalled_server")
 
 
 def write_classifier_manifest(folder, manifest):

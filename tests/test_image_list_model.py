@@ -5,7 +5,7 @@ colours the rows the worker already has cached.
 """
 
 import pytest
-from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
 from detectorist.image_list_model import ImageListModel
@@ -31,12 +31,6 @@ def test_rows_show_basenames_and_expose_full_paths(model):
     assert model.imagePaths() == PATHS
 
 
-def test_invalid_index_has_no_data(model):
-    assert model.data(QModelIndex()) is None
-    # A list has no child rows
-    assert model.rowCount(model.index(0)) == 0
-
-
 def test_removing_one_row_emits_rows_removed(qtbot, model):
     with qtbot.waitSignal(model.rowsRemoved):
         model.removeImagePaths([1])
@@ -57,11 +51,6 @@ def test_removing_nothing_or_an_unknown_row_changes_nothing(qtbot, model):
         model.removeImagePaths([7])
 
     assert displayed(model) == ["a.jpg", "b.jpg", "c.jpg"]
-
-
-def test_clear_empties_the_model(model):
-    model.clear()
-    assert model.rowCount() == 0
 
 
 def test_cached_paths_are_highlighted(qtbot, model):

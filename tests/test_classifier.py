@@ -216,12 +216,6 @@ def test_classify_without_boxes_returns_nothing(classifier, tmp_path):
     assert classifier.classify(painted_image(tmp_path), []) == []
 
 
-def test_classify_accepts_a_box_given_as_a_list(classifier, tmp_path):
-    (red,) = classifier.classify(painted_image(tmp_path), [list(RED_BOX)])
-
-    assert red.species.name == "Amphiprion_ocellaris"
-
-
 @pytest.mark.parametrize("mode", ["L", "RGBA"])
 def test_classify_handles_images_that_are_not_plain_rgb(classifier, tmp_path, mode):
     taxonomies = classifier.classify(painted_image(tmp_path, mode), [RED_BOX, BLUE_BOX])

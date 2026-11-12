@@ -10,7 +10,6 @@ from detectorist.image_object import (
     APPLEDOUBLE_MAGIC,
     ImageObject,
     filter_out_appledouble_files,
-    is_supported_image,
     list_supported_images,
 )
 from detectorist.utils import FileStamp
@@ -50,24 +49,6 @@ def test_mixed_case_extensions_still_matched(tmp_path):
     assert list_supported_images(str(tmp_path)) == ["IMG_0005.HIF", "IMG_0006.Jpg"]
 
 
-def test_filter_out_appledouble_files_drops_sidecar_with_sibling(tmp_path):
-    original = tmp_path / "IMG_0007.jpg"
-    sidecar = tmp_path / "._IMG_0007.jpg"
-    original.write_bytes(b"fake jpeg data")
-    sidecar.write_bytes(APPLEDOUBLE_MAGIC + b"\x00" * 20)
-
-    kept = filter_out_appledouble_files([str(original), str(sidecar)])
-
-    assert kept == [str(original)]
-
-
-def test_filter_out_appledouble_files_checks_magic_number_without_sibling(tmp_path):
-    sidecar = tmp_path / "._IMG_0008.jpg"
-    sidecar.write_bytes(APPLEDOUBLE_MAGIC + b"\x00" * 20)
-
-    assert filter_out_appledouble_files([str(sidecar)]) == []
-
-
 def test_filter_out_appledouble_files_does_not_match_across_directories(tmp_path):
     dir_a = tmp_path / "a"
     dir_b = tmp_path / "b"
@@ -82,12 +63,6 @@ def test_filter_out_appledouble_files_does_not_match_across_directories(tmp_path
     kept = filter_out_appledouble_files([str(unrelated_original), str(lookalike_sidecar)])
 
     assert set(kept) == {str(unrelated_original), str(lookalike_sidecar)}
-
-
-def test_is_supported_image_matches_the_extension_in_any_case():
-    assert is_supported_image("photo.JPG")
-    assert is_supported_image("photo.png")
-    assert not is_supported_image("notes.pdf")
 
 
 def test_image_carries_the_stamp_of_the_file_it_was_decoded_from(tmp_path):

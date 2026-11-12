@@ -77,14 +77,10 @@ def test_unknown_platform_has_no_asset() -> None:
     assert release_asset_name("linux", "riscv64") is None
 
 
-def test_fetch_returns_the_release(local_http_server: FakeServer) -> None:
+def test_fetch_returns_the_release_and_names_the_client(local_http_server: FakeServer) -> None:
     local_http_server.routes["/latest"] = Route(json.dumps(release()).encode(), content_type="application/json")
     assert fetch_latest_release(local_http_server.url("/latest"))["tag_name"] == "v0.9.0"
-
-
-def test_fetch_sends_user_agent(local_http_server: FakeServer) -> None:
-    local_http_server.routes["/latest"] = Route(b"{}", content_type="application/json")
-    fetch_latest_release(local_http_server.url("/latest"))
+    # GitHub's API refuses requests without a User-Agent
     assert local_http_server.requests[0]["User-Agent"] == USER_AGENT
 
 

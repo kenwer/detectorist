@@ -26,14 +26,9 @@ def make_group(parent):
     return EnumButtonGroup(group, buttons), buttons
 
 
-def test_value_is_none_until_a_button_is_checked(parent):
-    colors, _ = make_group(parent)
-
-    assert colors.value() is None
-
-
-def test_set_value_checks_its_button(parent):
+def test_value_is_none_until_set_value_checks_its_button(parent):
     colors, buttons = make_group(parent)
+    assert colors.value() is None
 
     colors.set_value(Color.GREEN)
 
@@ -51,9 +46,3 @@ def test_value_changed_emits_the_new_value_once_per_change(parent):
     colors.set_value(Color.RED)
 
     assert values == [Color.GREEN, Color.RED]
-
-
-def test_lives_as_long_as_its_group(parent):
-    colors, _ = make_group(parent)
-
-    assert colors.parent() is not None

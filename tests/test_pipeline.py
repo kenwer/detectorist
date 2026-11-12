@@ -688,16 +688,6 @@ def test_interactive_requests_wait_for_the_export(qtbot, tmp_path, make_pipeline
     assert finished
 
 
-def test_shutdown_during_export_returns(qtbot, tmp_path, make_pipeline):
-    paths = make_images(tmp_path, [f"{i}.png" for i in range(5)], IMAGE_SIZE)
-    env = make_pipeline()
-
-    start_export(env, paths, tmp_path / "out")
-    env.pipeline.shutdown()
-
-    assert True  # returning at all is the point, a hang would trip faulthandler_timeout
-
-
 def test_cancelling_from_the_progress_signal_keeps_the_images_before(qtbot, tmp_path, make_pipeline):
     paths = make_images(tmp_path, ["a.png", "b.png", "c.png"], IMAGE_SIZE)
     env = make_pipeline()

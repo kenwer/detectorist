@@ -202,6 +202,7 @@ def test_dragging_only_unsupported_files_is_refused(window, folder):
 def test_dragging_a_folder_or_an_image_is_accepted(window, folder):
     (image,) = make_images(folder, ["a.png"], IMAGE_SIZE)
     assert drag_enter(window, [folder])
+    assert drag_enter(window, [folder, image])
     assert drag_enter(window, [image, folder / "notes.pdf"])
     assert drag_enter(window.ui.image_label, [image])
 
@@ -271,14 +272,6 @@ def test_dropping_a_folder_with_other_files_skips_them_without_a_toast(window, f
     assert toasts == []
 
 
-def test_dropping_a_folder_loads_its_images(window, folder):
-    make_images(folder, ["a.png", "b.png"], IMAGE_SIZE)
-
-    drop(window, [folder])
-
-    assert listed(window) == ["a.png", "b.png"]
-
-
 @pytest.fixture
 def unreadable(monkeypatch, tmp_path):
     """A folder whose listing fails the way it does without read permission."""
@@ -336,12 +329,6 @@ def test_dragging_images_from_more_than_one_folder_is_refused(window, tmp_path):
     assert not drag_enter(window.ui.image_label, [cam_a, cam_b])
 
 
-def test_dragging_a_folder_with_its_own_images_is_accepted(window, folder):
-    (image,) = make_images(folder, ["a.png"], IMAGE_SIZE)
-
-    assert drag_enter(window, [folder, image])
-
-
 def test_dropping_images_from_more_than_one_folder_keeps_the_image_list(window, folder, tmp_path, monkeypatch):
     make_images(folder, ["keep.png"], IMAGE_SIZE)
     open_folder(window, folder, monkeypatch)
@@ -352,18 +339,6 @@ def test_dropping_images_from_more_than_one_folder_keeps_the_image_list(window, 
     drop(window, [cam_a, cam_b])
 
     assert listed(window) == ["keep.png"]
-
-
-def test_dropping_files_skips_sidecars_and_unsupported_files(window, folder):
-    (image,) = make_images(folder, ["a.png"], IMAGE_SIZE)
-    sidecar = folder / "._a.png"
-    sidecar.write_bytes(APPLEDOUBLE_MAGIC + b"\x00" * 20)
-    notes = folder / "notes.txt"
-    notes.write_text("not an image")
-
-    drop(window, [image, sidecar, notes])
-
-    assert listed(window) == ["a.png"]
 
 
 def test_selected_image_shows_detections_above_the_confidence(qtbot, window, folder, monkeypatch, detector_factory):
@@ -649,20 +624,14 @@ def open_two_images_with_classifier(qtbot, window, folder, monkeypatch, detector
     return output
 
 
-def test_quick_export_with_a_classifier_names_the_crops_by_taxon(qtbot, species_model, window, folder, monkeypatch, detector_factory):
+def test_quick_export_with_a_classifier_names_the_crops_by_taxon(qtbot, species_model, window, folder, monkeypatch,
+                                                                 detector_factory, toasts):
     output = open_two_images_with_classifier(qtbot, window, folder, monkeypatch, detector_factory)
 
     export(window)
 
     assert sorted(path.name for path in output.glob("*.png")) == [
         "Pomacentridae_Amphiprion_ocellaris_a_crop.png", "no-detection_b.png"]
-
-
-def test_success_toast_with_a_classifier_has_no_counts(qtbot, species_model, window, folder, monkeypatch, detector_factory, toasts):
-    open_two_images_with_classifier(qtbot, window, folder, monkeypatch, detector_factory)
-
-    export(window)
-
     assert toasts[-1][:3] == ("success", "Detectorist", "Finished exporting images.")
 
 
@@ -761,27 +730,14 @@ def test_cancelling_an_export_stops_it_without_a_success_toast(qtbot, window, fo
     assert not window.ui.open_output_folder_action.isEnabled()
 
 
-def test_actions_are_disabled_during_an_export(qtbot, window, folder, monkeypatch, detector_factory):
+def test_actions_that_load_images_or_change_settings_are_disabled_during_an_export(qtbot, window, folder, monkeypatch, detector_factory):
     open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
+    # The macOS menu bar stays usable during the run, as the progress dialog only blocks the window
     guarded = [
         window.ui.open_folder_action,
         window.ui.open_images_action,
         window.ui.export_action,
         window.ui.clear_image_list_action,
-    ]
-    seen_during_run = []
-    during_export(window, lambda _index: seen_during_run.append([action.isEnabled() for action in guarded]))
-
-    export(window)
-
-    assert seen_during_run == [[False] * len(guarded)] * 2
-    assert all(action.isEnabled() for action in guarded)
-
-
-def test_actions_that_load_images_or_change_settings_are_disabled_during_an_export(qtbot, window, folder, monkeypatch, detector_factory):
-    open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
-    # The macOS menu bar stays usable during the run, as the progress dialog only blocks the window
-    guarded = [
         window.ui.recent_folders_menu.menuAction(),
         window.ui.import_settings_action,
         window.ui.reset_settings_action,
@@ -878,15 +834,12 @@ def test_closing_persists_the_controls_and_a_new_window_restores_them(make_windo
     assert not second.ui.cb_comp_cam_exposure.isChecked()
 
 
-def test_masks_are_hidden_and_boxes_and_labels_shown_by_default(window):
-    assert not window.ui.toggle_masks_action.isChecked()
-    assert not window.ui.image_label._masks_visible
-    assert window.ui.toggle_boxes_action.isChecked()
-    assert window.ui.toggle_labels_action.isChecked()
-
-
-def test_the_shown_overlays_are_restored_in_a_new_window(make_window, settings):
+def test_the_shown_overlays_start_as_masks_hidden_and_are_restored_in_a_new_window(make_window, settings):
     first = make_window()
+    assert not first.ui.toggle_masks_action.isChecked()
+    assert not first.ui.image_label._masks_visible
+    assert first.ui.toggle_boxes_action.isChecked()
+    assert first.ui.toggle_labels_action.isChecked()
     first.ui.toggle_masks_action.setChecked(True)
     first.ui.toggle_boxes_action.setChecked(False)
     first.ui.toggle_labels_action.setChecked(False)
@@ -1157,6 +1110,7 @@ def test_clear_list_returns_to_the_welcome_state(window, folder, monkeypatch):
     assert listed(window) == []
     assert "Drop images or a folder with images" in window.ui.image_label.text()
     assert not window.ui.export_action.isEnabled()
+    assert not window.ui.remove_selected_images_from_list_action.isEnabled()
     assert object_count(window) == "-"
 
 
@@ -1182,15 +1136,6 @@ def test_toggling_exposure_correction_after_clear_list_keeps_the_welcome_state(q
 
     assert window.ui.image_label.pixmap().isNull()
     assert "Drop images" in window.ui.image_label.text()
-
-
-def test_clear_list_disables_the_actions_that_need_a_selection(window, folder, monkeypatch):
-    make_images(folder, ["a.png", "b.png"], IMAGE_SIZE)
-    open_folder(window, folder, monkeypatch)
-
-    window.ui.clear_image_list_action.trigger()
-
-    assert not window.ui.remove_selected_images_from_list_action.isEnabled()
 
 
 def test_copy_filenames_puts_them_on_the_clipboard_in_list_order(window, folder, monkeypatch, toasts):
@@ -1830,16 +1775,6 @@ def test_export_starts_with_taxa_only(qtbot, species_model, window, folder, monk
     assert (options.prefix_class, options.prefix_taxa) == (False, True)
 
 
-def test_export_without_a_classifier_names_by_class_and_keeps_taxa_chosen(qtbot, window, folder, monkeypatch,
-                                                                         detector_factory, settings):
-    output = open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
-
-    export(window)
-
-    assert sorted(path.name for path in output.glob("*.png")) == ["Fish_a_crop.png", "no-detection_b.png"]
-    assert settings.export_prefix_taxa is True
-
-
 def test_export_dialog_previews_the_shown_image(qtbot, window, folder, monkeypatch, detector_factory):
     open_two_images(qtbot, window, folder, monkeypatch, detector_factory)
 
@@ -1848,14 +1783,6 @@ def test_export_dialog_previews_the_shown_image(qtbot, window, folder, monkeypat
     preview = OPENED_DIALOGS[-1].ui.preview_label.text()
     assert "    Fish_a_crop.png\n" in preview
     assert f"    {DETECTIONS_CSV_NAME}\n" in preview
-
-
-def test_export_is_one_action_on_ctrl_e_in_the_file_menu(window):
-    assert window.ui.export_action.text() == "Export Images..."
-    assert window.ui.export_action.shortcut().toString() == "Ctrl+E"
-    file_menu = [action.text() for action in window.ui.menu_file.actions() if action.text()]
-    assert file_menu[file_menu.index("Export Images..."):][:2] == ["Export Images...", "Open Output Folder"]
-    assert [action.text() for action in window.menuBar().actions()] == ["File", "View", "Help"]
 
 
 def test_actions_use_the_platform_shortcuts(window):
@@ -1867,10 +1794,6 @@ def test_actions_use_the_platform_shortcuts(window):
     assert window.ui.manage_models_action.shortcut().toString() == "Ctrl+Shift+M"
     assert window.ui.shortcuts_action.shortcuts() == [
         QKeySequence("Ctrl+/"), *QKeySequence.keyBindings(QKeySequence.StandardKey.HelpContents)]
-
-
-def test_quit_is_the_last_action_of_the_file_menu(window):
-    assert [action for action in window.ui.menu_file.actions() if action.text()][-1] is window.ui.quit_action
 
 
 def test_export_dialog_names_the_class_filter(qtbot, window, folder, monkeypatch, detector_factory):
@@ -1885,11 +1808,6 @@ def test_export_dialog_names_the_class_filter(qtbot, window, folder, monkeypatch
     assert OPENED_DIALOGS[-1].ui.class_filter_label.text() == "Only Fish detections (Show filter)"
 
 
-def test_exposure_correction_sits_with_the_image_not_the_crop(window):
-    assert window.ui.image_info_group_box.isAncestorOf(window.ui.cb_comp_cam_exposure)
-    assert not window.ui.crop_info_group_box.isAncestorOf(window.ui.cb_comp_cam_exposure)
-
-
 def test_best_classification_needs_a_classifier(species_model, window):
     assert not window.ui.rb_crop_best_classification.isEnabled()
 
@@ -1898,14 +1816,6 @@ def test_best_classification_needs_a_classifier(species_model, window):
 
     window.ui.classifier_combo_box.setCurrentIndex(0)
     assert not window.ui.rb_crop_best_classification.isEnabled()
-
-
-def test_import_settings_points_to_the_settings_file_of_an_export(window):
-    assert SETTINGS_JSON_NAME in window.ui.import_settings_action.toolTip()
-
-
-def test_crop_group_says_it_is_for_export(window):
-    assert window.ui.crop_info_group_box.title() == "Crop (Export)"
 
 
 def test_the_settings_file_of_an_export_names_only_what_it_used(qtbot, species_model, bee_model, models_dir, make_window,

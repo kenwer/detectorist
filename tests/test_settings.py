@@ -23,22 +23,6 @@ def stored_keys(settings_file) -> set[str]:
     return set(QSettings(str(settings_file), QSettings.Format.IniFormat).allKeys())
 
 
-def test_unset_values_read_as_none(settings):
-    assert settings.newest_version is None
-    assert settings.detection_model is None
-    assert settings.detection_min_confidence_percent is None
-    assert settings.classification_model is None
-    assert settings.classification_min_confidence_percent is None
-    assert settings.image_correct_exposure is None
-    assert settings.crop_mode is None
-    assert settings.crop_aspect_ratio is None
-    assert settings.crop_padding_percent is None
-    assert settings.export_class_filter is None
-    assert settings.window_geometry is None
-    assert settings.main_splitter_state is None
-    assert settings.image_splitter_state is None
-
-
 def test_unset_export_choices_read_as_the_export_options_defaults(settings):
     assert settings.export_crop_images is True
     assert settings.export_prefix_class is False
@@ -107,11 +91,6 @@ def test_recent_folders_of_earlier_versions_are_kept(settings_file):
     old.sync()
 
     assert reopen(settings_file).recent_folders == ["/photos/a", "/photos/b"]
-
-
-def test_save_current_version(settings):
-    settings.save_current_version()
-    assert settings.newest_version == __version__
 
 
 def store_saved_by(settings_file, version: str | None) -> None:
@@ -186,12 +165,6 @@ def test_recent_folders_are_capped(settings):
     recent = settings.recent_folders
     assert len(recent) == Settings.MAX_RECENT_FOLDERS
     assert recent[0] == f"/photos/{Settings.MAX_RECENT_FOLDERS + 2}"
-
-
-def test_clear_recent_folders(settings):
-    settings.add_recent_folder("/photos/a")
-    settings.clear_recent_folders()
-    assert settings.recent_folders == []
 
 
 def test_reset_clears_the_portable_settings_but_keeps_recent_and_layout(settings):

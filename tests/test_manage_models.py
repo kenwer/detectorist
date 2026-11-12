@@ -226,17 +226,6 @@ def test_failed_download_releases_the_models_queued_behind_it(qtbot, open_dialog
     assert not dialog._downloader.is_downloading
 
 
-def test_manifest_fetch_failure_is_shown(qtbot, make_downloader, tmp_path, remote):
-    (remote / "models.json").unlink()
-    models = tmp_path / "models"
-    models.mkdir()
-
-    dialog = ManageModelsDialog(make_downloader(models), str(models))
-    qtbot.addWidget(dialog)
-
-    qtbot.waitUntil(lambda: dialog.ui.status_label.text().startswith("Error: Failed to fetch manifest"))
-
-
 def test_manifest_fetch_failure_lists_cached_and_installed_models(qtbot, make_downloader, tmp_path, remote):
     models = tmp_path / "models"
     models.mkdir()

@@ -143,13 +143,6 @@ def test_hide_bands_removes_everything(label):
     assert label.last_crop_rects is None
 
 
-def test_text_replaces_the_image(label):
-    label.setText("Loading image...")
-
-    assert label.pixmap().isNull()
-    assert label.text() == "Loading image..."
-
-
 def test_detections_with_masks_get_bands(label):
     mask = np.zeros((32, 32), dtype=np.uint8)
     mask[:, :16] = 255

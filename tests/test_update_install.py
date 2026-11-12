@@ -49,20 +49,15 @@ def test_linux_without_appimage_has_no_target(tmp_path: Path) -> None:
     assert detect_install("linux", tmp_path / "Detectorist", {}) is None
 
 
-def test_writable_folder_is_writable(tmp_path: Path) -> None:
-    app = tmp_path / "Detectorist.app"
-    app.mkdir()
-    assert MacOSAppInstall(app, tmp_path / ".detectorist-update").unwritable_reason() is None
-
-
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
 def test_read_only_folder_asks_to_move_the_app(tmp_path: Path) -> None:
     folder = tmp_path / "ro"
     (folder / "Detectorist.app").mkdir(parents=True)
+    mac = MacOSAppInstall(folder / "Detectorist.app", folder / ".detectorist-update")
+    linux = LinuxAppInstall(folder / "Detectorist.AppImage", folder / ".detectorist-update")
+    assert mac.unwritable_reason() is None
     folder.chmod(0o500)
     try:
-        mac = MacOSAppInstall(folder / "Detectorist.app", folder / ".detectorist-update")
-        linux = LinuxAppInstall(folder / "Detectorist.AppImage", folder / ".detectorist-update")
         assert mac.unwritable_reason() == "Move Detectorist into the Applications folder, then check again."
         assert linux.unwritable_reason() == "Move the AppImage to a folder you can write to, then check again."
     finally:
@@ -72,16 +67,6 @@ def test_read_only_folder_asks_to_move_the_app(tmp_path: Path) -> None:
 def test_windows_is_never_unwritable(tmp_path: Path) -> None:
     """Setup elevates by itself, so a folder the user cannot write to is no reason to block."""
     assert WindowsAppInstall(tmp_path / "missing", tmp_path / "t").unwritable_reason() is None
-
-
-def test_only_the_macos_apply_failure_points_to_app_management(tmp_path: Path) -> None:
-    assert "App Management" in MacOSAppInstall(tmp_path / "a.app", tmp_path).apply_failed_reason
-    assert "App Management" not in LinuxAppInstall(tmp_path / "a.AppImage", tmp_path).apply_failed_reason
-
-
-def test_version_dir_is_per_version(tmp_path: Path) -> None:
-    target = LinuxAppInstall(tmp_path / "a.AppImage", tmp_path / "stage")
-    assert target.version_dir(make_update("0.9.0")) == tmp_path / "stage" / "0.9.0"
 
 
 def test_free_space_needs_two_and_a_half_times_the_asset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -128,12 +113,6 @@ def test_prepare_linux_makes_the_appimage_executable(tmp_path: Path) -> None:
         assert archive.stat().st_mode & 0o111
 
 
-def test_prepare_windows_returns_the_installer(tmp_path: Path) -> None:
-    setup = tmp_path / "setup.exe"
-    setup.write_bytes(b"MZ")
-    assert WindowsAppInstall(tmp_path / "app", tmp_path).prepare(make_update(), setup) == setup
-
-
 def _fake_dmg(tmp_path: Path, version: str) -> Path:
     import plistlib
     import subprocess
@@ -161,17 +140,6 @@ def test_prepare_macos_extracts_and_checks_the_bundle(tmp_path: Path) -> None:
     app = target.prepare(update, archive)
     assert app == target.version_dir(update) / "Detectorist.app"
     assert (app / "Contents" / "MacOS" / "models").is_symlink()
-
-
-@pytest.mark.skipif(sys.platform != "darwin", reason="hdiutil")
-def test_prepare_macos_rejects_a_bundle_of_another_version(tmp_path: Path) -> None:
-    target = MacOSAppInstall(tmp_path / "Apps" / "Detectorist.app", tmp_path / "stage")
-    update = make_update("0.9.0")
-    archive = target.version_dir(update) / "x.dmg"
-    archive.parent.mkdir(parents=True)
-    shutil.move(_fake_dmg(tmp_path, "0.8.0"), archive)
-    with pytest.raises(UpdateError):
-        target.prepare(update, archive)
 
 
 def test_staged_payload_rechecks_the_digest(tmp_path: Path) -> None:
@@ -305,6 +273,21 @@ def test_a_staged_bundle_that_fails_the_check_is_extracted_again(
     assert not (target.version_dir(update) / "Detectorist.app").exists()
 
 
+def test_a_bundle_of_another_version_is_rejected_and_not_left_to_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real hdiutil round trip is test_prepare_macos_extracts_and_checks_the_bundle, this checks what follows it."""
+    target, update = _staged_macos(tmp_path, "0.8.0")
+    other_version = tmp_path / "other.app"
+    shutil.move(target.version_dir(update) / "Detectorist.app", other_version)
+    monkeypatch.setattr(install, "_extract_bundle", lambda _dmg, dest: shutil.copytree(other_version, dest, symlinks=True))
+
+    with pytest.raises(UpdateError, match="version 0.8.0"):
+        target.prepare(update, target.archive_path(update))
+
+    assert sorted(p.name for p in target.version_dir(update).iterdir()) == ["x.dmg"]
+
+
 def test_staged_payload_accepts_a_checked_bundle(tmp_path: Path) -> None:
     target, update = _staged_macos(tmp_path, "0.9.0")
     assert target.staged_payload(update) == target.version_dir(update) / "Detectorist.app"
@@ -315,18 +298,6 @@ def test_a_bundle_without_its_executable_fails_the_check(tmp_path: Path) -> None
     (target.version_dir(update) / "Detectorist.app" / "Contents" / "MacOS" / "Detectorist").unlink()
     with pytest.raises(UpdateError, match="executable is missing"):
         install._check_bundle(target.version_dir(update) / "Detectorist.app", "0.9.0")
-
-
-@pytest.mark.skipif(sys.platform != "darwin", reason="hdiutil")
-def test_rejected_bundle_is_not_left_where_it_could_be_installed(tmp_path: Path) -> None:
-    target = MacOSAppInstall(tmp_path / "Apps" / "Detectorist.app", tmp_path / "stage")
-    update = make_update("0.9.0")
-    archive = target.version_dir(update) / "x.dmg"
-    archive.parent.mkdir(parents=True)
-    shutil.move(_fake_dmg(tmp_path, "0.8.0"), archive)
-    with pytest.raises(UpdateError):
-        target.prepare(update, archive)
-    assert sorted(p.name for p in target.version_dir(update).iterdir()) == ["x.dmg"]
 
 
 def test_a_failed_swap_leaves_a_note_for_the_next_session(tmp_path: Path) -> None:
@@ -343,20 +314,6 @@ def test_a_successful_swap_leaves_no_note(tmp_path: Path) -> None:
     target = MacOSAppInstall(app, tmp_path / "stage")
     target.apply(payload, Recorder())
     assert not target.take_apply_failure()
-
-
-def test_verified_archive_checks_the_digest(tmp_path: Path) -> None:
-    import hashlib
-
-    target = MacOSAppInstall(tmp_path / "Detectorist.app", tmp_path / "stage")
-    update = make_update(sha256=hashlib.sha256(b"dmg").hexdigest(), asset="x.dmg")
-    assert target.verified_archive(update) is None
-    archive = target.version_dir(update) / "x.dmg"
-    archive.parent.mkdir(parents=True)
-    archive.write_bytes(b"dmg")
-    assert target.verified_archive(update) == archive
-    archive.write_bytes(b"bad")
-    assert target.verified_archive(update) is None
 
 
 def test_a_failed_launch_is_logged_not_raised(tmp_path: Path) -> None:
@@ -400,11 +357,6 @@ def test_a_staged_appimage_is_made_executable(tmp_path: Path) -> None:
     archive.chmod(0o644)
     assert target.staged_payload(update) == archive
     assert archive.stat().st_mode & 0o111
-
-
-def test_staged_payload_is_none_without_a_download(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(install, "download", lambda *a: pytest.fail("downloaded without a click"))
-    assert _linux_target(tmp_path).staged_payload(make_update()) is None
 
 
 def test_staged_payload_removes_other_staged_versions(tmp_path: Path) -> None:

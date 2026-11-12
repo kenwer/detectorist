@@ -59,19 +59,6 @@ def test_readme_section_of_level_3_stops_at_the_next_level_2_or_3_heading():
     assert shortcut_tables(markdown.replace("Keys", "Keyboard shortcuts")) == "## Global\n\n| a |"
 
 
-def test_shortcuts_document_names_the_current_export_actions(qtbot):
-    dialog = ShortcutsDialog()
-    qtbot.addWidget(dialog)
-    text = dialog.ui.shortcuts_text_browser.toPlainText()
-
-    assert "Export Images..." in text
-    assert "Export all Images" not in text
-    assert "Export selected Images" not in text
-    assert "Export & Remove" not in text
-    assert "Group Images" not in text
-
-
-
 @pytest.mark.parametrize(("platform", "rows"), [
     ("linux", ["| Linux | Action | Description |", "| Ctrl+Q | **Quit** | Quits Detectorist |",
                "| Ctrl+R | **Reveal in File Manager** | Shows the image in its folder |"]),

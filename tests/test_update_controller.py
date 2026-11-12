@@ -240,8 +240,8 @@ def test_download_reaches_ready(qtbot, window, monkeypatch, toasts, tmp_path) ->
 
 
 def _on_ui_thread() -> bool:
-    # A bool, never the QThread itself: tests/conftest.py's _stop_qt_threads
-    # quits every running QThread it finds, the main thread's wrapper included
+    # A bool, never the QThread itself: stop_worker_threads quits every QThread
+    # it finds, and a kept wrapper of the main thread would be among them
     from PySide6.QtCore import QThread
     from PySide6.QtWidgets import QApplication
 

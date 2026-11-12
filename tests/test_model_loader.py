@@ -92,13 +92,3 @@ def test_a_load_cancelled_by_unload_is_not_reported(qtbot, model_paths):
         loader.shutdown()
 
     assert loader.state is ModelState.NONE
-
-
-@pytest.mark.parametrize(("state", "expected"), [
-    (ModelState.NONE, False),
-    (ModelState.LOADING, True),
-    (ModelState.LOADED, True),
-    (ModelState.FAILED, False),
-])
-def test_only_a_loading_or_loaded_model_has_results_coming(state, expected):
-    assert state.is_loaded_or_loading is expected

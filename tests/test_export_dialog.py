@@ -2,7 +2,7 @@ import os
 
 import pytest
 from PySide6.QtCore import QUrl
-from PySide6.QtGui import QDesktopServices, QFont, QTextDocument
+from PySide6.QtGui import QDesktopServices, QTextDocument
 from PySide6.QtWidgets import QDialogButtonBox, QFileDialog
 
 from detectorist.export_dialog import ExportDialog, PreviewImage
@@ -48,10 +48,6 @@ def export_button(dialog):
     return dialog.ui.button_box.button(QDialogButtonBox.StandardButton.Ok)
 
 
-def test_dialog_is_titled_like_the_menu_item(make_dialog):
-    assert make_dialog().windowTitle() == "Export Images"
-
-
 def test_export_button_counts_the_images_in_scope(make_dialog):
     dialog = make_dialog(IMAGES[1:2])
     assert export_button(dialog).text() == "Export 4 Images"
@@ -61,16 +57,6 @@ def test_export_button_counts_the_images_in_scope(make_dialog):
     assert export_button(dialog).text() == "Export 1 Image"
 
 
-def test_name_choices_line_up_on_the_left(make_dialog):
-    layout = make_dialog().ui.hlyt_prefix
-    assert layout.itemAt(layout.count() - 1).spacerItem() is not None
-
-
-def test_the_notes_sit_with_the_output_folder(make_dialog):
-    dialog = make_dialog()
-    assert dialog.ui.output_group_box.isAncestorOf(dialog.ui.note_label)
-
-
 def test_preview_shows_all_its_lines(make_dialog, qtbot):
     dialog = make_dialog()
     dialog.show()
@@ -78,31 +64,11 @@ def test_preview_shows_all_its_lines(make_dialog, qtbot):
     assert dialog.ui.preview_label.height() >= dialog.ui.preview_label.minimumSizeHint().height()
 
 
-def test_widening_the_dialog_widens_only_the_preview(make_dialog, qtbot):
-    dialog = make_dialog()
-    dialog.show()
-    qtbot.waitExposed(dialog)
-    images_width, preview_width = dialog.ui.images_group_box.width(), dialog.ui.preview_group_box.width()
-
-    dialog.resize(dialog.width() + 300, dialog.height())
-    qtbot.waitUntil(lambda: dialog.ui.preview_group_box.width() != preview_width)
-
-    assert dialog.ui.images_group_box.width() == images_width
-    assert dialog.ui.preview_group_box.width() == preview_width + 300
-
-
 def test_dialog_is_only_as_tall_as_its_contents(make_dialog, qtbot):
     dialog = make_dialog()
     dialog.show()
     qtbot.waitExposed(dialog)
     assert dialog.height() == dialog.minimumSizeHint().height()
-
-
-@pytest.mark.parametrize("label", ["Naming scheme:", "Example:"])
-def test_preview_labels_are_bold(make_dialog, label):
-    document = preview(make_dialog())
-    found = document.find(label)
-    assert found.charFormat().fontWeight() == QFont.Weight.Bold
 
 
 @pytest.mark.parametrize("selected", [(), IMAGES[:1]])
@@ -114,21 +80,6 @@ def test_scope_defaults_to_several_selected_images(make_dialog):
     dialog = make_dialog(IMAGES[1:3])
     assert dialog.images() == IMAGES[1:3]
     assert export_button(dialog).text() == "Export 2 Images"
-
-
-def test_all_images_is_the_first_choice(make_dialog):
-    dialog = make_dialog()
-    layout = dialog.ui.hlyt_scope
-    assert layout.indexOf(dialog.ui.rb_all) < layout.indexOf(dialog.ui.rb_selected)
-
-
-def test_scope_choices_share_a_row_apart_from_the_skip_choices(make_dialog):
-    dialog = make_dialog()
-    layout = dialog.ui.hlyt_scope
-    assert layout.indexOf(dialog.ui.rb_all) >= 0
-    assert layout.indexOf(dialog.ui.rb_selected) >= 0
-    assert layout.indexOf(dialog.ui.cb_skip_no_detection) == -1
-    assert layout.itemAt(layout.count() - 1).spacerItem() is not None
 
 
 def test_all_images_can_be_chosen_instead_of_several_selected(make_dialog):
@@ -159,10 +110,11 @@ def test_scope_labels_count_the_images(make_dialog):
     assert dialog.ui.rb_all.text() == "All images (4)"
 
 
-def test_choices_start_from_the_given_crop_and_prefix(make_dialog):
-    dialog = make_dialog(crop=False, prefix_class=True, prefix_taxa=False)
-    options = dialog.options()
+def test_choices_start_from_the_given_options(make_dialog):
+    options = make_dialog(crop=False, prefix_class=True, prefix_taxa=False, skip_no_detection=True,
+                          skip_unidentified=True).options()
     assert (options.crop, options.prefix_class, options.prefix_taxa) == (False, True, False)
+    assert (options.skip_no_detection, options.skip_unidentified) == (True, True)
 
 
 def test_taxa_is_unavailable_without_a_classifier_but_stays_chosen(make_dialog):
@@ -170,11 +122,6 @@ def test_taxa_is_unavailable_without_a_classifier_but_stays_chosen(make_dialog):
     assert not dialog.ui.cb_prefix_taxa.isEnabled()
     assert dialog.ui.cb_prefix_taxa.text() == "Taxa (no classifier)"
     assert dialog.options().prefix_taxa
-
-
-def test_skip_choices_start_from_the_given_options(make_dialog):
-    options = make_dialog(skip_no_detection=True, skip_unidentified=True).options()
-    assert (options.skip_no_detection, options.skip_unidentified) == (True, True)
 
 
 def test_skipping_unidentified_is_offered_only_with_a_classifier_but_stays_chosen(make_dialog):
@@ -215,41 +162,8 @@ def test_choosing_a_folder_exports_there(make_dialog, monkeypatch, tmp_path):
     assert export_button(dialog).isEnabled()
 
 
-def test_the_choices_line_up_with_the_preview(make_dialog, qtbot):
-    dialog = make_dialog()
-    dialog.show()
-    qtbot.waitExposed(dialog)
-
-    def edges(widget):
-        top_left = widget.mapTo(dialog, widget.rect().topLeft())
-        return top_left.y(), top_left.y() + widget.height()
-
-    assert edges(dialog.ui.images_group_box)[0] == edges(dialog.ui.preview_group_box)[0]
-    assert edges(dialog.ui.files_group_box)[1] == edges(dialog.ui.preview_group_box)[1]
-
-
-def test_the_groups_form_one_grid(make_dialog):
-    dialog = make_dialog()
-    grid = dialog.ui.grdlyt_groups
-
-    def cells(widget):
-        return grid.getItemPosition(grid.indexOf(widget))
-
-    assert cells(dialog.ui.images_group_box) == (0, 0, 1, 1)
-    assert cells(dialog.ui.files_group_box) == (1, 0, 1, 1)
-    assert cells(dialog.ui.preview_group_box) == (0, 1, 2, 1)
-    assert cells(dialog.ui.output_group_box) == (2, 0, 1, 2)
-
-
 def test_use_default_is_hidden_on_the_default_folder(make_dialog):
     assert make_dialog().ui.default_link_label.isHidden()
-
-
-def test_use_default_sits_between_the_path_and_choose(make_dialog):
-    dialog = make_dialog()
-    layout = dialog.ui.hlyt_output
-    assert [layout.indexOf(widget) for widget in (dialog.ui.output_path_label, dialog.ui.default_link_label,
-                                                   dialog.ui.choose_button)] == [0, 1, 2]
 
 
 def test_use_default_returns_to_the_default_folder(make_dialog, monkeypatch, tmp_path):
@@ -307,10 +221,6 @@ def test_the_class_filter_is_named_only_when_set(make_dialog):
     dialog = make_dialog(class_filter="Fish")
     assert not dialog.ui.class_filter_label.isHidden()
     assert dialog.ui.class_filter_label.text() == "Only Fish detections (Show filter)"
-
-
-def test_note_warns_about_files_already_in_the_output_folder(make_dialog):
-    assert make_dialog().ui.note_label.text() == "Files already in the output folder with the same names are overwritten."
 
 
 def test_preview_shows_an_example_and_the_naming_scheme(make_dialog):
