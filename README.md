@@ -7,6 +7,11 @@
 - [Using Detectorist](#using-detectorist)
   - [Typical usage scenario](#typical-usage-scenario)
   - [Species lists](#species-lists)
+  - [Columns and scores](#columns-and-scores)
+    - [How the scores work](#how-the-scores-work)
+    - [Results table](#results-table)
+    - [detectorist-classification.csv](#detectorist-classificationcsv)
+    - [detectorist-detections.csv](#detectorist-detectionscsv)
   - [Keyboard shortcuts](#keyboard-shortcuts)
     - [Global shortcuts](#global-shortcuts)
     - [Image navigation shortcuts](#image-navigation-shortcuts)
@@ -101,6 +106,74 @@ The rescaling hides how much probability the classifier gave the listed species 
 Example: the classifier gives an object 0.6 for the unlisted species A, 0.3 for the listed species B and 0.1 for the listed species C. With the list, B gets 0.75 and C 0.25, and the List fit is 0.4. The score of 0.75 for B looks confident, but the List fit shows that the classifier mostly saw a species not on the list.
 
 A low List fit thus points to a species missing from the list, or to an object the classifier does not know. Such detections are worth checking.
+
+The scores and the List fit answer different questions, so the List fit can be higher or lower than any of the scores:
+- The scores: if the object is one of the listed species, which one is it?
+- The List fit: how likely is the object one of the listed species at all?
+
+For example, a family score of 0.72, no genus and a List fit of 0.83 mean that the object is probably a listed species, but the classifier spreads its probability over several listed genera, so none of them reaches `Min. taxon conf.`
+
+The species score multiplied by the List fit gives the probability the classifier gave that species without the list. In the example above, B has 0.75 × 0.4 = 0.3.
+
+All columns are defined in [Columns and scores](#columns-and-scores).
+
+### Columns and scores
+This section defines the columns of the results table and of the CSV files an export writes.
+
+#### How the scores work
+- Two models give scores. The detection model scores how sure it is that a box holds an object of its class. The classifier scores the family, genus and species of that object. The two scales come from different models and cannot be compared: a detection score of 0.6 and a species score of 0.6 do not mean the same.
+- The classifier gives each species it knows a probability, and these probabilities sum to 1. The score of a genus is the sum of the probabilities of its species. The score of a family is the sum of the probabilities of its species too.
+- The names are chosen top-down: the family with the highest score, then the genus with the highest score within that family, then the species with the highest probability within that genus. So the three names always belong together, and the scores never rise going down: family score ≥ genus score ≥ species score.
+- The species named is therefore not always the single most probable one. Example: species A of family X gets 0.4, while species B and C of family Y get 0.3 each. Family Y wins with 0.6, and B or C is named with 0.3, although A has 0.4.
+- A rank is named only if its score reaches `Min. taxon conf.` and the ranks above it are named. A genus never shows without its family, nor a species without its genus.
+- With a species list switched on, the family, genus and species scores are computed over the listed species only (see [Species lists](#species-lists)).
+- The scores are not error rates. A species score of 0.9 does not mean that 90% of such identifications are correct. How often they are correct depends on the images, and is best checked against expert identifications of a sample. A classifier also only knows the species it was trained on (see [AI model info](#ai-model-info)). An object of any other species gets the most similar known one, possibly with a high score.
+- The results table rounds scores to two decimals and caps them at 0.99, as no score means certainty. Sorting by a score column uses the unrounded values. The CSV files hold the unrounded values.
+
+#### Results table
+The table lists the detections shown on the current image, the highest detection score first. Click a column header to sort by that column.
+
+| Column | Meaning |
+| --- | --- |
+| Detected | The class the detection model assigned, e.g. `Fish` or `Fish_out-of-focus`. |
+| Score | The detection model's confidence in that class, from 0 to 1. The model scores each class separately, and the class with the highest score is the one shown. Only detections reaching `Min. detection conf.` are listed. |
+| Family | The family with the highest score. `Unidentified` if that score is below `Min. taxon conf.`, and `...` while the classifier is still working on the detection. Empty for a class the classifier does not name (see `Classifies` in [Classification models](#classification-models)). |
+| Score | The family score: the summed probability of the family's species. |
+| Genus | The genus with the highest score within the named family. Empty if that score is below `Min. taxon conf.` |
+| Score | The genus score: the summed probability of the genus's species. At most the family score. |
+| Species | The species with the highest probability within the named genus. Empty if that probability is below `Min. taxon conf.` |
+| Score | The species score: the probability of the named species. At most the genus score. |
+| List fit | Shown only while a species list is switched on. The summed probability of the listed species before they are rescaled, from 0 to 1 (see [Species lists](#species-lists)). Filled even when no rank reaches `Min. taxon conf.` |
+
+The family, genus and species columns are hidden while no classifier is selected.
+
+#### detectorist-classification.csv
+Written with a classifier. One row per exported detection whose class the classifier names. Exported detections are those reaching `Min. detection conf.` and matching the `Show` filter.
+
+| Column | Meaning |
+| --- | --- |
+| Filename | The image's file name, without its folder. |
+| Detection | The number of the detection within its image, from 1, the highest confidence score first. |
+| Class name | The class the detection model assigned, as `Detected` in the results table. |
+| Confidence score | The detection model's confidence in that class, as the `Score` next to `Detected` in the results table. |
+| x, y | The top-left corner of the bounding box in pixels, counted from the top-left corner of the image. The image is upright, as Detectorist shows it, with any EXIF orientation applied. |
+| w, h | The width and height of the bounding box in pixels. The box is cut back to the image where it extends beyond it. |
+| Family, Genus, Species | The names as in the results table. Species are written in the model's form, e.g. `Amphiprion_ocellaris`. A rank below `Min. taxon conf.` is empty, so a detection without any named rank has an empty Family (where the results table shows `Unidentified`). `classify-error` in Family means the classifier failed on this detection, and the other taxon columns are empty. |
+| Family score, Genus score, Species score | The scores as in the results table. Empty where the name is empty. |
+| List fit | As in the results table. Empty without a species list. |
+
+`Min. taxon conf.` and the species list used are recorded in `detectorist-settings.json`.
+
+#### detectorist-detections.csv
+One row per image of the export, including images without detections.
+
+| Column | Meaning |
+| --- | --- |
+| Filename | The image's file name, without its folder. |
+| Highest confidence score | The highest confidence score among the image's exported detections. 0 if there are none. |
+| Class name | The class of that detection. `N/A` if there are no detections, `load-error` if the image could not be loaded, `process-error` if it could not be processed. |
+| Number of detected objects | The number of exported detections in the image. |
+| cropped | `yes` if crops were written, `no` if the whole image was copied, `skipped` if the export options left the image out (see [Typical usage scenario](#typical-usage-scenario)), `n/a` if the image failed. |
 
 ### Keyboard shortcuts
 The shortcuts are also listed in the app's `Help -> Keyboard Shortcuts` menu.

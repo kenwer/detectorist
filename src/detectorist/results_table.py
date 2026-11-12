@@ -9,6 +9,20 @@ from .structures import RANK_COUNT
 
 # The detector's class and score, a name and score per rank the classifier names, then the list fit
 HEADER_LABELS = ["Detected", "Score", "Family", "Score", "Genus", "Score", "Species", "Score", "List fit"]
+# Short forms of the column definitions in the README's "Columns and scores", which researchers cite
+_RESTRICTED = " With a species list, computed over the listed species only"
+HEADER_TOOLTIPS = [
+    "Class the detection model assigned to the object",
+    "Detection model's confidence in the class, from 0 to 1. Not comparable with the classifier's scores",
+    "Family with the highest score. Unidentified if that score is below the minimum taxon confidence",
+    "Family score: summed probability of the family's species." + _RESTRICTED,
+    "Genus with the highest score within the family. Empty if that score is below the minimum taxon confidence",
+    "Genus score: summed probability of the genus's species. At most the family score." + _RESTRICTED,
+    "Species with the highest probability within the genus. Empty if it is below the minimum taxon confidence",
+    "Species score: probability of the species. At most the genus score." + _RESTRICTED,
+    "Summed probability of the listed species before the list rescales them, from 0 to 1. Low values suggest "
+    "a species not on the list. Species score × List fit is the species' probability without the list",
+]
 TAXONOMY_COLUMNS = range(2, 2 + 2 * RANK_COUNT)
 LIST_FIT_COLUMN = TAXONOMY_COLUMNS.stop
 SCORE_COLUMNS = (1, *TAXONOMY_COLUMNS[1::2], LIST_FIT_COLUMN)
@@ -63,8 +77,8 @@ class ResultsTable(QTreeWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setHeaderLabels(HEADER_LABELS)
-        self.headerItem().setToolTip(LIST_FIT_COLUMN, "Share of the model's confidence that fell on the listed "
-                                     "species. Low values suggest a species not on the list")
+        for column, tooltip in enumerate(HEADER_TOOLTIPS):
+            self.headerItem().setToolTip(column, tooltip)
         # The scores fit their header, the names share the rest of the width
         header = self.header()
         header.setStretchLastSection(False)

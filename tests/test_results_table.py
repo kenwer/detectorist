@@ -86,3 +86,13 @@ def test_the_list_fit_column_is_hidden_until_asked_for(qtbot):
 
     assert table.isColumnHidden(HEADER_LABELS.index("List fit"))
     assert "species not on the list" in table.headerItem().toolTip(HEADER_LABELS.index("List fit"))
+
+
+def test_every_column_header_explains_its_column(qtbot):
+    table = ResultsTable()
+    qtbot.addWidget(table)
+
+    tooltips = [table.headerItem().toolTip(column) for column in range(len(HEADER_LABELS))]
+    assert all(tooltips)
+    # The three taxon scores share a header label, so only the tooltip tells them apart
+    assert len({tooltips[column] for column in (3, 5, 7)}) == 3
