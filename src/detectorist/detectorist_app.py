@@ -1444,7 +1444,9 @@ class DetectoristApp(QMainWindow):
         if not selected_indexes:
             return
 
-        filenames = [self.model.data(index) for index in selected_indexes if index.isValid()]
+        # selectedIndexes() lists the rows in the order they were clicked
+        rows = sorted(index.row() for index in selected_indexes if index.isValid())
+        filenames = [self.model.data(self.model.index(row)) for row in rows]
         clipboard_text = "\n".join(filenames)
         clipboard = QApplication.clipboard()
         clipboard.setText(clipboard_text)

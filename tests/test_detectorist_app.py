@@ -1193,14 +1193,18 @@ def test_clear_list_disables_the_actions_that_need_a_selection(window, folder, m
     assert not window.ui.remove_selected_images_from_list_action.isEnabled()
 
 
-def test_copy_filenames_puts_them_on_the_clipboard(window, folder, monkeypatch, toasts):
-    make_images(folder, ["a.png", "b.png"], IMAGE_SIZE)
+def test_copy_filenames_puts_them_on_the_clipboard_in_list_order(window, folder, monkeypatch, toasts):
+    make_images(folder, ["a.png", "b.png", "c.png"], IMAGE_SIZE)
     open_folder(window, folder, monkeypatch)
+    # Ctrl-clicked from the bottom up
+    selection = window.ui.image_list_view.selectionModel()
+    selection.select(window.model.index(2), QItemSelectionModel.SelectionFlag.ClearAndSelect)
+    selection.select(window.model.index(0), QItemSelectionModel.SelectionFlag.Select)
 
     window.ui.copy_filenames_to_clipboard_action.trigger()
 
-    assert QApplication.clipboard().text() == "a.png"
-    assert toasts[-1][:3] == ("success", "Copied to clipboard", "Copied 1 filename.")
+    assert QApplication.clipboard().text() == "a.png\nc.png"
+    assert toasts[-1][:3] == ("success", "Copied to clipboard", "Copied 2 filenames.")
 
 
 def test_reveal_shows_the_image_in_the_file_manager(window, folder, monkeypatch, spawned):
