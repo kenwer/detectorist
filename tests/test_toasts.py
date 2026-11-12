@@ -1,51 +1,28 @@
-"""Tests for the toast helpers.
+"""Tests for the toast link, the one part of the toast helpers with logic of its own.
 
-The autouse toasts fixture replaces _show_toast with a recorder, so these
-check what each public helper forwards. One test builds a real pyqttoast
-Toast (without showing it) to check the private label the link feature
-depends on, which is the reason the dependency is pinned in pyproject.toml.
+pyqttoast has no rich text API, so the link reaches into a private label of
+Toast, the reason the dependency is pinned in pyproject.toml. The autouse
+toasts fixture replaces _show_toast with a recorder, so the real function is
+imported before that happens.
 """
 
-from pyqttoast import Toast
-from PySide6.QtWidgets import QLabel, QWidget
+from pyqttoast import Toast, ToastPreset
+from PySide6.QtWidgets import QWidget
 
-from detectorist.toasts import show_error_toast, show_success_toast, show_warning_toast
-
-
-def test_success_toast_forwards_the_link(toasts):
-    def on_link():
-        pass
-
-    show_success_toast(None, "Done", "Exported.", link_text="Show", on_link=on_link)
-
-    assert toasts == [("success", "Done", "Exported.", {"link_text": "Show", "on_link": on_link, "duration": None})]
+from detectorist.toasts import _show_toast as real_show_toast
 
 
-def test_error_toast(toasts):
-    show_error_toast(None, "Failed", "No such file.")
-
-    assert toasts == [("error", "Failed", "No such file.", {"duration": None})]
-
-
-def test_warning_toast_forwards_the_duration(toasts):
-    show_warning_toast(None, "Careful", "Folder missing.", duration=0)
-
-    assert toasts == [("warning", "Careful", "Folder missing.", {"link_text": None, "on_link": None, "duration": 0})]
-
-
-def test_warning_toast_forwards_the_link(toasts):
-    def on_link():
-        pass
-
-    show_warning_toast(None, "Careful", "Some failed.", link_text="Show", on_link=on_link)
-
-    assert toasts == [("warning", "Careful", "Some failed.", {"link_text": "Show", "on_link": on_link, "duration": None})]
-
-
-def test_pyqttoast_still_has_the_text_label_the_link_needs(qtbot):
+def test_a_toast_link_runs_its_callback(qtbot, monkeypatch):
     parent = QWidget()
     qtbot.addWidget(parent)
+    # A shown toast starts pyqttoast's class-level queue and timers, which outlive the test
+    monkeypatch.setattr(Toast, "show", lambda self: None)
+    clicked = []
 
-    toast = Toast(parent)
+    toast = real_show_toast(parent, "Done", "Exported.", ToastPreset.SUCCESS, link_text="Reveal",
+                            on_link=lambda: clicked.append(True))
 
-    assert isinstance(getattr(toast, "_Toast__text_label", None), QLabel)
+    label = toast._Toast__text_label
+    assert '<a href="#">Reveal</a>' in label.text()
+    label.linkActivated.emit("#")
+    assert clicked == [True]

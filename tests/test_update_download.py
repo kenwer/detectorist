@@ -82,3 +82,18 @@ def test_a_complete_but_wrong_part_file_starts_over(tmp_path: Path, local_http_s
     assert not (tmp_path / "a.bin.part").exists()
     download(update, tmp_path / "a.bin", no_progress, never)
     assert (tmp_path / "a.bin").read_bytes() == BLOB
+
+
+def test_a_part_file_the_server_cannot_resume_is_dropped(tmp_path: Path, local_http_server) -> None:
+    update = served_update(local_http_server)
+    # Left by an earlier asset of the same name, longer than the file now served
+    (tmp_path / "a.bin.part").write_bytes(b"x" * 1000)
+    local_http_server.routes["/a.bin"] = Route(b"", status=416)
+
+    with pytest.raises(UpdateError):
+        download(update, tmp_path / "a.bin", no_progress, never)
+
+    assert not (tmp_path / "a.bin.part").exists()
+    local_http_server.routes["/a.bin"] = Route(BLOB)
+    download(update, tmp_path / "a.bin", no_progress, never)
+    assert (tmp_path / "a.bin").read_bytes() == BLOB

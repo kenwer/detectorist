@@ -66,12 +66,15 @@ def test_check_worker_cleans_up_even_when_offline(monkeypatch: pytest.MonkeyPatc
     assert not (tmp_path / "stage" / "0.8.0").exists()
 
 
-def test_download_worker_reports_progress_and_the_payload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_download_worker_reports_progress_past_two_gb_and_the_payload(monkeypatch: pytest.MonkeyPatch,
+                                                                       tmp_path: Path) -> None:
     payload = tmp_path / "stage" / "0.9.0" / "a.AppImage"
+    # Beyond the 32 bit int a Signal(int) carries
+    total = 3 * 10**9
 
     def fake_fetch(target, update, progress, cancelled):
-        progress(5, 10)
-        progress(10, 10)
+        progress(total // 2, total)
+        progress(total, total)
         return payload
 
     monkeypatch.setattr(LinuxAppInstall, "fetch_payload", fake_fetch)
@@ -81,7 +84,7 @@ def test_download_worker_reports_progress_and_the_payload(monkeypatch: pytest.Mo
     worker.progress.connect(lambda done, total: progress.append((done, total)))
     worker.finished.connect(received.append)
     worker.run()
-    assert progress == [(5, 10), (10, 10)]
+    assert progress == [(total // 2, total), (total, total)]
     assert received == [payload]
 
 

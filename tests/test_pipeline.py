@@ -306,6 +306,32 @@ def test_request_after_unload_reports_an_error(qtbot, tmp_path, make_pipeline):
     assert env.rec.errors == [(path_a, "Model not loaded.")]
 
 
+def test_a_detector_failure_is_reported_once_and_the_prefetch_goes_on(qtbot, tmp_path, make_pipeline):
+    path_a, path_b = make_images(tmp_path, ["a.png", "b.png"], IMAGE_SIZE)
+    env = make_pipeline({"b.png": [FISH]})
+
+    def fail_on_a(name):
+        if name == "a.png":
+            raise RuntimeError("onnx exploded")
+    env.detectors.created[0].on_detect = fail_on_a
+
+    show(env.pipeline, path_a)
+    env.pipeline.prefetch([path_b])
+    qtbot.waitUntil(lambda: env.rec.cached_now == [path_b])
+    qtbot.wait(50)
+
+    assert env.rec.errors == [(path_a, "Error processing image: onnx exploded")]
+    # Not retried in a loop
+    assert detected(env) == ["a.png", "b.png"]
+
+    # Coming back to the image is what tries it again
+    show(env.pipeline, path_b)
+    qtbot.waitUntil(lambda: len(env.rec.completed) == 1)
+    show(env.pipeline, path_a)
+    qtbot.waitUntil(lambda: len(env.rec.errors) == 2)
+    assert detected(env) == ["a.png", "b.png", "a.png"]
+
+
 def test_rapid_requests_end_on_the_last_one(qtbot, tmp_path, make_pipeline):
     paths = make_images(tmp_path, [f"{i:02}.png" for i in range(50)], IMAGE_SIZE)
     env = make_pipeline()

@@ -1,10 +1,12 @@
 """UpdateController against fake feed and install functions on real worker threads."""
 
 import re
+import threading
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from PySide6.QtWidgets import QMessageBox
 
 from detectorist import toasts as toasts_module
 from detectorist.main import attach_updater
@@ -276,6 +278,34 @@ def test_cancelled_download_returns_to_available_on_the_ui_thread(qtbot, window,
     _start_download(controller, monkeypatch, cancelled)
     qtbot.waitUntil(lambda: controller.state is UpdateState.AVAILABLE)
     assert seen[-1] == (UpdateState.AVAILABLE, True)
+
+
+@pytest.mark.parametrize(("answer", "toast_titles"), [
+    (QMessageBox.StandardButton.Yes, []),
+    # Left to run on, so it ends the way the download does, here with an error
+    (QMessageBox.StandardButton.No, ["Update download failed"]),
+])
+def test_clicking_the_link_during_a_download_offers_to_cancel_it(qtbot, window, monkeypatch, toasts, tmp_path,
+                                                                  answer, toast_titles) -> None:
+    started, release = threading.Event(), threading.Event()
+
+    def waits_for_the_answer(_update, _dest, _progress, is_cancelled) -> None:
+        started.set()
+        release.wait(5)
+        if is_cancelled():
+            raise DownloadCancelled
+        raise UpdateError("connection reset")
+
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a: answer)
+    controller = _controller(window, linux_install(tmp_path))
+    _start_download(controller, monkeypatch, waits_for_the_answer)
+    qtbot.waitUntil(started.is_set)
+
+    controller.status_link.linkActivated.emit("#")
+    release.set()
+
+    qtbot.waitUntil(lambda: controller.state is UpdateState.AVAILABLE)
+    assert _titles(toasts) == toast_titles
 
 
 def test_restart_declined_keeps_app_open_and_applies_nothing(window, monkeypatch, tmp_path) -> None:
