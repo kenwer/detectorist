@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests import tiny_models  # noqa: E402
 
 
-def build(path: Path, logits: list, class_names: dict, masks: list | None = None) -> None:
+def build(path: Path, logits: list, class_names: dict, masks: list | None = None, rfdetr_metadata: bool = False) -> None:
     """Write a model whose outputs are constants, shaped like an RF-DETR export."""
     size = tiny_models.INPUT_SIZE
     model_input = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, size, size])
@@ -46,7 +46,16 @@ def build(path: Path, logits: list, class_names: dict, masks: list | None = None
     # Pinned so a newer onnx package does not emit an IR version that the
     # project's onnxruntime cannot read yet.
     model.ir_version = 8
-    model.metadata_props.add(key="names", value=repr(class_names))
+    if rfdetr_metadata:
+        # As rf-detr 1.12 writes it, trimmed to the keys Detector reads
+        model.metadata_props.add(key="rfdetr_inference", value=json.dumps({
+            "class_names": list(class_names.values()),
+            "class_id_to_name": {str(column): name for column, name in class_names.items()},
+            "num_classes": len(class_names),
+        }))
+    else:
+        # The legacy key of exports before rf-detr 1.12, still in the shipped models
+        model.metadata_props.add(key="names", value=repr(class_names))
 
     path.parent.mkdir(parents=True, exist_ok=True)
     onnx.save(model, str(path))
@@ -91,7 +100,7 @@ def build_classifier(path: Path) -> None:
 
 def main() -> None:
     build(tiny_models.DETECT_MODEL, tiny_models.DETECT_LOGITS, tiny_models.DETECT_CLASS_NAMES)
-    build(tiny_models.SEG_MODEL, tiny_models.SEG_LOGITS, tiny_models.SEG_CLASS_NAMES, masks=tiny_models.mask_logits())
+    build(tiny_models.SEG_MODEL, tiny_models.SEG_LOGITS, tiny_models.SEG_CLASS_NAMES, masks=tiny_models.mask_logits(), rfdetr_metadata=True)
     build_classifier(tiny_models.CLASSIFY_MODEL)
 
 

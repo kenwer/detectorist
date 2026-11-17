@@ -1,4 +1,5 @@
 import ast
+import json
 
 import cv2
 import numpy as np
@@ -7,6 +8,22 @@ import onnxruntime as ort
 from .image_object import ImageObject
 from .structures import Detection, PackedMask
 from .utils import load_model_bytes
+
+
+def class_names_from_metadata(metadata: dict[str, str]) -> dict[int, str]:
+    """
+    Maps logit columns to class names from an RF-DETR ONNX model's metadata.
+
+    Exports from rf-detr 1.12 on carry 'rfdetr_inference', a JSON whose class_id_to_name has
+    the columns as string keys. Older exports carry 'names', a Python dict literal. Both hold
+    the same mapping, so the columns start at 0 or 1 as before: segmentation models start at
+    0, detection models at 1 (column 0 is background). The column after the last class is
+    the no-object slot and has no name.
+    """
+    if 'rfdetr_inference' in metadata:
+        mapping = json.loads(metadata['rfdetr_inference'])['class_id_to_name']
+        return {int(column): name for column, name in mapping.items()}
+    return ast.literal_eval(metadata.get('names', '{}').strip())
 
 
 class Detector:
@@ -19,7 +36,7 @@ class Detector:
     - outputs[2]: mask logits with shape (1, num_detections, 126, 126) — segmentation models only
 
     Boxes are in normalized coordinates [0, 1]. Class outputs are logits requiring sigmoid.
-    Uses 1-indexed class IDs (0 is background).
+    Class names are keyed by logit column (see class_names_from_metadata).
     Does not require NMS (DETR architecture handles duplicate suppression via attention).
     """
 
@@ -38,8 +55,7 @@ class Detector:
             metadata = self.session.get_modelmeta().custom_metadata_map
             if 'classifier' in metadata:
                 raise ValueError("this is a classifier, not a detection model")
-            onnx_names_str = metadata.get('names', '{}')
-            self.class_names = ast.literal_eval(onnx_names_str.strip())
+            self.class_names = class_names_from_metadata(metadata)
 
         except Exception as e:
             raise OSError(f"Error loading ONNX model from '{model_path}': {e}") from e
@@ -115,10 +131,7 @@ class Detector:
         # Tuples, so a box can key what the classifier says about it
         boxes_xywh = [tuple(b) for b in np.column_stack((x, y, w_scaled, h_scaled)).astype(int).tolist()]
 
-        # Build final results.
-        # The 'names' metadata is keyed by the class ID argmax produces: RF-DETR detection
-        # models are 1-indexed (index 0 is background); segmentation models are 0-indexed
-        # (no background class).
+        # Build final results. class_names is keyed by the logit column argmax picks.
         final_results = []
         for i in range(len(boxes_xywh)):
             class_id = class_ids[i]

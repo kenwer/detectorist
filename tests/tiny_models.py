@@ -8,6 +8,8 @@ import anything from the project.
 Each model reports three detections, deliberately not in score order, so
 tests can tell whether Detector sorts them. Detection models name their
 classes from index 1 (index 0 is background). Segmentation models start at 0.
+The detection model carries the legacy 'names' metadata of exports before
+rf-detr 1.12, the segmentation model rf-detr's own 'rfdetr_inference'.
 """
 
 from pathlib import Path

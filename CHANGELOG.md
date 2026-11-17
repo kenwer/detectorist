@@ -5,6 +5,7 @@
 - Add support for species lists, which restrict the classifier to the picked species:
   - Each classifier keeps its own list, which can be switched off without losing it.
   - A List fit column in the results and the classification CSV gives the summed probability of the listed species before they are rescaled to sum to 1.
+- [Dev] Add additional functionality to load class name metadata from onnx models.
 
 ## [0.14.2] - 2026-11-12
 ### Added
