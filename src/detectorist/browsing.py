@@ -11,7 +11,7 @@ from enum import Enum, auto
 
 import numpy as np
 
-from .cache import ImageStore
+from .cache import ImageStore, LoadedImage
 from .image_object import ImageObject
 from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
 from .model_loader import Models, ModelState
@@ -156,6 +156,12 @@ class Browsing:
         self._detect_failed.clear()
         self._delivered.clear()
 
+    def _loaded(self, path: str) -> LoadedImage:
+        """The cached image of a path whose needs name a job on it, which only follows once it is decoded."""
+        loaded = self._store.image(path)
+        assert loaded is not None
+        return loaded
+
     def next_decode(self, models: Models) -> DecodeJob | DisplayJob | None:
         """Decodes the wanted images and builds their display arrays, the shown image first."""
         for path in self._wanted_paths():
@@ -169,7 +175,7 @@ class Browsing:
                     self._prefetched.add(path)
                 return DecodeJob(path, CancelToken())
             if work is Work.DISPLAY:
-                return DisplayJob(self._store.image(path).image, self._exposure(), CancelToken())
+                return DisplayJob(self._loaded(path).image, self._exposure(), CancelToken())
         return None
 
     def next_inference(self, models: Models) -> DetectJob | ClassifyJob | None:
@@ -177,9 +183,9 @@ class Browsing:
         for path in self._wanted_paths():
             needs = self._needs(path, models)
             if needs.inference is Work.DETECT:
-                return DetectJob(self._store.image(path).image, models.detector_id, CancelToken())
+                return DetectJob(self._loaded(path).image, models.detector_id, CancelToken())
             if needs.inference is Work.CLASSIFY:
-                return ClassifyJob(self._store.image(path).image, list(needs.boxes), models.classifier_id,
+                return ClassifyJob(self._loaded(path).image, list(needs.boxes), models.classifier_id,
                                    CancelToken())
         return None
 

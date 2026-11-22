@@ -147,11 +147,12 @@ class ImageLabel(QLabel):
     def _band_at(self, pos: QPoint):
         """The detection band under a widget point, or None. Over a segmentation model's band, only its mask counts."""
         img_point = self._map_point_from_widget_to_image(pos)
+        image = self.image
         for band, mask in self._hit_order:
-            if mask is not None and img_point is not None:
+            if mask is not None and img_point is not None and image is not None:
                 # Map from image coordinates to mask coordinates (mask may be at a lower resolution).
-                mx = int(img_point.x() * mask.shape[1] / self.image.width)
-                my = int(img_point.y() * mask.shape[0] / self.image.height)
+                mx = int(img_point.x() * mask.shape[1] / image.width)
+                my = int(img_point.y() * mask.shape[0] / image.height)
                 if 0 <= my < mask.shape[0] and 0 <= mx < mask.shape[1] and mask[my, mx] > 128:
                     return band
             elif band.geometry().contains(pos):

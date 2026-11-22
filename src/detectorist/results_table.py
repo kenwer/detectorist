@@ -147,6 +147,7 @@ class ResultsTable(QTreeWidget):
         self._highlighted_box = box
         for i in range(self.topLevelItemCount()):
             item = self.topLevelItem(i)
+            assert item is not None
             self._set_highlighted(item, item.data(0, BOX_ROLE) == box)
 
     def _set_highlighted(self, item: QTreeWidgetItem, highlighted: bool):

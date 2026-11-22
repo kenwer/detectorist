@@ -148,7 +148,8 @@ class ManageModelsDialog(QDialog):
         """Remove every row and separator from the scroll area."""
         layout = self.ui.scroll_contents_layout
         while layout.count():
-            widget = layout.takeAt(0).widget()
+            item = layout.takeAt(0)
+            widget = item.widget() if item is not None else None
             if widget is not None:
                 widget.deleteLater()
         self._rows = []
@@ -379,9 +380,10 @@ class ManageModelsDialog(QDialog):
             idx = layout.indexOf(row_widget)
             if idx > 0:
                 separator_item = layout.itemAt(idx - 1)
-                if separator_item and separator_item.widget():
-                    separator_item.widget().deleteLater()
-                    layout.removeWidget(separator_item.widget())
+                separator = separator_item.widget() if separator_item else None
+                if separator is not None:
+                    separator.deleteLater()
+                    layout.removeWidget(separator)
             row_widget.deleteLater()
             layout.removeWidget(row_widget)
             self._rows.remove(row)

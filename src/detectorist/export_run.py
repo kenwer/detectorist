@@ -207,6 +207,7 @@ class ExportWriter:
 
     def _add_rows(self, detections_row: DetectionsRow, rows: list[ClassificationRow]) -> None:
         self._detections_rows.append(detections_row)
+        assert self._detections_csv is not None, "open() was not called"
         self._detections_csv.writerow(detections_row)
         if self._classification_csv is not None:
             self._classification_rows += rows
