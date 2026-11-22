@@ -14,6 +14,7 @@ touched on the GUI thread and need no locks.
 import logging
 from collections.abc import Callable, Collection, Sequence
 
+import numpy as np
 from PySide6.QtCore import QObject, QThread, Signal
 
 from .browsing import (
@@ -52,7 +53,7 @@ def neighbours(paths: list[str], current: str, per_side: int) -> list[str]:
         row = paths.index(current)
     except ValueError:
         return []
-    window = []
+    window: list[str] = []
     for distance in range(1, per_side + 1):
         window += [paths[i] for i in (row + distance, row - distance) if 0 <= i < len(paths)]
     return window
@@ -284,7 +285,7 @@ class Pipeline(QObject):
         self._browsing.on_classifier_dropped()
         self.names_dropped.emit()
 
-    def _on_detector_loaded(self, detector, model_path: str):
+    def _on_detector_loaded(self, detector: Detector, model_path: str):
         self._set_detector.emit(detector, self._detector.model_id)
         self.model_loaded.emit(True, f"Loaded model: {model_path}", sorted(detector.class_names.values()),
                                detector.is_segmentation)
@@ -294,7 +295,7 @@ class Pipeline(QObject):
         self.model_loaded.emit(False, f"Error loading model: {message}", [], False)
         self._schedule()
 
-    def _on_classifier_loaded(self, classifier, _model_path: str):
+    def _on_classifier_loaded(self, classifier: Classifier, _model_path: str):
         self._loaded_classifier = classifier
         self._species = species_restriction(self._requested_species, classifier.species)
         self._hand_classifier_to_worker(classifier)
@@ -445,7 +446,7 @@ class Pipeline(QObject):
             self._browsing.on_decoded(job, image, decode_time_ms)
         self._schedule()
 
-    def _on_displayed(self, job: DisplayJob, display, display_time_ms: float):
+    def _on_displayed(self, job: DisplayJob, display: np.ndarray, display_time_ms: float):
         self._decode_job = None
         self._browsing.on_displayed(job, display, display_time_ms)  # an export builds no display arrays
         self._schedule()

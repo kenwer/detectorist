@@ -271,7 +271,7 @@ class HeifImageObject(ImageObject):
         return f"{summary}\n{line}" if summary else line
 
     def save_cropped(self, rect: tuple[int, int, int, int], output_path: str, exposure_correction: bool = False,
-                     quality=80):
+                     quality: int = 80):
         """
         Saves a cropped version of the HEIF image, preserving its original
         bit depth, metadata, and HEIF format.

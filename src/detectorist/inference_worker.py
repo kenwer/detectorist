@@ -9,8 +9,10 @@ import time
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from .classifier import CROPS_PER_RUN
+from .classifier import CROPS_PER_RUN, Classifier
+from .detector import Detector
 from .jobs import ClassifierId, ClassifyJob, DetectJob
+from .structures import Box, Taxonomy
 from .utils import FileStamp
 
 logger = logging.getLogger(__name__)
@@ -37,12 +39,12 @@ class InferenceWorker(QObject):
         self._classifier_id: ClassifierId | None = None
 
     @Slot(object, object)
-    def set_detector(self, detector, model_id: FileStamp | None):
+    def set_detector(self, detector: Detector | None, model_id: FileStamp | None):
         """Replaces the detector. None unloads it, which frees the model."""
         self._detector, self._detector_id = detector, model_id
 
     @Slot(object, object)
-    def set_classifier(self, classifier, model_id: ClassifierId | None):
+    def set_classifier(self, classifier: Classifier | None, model_id: ClassifierId | None):
         """
         Replaces the classifier, also with the same model naming from another
         species list. None unloads it, which frees the model.
@@ -76,7 +78,7 @@ class InferenceWorker(QObject):
         if job.token.cancelled or self._classifier is None or job.model_id != self._classifier_id:
             self.cancelled.emit(job)
             return
-        names = {}
+        names: dict[Box, Taxonomy] = {}
         start_time = time.perf_counter()
         try:
             for start in range(0, len(job.boxes), CROPS_PER_RUN):

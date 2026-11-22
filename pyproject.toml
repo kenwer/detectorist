@@ -298,9 +298,8 @@ reportUnnecessaryIsInstance = "error"
 reportUnnecessaryCast = "error"
 # A bare dict or list leaves the types of its items unknown
 reportMissingTypeArgument = "error"
-# Modules that pass strict mode. Most others fall short through untyped libraries (piexif,
-# onnxruntime, pyqttoast), the generated UI classes, or Signal(list), whose bare list strict mode
-# rejects. Signal(object) would type-check but passes the list itself where Signal(list) copies it.
+# Modules that pass strict mode. The others fall short through untyped libraries (piexif,
+# onnxruntime, pyqttoast) or the generated UI classes, whose setupUi takes an untyped argument.
 strict = [
     "src/detectorist/__init__.py",
     "src/detectorist/__main__.py",
@@ -311,11 +310,16 @@ strict = [
     "src/detectorist/export_files.py",
     "src/detectorist/export_planner.py",
     "src/detectorist/export_run.py",
+    "src/detectorist/image_label.py",
     "src/detectorist/image_list_model.py",
     "src/detectorist/image_worker.py",
+    "src/detectorist/inference_worker.py",
     "src/detectorist/jobs.py",
+    "src/detectorist/model_downloader.py",
     "src/detectorist/model_loader.py",
+    "src/detectorist/pipeline.py",
     "src/detectorist/raw_image_object.py",
+    "src/detectorist/results_table.py",
     "src/detectorist/species_list_controls.py",
     "src/detectorist/species_lists.py",
     "src/detectorist/structures.py",

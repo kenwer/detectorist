@@ -6,14 +6,17 @@ from collections.abc import Callable, Sequence, Set
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pillow_heif
 from PySide6.QtCore import (
+    QModelIndex,
+    QPoint,
     QRect,
     QSignalBlocker,
     Qt,
     QTimer,
 )
-from PySide6.QtGui import QKeySequence
+from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QKeyEvent, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -502,7 +505,7 @@ class DetectoristApp(QMainWindow):
         took: loading it and, once it is detected, how many detections are
         shown and classified. A cached step gives the time it took when it ran.
         """
-        parts = []
+        parts: list[str] = []
         if self._last_load_time_ms is not None:
             parts.append(f"Image loaded ({self._last_load_time_ms:.0f} ms)")
         if self._detected:
@@ -731,7 +734,7 @@ class DetectoristApp(QMainWindow):
         # (Selection-dependent actions are handled via the modelReset signal)
         self.ui.export_action.setEnabled(False)
 
-    def on_image_selected(self, index):
+    def on_image_selected(self, index: QModelIndex):
         if not index.isValid():
             return
 
@@ -846,7 +849,7 @@ class DetectoristApp(QMainWindow):
             self._show_message(message)
             logger.error(message)
 
-    def handle_image_loaded(self, image_path: str, image_object: ImageObject, display, load_time_ms: float):
+    def handle_image_loaded(self, image_path: str, image_object: ImageObject, display: np.ndarray, load_time_ms: float):
         """
         Handles the image_loaded signal from the Pipeline. The image shown
         already only gets its new display array, e.g. after the exposure
@@ -980,7 +983,7 @@ class DetectoristApp(QMainWindow):
         self.ui.status_bar.clearMessage()
         show_error_toast(self, "Could not process image", f"{os.path.basename(image_path)}: {message}")
 
-    def on_model_selected(self, index):
+    def on_model_selected(self, index: int):
         if index < 0:
             return
         filename = self.ui.model_select_combo_box.itemData(index)
@@ -1157,7 +1160,7 @@ class DetectoristApp(QMainWindow):
             self._show_welcome_state()
 
     @staticmethod
-    def _dropped_paths(event) -> list[str]:
+    def _dropped_paths(event: QDropEvent) -> list[str]:
         """
         The local paths dragged in an event. Windows Explorer substitutes 8.3
         short names into drag-and-drop data when the real path exceeds
@@ -1177,7 +1180,7 @@ class DetectoristApp(QMainWindow):
         folders = {path if os.path.isdir(long_path(path)) else os.path.dirname(path) for path in paths}
         return len(folders) == 1
 
-    def dragEnterEvent(self, event):
+    def dragEnterEvent(self, event: QDragEnterEvent):
         # Refusing here shows the "not allowed" cursor before the user lets go
         paths = self._dropped_paths(event)
         if self._is_one_folder(paths) and any(os.path.isdir(long_path(path)) or is_supported_image(path) for path in paths):
@@ -1185,10 +1188,10 @@ class DetectoristApp(QMainWindow):
         else:
             event.ignore()
 
-    def dragMoveEvent(self, event):
+    def dragMoveEvent(self, event: QDragMoveEvent):
         event.acceptProposedAction()
 
-    def dropEvent(self, event):
+    def dropEvent(self, event: QDropEvent):
         paths = self._dropped_paths(event)
         if not self._is_one_folder(paths):
             event.ignore()
@@ -1447,7 +1450,7 @@ class DetectoristApp(QMainWindow):
         """Enables/disables clear_image_list_action based on whether the model has images."""
         self.ui.clear_image_list_action.setEnabled(self.model.rowCount() > 0 and not self._exporting)
 
-    def show_image_list_view_context_menu(self, position):
+    def show_image_list_view_context_menu(self, position: QPoint):
         index = self.ui.image_list_view.indexAt(position)
         if not index.isValid():
             return
@@ -1511,7 +1514,7 @@ class DetectoristApp(QMainWindow):
             next_index = self.model.index(next_selection_row, 0)
             self.ui.image_list_view.setCurrentIndex(next_index)
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: QKeyEvent):
         """Handles key press events for navigating the image list."""
         key = event.key()
         modifiers = event.modifiers()
@@ -1547,7 +1550,7 @@ class DetectoristApp(QMainWindow):
 
         super().keyPressEvent(event) # Pass other key events to the base class
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent):
         # Save settings before closing
         self._save_settings()
         # Clean up resources, if any

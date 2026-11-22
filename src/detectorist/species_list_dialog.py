@@ -4,7 +4,7 @@ from collections import defaultdict
 from collections.abc import Collection, Iterator
 
 from PySide6.QtCore import QSignalBlocker, Qt, QTimer
-from PySide6.QtWidgets import QDialog, QTreeWidgetItem, QWidget
+from PySide6.QtWidgets import QDialog, QTreeWidget, QTreeWidgetItem, QWidget
 
 from .classifier import Classifier, display_name
 from .ui_species_list_dialog import Ui_SpeciesListDialog
@@ -69,7 +69,7 @@ class SpeciesListDialog(QDialog):
         for name, genus, family in zip(classifier.species, classifier.genus_of, classifier.family_of, strict=True):
             tree[classifier.families[family]][classifier.genera[genus]].append(name)
 
-        def checkable(parent, name: str, tristate: bool) -> QTreeWidgetItem:
+        def checkable(parent: QTreeWidget | QTreeWidgetItem, name: str, tristate: bool) -> QTreeWidgetItem:
             item = QTreeWidgetItem(parent, [name])
             flags = item.flags() | Qt.ItemFlag.ItemIsUserCheckable
             item.setFlags(flags | Qt.ItemFlag.ItemIsAutoTristate if tristate else flags)
@@ -77,7 +77,7 @@ class SpeciesListDialog(QDialog):
             item.setCheckState(0, Qt.CheckState.Unchecked)
             return item
 
-        species_items = []
+        species_items: list[QTreeWidgetItem] = []
         for family in sorted(tree):
             family_item = checkable(self.ui.species_tree, family, tristate=True)
             family_item.setData(0, NAME_ROLE, family)

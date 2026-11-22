@@ -1,8 +1,8 @@
 from collections.abc import Mapping, Set
 
 from PySide6.QtCore import QEvent, QPoint, Qt, Signal
-from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QHeaderView, QTreeWidget, QTreeWidgetItem
+from PySide6.QtGui import QMouseEvent, QPalette
+from PySide6.QtWidgets import QHeaderView, QTreeWidget, QTreeWidgetItem, QWidget
 
 from .classifier import display_name, identified_ranks
 from .structures import RANK_COUNT, Box, Detection, Taxonomy
@@ -74,7 +74,7 @@ class ResultsTable(QTreeWidget):
     # The box of the detection whose row is under the mouse, or None
     row_hovered = Signal(object)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setHeaderLabels(HEADER_LABELS)
         for column, tooltip in enumerate(HEADER_TOOLTIPS):
@@ -140,7 +140,7 @@ class ResultsTable(QTreeWidget):
         """Shows or hides the list fit column, which only a species list fills."""
         self.setColumnHidden(LIST_FIT_COLUMN, not visible)
 
-    def set_highlighted_box(self, box):
+    def set_highlighted_box(self, box: Box | None):
         """
         Tints the row of the detection with the given box, or none for None. The table is not scrolled to it, as moving the mouse over the
         image would keep scrolling the table.
@@ -162,9 +162,9 @@ class ResultsTable(QTreeWidget):
         for column in range(self.columnCount()):
             item.setData(column, Qt.ItemDataRole.BackgroundRole, brush)
 
-    def viewportEvent(self, event):
+    def viewportEvent(self, event: QEvent) -> bool:
         # The rows are drawn on the viewport, so it gets the mouse, and the table has no signal for leaving a row
-        if event.type() == QEvent.Type.MouseMove:
+        if isinstance(event, QMouseEvent) and event.type() == QEvent.Type.MouseMove:
             self._mouse_pos = event.position().toPoint()
             self._update_hovered_box()
         elif event.type() == QEvent.Type.Leave:

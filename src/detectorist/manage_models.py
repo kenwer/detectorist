@@ -64,7 +64,7 @@ class ManageModelsDialog(QDialog):
 
     models_changed = Signal()
 
-    def __init__(self, downloader: ModelDownloader, models_dir: str, parent=None):
+    def __init__(self, downloader: ModelDownloader, models_dir: str, parent: QWidget | None = None):
         super().__init__(parent)
         self._models_dir = models_dir
         self._manifest: list[ManifestEntry] = []
@@ -93,7 +93,7 @@ class ManageModelsDialog(QDialog):
 
         self._downloader.fetch_manifest()
 
-    def done(self, result):
+    def done(self, result: int):
         """Disconnect all downloader signals to prevent stale callbacks after close."""
         self._downloader.manifest_loaded.disconnect(self._on_manifest_loaded)
         self._downloader.manifest_error.disconnect(self._on_manifest_error)
@@ -162,7 +162,7 @@ class ManageModelsDialog(QDialog):
         # Model files on disk by folder: detection models at the top, classifiers in their subfolder
         folders = (self._models_dir, self._downloader.classifiers_dir)
         files_in = {folder: set(list_model_files(folder)) for folder in folders}
-        active_filenames = set()
+        active_filenames: set[str] = set()
         if self._downloader.is_downloading:
             active_filenames.add(self._downloader.current_filename)
             active_filenames.update(self._downloader.queued_filenames)

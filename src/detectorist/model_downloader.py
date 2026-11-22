@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict, cast
 
 from PySide6.QtCore import QObject, QUrl, Signal
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
@@ -33,14 +33,17 @@ def model_filename_from_url(url: str) -> str:
     return url.rsplit("/", 1)[-1]
 
 
-def _entries_of_kind(manifest: list[Any], kind: str) -> list[ManifestEntry]:
+def _entries_of_kind(parsed: object, kind: str) -> list[ManifestEntry]:
     """
-    The entries of the manifest in the folder of the given kind of model.
+    The entries of a parsed manifest in the folder of the given kind of model.
     Classifier entries are tagged with kind "classifier", entries without a
     kind are detection models. An entry that names another kind is left out,
     so a later release can add one without this release offering it as the
-    wrong kind of model.
+    wrong kind of model. Raises ValueError if the manifest is not a list.
     """
+    if not isinstance(parsed, list):
+        raise ValueError("not a list of models")
+    manifest = cast(list[Any], parsed)
     if kind == "classifier":
         return [entry | {"kind": kind} for entry in manifest if entry.get("kind", kind) == kind]
     return [entry for entry in manifest if entry.get("kind", kind) == kind]
@@ -50,10 +53,9 @@ def _read_cached_manifest(folder: str, kind: str) -> list[ManifestEntry]:
     """The manifest a previous fetch left in the folder, or an empty list if there is none."""
     try:
         with open(os.path.join(folder, MANIFEST_FILENAME), encoding="utf-8") as f:
-            manifest = json.load(f)
+            return _entries_of_kind(json.load(f), kind)
     except (ValueError, OSError):
         return []
-    return _entries_of_kind(manifest, kind) if isinstance(manifest, list) else []
 
 
 class ModelDownloader(QObject):
@@ -228,16 +230,14 @@ class ModelDownloader(QObject):
                 self._manifest_errors[kind] = f"Failed to fetch {label}: {reply.errorString()}"
             else:
                 data = bytes(reply.readAll().data())
-                manifest = json.loads(data)
-                if not isinstance(manifest, list):
-                    raise ValueError("not a list of models")
-
+                # Parsed before it is cached, so a broken manifest does not replace the last good one
+                entries = _entries_of_kind(json.loads(data), kind)
                 if not reply.url().isLocalFile():
                     folder = self._folder_of(kind)
                     os.makedirs(folder, exist_ok=True)
                     with open(os.path.join(folder, MANIFEST_FILENAME), "wb") as f:
                         f.write(data)
-                self._manifests[kind] = _entries_of_kind(manifest, kind)
+                self._manifests[kind] = entries
         except (OSError, ValueError) as e:
             self._manifest_errors[kind] = f"Invalid {label}: {e}"
         finally:
