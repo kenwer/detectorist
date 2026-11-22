@@ -1,5 +1,3 @@
-# Not strict: ctypes.WinDLL only exists on Windows, so its type is unknown elsewhere
-# pyright: standard
 """A named Windows mutex that says Detectorist is running.
 
 The Inno Setup installer waits while it exists, so an update started by the
@@ -49,7 +47,9 @@ def other_instance_running() -> bool:
 def _kernel32():
     import ctypes
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # pyright: ignore[reportAttributeAccessIssue]  Windows only
+    # Tells the type checkers that WinDLL exists here, the callers only reach this on Windows
+    assert sys.platform == "win32"
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel32.CreateMutexW.restype = ctypes.c_void_p
     kernel32.OpenMutexW.restype = ctypes.c_void_p
     kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
