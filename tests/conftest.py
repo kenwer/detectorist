@@ -158,7 +158,7 @@ def make_window(qtbot, spawned, settings, models_dir, detector_factory, classifi
     windows = []
 
     def _make(*, wait_for_model=True, **overrides):
-        kwargs = {"settings": settings, "models_dir": str(models_dir), "detector_factory": detector_factory,
+        kwargs: dict[str, Any] = {"settings": settings, "models_dir": str(models_dir), "detector_factory": detector_factory,
                   "classifier_factory": classifier_factory}
         window = DetectoristApp(**(kwargs | overrides))
         qtbot.addWidget(window)
