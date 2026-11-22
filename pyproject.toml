@@ -296,6 +296,23 @@ reportUnnecessaryComparison = "error"
 reportUnnecessaryContains = "error"
 reportUnnecessaryIsInstance = "error"
 reportUnnecessaryCast = "error"
+# Modules that pass strict mode. Most others fall short through untyped libraries
+# (piexif, onnxruntime, pyqttoast), the generated UI classes and bare dict and list annotations.
+strict = [
+    "src/detectorist/__init__.py",
+    "src/detectorist/__main__.py",
+    "src/detectorist/enum_button_group.py",
+    "src/detectorist/export_planner.py",
+    "src/detectorist/image_worker.py",
+    "src/detectorist/jobs.py",
+    "src/detectorist/species_list_controls.py",
+    "src/detectorist/structures.py",
+    "src/detectorist/utils.py",
+    "src/detectorist/update/__init__.py",
+    "src/detectorist/update/controller.py",
+    "src/detectorist/update/dialog.py",
+    "src/detectorist/update/download.py",
+]
 
 [tool.pytest]
 testpaths = ["tests"]
