@@ -43,7 +43,7 @@ class SyntheticImage(ImageObject):
         self._exif_dict = {}
         self._exposure_correction = False
 
-    def save_cropped(self, rect, output_path):
+    def save_cropped(self, rect: tuple[int, int, int, int], output_path: str, exposure_correction: bool = False):
         raise NotImplementedError("benchmark images are never saved")
 
 
@@ -79,7 +79,7 @@ def main() -> None:
         tag = f"{mode.value}/{bpc}bit"
         bench(f"{tag} image_data_bgr_8bit", lambda: image.image_data_bgr_8bit)
         bench(f"{tag} image_data_rgb_8bit", lambda: image.image_data_rgb_8bit)
-        bench(f"{tag} image_data_rgb_8bit_display", lambda: image.image_data_rgb_8bit_display)
+        bench(f"{tag} display_rgb_8bit", lambda: image.display_rgb_8bit(exposure_correction=False))
         bench(f"{tag} preprocess_for_onnx_detr", lambda: image.preprocess_for_onnx_detr(DETR_INPUT, DETR_INPUT))
 
 
