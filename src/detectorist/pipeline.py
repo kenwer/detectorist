@@ -113,7 +113,7 @@ class Pipeline(QObject):
         self._classifier.loaded.connect(self._on_classifier_loaded)
         self._classifier.failed.connect(self._on_classifier_failed)
         self._patterns: tuple[str, ...] = ()  # the detection classes the classifier names
-        self._loaded_classifier = None  # as loaded, without a species list
+        self._loaded_classifier: Classifier | None = None  # as loaded, without a species list
         # The species set_species asked for, which the classifier is restricted to once loaded
         self._requested_species: frozenset[str] = frozenset()
         self._species: frozenset[str] = frozenset()  # the species the loaded classifier is restricted to
@@ -212,7 +212,7 @@ class Pipeline(QObject):
             return
         self._species = restriction
         self._drop_names()
-        self._hand_classifier_to_worker()
+        self._hand_classifier_to_worker(self._loaded_classifier)
         self._schedule()
 
     def start_export(self, paths: list[str], detection_filter: DetectionFilter, writer: ExportWriter):
@@ -295,12 +295,11 @@ class Pipeline(QObject):
     def _on_classifier_loaded(self, classifier, _model_path: str):
         self._loaded_classifier = classifier
         self._species = species_restriction(self._requested_species, classifier.species)
-        self._hand_classifier_to_worker()
+        self._hand_classifier_to_worker(classifier)
         self.classifier_loaded.emit(classifier)
         self._schedule()
 
-    def _hand_classifier_to_worker(self):
-        classifier = self._loaded_classifier
+    def _hand_classifier_to_worker(self, classifier: Classifier):
         self._set_classifier.emit(classifier.with_species(self._species) if self._species else classifier,
                                   self._classifier_id())
 
@@ -327,12 +326,19 @@ class Pipeline(QObject):
         return [job for job in (self._decode_job, self._inference_job)
                 if job is not None and not self._export_owns(job)]
 
+    def _export_for(self, job) -> ExportRun | None:
+        """The export under way if it made job, else None."""
+        if self._export is not None and self._export.owns(job):
+            return self._export
+        return None
+
     def _export_owns(self, job) -> bool:
-        return self._export is not None and self._export.owns(job)
+        return self._export_for(job) is not None
 
     def _owner(self, job) -> Browsing | ExportRun:
         """Who made job, so its outcome goes back there."""
-        return self._export if self._export_owns(job) else self._browsing
+        run = self._export_for(job)
+        return run if run is not None else self._browsing
 
     def _end_export(self) -> ExportRun | None:
         """Forgets the export under way and cancels its jobs. Returns it, None if there was none."""
@@ -346,8 +352,9 @@ class Pipeline(QObject):
         if self._shut_down:
             return
         models = self._models()
-        if self._export is None and self._browsing.should_preempt(self._inference_job, models):
-            self._inference_job.token.cancel()
+        inference_job = self._inference_job
+        if inference_job is not None and self._export is None and self._browsing.should_preempt(inference_job, models):
+            inference_job.token.cancel()
         if self._decode_job is None:
             self._decode_job = self._next_decode(models)
             if self._decode_job is not None:
@@ -363,7 +370,7 @@ class Pipeline(QObject):
                 self._decode.emit(self._decode_job)
         if self._export is not None:
             # Written after the next jobs went out, so the next image's inference runs meanwhile
-            self._write_export()
+            self._write_export(self._export)
             return
         for report in self._browsing.reports(models):
             self._report(report)
@@ -397,13 +404,12 @@ class Pipeline(QObject):
             case CacheUpdated():
                 self.cache_updated.emit(report.paths)
 
-    def _write_export(self):
+    def _write_export(self, run: ExportRun):
         """
         Reports the export images that started and hands those through
         inference to the writer, in the order they happened, then ends a run
         that is done or cannot go on (see ExportRun.write_pending).
         """
-        run = self._export
         try:
             for progress in run.write_pending():
                 self.export_progress.emit(*progress)
@@ -430,8 +436,9 @@ class Pipeline(QObject):
 
     def _on_decoded(self, job: DecodeJob, image: ImageObject, decode_time_ms: float):
         self._decode_job = None
-        if self._export_owns(job):
-            self._export.on_decoded(image)
+        run = self._export_for(job)
+        if run is not None:
+            run.on_decoded(image)
         else:
             self._browsing.on_decoded(job, image, decode_time_ms)
         self._schedule()
@@ -443,8 +450,9 @@ class Pipeline(QObject):
 
     def _on_decode_failed(self, job: DecodeJob | DisplayJob, message: str):
         self._decode_job = None
-        if self._export_owns(job):
-            self._export.on_decoded(None)
+        run = self._export_for(job)
+        if run is not None:
+            run.on_decoded(None)
         else:
             self._browsing.on_decode_failed(job, message)
         self._schedule()
@@ -466,13 +474,14 @@ class Pipeline(QObject):
     def _on_inference_failed(self, job: DetectJob | ClassifyJob, message: str):
         self._inference_job = None
         models = self._models()
+        run = self._export_for(job)
         if isinstance(job, DetectJob):
-            if self._export_owns(job):
-                self._export.on_detect_failed()
+            if run is not None:
+                run.on_detect_failed()
             else:
                 self._browsing.on_detect_failed(job, message, models)
-        elif self._export_owns(job):
-            self._export.on_classify_failed(job, models)
+        elif run is not None:
+            run.on_classify_failed(job, models)
         else:
             self._browsing.on_classify_failed(job, message, models)
         self._schedule()
