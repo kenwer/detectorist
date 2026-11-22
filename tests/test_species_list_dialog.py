@@ -2,7 +2,7 @@
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 
 from detectorist.species_list_dialog import SpeciesListDialog
 from tests.fakes import FakeClassifier
@@ -16,11 +16,15 @@ def make_dialog(qtbot, species=()) -> SpeciesListDialog:
     return dialog
 
 
-def tree_items(dialog):
+def children(item: QTreeWidgetItem) -> list[QTreeWidgetItem]:
+    return [child for i in range(item.childCount()) if (child := item.child(i)) is not None]
+
+
+def tree_items(dialog) -> tuple[QTreeWidgetItem, list[tuple[QTreeWidgetItem, list[QTreeWidgetItem]]]]:
     """The family, its genera and their species, as (item, [(genus, [species])])."""
     family = dialog.ui.species_tree.topLevelItem(0)
-    genera = [family.child(i) for i in range(family.childCount())]
-    return family, [(genus, [genus.child(i) for i in range(genus.childCount())]) for genus in genera]
+    assert family is not None
+    return family, [(genus, children(genus)) for genus in children(family)]
 
 
 def visible_texts(dialog) -> list[str]:

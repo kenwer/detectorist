@@ -52,6 +52,7 @@ def test_shipped_model_satisfies_the_detector_contract(filename, tmp_path):
         assert len(detection.box) == 4
         assert detection.class_name in detector.class_names.values()
         if detector.is_segmentation:
+            assert detection.mask is not None
             assert detection.mask.shape == (detector.input_height, detector.input_width)
         else:
             assert detection.mask is None

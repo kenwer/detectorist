@@ -247,7 +247,9 @@ def _on_ui_thread() -> bool:
     from PySide6.QtCore import QThread
     from PySide6.QtWidgets import QApplication
 
-    return QThread.currentThread() is QApplication.instance().thread()
+    app = QApplication.instance()
+    assert app is not None
+    return QThread.currentThread() is app.thread()
 
 
 def test_failed_download_is_handled_on_the_ui_thread(qtbot, window, monkeypatch, tmp_path) -> None:

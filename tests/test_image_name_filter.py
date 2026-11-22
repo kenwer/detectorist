@@ -20,7 +20,9 @@ OTHERS = ["notes.txt", "image.jpg.bak", "jpg"]
 
 
 def patterns_of(name_filter):
-    return re.fullmatch(r"Images \((.*)\)", name_filter).group(1).split(" ")
+    match = re.fullmatch(r"Images \((.*)\)", name_filter)
+    assert match is not None
+    return match.group(1).split(" ")
 
 
 @pytest.mark.parametrize("platform", ["win32", "darwin"])

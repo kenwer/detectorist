@@ -294,6 +294,7 @@ exclude = ["src/detectorist/ui_*.py", "src/detectorist/*_rc.py"]
 typeCheckingMode = "off"
 reportRedeclaration = "error"
 reportCallIssue = "error"
+reportOptionalMemberAccess = "error"
 
 [tool.pytest]
 testpaths = ["tests"]

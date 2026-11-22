@@ -2,6 +2,7 @@
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QTreeWidgetItem
 
 from detectorist.export_planner import CropMode, CropSettings, plan_crops
 from detectorist.results_table import BOX_ROLE, HEADER_LABELS, ResultsTable, format_score
@@ -21,6 +22,12 @@ from detectorist.structures import Detection, RankedName, Taxonomy
 ])
 def test_format_score_never_shows_one(score, expected):
     assert format_score(score) == expected
+
+
+def item_at(table: ResultsTable, row: int) -> QTreeWidgetItem:
+    item = table.topLevelItem(row)
+    assert item is not None
+    return item
 
 
 def taxonomy(species_score: float) -> Taxonomy:
@@ -43,10 +50,10 @@ def test_sorting_by_a_score_orders_by_the_score_rather_than_its_shown_text(qtbot
     settings = CropSettings(mode=CropMode.BEST_CLASSIFICATION, padding=0.0, aspect="detection_frame", taxon_confidence=0.5)
     [crop] = plan_crops(detections, 100, 100, settings, taxonomy_by_box)
     assert crop == best_classified.box
-    assert table.topLevelItem(0).data(0, BOX_ROLE) == best_classified.box
+    assert item_at(table, 0).data(0, BOX_ROLE) == best_classified.box
 
     table.sortByColumn(species_score_column, Qt.SortOrder.AscendingOrder)
-    assert table.topLevelItem(0).data(0, BOX_ROLE) == confident.box
+    assert item_at(table, 0).data(0, BOX_ROLE) == confident.box
 
 
 def test_sorting_by_a_name_still_orders_by_its_text(qtbot):
@@ -56,7 +63,7 @@ def test_sorting_by_a_name_still_orders_by_its_text(qtbot):
     table.show_detections(detections, {}, threshold=0.5)
 
     table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-    assert [table.topLevelItem(i).text(0) for i in range(2)] == ["Crab", "Fish"]
+    assert [item_at(table, i).text(0) for i in range(2)] == ["Crab", "Fish"]
 
 
 def test_the_list_fit_column_shows_and_sorts_by_the_list_fit(qtbot):
@@ -75,7 +82,7 @@ def test_the_list_fit_column_shows_and_sorts_by_the_list_fit(qtbot):
     table.sortByColumn(list_fit_column, Qt.SortOrder.AscendingOrder)
 
     assert not table.isColumnHidden(list_fit_column)
-    first = table.topLevelItem(0)
+    first = item_at(table, 0)
     assert first.data(0, BOX_ROLE) == likely_unlisted.box
     assert [first.text(c) for c in range(2, list_fit_column + 1)] == ["Pomacentridae", "0.90", "", "", "", "", "0.15"]
 
