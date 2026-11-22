@@ -18,7 +18,7 @@ SEARCH_ROLE = Qt.ItemDataRole.UserRole + 2
 
 
 def _children(item: QTreeWidgetItem) -> Iterator[QTreeWidgetItem]:
-    return (item.child(i) for i in range(item.childCount()))
+    return (child for i in range(item.childCount()) if (child := item.child(i)) is not None)
 
 
 class SpeciesListDialog(QDialog):

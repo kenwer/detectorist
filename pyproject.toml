@@ -290,13 +290,7 @@ select = [
 [tool.pyright]
 include = ["src", "tests"]
 exclude = ["src/detectorist/ui_*.py", "src/detectorist/*_rc.py"]
-# Off so existing code is not flagged wholesale, rules are raised to errors one at a time
-typeCheckingMode = "off"
-reportRedeclaration = "error"
-reportCallIssue = "error"
-reportArgumentType = "error"
-reportAttributeAccessIssue = "error"
-reportOptionalMemberAccess = "error"
+typeCheckingMode = "standard"
 
 [tool.pytest]
 testpaths = ["tests"]

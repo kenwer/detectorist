@@ -55,6 +55,7 @@ def test_crop_of_gray_file_keeps_its_bit_depth(tmp_path, name, pixels, bits):
     image.save_cropped((16, 8, 32, 24), output)
 
     crop = image_utils.imread(output)
+    assert crop is not None
     assert crop.shape == (24, 32)
     assert crop.dtype == (np.uint16 if bits == 16 else np.uint8)
     assert crop[:, :16].max() == 0

@@ -77,7 +77,7 @@ class FakeServer:
 
 def fake_server_handler(state: FakeServer) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
-        def log_message(self, *_args) -> None:
+        def log_message(self, format, *_args) -> None:
             pass
 
         def do_GET(self) -> None:

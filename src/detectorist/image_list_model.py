@@ -1,7 +1,7 @@
 import os
 from typing import Any
 
-from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt
+from PySide6.QtCore import QAbstractListModel, QModelIndex, QPersistentModelIndex, Qt
 from PySide6.QtGui import QColor
 
 _DEFAULT_PARENT = QModelIndex()
@@ -20,13 +20,13 @@ class ImageListModel(QAbstractListModel):
         self._image_paths = []
         self._cached_paths: frozenset[str] = frozenset()
 
-    def rowCount(self, parent=_DEFAULT_PARENT):
+    def rowCount(self, parent: QModelIndex | QPersistentModelIndex = _DEFAULT_PARENT) -> int:
         """Returns the number of images in the model."""
         if parent.isValid():
             return 0
         return len(self._image_paths)
 
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
+    def data(self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         """Returns the data for a given index and role."""
         if not index.isValid() or not (0 <= index.row() < len(self._image_paths)):
             return None

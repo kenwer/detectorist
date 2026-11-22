@@ -71,8 +71,8 @@ class SpeciesLists:
         Returns those removed.
         """
         species = self.get(filename)
-        known = frozenset(known)
-        unknown = [name for name in species if name not in known]
+        known_set = frozenset(known)
+        unknown = [name for name in species if name not in known_set]
         if unknown:
-            self.set(filename, [name for name in species if name in known], self.is_on(filename))
+            self.set(filename, [name for name in species if name in known_set], self.is_on(filename))
         return unknown

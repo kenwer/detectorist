@@ -201,7 +201,7 @@ def gated_server():
             self.end_headers()
             self.wfile.write(server.body)
 
-        def log_message(self, *args):
+        def log_message(self, format, *args):
             pass
 
     class Server(socketserver.ThreadingTCPServer):
@@ -248,7 +248,7 @@ def stalled_server():
             requested.set()
             release.wait(10)
 
-        def log_message(self, *args):
+        def log_message(self, format, *args):
             pass
 
     class Server(socketserver.ThreadingTCPServer):

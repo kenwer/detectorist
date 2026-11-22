@@ -27,7 +27,7 @@ class SyntheticImage(ImageObject):
         self._file_extension = ".synthetic"
         self._exif_dict = {}
 
-    def save_cropped(self, rect, output_path):
+    def save_cropped(self, rect, output_path, exposure_correction=False):
         raise NotImplementedError
 
 

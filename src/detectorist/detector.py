@@ -1,5 +1,6 @@
 import ast
 import json
+from typing import cast
 
 import cv2
 import numpy as np
@@ -90,7 +91,8 @@ class Detector:
         input_image = image.preprocess_for_onnx_detr(self.input_width, self.input_height)
 
         # Run the model
-        outputs = self.session.run(None, {self.input_name: input_image})
+        # The model's outputs are dense tensors, the onnxruntime stubs also allow a sparse one
+        outputs = cast(list[np.ndarray], self.session.run(None, {self.input_name: input_image}))
 
         # Process the output from RF-DETR transformer model
         # outputs[0]: boxes with shape (1, num_detections, 4) in normalized [cx, cy, w, h] format

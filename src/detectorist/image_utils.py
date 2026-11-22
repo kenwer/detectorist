@@ -9,7 +9,7 @@ from .utils import long_path
 logger = logging.getLogger(__name__)
 
 
-def imread(path: str, flags: int = cv2.IMREAD_UNCHANGED) -> np.ndarray:
+def imread(path: str, flags: int = cv2.IMREAD_UNCHANGED) -> np.ndarray | None:
     """
     Read an image with OpenCV in a way that works for long paths and non-ASCII
     paths on Windows.

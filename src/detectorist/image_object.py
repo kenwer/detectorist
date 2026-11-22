@@ -130,7 +130,7 @@ class ImageObject (ABC):
         self._original_bpc: int  # set by the subclass that decodes the file
         self._mode: ImageMode
         self._file_extension = os.path.splitext(self.image_path)[1].lower()
-        self._exif_dict = None
+        self._exif_dict: dict = {}
 
     @staticmethod
     def _parse_fraction(value, round_to=2):
@@ -456,6 +456,7 @@ class ImageObject (ABC):
     @property
     def image_data(self) -> np.ndarray:
         """Returns the loaded image data as a NumPy array."""
+        assert self._image_data is not None, "the subclass constructor decodes the file"
         return self._image_data
 
     @property
