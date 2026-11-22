@@ -212,7 +212,8 @@ def test_taxon_prefix_makes_names_safe_for_windows():
 SETTINGS = CropSettings(mode=CropMode.EACH_OBJECT, padding=0.0, aspect="detection_frame", taxon_confidence=0.5)
 FISH = Detection((10, 10, 20, 20), 0.9, "Fish")
 OTHER = Detection((40, 10, 10, 10), 0.8, "Fish")
-TAXONOMY = {FISH.box: Taxonomy(*FULL), OTHER.box: Taxonomy(*FULL[:2], RankedName("Amphiprion_ocellaris", 0.3))}
+TAXONOMY = {FISH.box: Taxonomy(FULL[0], FULL[1], FULL[2]),
+            OTHER.box: Taxonomy(FULL[0], FULL[1], RankedName("Amphiprion_ocellaris", 0.3))}
 
 
 def names(detections, crop=True, prefix_class=False, prefix_taxa=True, has_classifier=True, settings=SETTINGS):

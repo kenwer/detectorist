@@ -6,9 +6,9 @@ from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel, QRubberBand
 
-from .detection_style import MASK_COLORS, DetectionStyle, build_class_color_map
+from .detection_style import MASK_COLORS, Color, DetectionStyle, build_class_color_map
 from .image_object import ImageObject
-from .structures import clamp_box
+from .structures import Box, clamp_box
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class ImageLabel(QLabel):
         self._hit_order = []  # (band, mask) pairs in the order _band_at tests them
         self._mask_overlay_pixmap: QPixmap | None = None
         self._highlight_pixmap: QPixmap | None = None  # the highlighted detection's mask, drawn over the others
-        self.class_color_map: dict[str, tuple] = {}
+        self.class_color_map: dict[str, Color] = {}
         self.crop_bands = []
         # Kept across set_detection_boxes, so a refresh of the same detections keeps them
         self._hovered_box = None
@@ -192,7 +192,7 @@ class ImageLabel(QLabel):
         self._highlight_pixmap = None
         self.update()
 
-    def set_detection_boxes(self, detections, styles: dict | None = None, pending: Set = frozenset()):
+    def set_detection_boxes(self, detections, styles: dict[Box, DetectionStyle] | None = None, pending: Set = frozenset()):
         """
         Shows the given detections. styles maps a detection's box to its
         DetectionStyle (see taxon_styles), in place of the color of its class

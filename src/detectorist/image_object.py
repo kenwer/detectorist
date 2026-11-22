@@ -495,6 +495,7 @@ class ImageObject (ABC):
         The result never aliases self._image_data, so callers may mutate it:
         convert_16bit_to_8bit, astype, and cv2.cvtColor all allocate.
         """
+        assert self._image_data is not None
         if self._original_bpc > 8:
             data = image_utils.convert_16bit_to_8bit(self._image_data)
         elif self._image_data.dtype != np.uint8:

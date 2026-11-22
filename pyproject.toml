@@ -292,6 +292,7 @@ exclude = ["src/detectorist/ui_*.py", "src/detectorist/*_rc.py"]
 # Off so existing code is not flagged wholesale, rules are raised to errors one at a time
 typeCheckingMode = "off"
 reportRedeclaration = "error"
+reportCallIssue = "error"
 
 [tool.pytest]
 testpaths = ["tests"]

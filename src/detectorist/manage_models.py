@@ -373,7 +373,8 @@ class ManageModelsDialog(QDialog):
 
         if row.state == "local_only":
             # Remove the row widget and its preceding separator from the layout
-            row_widget = row.action_button.parent()
+            row_widget = row.action_button.parentWidget()
+            assert row_widget is not None
             layout = self.ui.scroll_contents_layout
             idx = layout.indexOf(row_widget)
             if idx > 0:

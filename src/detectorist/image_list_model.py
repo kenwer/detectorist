@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
@@ -25,7 +26,7 @@ class ImageListModel(QAbstractListModel):
             return 0
         return len(self._image_paths)
 
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         """Returns the data for a given index and role."""
         if not index.isValid() or not (0 <= index.row() < len(self._image_paths)):
             return None

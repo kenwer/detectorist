@@ -4,7 +4,9 @@ from collections import defaultdict
 from typing import NamedTuple
 
 from .classifier import identified_ranks, short_name
-from .structures import Detection
+from .structures import Box, Detection
+
+Color = tuple[int, int, int]
 
 # 12 visually distinct segmentation-mask colors for the instance segmentation masks.
 # Assigned to class names in sorted order, so each class keeps the same color across every image.
@@ -33,26 +35,27 @@ UNIDENTIFIED_COLOR_RGB = (160, 160, 160)
 GENUS_SHADE_RANGE = 0.4
 
 
-def build_class_color_map(class_names: list[str]) -> dict[str, tuple]:
+def build_class_color_map(class_names: list[str]) -> dict[str, Color]:
     """Assigns each class name a fixed color from MASK_COLORS, in the given order."""
     return {name: MASK_COLORS[i % len(MASK_COLORS)] for i, name in enumerate(class_names)}
 
 
 class DetectionStyle(NamedTuple):
     """How one detection is drawn: its color, the score its opacity follows and the label shown at its box, if any."""
-    color: tuple
+    color: Color
     score: float
     label: str | None = None
 
 
-def shade(color: tuple, amount: float) -> tuple:
+def shade(color: Color, amount: float) -> Color:
     """The color moved towards white by a negative amount, towards black by a positive one, as a fraction of the way."""
+    r, g, b = color
     if amount < 0:
-        return tuple(round(c + (255 - c) * -amount) for c in color)
-    return tuple(round(c * (1 - amount)) for c in color)
+        return round(r + (255 - r) * -amount), round(g + (255 - g) * -amount), round(b + (255 - b) * -amount)
+    return round(r * (1 - amount)), round(g * (1 - amount)), round(b * (1 - amount))
 
 
-def taxon_styles(detections: list[Detection], taxonomy_by_box: dict, threshold: float) -> dict:
+def taxon_styles(detections: list[Detection], taxonomy_by_box: dict, threshold: float) -> dict[Box, DetectionStyle]:
     """
     The style of each classified detection, keyed by box. A detection the
     classifier has not seen is left out, so it keeps the style of its class.

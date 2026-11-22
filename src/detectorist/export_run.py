@@ -61,8 +61,9 @@ def classification_rows(image: ImageObject, named: list[Detection], taxonomy_by_
             ranks = identified_ranks(taxonomy, taxon_confidence)
             names = [value for rank in ranks for value in rank] + ["", ""] * (RANK_COUNT - len(ranks))
             list_fit = "" if taxonomy.list_fit is None else taxonomy.list_fit
+        # Pyright cannot count the fields a starred list expands to
         rows.append(ClassificationRow(file_name, number, detection.class_name, detection.score,
-                                      x1, y1, x2 - x1, y2 - y1, *names, list_fit))
+                                      x1, y1, x2 - x1, y2 - y1, *names, list_fit))  # pyright: ignore[reportCallIssue]
     return rows
 
 
