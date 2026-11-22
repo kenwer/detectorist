@@ -147,12 +147,7 @@ def load_model_bytes(model_path: str) -> bytes:
 
 
 def get_base_path():
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-
-    return base_path
+    return getattr(sys, "_MEIPASS", None) or os.path.abspath(".")
 
 
 def contract_user_path(path: str) -> str:
@@ -227,7 +222,8 @@ def read_resource_text(path: str) -> str:
     resource = QFile(path)
     if not resource.open(QIODeviceBase.OpenModeFlag.ReadOnly | QIODeviceBase.OpenModeFlag.Text):
         return ""
-    text = resource.readAll().data().decode("utf-8")
+    # The PySide6 stubs type data() as a memoryview, it returns bytes
+    text = resource.readAll().data().decode("utf-8")  # pyright: ignore[reportAttributeAccessIssue]
     resource.close()
     return text
 

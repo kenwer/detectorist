@@ -130,6 +130,13 @@ class _RunningExport:
     classifier_filename: str | None  # the classifier the run names with, None for none
 
 
+class _Ui(Ui_DetectoristAppUI):
+    """The generated UI with the widgets that the app adds or swaps in after setupUi, so they are typed."""
+    image_label: ImageLabel
+    busy_bar: QProgressBar
+    results_summary_label: QLabel
+
+
 class DetectoristApp(QMainWindow):
     def __init__(
         self,
@@ -184,7 +191,7 @@ class DetectoristApp(QMainWindow):
         pillow_heif.register_heif_opener()
 
         # Set up the UI
-        self.ui = Ui_DetectoristAppUI()
+        self.ui = _Ui()
         self.ui.setupUi(self)
         self.setWindowTitle(f"Detectorist {__version__}")
 

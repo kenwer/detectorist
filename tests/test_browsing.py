@@ -58,6 +58,7 @@ def test_the_shown_image_is_decoded_then_displayed_then_reported():
 
     reports = browsing.reports(m)
     assert [type(r) for r in reports] == [ImageLoaded]
+    assert isinstance(reports[0], ImageLoaded)
     assert reports[0].load_time_ms == 35.0
     assert browsing.next_decode(m) is None
 
@@ -95,6 +96,7 @@ def test_names_are_reported_once_the_classifier_named_every_box():
 
     reports = browsing.reports(m)
     assert [type(r) for r in reports] == [ClassificationComplete, CacheUpdated]
+    assert isinstance(reports[0], ClassificationComplete) and isinstance(reports[1], CacheUpdated)
     assert reports[0].names == {FISH.box: TAXONOMY}
     assert reports[1].paths == ["a.png"]
 
@@ -108,6 +110,7 @@ def test_a_classifier_that_failed_to_load_reports_the_image_without_names():
     reports = browsing.reports(m)
 
     assert [type(r) for r in reports] == [ImageLoaded, DetectionComplete, ClassificationComplete, CacheUpdated]
+    assert isinstance(reports[2], ClassificationComplete)
     assert reports[2].names == {}
 
 

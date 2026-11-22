@@ -47,7 +47,7 @@ def other_instance_running() -> bool:
 def _kernel32():
     import ctypes
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # pyright: ignore[reportAttributeAccessIssue]  Windows only
     kernel32.CreateMutexW.restype = ctypes.c_void_p
     kernel32.OpenMutexW.restype = ctypes.c_void_p
     kernel32.CloseHandle.argtypes = [ctypes.c_void_p]

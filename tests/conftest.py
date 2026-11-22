@@ -207,6 +207,11 @@ def gated_server():
     class Server(socketserver.ThreadingTCPServer):
         # See stalled_server for why this is not http.server.HTTPServer
         daemon_threads = True
+        gate: threading.Event
+        body: bytes
+        drop: bool
+        requests: int
+        url: str
 
     server = Server(("127.0.0.1", 0), Handler)
     server.gate = threading.Event()
@@ -251,6 +256,8 @@ def stalled_server():
         # a reverse DNS query that took 35 s on the GitHub macOS runner. The
         # handler does not need the name.
         daemon_threads = True
+        requested: threading.Event
+        url: str
 
     server = Server(("127.0.0.1", 0), Handler)
     # The default poll interval of 0.5 s is how long shutdown() would block

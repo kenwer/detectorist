@@ -22,7 +22,7 @@ def test_a_toast_link_runs_its_callback(qtbot, monkeypatch):
     toast = real_show_toast(parent, "Done", "Exported.", ToastPreset.SUCCESS, link_text="Reveal",
                             on_link=lambda: clicked.append(True))
 
-    label = toast._Toast__text_label
+    label = toast._Toast__text_label  # pyright: ignore[reportAttributeAccessIssue]
     assert '<a href="#">Reveal</a>' in label.text()
     label.linkActivated.emit("#")
     assert clicked == [True]
