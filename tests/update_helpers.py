@@ -42,7 +42,7 @@ class RecordingWindow(QMainWindow):
     closed = False
     refuse_close = False
 
-    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802  Qt API
+    def closeEvent(self, event: QCloseEvent) -> None:
         if self.refuse_close:
             event.ignore()
             return
@@ -80,7 +80,7 @@ def fake_server_handler(state: FakeServer) -> type[BaseHTTPRequestHandler]:
         def log_message(self, *_args) -> None:
             pass
 
-        def do_GET(self) -> None:  # noqa: N802  http.server API
+        def do_GET(self) -> None:
             state.requests.append({"path": self.path, **dict(self.headers)})
             route = state.routes.get(self.path)
             if route is None:

@@ -284,6 +284,7 @@ select = [
     "C4",   # Flake8 Comprehensions
     "B",    # Flake8 Bugbear (security and design checks)
     "UP",   # Pyupgrade (modernize Python code)
+    "RUF100",  # Unused noqa directives
 ]
 
 [tool.pyright]

@@ -347,4 +347,4 @@ def _launch_detached(command: list[str]) -> None:
         kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     else:
         kwargs["start_new_session"] = True
-    subprocess.Popen(command, **kwargs)  # noqa: S603  the command is built from our own paths
+    subprocess.Popen(command, **kwargs)  # the command is built from our own paths

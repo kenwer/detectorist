@@ -7,18 +7,18 @@ from pathlib import Path
 # Windows is covered below by disable_telemetry_events() in main()
 os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
 
-import onnxruntime as ort  # noqa: E402
-from PySide6.QtCore import QTimer  # noqa: E402
-from PySide6.QtGui import QIcon  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+import onnxruntime as ort
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication
 
-import detectorist.resources_rc  # noqa: F401, E402  registers :/icons/* resources
-from detectorist import __version__  # noqa: E402
-from detectorist.detectorist_app import DetectoristApp  # noqa: E402
-from detectorist.running_mutex import hold_running_mutex  # noqa: E402
-from detectorist.update.controller import UpdateController  # noqa: E402
-from detectorist.update.feed import DEFAULT_FEED_URL, release_asset_name  # noqa: E402
-from detectorist.update.install import detect_install  # noqa: E402
+import detectorist.resources_rc  # noqa: F401  registers :/icons/* resources
+from detectorist import __version__
+from detectorist.detectorist_app import DetectoristApp
+from detectorist.running_mutex import hold_running_mutex
+from detectorist.update.controller import UpdateController
+from detectorist.update.feed import DEFAULT_FEED_URL, release_asset_name
+from detectorist.update.install import detect_install
 
 
 def attach_updater(window: DetectoristApp, compiled: bool) -> UpdateController:

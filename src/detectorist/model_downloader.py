@@ -261,7 +261,7 @@ class ModelDownloader(QObject):
         os.makedirs(self._current_dir, exist_ok=True)
         part_path = os.path.join(self._current_dir, self._current_filename + ".part")
 
-        self._current_file = open(part_path, "wb")  # noqa: SIM115
+        self._current_file = open(part_path, "wb")
         self.download_started.emit(self._current_filename)
 
         request = QNetworkRequest(QUrl(model["url"]))

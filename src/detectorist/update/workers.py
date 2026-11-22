@@ -52,7 +52,7 @@ class UpdateCheckWorker(QObject):
         except UpdateError as exc:
             self.failed.emit(str(exc))
             return
-        except Exception as exc:  # noqa: BLE001  a raising slot would leave the check stuck
+        except Exception as exc:  # a raising slot would leave the check stuck
             _log.exception("update check crashed")
             self.failed.emit(str(exc))
             return
@@ -63,7 +63,7 @@ class UpdateCheckWorker(QObject):
             return None
         try:
             return self._install.staged_payload(update)
-        except Exception as exc:  # noqa: BLE001  a broken staged copy only means downloading again
+        except Exception as exc:  # a broken staged copy only means downloading again
             _log.info("no reusable staged update: %s", exc)
             return None
 
@@ -93,7 +93,7 @@ class UpdateDownloadWorker(QObject):
             self.finished.emit(self._install.fetch_payload(self._update, self.progress.emit, self._is_cancelled))
         except DownloadCancelled:
             self.cancelled.emit()
-        except Exception as exc:  # noqa: BLE001  a raising slot would leave the download stuck
+        except Exception as exc:  # a raising slot would leave the download stuck
             # A traceback only for a bug, not for a network or disk failure
             _log.warning("update download failed: %s", exc, exc_info=not isinstance(exc, UpdateError | OSError))
             self.failed.emit(str(exc))
