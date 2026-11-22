@@ -120,7 +120,7 @@ def test_startup_check_with_update_shows_link_menu_text_and_toast(qtbot, window,
     assert [(kind, title, text) for kind, title, text, _kw in toasts] == [
         ("information", "Update available", "Detectorist 0.9.0 is available.")
     ]
-    assert _link(toasts, 0, "What's new")
+    _link(toasts, 0, "What's new")
 
 
 def test_whats_new_link_opens_the_update_dialog(qtbot, window, monkeypatch, toasts) -> None:
@@ -239,7 +239,7 @@ def test_download_reaches_ready(qtbot, window, monkeypatch, toasts, tmp_path) ->
     _start_download(controller, monkeypatch, lambda update, dest, progress, cancelled: progress(10, 10))
     qtbot.waitUntil(lambda: controller.state is UpdateState.READY)
     assert _titles(toasts) == ["Update ready"]
-    assert _link(toasts, 0, "Install and relaunch")
+    _link(toasts, 0, "Install and relaunch")
 
 
 def _on_ui_thread() -> bool:
