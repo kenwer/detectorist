@@ -29,6 +29,7 @@ dependencies = [
 dev = [
     "poethepoet>=0.49",
     "pytest>=9.1.1",
+    "pyright>=1.1.414",
     "pytest-qt>=4.5",
     "ruff>=0.17",
 ]
@@ -60,7 +61,7 @@ test-shipped-models = { cmd = "pytest -m shipped_models", deps = ["compile-qt"],
 install-hooks = { cmd = "git config core.hooksPath .githooks", help = "Point git at the repo's tracked hooks (pre-push runs test)" }
 clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
 bench = { cmd = "python benchmarks/bench_conversions.py", help = "Time the image conversion hot paths" }
-lint = { cmd = "ruff check src tests", help = "Run ruff linter" }
+lint = { sequence = ["ruff check src tests", "pyright"], default_item_type = "cmd", deps = ["compile-qt"], help = "Run the ruff linter and the pyright type checker" }
 fmt = { cmd = "ruff format src tests", help = "Run ruff formatter" }
 
 # uv ships the list of downloadable Pythons inside its own release, so upgrade uv first to see new patches
@@ -284,6 +285,13 @@ select = [
     "B",    # Flake8 Bugbear (security and design checks)
     "UP",   # Pyupgrade (modernize Python code)
 ]
+
+[tool.pyright]
+include = ["src", "tests"]
+exclude = ["src/detectorist/ui_*.py", "src/detectorist/*_rc.py"]
+# Off so existing code is not flagged wholesale, rules are raised to errors one at a time
+typeCheckingMode = "off"
+reportRedeclaration = "error"
 
 [tool.pytest]
 testpaths = ["tests"]
