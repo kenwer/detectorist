@@ -45,7 +45,9 @@ def _entries_of_kind(parsed: object, kind: str) -> list[ManifestEntry]:
         raise ValueError("not a list of models")
     manifest = cast(list[Any], parsed)
     if kind == "classifier":
-        return [entry | {"kind": kind} for entry in manifest if entry.get("kind", kind) == kind]
+        # A plain dict, as a bare literal would be checked as a whole ManifestEntry missing name and url
+        tag: dict[str, str] = {"kind": kind}
+        return [entry | tag for entry in manifest if entry.get("kind", kind) == kind]
     return [entry for entry in manifest if entry.get("kind", kind) == kind]
 
 
