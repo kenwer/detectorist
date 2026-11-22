@@ -19,7 +19,7 @@ CROP_FILL_COLOR_RGBA = (255, 165, 0, 5)
 
 
 class CustomRubberBand(QRubberBand):
-    def __init__(self, shape, border_color, fill_color, parent=None, box: tuple | None = None,
+    def __init__(self, shape, border_color, fill_color, parent=None, box: Box | None = None,
                  detection_style: DetectionStyle | None = None, pending: bool = False):
         super().__init__(shape, parent)
         self.border_color = border_color
@@ -193,7 +193,7 @@ class ImageLabel(QLabel):
         self._highlight_pixmap = None
         self.update()
 
-    def set_detection_boxes(self, detections, styles: dict[Box, DetectionStyle] | None = None, pending: Set = frozenset()):
+    def set_detection_boxes(self, detections, styles: dict[Box, DetectionStyle] | None = None, pending: Set[Box] = frozenset()):
         """
         Shows the given detections. styles maps a detection's box to its
         DetectionStyle (see taxon_styles), in place of the color of its class

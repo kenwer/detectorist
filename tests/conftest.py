@@ -11,6 +11,7 @@ import socketserver
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler
+from typing import Any
 
 import pytest
 from PySide6.QtCore import QCoreApplication, QEvent, QSettings, Qt, QUrl
@@ -29,13 +30,13 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 
 @pytest.fixture(autouse=True)
-def toasts(monkeypatch) -> list[tuple[str, str, str, dict]]:
+def toasts(monkeypatch) -> list[tuple[str, str, str, dict[str, Any]]]:
     """Record (kind, title, text, kwargs) per toast instead of showing one.
 
     kind is the preset name in lower case ("success", "error", "warning"). A
     real pyqttoast keeps class-level queues and timers alive past the test.
     """
-    shown: list[tuple[str, str, str, dict]] = []
+    shown: list[tuple[str, str, str, dict[str, Any]]] = []
 
     def record(_parent, title, text, preset, **kwargs):
         shown.append((preset.name.lower(), title, text, kwargs))

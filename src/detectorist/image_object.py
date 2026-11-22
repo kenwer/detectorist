@@ -4,6 +4,7 @@ import os
 import shutil
 from abc import ABC, abstractmethod
 from fractions import Fraction
+from typing import Any
 
 import cv2
 import numpy as np
@@ -14,6 +15,9 @@ from . import image_utils, utils
 from .structures import ImageMode
 
 logger = logging.getLogger(__name__)
+
+# piexif's form of an image's EXIF: the tags of each IFD, keyed by its name like "0th" or "Exif"
+type ExifDict = dict[str, Any]
 
 # Magic number of macOS ._ sidecar files that store extended attributes
 APPLEDOUBLE_MAGIC = b"\x00\x05\x16\x07"
@@ -130,7 +134,7 @@ class ImageObject (ABC):
         self._original_bpc: int  # set by the subclass that decodes the file
         self._mode: ImageMode
         self._file_extension = os.path.splitext(self.image_path)[1].lower()
-        self._exif_dict: dict = {}
+        self._exif_dict: ExifDict = {}
 
     @staticmethod
     def _parse_fraction(value, round_to=2):
@@ -245,7 +249,7 @@ class ImageObject (ABC):
         }
         return orientation_map.get(orientation, "Unknown")
 
-    def _print_exif_data(self, exif_dict: dict):
+    def _print_exif_data(self, exif_dict: ExifDict):
         """
         Utility function to print out EXIF data of the given exif_dict.
         """
@@ -430,7 +434,7 @@ class ImageObject (ABC):
             raise ValueError(f"Unsupported image file extension: \"{file_extension}\" with path: {image_path}")
 
     @property
-    def exif_data(self) -> dict:
+    def exif_data(self) -> ExifDict:
         """Returns Exif dict object for this image."""
         return self._exif_dict
 
@@ -587,7 +591,7 @@ class ImageObject (ABC):
         return image_utils.adjust_exposure(data, ev_comp, 2.2, bits_per_channel)
 
     @staticmethod
-    def _update_exif_dimensions(exif_dict: dict, width: int, height: int) -> None:
+    def _update_exif_dimensions(exif_dict: ExifDict, width: int, height: int) -> None:
         """Update the EXIF image dimension tags to the cropped size."""
         if 'Exif' in exif_dict:
             exif_dict['Exif'][piexif.ExifIFD.PixelXDimension] = width
@@ -596,7 +600,7 @@ class ImageObject (ABC):
             exif_dict['0th'][piexif.ImageIFD.ImageWidth] = width
             exif_dict['0th'][piexif.ImageIFD.ImageLength] = height
 
-    def _neutralize_exposure_bias(self, exif_dict: dict) -> None:
+    def _neutralize_exposure_bias(self, exif_dict: ExifDict) -> None:
         """
         Zero out ExposureBiasValue in the EXIF dict after exposure correction
         was baked into the pixels. Without this a corrected crop would still

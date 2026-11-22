@@ -104,7 +104,7 @@ class ModelLoader(QObject):
         self.unload()
         self._pool.waitForDone()
 
-    def _load(self, generation: int, model_id: FileStamp, path: str, args: tuple) -> None:
+    def _load(self, generation: int, model_id: FileStamp, path: str, args: tuple[object, ...]) -> None:
         try:
             model = self._factory(path, *args)
         except Exception as e:

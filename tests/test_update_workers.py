@@ -5,12 +5,13 @@ them on their threads.
 """
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from detectorist.update import feed
 from detectorist.update.download import DownloadCancelled
-from detectorist.update.feed import UpdateError
+from detectorist.update.feed import Update, UpdateError
 from detectorist.update.install import AppInstall, LinuxAppInstall
 from detectorist.update.workers import UpdateCheckWorker, UpdateDownloadWorker
 from tests.update_helpers import UPDATE, linux_install
@@ -21,10 +22,10 @@ def _offer(monkeypatch: pytest.MonkeyPatch, update=UPDATE) -> None:
     monkeypatch.setattr(feed, "find_update", lambda release, version, asset: update)
 
 
-def _check(install: AppInstall | None, reuse_staged: bool = True) -> tuple[list, list[str]]:
+def _check(install: AppInstall | None, reuse_staged: bool = True) -> tuple[list[tuple[Update | None, Path | None]], list[str]]:
     """Run a check and return what finished and failed emitted."""
     worker = UpdateCheckWorker("https://feed", "0.8.0", "a.AppImage", install, reuse_staged)
-    finished: list = []
+    finished: list[tuple[Update | None, Path | None]] = []
     failed: list[str] = []
     worker.finished.connect(lambda update, staged: finished.append((update, staged)))
     worker.failed.connect(failed.append)
@@ -58,7 +59,7 @@ def test_check_worker_cleans_up_even_when_offline(monkeypatch: pytest.MonkeyPatc
     """The applied version's staging copy goes, though no feed answers."""
     (tmp_path / "stage" / "0.8.0").mkdir(parents=True)
 
-    def offline(url: str) -> dict:
+    def offline(url: str) -> dict[str, Any]:
         raise UpdateError("offline")
 
     monkeypatch.setattr(feed, "fetch_latest_release", offline)
@@ -79,8 +80,8 @@ def test_download_worker_reports_progress_past_two_gb_and_the_payload(monkeypatc
 
     monkeypatch.setattr(LinuxAppInstall, "fetch_payload", fake_fetch)
     worker = _download(linux_install(tmp_path))
-    progress: list = []
-    received: list = []
+    progress: list[tuple[int, int]] = []
+    received: list[Path] = []
     worker.progress.connect(lambda done, total: progress.append((done, total)))
     worker.finished.connect(received.append)
     worker.run()
@@ -94,7 +95,7 @@ def test_download_worker_emits_cancelled(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
     monkeypatch.setattr(LinuxAppInstall, "fetch_payload", cancelled_fetch)
     worker = _download(linux_install(tmp_path))
-    cancelled: list = []
+    cancelled: list[bool] = []
     worker.cancelled.connect(lambda: cancelled.append(True))
     worker.run()
     assert cancelled == [True]

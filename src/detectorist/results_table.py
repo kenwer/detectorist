@@ -1,11 +1,11 @@
-from collections.abc import Set
+from collections.abc import Mapping, Set
 
 from PySide6.QtCore import QEvent, QPoint, Qt, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QHeaderView, QTreeWidget, QTreeWidgetItem
 
 from .classifier import display_name, identified_ranks
-from .structures import RANK_COUNT
+from .structures import RANK_COUNT, Box, Detection, Taxonomy
 
 # The detector's class and score, a name and score per rank the classifier names, then the list fit
 HEADER_LABELS = ["Detected", "Score", "Family", "Score", "Genus", "Score", "Species", "Score", "List fit"]
@@ -95,7 +95,8 @@ class ResultsTable(QTreeWidget):
         self._highlighted_box = None
         self.viewport().setMouseTracking(True)
 
-    def show_detections(self, detections: list, taxonomy_by_box: dict, threshold: float, pending: Set = frozenset()):
+    def show_detections(self, detections: list[Detection], taxonomy_by_box: Mapping[Box, Taxonomy], threshold: float,
+                        pending: Set[Box] = frozenset()):
         """
         Lists the detections, the highest score first unless the user sorted by
         a column. A classified detection's row goes down to the deepest rank at

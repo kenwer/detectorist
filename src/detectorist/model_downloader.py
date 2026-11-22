@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Any, NotRequired, TypedDict
 
 from PySide6.QtCore import QObject, QUrl, Signal
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
@@ -12,12 +13,27 @@ CLASSIFICATION_MODELS_MANIFEST_URL = f"{MODELS_BASE_URL}/{CLASSIFICATION_MODELS_
 MANIFEST_TIMEOUT_MS = 15000  # Without a limit a stalled connection would leave the Manage Models dialog loading forever
 
 
+class ManifestEntry(TypedDict):
+    """One model of a models.json manifest."""
+    name: str
+    url: str
+    # "classifier" in the classifier manifest, which _entries_of_kind adds. Detection models have none.
+    kind: NotRequired[str]
+    # The patterns of the detection classes a classifier names, see class_matches
+    classifies: NotRequired[list[str]]
+    size_mb: NotRequired[float]
+    description: NotRequired[str]
+    release_date: NotRequired[str]
+    # The file names of the earlier versions this model replaces
+    supersedes: NotRequired[list[str]]
+
+
 def model_filename_from_url(url: str) -> str:
     """Derive the model filename from its download URL (last URL path segment)."""
     return url.rsplit("/", 1)[-1]
 
 
-def _entries_of_kind(manifest: list, kind: str) -> list[dict]:
+def _entries_of_kind(manifest: list[Any], kind: str) -> list[ManifestEntry]:
     """
     The entries of the manifest in the folder of the given kind of model.
     Classifier entries are tagged with kind "classifier", entries without a
@@ -30,7 +46,7 @@ def _entries_of_kind(manifest: list, kind: str) -> list[dict]:
     return [entry for entry in manifest if entry.get("kind", kind) == kind]
 
 
-def _read_cached_manifest(folder: str, kind: str) -> list[dict]:
+def _read_cached_manifest(folder: str, kind: str) -> list[ManifestEntry]:
     """The manifest a previous fetch left in the folder, or an empty list if there is none."""
     try:
         with open(os.path.join(folder, MANIFEST_FILENAME), encoding="utf-8") as f:
@@ -73,14 +89,14 @@ class ModelDownloader(QObject):
         self._current_file = None
         self._current_filename = ""
         self._current_dir = models_dir
-        self._download_queue: list[dict] = []
+        self._download_queue: list[ManifestEntry] = []
         # Manifests cached by a previous network fetch. A clean install has none.
-        self._manifests: dict[str, list[dict]] = {
+        self._manifests: dict[str, list[ManifestEntry]] = {
             kind: _read_cached_manifest(self._folder_of(kind), kind) for kind in ("detector", "classifier")
         }
 
     @property
-    def _manifest(self) -> list[dict]:
+    def _manifest(self) -> list[ManifestEntry]:
         """The detection models and classifiers of both manifests, in that order."""
         return self._manifests["detector"] + self._manifests["classifier"]
 
@@ -92,7 +108,7 @@ class ModelDownloader(QObject):
         """The folder classifiers are downloaded to. It need not exist."""
         return self._classifiers_dir
 
-    def model_dir(self, model: dict) -> str:
+    def model_dir(self, model: ManifestEntry) -> str:
         """The folder the file of a manifest entry is downloaded to."""
         return self._folder_of(model.get("kind", "detector"))
 
@@ -112,7 +128,7 @@ class ModelDownloader(QObject):
         return [model_filename_from_url(m["url"]) for m in self._download_queue]
 
     @property
-    def cached_manifest(self) -> list[dict]:
+    def cached_manifest(self) -> list[ManifestEntry]:
         """The manifest of the last successful fetch, in this or an earlier session. Empty if there was none."""
         return list(self._manifest)
 
@@ -236,11 +252,11 @@ class ModelDownloader(QObject):
         else:
             self.manifest_loaded.emit(self._manifest)
 
-    def download(self, models: list[dict]):
+    def download(self, models: list[ManifestEntry]):
         """Add models to the download queue and start downloading if not already active.
 
         Args:
-            models: List of manifest entries (dicts with at least a "url" key).
+            models: The manifest entries to download.
         """
         already_active = self._current_reply is not None
         self._download_queue.extend(models)

@@ -1,10 +1,11 @@
 """The colors detections are drawn in, by their class or, with a classifier, by their taxon. Qt-free."""
 
 from collections import defaultdict
+from collections.abc import Mapping
 from typing import NamedTuple
 
 from .classifier import identified_ranks, short_name
-from .structures import Box, Detection
+from .structures import Box, Detection, Taxonomy
 
 type Color = tuple[int, int, int]
 
@@ -55,7 +56,7 @@ def shade(color: Color, amount: float) -> Color:
     return round(r * (1 - amount)), round(g * (1 - amount)), round(b * (1 - amount))
 
 
-def taxon_styles(detections: list[Detection], taxonomy_by_box: dict, threshold: float) -> dict[Box, DetectionStyle]:
+def taxon_styles(detections: list[Detection], taxonomy_by_box: Mapping[Box, Taxonomy], threshold: float) -> dict[Box, DetectionStyle]:
     """
     The style of each classified detection, keyed by box. A detection the
     classifier has not seen is left out, so it keeps the style of its class.

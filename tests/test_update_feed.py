@@ -2,6 +2,7 @@ import json
 import re
 import socket
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -18,7 +19,7 @@ ASSET = "Detectorist-macos-arm64.dmg"
 HEX = "ab" * 32
 
 
-def release(tag: str = "v0.9.0", digest: str | None = f"sha256:{HEX}", asset: str = ASSET) -> dict:
+def release(tag: str = "v0.9.0", digest: str | None = f"sha256:{HEX}", asset: str = ASSET) -> dict[str, Any]:
     entry = {"name": asset, "browser_download_url": f"https://example.org/{asset}", "size": 1234}
     if digest is not None:
         entry["digest"] = digest

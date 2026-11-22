@@ -7,7 +7,7 @@ import pillow_heif
 from PIL import Image as PILImage
 
 from . import utils
-from .image_object import ImageMode, ImageObject
+from .image_object import ExifDict, ImageMode, ImageObject
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +214,7 @@ class HeifImageObject(ImageObject):
         heif_file = None # Allow the Python GC to free resources
 
 
-    def _load_exif_data(self) -> dict:
+    def _load_exif_data(self) -> ExifDict:
         """
         Loads EXIF dict from the raw EXIF that we extracted from the HEIF image file using
         pillow_heif. Returns an empty dict if there is no EXIF data or it cannot be parsed,

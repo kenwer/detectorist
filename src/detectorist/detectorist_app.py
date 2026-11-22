@@ -2,7 +2,7 @@ import html
 import logging
 import os
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Sequence, Set
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -55,6 +55,7 @@ from .settings import Settings
 from .shortcuts_dialog import ShortcutsDialog
 from .species_list_controls import SpeciesListControls
 from .species_lists import SpeciesLists
+from .structures import Box, Detection, Taxonomy
 from .toasts import show_error_toast, show_success_toast, show_warning_toast
 from .ui_detectorist_app_gui import Ui_DetectoristAppUI
 from .utils import (
@@ -159,13 +160,13 @@ class DetectoristApp(QMainWindow):
         self._detector_factory = detector_factory
         self._classifier_factory = classifier_factory
         self.current_image_path = None
-        self._all_detection_results: list = []
+        self._all_detection_results: list[Detection] = []
         # None until the current image is shown
         self._last_load_time_ms: float | None = None
         self._last_detection_time_ms: float = 0.0
         self._last_classification_time_ms: float = 0.0
         # What the classifier said about the current image's detections, keyed by box
-        self._taxonomy_by_box: dict = {}
+        self._taxonomy_by_box: dict[Box, Taxonomy] = {}
         self._classification_pending = False
         # Whether the detections of the current image arrived, after which the names are what is awaited
         self._detected = False
@@ -490,12 +491,12 @@ class DetectoristApp(QMainWindow):
         self.ui.image_label.setText(text)
         self._clear_results()
 
-    def _show_results(self, detections: list, threshold: float, pending: set):
+    def _show_results(self, detections: list[Detection], threshold: float, pending: Set[Box]):
         """Lists the detections in the results table, and sums them up."""
         self.ui.results_table.show_detections(detections, self._taxonomy_by_box, threshold, pending)
         self._show_summary(detections)
 
-    def _show_summary(self, detections: list):
+    def _show_summary(self, detections: list[Detection]):
         """
         Sums up the steps the current image went through, with the time each
         took: loading it and, once it is detected, how many detections are
@@ -821,7 +822,7 @@ class DetectoristApp(QMainWindow):
         for action in actions:
             action.setChecked(show)
 
-    def handle_model_loaded(self, success: bool, message: str, class_names: list, is_segmentation: bool):
+    def handle_model_loaded(self, success: bool, message: str, class_names: list[str], is_segmentation: bool):
         """Handles the result of loading a model in the Pipeline."""
         self.ui.image_label.set_class_color_map(class_names)
         self.ui.toggle_masks_action.setEnabled(is_segmentation)
@@ -878,7 +879,7 @@ class DetectoristApp(QMainWindow):
         self.ui.image_exif_label.setText(image_object.get_exif_summary())
 
 
-    def handle_detection_complete(self, image_path: str, results: list, detection_time_ms: float):
+    def handle_detection_complete(self, image_path: str, results: list[Detection], detection_time_ms: float):
         """Handles the detection_complete signal from the Pipeline."""
         if image_path != self.current_image_path:
             return  # Stale result (this can happen if user quickly switches images)
@@ -891,7 +892,7 @@ class DetectoristApp(QMainWindow):
         self._classification_pending = self.ui.classifier_combo_box.currentData() is not None
         self._display_filtered_results()
 
-    def handle_classification_complete(self, image_path: str, taxonomy_by_box: dict, classification_time_ms: float):
+    def handle_classification_complete(self, image_path: str, taxonomy_by_box: dict[Box, Taxonomy], classification_time_ms: float):
         """Handles the classification_complete signal from the Pipeline."""
         if image_path != self.current_image_path:
             return
@@ -919,7 +920,7 @@ class DetectoristApp(QMainWindow):
             return None
         return self.ui.class_filter_combo_box.currentText()
 
-    def _filtered_results(self) -> list:
+    def _filtered_results(self) -> list[Detection]:
         """Returns detection results filtered by the current detection confidence and class filter selections."""
         detection_confidence = self.ui.detection_confidence_slider.value() / 100.0
         results = [d for d in self._all_detection_results if d.score >= detection_confidence]
@@ -928,7 +929,7 @@ class DetectoristApp(QMainWindow):
             return results
         return [d for d in results if d.class_name == selected]
 
-    def _pending_boxes(self) -> set:
+    def _pending_boxes(self) -> set[Box]:
         """
         The boxes the classifier is still to name. Those out of its reach, by
         their class or detection score, are not, as no name is coming for them.

@@ -14,6 +14,7 @@ import json
 import os
 import re
 import time
+from typing import Any
 
 import pytest
 from PIL import Image
@@ -87,8 +88,8 @@ def drop(window, paths):
     window.dropEvent(event)
 
 
-EXPORT_CHOICES: dict = {}  # what the stand-in user picks in the next Export dialog, see export()
-OPENED_DIALOGS: list = []
+EXPORT_CHOICES: dict[str, Any] = {}  # what the stand-in user picks in the next Export dialog, see export()
+OPENED_DIALOGS: list[ExportDialog] = []
 
 
 @pytest.fixture(autouse=True)
@@ -1393,7 +1394,7 @@ def test_best_classification_crop_band_without_a_classifier_frames_the_most_conf
     assert window.ui.image_label.last_crop_rects == [QRect(*FISH.box)]
 
 
-def border_rgb(window) -> list[tuple]:
+def border_rgb(window) -> list[tuple[int, ...]]:
     return [band.border_color.getRgb()[:3] for band in window.ui.image_label.detection_bands]
 
 
@@ -1657,7 +1658,7 @@ def set_classifies(models_dir, patterns):
     manifest_path.write_text(json.dumps(manifest))
 
 
-def classifier_items(window) -> list:
+def classifier_items(window) -> list[Any]:
     combo = window.ui.classifier_combo_box
     return [combo.itemData(i) for i in range(combo.count())]
 
@@ -1859,7 +1860,7 @@ def test_closing_the_window_during_an_export_cancels_it_quietly(qtbot, window, f
     assert [toast for toast in toasts if toast[0] == "error"] == []
 
 
-def species_list(*species: str, on: bool = True) -> dict:
+def species_list(*species: str, on: bool = True) -> dict[str, Any]:
     """One entry of the classification_species_lists setting."""
     return {"species": list(species), "on": on}
 

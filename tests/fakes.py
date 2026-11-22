@@ -10,7 +10,7 @@ from PIL import Image
 from detectorist.classifier import Classifier
 from detectorist.detector import Detector
 from detectorist.image_object import ImageObject
-from detectorist.structures import RankedName, Taxonomy
+from detectorist.structures import Box, RankedName, Taxonomy
 from detectorist.utils import FileStamp
 
 
@@ -53,7 +53,7 @@ class FakeDetectorFactory:
         self.detections_by_file = detections_by_file if detections_by_file is not None else {}
         self.class_names = class_names if class_names is not None else {1: "Fish"}
         # Class names of the models that differ from class_names, keyed by model file name
-        self.class_names_by_model: dict[str, dict] = {}
+        self.class_names_by_model: dict[str, dict[int, str]] = {}
         self.error: Exception | None = None
         self.on_detect = None
         self.is_segmentation = False
@@ -109,7 +109,7 @@ class FakeClassifier:
         self.model_path = model_path
         self.error = error
         self.patterns = tuple(patterns)
-        self.classified: list[list] = []
+        self.classified: list[list[Box]] = []
         self.listed: frozenset[str] | None = None
         self.on_classify = None
 
@@ -141,7 +141,7 @@ class FakeClassifierFactory:
 
     def __init__(self, taxonomy=TAXONOMY):
         self.taxonomy = taxonomy
-        self.taxonomy_by_box: dict = {}
+        self.taxonomy_by_box: dict[Box, Taxonomy] = {}
         self.error: Exception | None = None
         self.classify_error: Exception | None = None
         self.created: list[FakeClassifier] = []
@@ -154,7 +154,7 @@ class FakeClassifierFactory:
         return cast(Classifier, classifier)
 
     @property
-    def classified(self) -> list[list]:
+    def classified(self) -> list[list[Box]]:
         """The boxes of every classify() call across all created classifiers."""
         return [boxes for classifier in self.created for boxes in classifier.classified]
 

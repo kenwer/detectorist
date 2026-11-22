@@ -13,6 +13,7 @@ import pytest
 from PySide6.QtCore import QUrl
 
 from detectorist import model_downloader
+from detectorist.model_downloader import ManifestEntry
 
 
 def file_url(path) -> str:
@@ -44,12 +45,12 @@ def no_classifiers(monkeypatch, remote):
     monkeypatch.setattr(model_downloader, "CLASSIFICATION_MODELS_MANIFEST_URL", file_url(remote / "classifiers.json"))
 
 
-def entry(remote, filename, **extra) -> dict:
-    return {"name": filename.split(".")[0].upper(), "url": file_url(remote / filename), **extra}
+def entry(remote, filename, **extra) -> ManifestEntry:
+    return ManifestEntry(name=filename.split(".")[0].upper(), url=file_url(remote / filename), **extra)
 
 
-def record_events(downloader) -> list:
-    events = []
+def record_events(downloader) -> list[tuple[str, str]]:
+    events: list[tuple[str, str]] = []
     downloader.download_started.connect(lambda filename: events.append(("started", filename)))
     downloader.download_finished.connect(lambda filename: events.append(("finished", filename)))
     downloader.download_error.connect(lambda message: events.append(("error", message)))
@@ -251,7 +252,7 @@ def test_cancel_stops_the_download_and_drops_the_queue(qtbot, make_downloader, s
     downloader = make_downloader(target)
     events = record_events(downloader)
 
-    downloader.download([{"url": f"{stalled_server.url}/a.onnx"}, {"url": f"{stalled_server.url}/b.onnx"}])
+    downloader.download([{"name": "A", "url": f"{stalled_server.url}/a.onnx"}, {"name": "B", "url": f"{stalled_server.url}/b.onnx"}])
     qtbot.waitUntil(stalled_server.requested.is_set)
     downloader.cancel()
 

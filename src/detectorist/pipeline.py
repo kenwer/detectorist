@@ -35,6 +35,7 @@ from .image_worker import ImageWorker
 from .inference_worker import InferenceWorker
 from .jobs import ClassifierId, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
 from .model_loader import ModelLoader, Models
+from .structures import Box, Detection, Taxonomy
 from .utils import physical_memory_bytes
 
 logger = logging.getLogger(__name__)
@@ -462,12 +463,12 @@ class Pipeline(QObject):
         self._decode_job = None
         self._schedule()
 
-    def _on_detected(self, job: DetectJob, detections: list, detection_time_ms: float):
+    def _on_detected(self, job: DetectJob, detections: list[Detection], detection_time_ms: float):
         self._inference_job = None
         self._owner(job).on_detected(job, detections, detection_time_ms, self._models())
         self._schedule()
 
-    def _on_classified(self, job: ClassifyJob, names: dict, classification_time_ms: float):
+    def _on_classified(self, job: ClassifyJob, names: dict[Box, Taxonomy], classification_time_ms: float):
         self._inference_job = None
         self._owner(job).on_classified(job, names, classification_time_ms, self._models())
         self._schedule()

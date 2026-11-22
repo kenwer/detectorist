@@ -10,6 +10,7 @@ import threading
 import time
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from detectorist import inference_worker as inference_worker_module
@@ -17,7 +18,7 @@ from detectorist.export_planner import CropMode, CropSettings, ExportOptions
 from detectorist.export_run import DetectionFilter, ExportWriter
 from detectorist.jobs import ShowRequest
 from detectorist.pipeline import Pipeline, neighbours
-from detectorist.structures import Detection
+from detectorist.structures import Box, Detection, Taxonomy
 from tests.fakes import TAXONOMY, FakeClassifier, FakeClassifierFactory, FakeDetectorFactory, make_images
 
 IMAGE_SIZE = (32, 24)
@@ -32,14 +33,14 @@ class Recorder:
 
     def __init__(self, pipeline: Pipeline):
         self.shown: list[str] = []
-        self.displays: list = []
-        self.completed: list[tuple[str, list]] = []
-        self.named: list[tuple[str, dict]] = []
+        self.displays: list[np.ndarray] = []
+        self.completed: list[tuple[str, list[Detection]]] = []
+        self.named: list[tuple[str, dict[Box, Taxonomy]]] = []
         self.times: list[int] = []
         self.errors: list[tuple[str, str]] = []
         self.classifier_errors: list[str] = []
         self.cached: list[list[str]] = []
-        self.models: list[tuple[bool, str, list]] = []
+        self.models: list[tuple[bool, str, list[str]]] = []
         pipeline.image_loaded.connect(self._image_loaded)
         pipeline.detection_complete.connect(lambda path, results, ms: self.completed.append((path, results)))
         pipeline.classification_complete.connect(self._named)

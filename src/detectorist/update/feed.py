@@ -9,6 +9,7 @@ import ssl
 import sys
 import urllib.request
 from dataclasses import dataclass
+from typing import Any
 
 import truststore
 from packaging.version import InvalidVersion, Version
@@ -54,7 +55,7 @@ def release_asset_name(system: str = sys.platform, machine: str = platform.machi
     return None
 
 
-def fetch_latest_release(url: str, timeout: float = 10.0) -> dict:
+def fetch_latest_release(url: str, timeout: float = 10.0) -> dict[str, Any]:
     """The release JSON at url. Every failure becomes UpdateError."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"})
     try:
@@ -64,7 +65,7 @@ def fetch_latest_release(url: str, timeout: float = 10.0) -> dict:
         raise UpdateError(f"Could not read the release feed: {exc}") from exc
 
 
-def find_update(release: dict, current_version: str, asset_name: str | None) -> Update | None:
+def find_update(release: dict[str, Any], current_version: str, asset_name: str | None) -> Update | None:
     """The update release offers over current_version, or None.
 
     No update when either version does not parse, the release is not newer,
@@ -77,7 +78,7 @@ def find_update(release: dict, current_version: str, asset_name: str | None) -> 
         raise UpdateError(f"The release feed has an unexpected format: {exc!r}") from exc
 
 
-def _find_update(release: dict, current_version: str, asset_name: str | None) -> Update | None:
+def _find_update(release: dict[str, Any], current_version: str, asset_name: str | None) -> Update | None:
     try:
         offered = Version(str(release.get("tag_name", "")).removeprefix("v"))
         if offered <= Version(current_version):

@@ -296,6 +296,7 @@ reportUnnecessaryComparison = "error"
 reportUnnecessaryContains = "error"
 reportUnnecessaryIsInstance = "error"
 reportUnnecessaryCast = "error"
+reportMissingTypeArgument = "error"
 # Modules that pass strict mode. Most others fall short through untyped libraries
 # (piexif, onnxruntime, pyqttoast), the generated UI classes and bare dict and list annotations.
 strict = [

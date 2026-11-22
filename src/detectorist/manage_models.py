@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .model_downloader import ModelDownloader, model_filename_from_url
+from .model_downloader import ManifestEntry, ModelDownloader, model_filename_from_url
 from .ui_manage_models_dialog import Ui_ManageModelsDialog
 from .utils import list_model_files
 
@@ -36,7 +36,7 @@ class _ModelRow:
     """
     __slots__ = ("model", "action_button", "progress_bar", "status_label", "desc_label", "state", "local_path")
 
-    def __init__(self, model: dict, action_button: QPushButton,
+    def __init__(self, model: ManifestEntry, action_button: QPushButton,
                  progress_bar: QProgressBar, status_label: QLabel,
                  desc_label: QLabel, local_path: str = ""):
         self.model = model
@@ -67,7 +67,7 @@ class ManageModelsDialog(QDialog):
     def __init__(self, downloader: ModelDownloader, models_dir: str, parent=None):
         super().__init__(parent)
         self._models_dir = models_dir
-        self._manifest: list[dict] = []
+        self._manifest: list[ManifestEntry] = []
         self._rows: list[_ModelRow] = []
         self._downloader = downloader
 
@@ -129,7 +129,7 @@ class ManageModelsDialog(QDialog):
 
         return header_widget, progress_bar, status_label
 
-    def _on_manifest_loaded(self, manifest: list[dict]):
+    def _on_manifest_loaded(self, manifest: list[ManifestEntry]):
         """Show the freshly fetched manifest."""
         self.ui.status_label.setText("")
         self._populate_rows(manifest)
@@ -154,7 +154,7 @@ class ManageModelsDialog(QDialog):
                 widget.deleteLater()
         self._rows = []
 
-    def _populate_rows(self, manifest: list[dict]):
+    def _populate_rows(self, manifest: list[ManifestEntry]):
         """Rebuild the scroll area with a row for each manifest entry and any local-only models."""
         self._clear_rows()
         self._manifest = manifest
@@ -254,7 +254,7 @@ class ManageModelsDialog(QDialog):
             separator.setFrameShadow(QFrame.Shadow.Raised)
             self.ui.scroll_contents_layout.addWidget(separator)
 
-            model = {
+            model: ManifestEntry = {
                 "name": filename,
                 "url": filename,
                 "description": "This model is not available for download.",

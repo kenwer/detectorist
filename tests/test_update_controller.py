@@ -4,6 +4,7 @@ import re
 import threading
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 from PySide6.QtWidgets import QMessageBox
@@ -37,7 +38,7 @@ def _feed(monkeypatch: pytest.MonkeyPatch, update: Update | None = UPDATE, error
     """Answer checks with update, or fail with error. Returns the URLs asked."""
     asked: list[str] = []
 
-    def fetch(url: str) -> dict:
+    def fetch(url: str) -> dict[str, Any]:
         asked.append(url)
         if error:
             raise UpdateError(error)
@@ -168,7 +169,7 @@ def test_staged_payload_from_last_session_goes_straight_to_ready(qtbot, window, 
     assert _link_text(controller) == "Install and relaunch"
     # Announced as ready only, never first as merely available
     assert _titles(toasts) == ["Update ready"]
-    applied: list = []
+    applied: list[Path] = []
     monkeypatch.setattr(LinuxAppInstall, "apply", lambda target, payload: applied.append(payload))
     _link(toasts, 0, "Install and relaunch")()
     qtbot.waitUntil(lambda: window.closed)
@@ -268,7 +269,7 @@ def test_cancelled_download_returns_to_available_on_the_ui_thread(qtbot, window,
     def cancelled(*_args) -> None:
         raise DownloadCancelled
 
-    seen: list = []
+    seen: list[tuple[UpdateState, bool]] = []
     set_state = UpdateController._set_state
 
     def recording_set_state(self, state: UpdateState) -> None:

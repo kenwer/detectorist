@@ -70,7 +70,7 @@ class DefaultedSetting[T](Setting[T]):
         return settings._read(self)
 
 
-def _are_species_lists(value: dict) -> bool:
+def _are_species_lists(value: dict[str, Any]) -> bool:
     """Whether value is shaped as Settings.classification_species_lists describes."""
     return all(isinstance(entry, dict) and type(entry.get("on")) is bool and isinstance(entry.get("species"), list)
                and all(isinstance(name, str) for name in entry["species"]) for entry in value.values())
@@ -181,11 +181,11 @@ class Settings:
             self._remove_unknown_keys()
 
     @classmethod
-    def _all(cls) -> list[Setting]:
+    def _all(cls) -> list[Setting[Any]]:
         return [value for value in vars(cls).values() if isinstance(value, Setting)]
 
     @classmethod
-    def _portable(cls) -> list[Setting]:
+    def _portable(cls) -> list[Setting[Any]]:
         return [setting for setting in cls._all() if setting.group in cls.PORTABLE_GROUPS]
 
     def _remove_unknown_keys(self) -> None:
@@ -200,7 +200,7 @@ class Settings:
             if key.split("/")[0] in groups and key not in known:
                 self._settings.remove(key)
 
-    def _read(self, setting: Setting) -> Any:
+    def _read(self, setting: Setting[Any]) -> Any:
         if not self._settings.contains(setting.path):
             return setting.default
         # PySide6 has no type conversion to dict, and QSettings keeps a map's type as it stores it
@@ -212,7 +212,7 @@ class Settings:
             value = self._settings.value(setting.path, type=setting.type)
         return setting.default if setting.validate and not setting.validate(value) else value
 
-    def _write(self, setting: Setting, value: Any) -> None:
+    def _write[T](self, setting: Setting[T], value: T | None) -> None:
         if value is None:
             self._settings.remove(setting.path)
         else:
@@ -270,7 +270,7 @@ class Settings:
         """Writes pending changes to the store now. os._exit skips the QSettings destructor that would."""
         self._settings.sync()
 
-    def export_to_file(self, path: Path, used: dict[Setting, Any] | None = None) -> None:
+    def export_to_file(self, path: Path, used: dict[Setting[Any], Any] | None = None) -> None:
         """
         Writes the portable settings to a JSON file, an unset one as its default or null.
 

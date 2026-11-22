@@ -1,6 +1,7 @@
 """The species list of each classifier, kept in the settings."""
 
 from collections.abc import Callable, Collection, Sequence
+from typing import Any
 
 from .settings import Settings
 
@@ -21,10 +22,10 @@ class SpeciesLists:
         self._settings = settings
         self._successor_of = successor_of
 
-    def _lists(self) -> dict[str, dict]:
+    def _lists(self) -> dict[str, dict[str, Any]]:
         return dict(self._settings.classification_species_lists or {})
 
-    def _save(self, lists: dict[str, dict]) -> None:
+    def _save(self, lists: dict[str, dict[str, Any]]) -> None:
         self._settings.classification_species_lists = lists or None
 
     def get(self, filename: str) -> list[str]:
