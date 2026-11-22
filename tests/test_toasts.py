@@ -7,7 +7,7 @@ imported before that happens.
 """
 
 from pyqttoast import Toast, ToastPreset
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QLabel, QWidget
 
 from detectorist.toasts import _show_toast as real_show_toast
 
@@ -22,7 +22,8 @@ def test_a_toast_link_runs_its_callback(qtbot, monkeypatch):
     toast = real_show_toast(parent, "Done", "Exported.", ToastPreset.SUCCESS, link_text="Reveal",
                             on_link=lambda: clicked.append(True))
 
-    label = toast._Toast__text_label  # pyright: ignore[reportAttributeAccessIssue]
+    label = getattr(toast, "_Toast__text_label", None)
+    assert isinstance(label, QLabel)
     assert '<a href="#">Reveal</a>' in label.text()
     label.linkActivated.emit("#")
     assert clicked == [True]
