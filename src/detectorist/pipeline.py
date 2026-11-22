@@ -33,7 +33,7 @@ from .export_run import DetectionFilter, ExportRun, ExportWriter
 from .image_object import ImageObject
 from .image_worker import ImageWorker
 from .inference_worker import InferenceWorker
-from .jobs import ClassifierId, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
+from .jobs import ClassifierId, ClassifyJob, DecodeJob, DetectJob, DisplayJob, Job, ShowRequest
 from .model_loader import ModelLoader, Models
 from .structures import Box, Detection, Taxonomy
 from .utils import physical_memory_bytes
@@ -328,16 +328,16 @@ class Pipeline(QObject):
         return [job for job in (self._decode_job, self._inference_job)
                 if job is not None and not self._export_owns(job)]
 
-    def _export_for(self, job) -> ExportRun | None:
+    def _export_for(self, job: Job) -> ExportRun | None:
         """The export under way if it made job, else None."""
         if self._export is not None and self._export.owns(job):
             return self._export
         return None
 
-    def _export_owns(self, job) -> bool:
+    def _export_owns(self, job: Job) -> bool:
         return self._export_for(job) is not None
 
-    def _owner(self, job) -> Browsing | ExportRun:
+    def _owner(self, job: Job) -> Browsing | ExportRun:
         """Who made job, so its outcome goes back there."""
         run = self._export_for(job)
         return run if run is not None else self._browsing

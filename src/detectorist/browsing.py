@@ -264,7 +264,7 @@ class Browsing:
         request = self._request
         if request is None:
             return []
-        reports = []
+        reports: list[Report] = []
         loaded = self._store.image(request.path)
         if IMAGE not in self._delivered:
             if loaded is None or loaded.display_exposure != request.exposure_correction:

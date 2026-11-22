@@ -7,7 +7,7 @@ classifying.
 
 import csv
 import os
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, NamedTuple
 
@@ -68,7 +68,7 @@ class ClassificationRow(NamedTuple):
 
 
 @contextmanager
-def csv_writer(path: str, header: list[str]) -> Iterator[Any]:
+def csv_writer(path: str, header: list[str]) -> Generator[Any]:
     """
     A csv writer for one of an Export's CSV files, with the header written.
     The file is created anew, replacing one left by an earlier run. Opening it

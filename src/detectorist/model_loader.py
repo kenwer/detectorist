@@ -78,7 +78,7 @@ class ModelLoader(QObject):
             return True
         return model_id not in (self.model_id, self._loading)
 
-    def load(self, path: str, *args) -> None:
+    def load(self, path: str, *args: object) -> None:
         """Unloads the current model and loads the one at path. A file that cannot be read fails right away."""
         self.unload()
         try:
@@ -113,7 +113,7 @@ class ModelLoader(QObject):
             return
         self._done.emit(generation, model_id, model, path)
 
-    def _on_done(self, generation: int, model_id: FileStamp, model, path: str) -> None:
+    def _on_done(self, generation: int, model_id: FileStamp, model: object, path: str) -> None:
         if generation != self._generation:
             return
         self._loading = None

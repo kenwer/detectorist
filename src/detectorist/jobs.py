@@ -87,3 +87,6 @@ class ClassifyJob:
     @property
     def path(self) -> str:
         return self.image.image_path
+
+
+type Job = DecodeJob | DisplayJob | DetectJob | ClassifyJob

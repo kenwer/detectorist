@@ -129,7 +129,7 @@ class Settings:
         GROUP_MODEL, int,
         "Minimum score in percent (1 to 100) a family, genus or species must reach for its name "
         "to be shown and written to the classification CSV.")
-    classification_species_lists = Setting(
+    classification_species_lists = Setting[dict[str, Any]](
         GROUP_MODEL, dict,
         "Species list per classifier, keyed by its file name, each {\"species\": [...], \"on\": bool} with the "
         "species in the model's Genus_species form. A classifier with a list switched on names only those species, "

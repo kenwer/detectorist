@@ -144,9 +144,9 @@ class ImageResults:
     stamp: FileStamp
     detections: list[Detection]  # unfiltered, as Detector.detect returns them
     detection_time_ms: float
-    names: dict[Box, Taxonomy] = field(default_factory=dict)  # what the classifier said, per box
+    names: dict[Box, Taxonomy] = field(default_factory=dict[Box, Taxonomy])  # what the classifier said, per box
     classification_time_ms: float = 0.0  # summed over the runs that filled names
-    failed_boxes: set[Box] = field(default_factory=set)  # boxes the classifier failed on, not retried until asked again
+    failed_boxes: set[Box] = field(default_factory=set[Box])  # boxes the classifier failed on, not retried until asked again
 
     def unnamed_boxes(self, threshold: float, patterns: Sequence[str], class_filter: str | None = None,
                       include_failed: bool = False) -> list[Box]:

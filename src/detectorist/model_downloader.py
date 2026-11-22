@@ -77,7 +77,7 @@ class ModelDownloader(QObject):
     download_error = Signal(str)           # error message
     all_downloads_finished = Signal()
 
-    def __init__(self, models_dir: str, parent=None):
+    def __init__(self, models_dir: str, parent: QObject | None = None):
         super().__init__(parent)
         self._models_dir = models_dir
         self._classifiers_dir = os.path.join(models_dir, CLASSIFICATION_MODELS_DIRNAME)
@@ -139,7 +139,7 @@ class ModelDownloader(QObject):
         Superseded filenames are included and resolve to the same name as their replacement,
         so older on-disk models display their conceptual name rather than a raw filename.
         """
-        result = {}
+        result: dict[str, str] = {}
         for m in self._manifest:
             result[model_filename_from_url(m["url"])] = m["name"]
             for fname in m.get("supersedes", []):

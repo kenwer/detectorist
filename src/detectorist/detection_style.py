@@ -71,16 +71,16 @@ def taxon_styles(detections: list[Detection], taxonomy_by_box: Mapping[Box, Taxo
     """
     taxonomies = [taxonomy_by_box[d.box] for d in detections if d.box in taxonomy_by_box]
     family_colors = build_class_color_map(sorted({t.family.name for t in taxonomies}))
-    genera_by_family = defaultdict(set)
+    genera_by_family: defaultdict[str, set[str]] = defaultdict(set)
     for t in taxonomies:
         genera_by_family[t.family.name].add(t.genus.name)
     # A genus belongs to a single family, so it alone is the key
-    genus_shades = {}
+    genus_shades: dict[str, float] = {}
     for genera in genera_by_family.values():
         for i, genus in enumerate(sorted(genera)):
             genus_shades[genus] = GENUS_SHADE_RANGE * (2 * i / (len(genera) - 1) - 1) if len(genera) > 1 else 0
 
-    styles = {}
+    styles: dict[Box, DetectionStyle] = {}
     for d in detections:
         if d.box not in taxonomy_by_box:
             continue

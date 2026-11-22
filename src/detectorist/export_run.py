@@ -28,7 +28,7 @@ from .export_files import (
 )
 from .export_planner import ExportOptions, PlannedFile
 from .image_object import ImageObject
-from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob
+from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, Job
 from .model_loader import Models
 from .structures import RANK_COUNT, Box, Detection, Taxonomy, clamp_box
 from .utils import long_path
@@ -50,7 +50,7 @@ def classification_rows(image: ImageObject, named: list[Detection], taxonomy_by_
     The box is clamped to the image (see clamp_box).
     """
     file_name = os.path.basename(image.image_path)
-    rows = []
+    rows: list[ClassificationRow] = []
     for number, detection in enumerate(named, start=1):
         x1, y1, x2, y2 = clamp_box(detection.box, image.width, image.height)
         taxonomy = taxonomy_by_box.get(detection.box)
@@ -79,9 +79,9 @@ class ExportResult:
     output_dir: str
     cancelled: bool
     detections_rows: list[DetectionsRow]
-    failed: list[str] = field(default_factory=list)  # Filenames of the images that could not be loaded or processed
-    skipped: list[str] = field(default_factory=list)  # Filenames of the images the options wrote no file for
-    classification_rows: list[ClassificationRow] = field(default_factory=list)
+    failed: list[str] = field(default_factory=list[str])  # Filenames of the images that could not be loaded or processed
+    skipped: list[str] = field(default_factory=list[str])  # Filenames of the images the options wrote no file for
+    classification_rows: list[ClassificationRow] = field(default_factory=list[ClassificationRow])
 
 
 @dataclass(frozen=True)
@@ -227,7 +227,7 @@ class _ExportImage:
     path: str  # kept apart from image, as an image that failed to load still gets its row
     image: ImageObject | None  # None if it failed to load
     detections: list[Detection] | None = None  # the ones kept, None until detected or if detection failed
-    names: dict[Box, Taxonomy] = field(default_factory=dict)
+    names: dict[Box, Taxonomy] = field(default_factory=dict[Box, Taxonomy])
 
 
 class ExportRun:
@@ -257,7 +257,7 @@ class ExportRun:
         self._events: deque[tuple[Literal["start", "write"], _ExportImage]] = deque()  # what write_pending reports, in order
         self._written = 0  # images handed to the writer
 
-    def owns(self, job) -> bool:
+    def owns(self, job: Job) -> bool:
         return job.token is self.token
 
     @property

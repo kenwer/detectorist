@@ -34,7 +34,7 @@ class RawImageObject(ImageObject):
 
         self._exif_dict = self._load_exif_data()
 
-    def _load_raw_image_data(self, path: str, output_bps=16) -> np.ndarray:
+    def _load_raw_image_data(self, path: str, output_bps: int = 16) -> np.ndarray:
         """
         Opens a Sony ARW raw file, processes it, and returns it as 8 or 16-bit RGB numpy array.
         The bit depth of the output is determined by the output_bps parameter.

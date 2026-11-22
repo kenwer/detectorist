@@ -1,7 +1,7 @@
 import os
 from typing import Any
 
-from PySide6.QtCore import QAbstractListModel, QModelIndex, QPersistentModelIndex, Qt
+from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, QPersistentModelIndex, Qt
 from PySide6.QtGui import QColor
 
 _DEFAULT_PARENT = QModelIndex()
@@ -15,9 +15,9 @@ class ImageListModel(QAbstractListModel):
     """
     FullPathRole = Qt.ItemDataRole.UserRole + 1
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QObject | None = None):
         super().__init__(parent)
-        self._image_paths = []
+        self._image_paths: list[str] = []
         self._cached_paths: frozenset[str] = frozenset()
 
     def rowCount(self, parent: QModelIndex | QPersistentModelIndex = _DEFAULT_PARENT) -> int:
