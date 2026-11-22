@@ -1,3 +1,5 @@
+# Not strict: the setupUi of the generated Ui class takes an untyped argument, and pillow_heif is partly untyped
+# pyright: standard
 import html
 import logging
 import os

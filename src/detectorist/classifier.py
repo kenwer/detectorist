@@ -1,3 +1,5 @@
+# Not strict: onnxruntime has no type stubs
+# pyright: standard
 """The species classifier: names the family, genus and species of a detection.
 
 A second stage behind the Detector. Each detection box is cut from the image

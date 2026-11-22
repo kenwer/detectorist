@@ -1,3 +1,5 @@
+# Not strict: ctypes.WinDLL only exists on Windows, so its type is unknown elsewhere
+# pyright: standard
 """A named Windows mutex that says Detectorist is running.
 
 The Inno Setup installer waits while it exists, so an update started by the

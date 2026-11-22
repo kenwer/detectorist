@@ -1,3 +1,5 @@
+# Not strict: pyqttoast has no type stubs
+# pyright: standard
 """Non-modal toast notifications for short-running actions.
 
 Wraps pyqt-toast-notification so callers get a one-line helper and the

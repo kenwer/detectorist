@@ -1,3 +1,5 @@
+# Not strict: the setupUi of the generated Ui class takes an untyped argument
+# pyright: standard
 """The Export dialog: which images to export, how to crop and name them, and where they go."""
 
 import html

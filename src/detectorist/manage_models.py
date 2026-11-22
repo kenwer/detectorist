@@ -1,3 +1,5 @@
+# Not strict: the setupUi of the generated Ui class takes an untyped argument
+# pyright: standard
 import os
 
 from PySide6.QtCore import Qt, Signal

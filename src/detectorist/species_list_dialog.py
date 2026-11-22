@@ -1,3 +1,5 @@
+# Not strict: the setupUi of the generated Ui class takes an untyped argument
+# pyright: standard
 """The Species List dialog, which picks the species a classifier names."""
 
 from collections import defaultdict

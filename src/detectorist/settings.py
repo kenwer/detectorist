@@ -1,3 +1,5 @@
+# Not strict: the Setting descriptor reads through Settings._read, and the stored species lists are checked as untyped JSON
+# pyright: standard
 import json
 from collections.abc import Callable
 from pathlib import Path

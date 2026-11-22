@@ -1,3 +1,5 @@
+# Not strict: onnxruntime has no type stubs
+# pyright: standard
 import logging
 import os
 import sys

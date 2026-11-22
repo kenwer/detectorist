@@ -1,3 +1,5 @@
+# Not strict: onnxruntime has no type stubs
+# pyright: standard
 import ast
 import json
 from typing import cast

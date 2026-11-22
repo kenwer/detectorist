@@ -1,3 +1,5 @@
+# Not strict: piexif has no type stubs
+# pyright: standard
 import functools
 import logging
 import os
