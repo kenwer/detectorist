@@ -31,7 +31,7 @@ class ImageMode(Enum):
 
 
 # The (x, y, w, h) of a Detection in image pixels, hashable so it can key what is known about it
-Box = tuple[int, int, int, int]
+type Box = tuple[int, int, int, int]
 
 
 def clamp_box(box: Box, image_width: int, image_height: int) -> tuple[int, int, int, int]:

@@ -33,8 +33,8 @@ _APPLY_FAILED = "apply-failed.txt"
 _FREE_SPACE_FACTOR = 2.5
 _APP_BUNDLE = "Detectorist.app"
 
-Launcher = Callable[[list[str]], None]
-Progress = Callable[[int, int], None]
+type Launcher = Callable[[list[str]], None]
+type Progress = Callable[[int, int], None]
 
 
 def required_space(update: Update) -> int:

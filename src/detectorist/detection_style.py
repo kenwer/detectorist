@@ -6,7 +6,7 @@ from typing import NamedTuple
 from .classifier import identified_ranks, short_name
 from .structures import Box, Detection
 
-Color = tuple[int, int, int]
+type Color = tuple[int, int, int]
 
 # 12 visually distinct segmentation-mask colors for the instance segmentation masks.
 # Assigned to class names in sorted order, so each class keeps the same color across every image.

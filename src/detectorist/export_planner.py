@@ -16,8 +16,8 @@ from .classifier import identified_ranks
 from .structures import Box, Detection, RankedName, SettingEnum, Taxonomy
 
 # A crop rectangle as (x, y, w, h) in image pixel space.
-Rect = tuple[int, int, int, int]
-Aspect = tuple[int, int] | Literal["detection_frame", "source_image"]
+type Rect = tuple[int, int, int, int]
+type Aspect = tuple[int, int] | Literal["detection_frame", "source_image"]
 
 RANK_COUNT = 3  # family, genus, species
 UNIDENTIFIED = "unidentified"  # stands in for the ranks below the taxon confidence
@@ -25,7 +25,7 @@ NO_DETECTION = "no-detection"  # prefix of an image without detections
 
 _UNSAFE_CHARS = str.maketrans(dict.fromkeys('<>:"/\\|?*', "_"))
 
-PrefixPart = Literal["class", "taxa"]
+type PrefixPart = Literal["class", "taxa"]
 # How the Export preview spells out each part of a file name prefix
 _PLACEHOLDERS: dict[PrefixPart, str] = {"class": "<Class>", "taxa": "<Family>_<Genus>_<Species>"}
 
