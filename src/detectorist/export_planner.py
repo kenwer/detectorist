@@ -17,6 +17,7 @@ from .structures import Box, Detection, RankedName, SettingEnum, Taxonomy
 
 # A crop rectangle as (x, y, w, h) in image pixel space.
 Rect = tuple[int, int, int, int]
+Aspect = tuple[int, int] | Literal["detection_frame", "source_image"]
 
 RANK_COUNT = 3  # family, genus, species
 UNIDENTIFIED = "unidentified"  # stands in for the ranks below the taxon confidence
@@ -42,7 +43,7 @@ class CropSettings:
 
     mode: CropMode
     padding: float  # fraction of the detection box, e.g. 0.1 for 10%
-    aspect: tuple[int, int] | Literal["detection_frame", "source_image"]
+    aspect: Aspect
     taxon_confidence: float = 0.0  # score a rank needs to count as identified
 
 

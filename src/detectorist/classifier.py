@@ -17,6 +17,7 @@ import json
 import math
 from collections.abc import Collection, Sequence
 from itertools import takewhile
+from typing import cast
 
 import numpy as np
 import onnxruntime as ort
@@ -279,7 +280,8 @@ class Classifier:
         taxonomies = []
         for start in range(0, len(crops), CROPS_PER_RUN):
             pixels = np.stack(crops[start:start + CROPS_PER_RUN]).astype(np.float32).transpose(0, 3, 1, 2) / 255
-            probs = self.session.run(None, {self.input_name: pixels})[0]
+            # The model's output is a dense tensor, the onnxruntime stubs also allow a sparse one
+            probs = cast(np.ndarray, self.session.run(None, {self.input_name: pixels})[0])
             fits = [None] * len(probs)
             if self.listed is not None:
                 probs, fit_array = restrict_to_list(probs, self.listed)

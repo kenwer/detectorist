@@ -127,7 +127,7 @@ class ImageObject (ABC):
 
         self._image_path = image_path
         self._image_data = None
-        self._original_bpc = None
+        self._original_bpc: int  # set by the subclass that decodes the file
         self._mode: ImageMode
         self._file_extension = os.path.splitext(self.image_path)[1].lower()
         self._exif_dict = None
@@ -552,8 +552,8 @@ class ImageObject (ABC):
             return 0.0
         ev_comp = exif_ifd.get(piexif.ExifIFD.ExposureBiasValue, None)
         # Handle rational numbers (tuples) first
-        if isinstance(ev_comp, tuple) and len(ev_comp) == 2 and ev_comp[1] != 0:
-            return ev_comp[0] / ev_comp[1]
+        if isinstance(ev_comp, tuple):
+            return ev_comp[0] / ev_comp[1] if len(ev_comp) == 2 and ev_comp[1] != 0 else 0.0
 
         # Now try to convert to float, handling string fractions in the except block
         try:

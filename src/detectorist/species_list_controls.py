@@ -60,16 +60,18 @@ class SpeciesListControls(QObject):
         are removed from the list, and the user is told which.
         """
         classifier = self._pipeline.classifier
-        if classifier is not None and (unknown := self._lists.fit_to(self._filename, classifier.species)):
-            self._report_unknown(unknown)
-        self._pipeline.set_species(self._lists.applied(self._filename) if self._filename else [])
+        filename = self._filename
+        if filename and classifier is not None and (unknown := self._lists.fit_to(filename, classifier.species)):
+            self._report_unknown(filename, unknown)
+        self._pipeline.set_species(self._lists.applied(filename) if filename else [])
         self._show()
 
     def _show(self) -> None:
         """Summarises the list on the button and shows whether it is on. Both can be changed once loaded."""
         loaded = self._pipeline.classifier is not None
-        species = self._lists.get(self._filename) if self._filename else []
-        on = bool(species) and self._lists.is_on(self._filename)
+        filename = self._filename
+        species = self._lists.get(filename) if filename else []
+        on = filename is not None and bool(species) and self._lists.is_on(filename)
         self._button.setText(f"{len(species)} species" if on else "All (list off)" if species else "All")
         self._button.setEnabled(loaded)
         with QSignalBlocker(self._check_box):
@@ -77,27 +79,31 @@ class SpeciesListControls(QObject):
         self._check_box.setEnabled(loaded and bool(species))
 
     def _on_toggled(self, on: bool) -> None:
-        self._lists.set_on(self._filename, on)
+        if self._filename:
+            self._lists.set_on(self._filename, on)
         self.apply()
 
     def _edit(self) -> None:
         """Lets the user pick the species the loaded classifier names, in the Species List dialog."""
         classifier = self._pipeline.classifier
-        dialog = SpeciesListDialog(self._classifier_name(self._filename), classifier,
-                                   self._lists.get(self._filename), self._window)
+        filename = self._filename
+        if not filename or classifier is None:
+            return
+        dialog = SpeciesListDialog(self._classifier_name(filename), classifier,
+                                   self._lists.get(filename), self._window)
         # A finished download may have loaded another classifier meanwhile, which the list was not picked for
         if dialog.exec() != QDialog.DialogCode.Accepted or self._pipeline.classifier is not classifier:
             return
         # Switched on, as editing a list that was switched off means using it
-        self._lists.set(self._filename, dialog.species(), on=True)
+        self._lists.set(filename, dialog.species(), on=True)
         self.apply()
 
-    def _report_unknown(self, unknown: list[str]) -> None:
+    def _report_unknown(self, filename: str, unknown: list[str]) -> None:
         names = ", ".join(display_name(name) for name in unknown[:UNKNOWN_SHOWN])
         if len(unknown) > UNKNOWN_SHOWN:
             names += f" and {len(unknown) - UNKNOWN_SHOWN} more"
-        text = (f"{self._classifier_name(self._filename)} does not know {names}. "
+        text = (f"{self._classifier_name(filename)} does not know {names}. "
                 f"{'It was' if len(unknown) == 1 else 'They were'} removed from its species list.")
-        if not self._lists.get(self._filename):
+        if not self._lists.get(filename):
             text += " The list is now empty, so the classifier names any species."
         show_warning_toast(self._window, "Species list changed", text)

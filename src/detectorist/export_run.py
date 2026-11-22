@@ -197,6 +197,7 @@ class ExportWriter:
             image.copy_image(self._output_dir, planned[0].name)
             return
         for file in planned:
+            assert file.rect is not None  # the planner gives either one whole-image copy or only crops
             image.save_cropped(file.rect, os.path.join(self._output_dir, file.name), self._exposure_correction)
 
     def write_failure(self, image_path: str, kind: str = "load-error") -> None:
@@ -314,6 +315,7 @@ class ExportRun:
             if item.image is not None:
                 cached = self._store.results_for(item.image)
                 if cached is None:
+                    assert models.detector_id is not None, "the detector must be loaded"
                     return DetectJob(item.image, models.detector_id, self.token)
                 item.detections = self.detection_filter.keep(cached.detections)
                 if models.classifier_state.is_loaded_or_loading:
@@ -347,6 +349,7 @@ class ExportRun:
             self._written += 1
 
     def _finish_current(self) -> None:
+        assert self._current is not None
         self._events.append(("write", self._current))
         self._current = None
 

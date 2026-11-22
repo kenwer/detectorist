@@ -211,7 +211,7 @@ class ModelDownloader(QObject):
             if reply.error() != QNetworkReply.NetworkError.NoError:
                 self._manifest_errors[kind] = f"Failed to fetch {label}: {reply.errorString()}"
             else:
-                data = bytes(reply.readAll())
+                data = bytes(reply.readAll())  # pyright: ignore[reportArgumentType]
                 manifest = json.loads(data)
                 if not isinstance(manifest, list):
                     raise ValueError("not a list of models")
@@ -277,7 +277,7 @@ class ModelDownloader(QObject):
 
     def _on_ready_read(self):
         if self._current_reply and self._current_file:
-            self._current_file.write(bytes(self._current_reply.readAll()))
+            self._current_file.write(bytes(self._current_reply.readAll()))  # pyright: ignore[reportArgumentType]
 
     def _on_download_finished(self):
         reply = self._current_reply

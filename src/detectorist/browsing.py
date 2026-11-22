@@ -182,9 +182,10 @@ class Browsing:
         """Detects and names the wanted images, the shown image first."""
         for path in self._wanted_paths():
             needs = self._needs(path, models)
-            if needs.inference is Work.DETECT:
+            # The ids are checked again as _needs only names a job for a loaded model
+            if needs.inference is Work.DETECT and models.detector_id is not None:
                 return DetectJob(self._loaded(path).image, models.detector_id, CancelToken())
-            if needs.inference is Work.CLASSIFY:
+            if needs.inference is Work.CLASSIFY and models.classifier_id is not None:
                 return ClassifyJob(self._loaded(path).image, list(needs.boxes), models.classifier_id,
                                    CancelToken())
         return None
@@ -269,6 +270,7 @@ class Browsing:
             if loaded is None or loaded.display_exposure != request.exposure_correction:
                 return reports
             self._delivered.add(IMAGE)
+            assert loaded.display is not None  # a display_exposure that matches the request means it is built
             reports.append(ImageLoaded(request.path, loaded.image, loaded.display, loaded.load_time_ms))
             if not models.detector_state.is_loaded_or_loading and ERROR not in self._delivered:
                 self._delivered.add(ERROR)

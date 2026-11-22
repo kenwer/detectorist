@@ -188,7 +188,7 @@ class HeifImageObject(ImageObject):
         self._heif_mode = heif_file[0].mode
         logger.debug(
             "HEIF image mode: %s, size: %s, stride: %s, data length: %s, bits per channel: %s, chroma: %s",
-            self._heif_mode, heif_file[0].size, heif_file[0].stride, len(heif_file[0].data),
+            self._heif_mode, heif_file[0].size, heif_file[0].stride, len(heif_file[0].data),  # pyright: ignore[reportArgumentType]  load() has filled it
             self._original_bpc, self._chroma,
         )
 

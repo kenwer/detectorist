@@ -12,7 +12,7 @@ Outcomes come back as queued signals, so the caches and queues are only
 touched on the GUI thread and need no locks.
 """
 import logging
-from collections.abc import Collection
+from collections.abc import Callable, Collection, Sequence
 
 from PySide6.QtCore import QObject, QThread, Signal
 
@@ -82,7 +82,8 @@ class Pipeline(QObject):
     _set_detector = Signal(object, object)  # detector, FileStamp of its model file
     _set_classifier = Signal(object, object)  # classifier, its ClassifierId
 
-    def __init__(self, detector_factory=Detector, classifier_factory=Classifier,
+    def __init__(self, detector_factory: Callable[[str], Detector] = Detector,
+                 classifier_factory: Callable[[str, Sequence[str]], Classifier] = Classifier,
                  image_budget_bytes: int | None = None, results_budget_bytes: int | None = None,
                  parent: QObject | None = None):
         """

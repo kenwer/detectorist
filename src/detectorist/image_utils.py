@@ -69,7 +69,7 @@ def apply_exif_orientation(image_data: np.ndarray, orientation: int) -> np.ndarr
     return image_data
 
 
-def adjust_exposure(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int = None) -> np.ndarray:
+def adjust_exposure(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int | None = None) -> np.ndarray:
     """
     Adjusts the exposure of the image data by the given exposure compensation value. It creates a copy and doesn't modify the given image_data.
     This function is designed to work with:
@@ -95,7 +95,7 @@ def adjust_exposure(image_data: np.ndarray, exposure_compensation: float, gamma:
     adjust_exposure_inplace(image_data_copy, exposure_compensation, gamma, bits_per_channel)
     return image_data_copy
 
-def adjust_exposure_inplace(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int = None) -> None:
+def adjust_exposure_inplace(image_data: np.ndarray, exposure_compensation: float, gamma: float = 2.2, bits_per_channel: int | None = None) -> None:
     """
     Adjusts the exposure of the image data by the given exposure compensation value. It modifies the given image_data instead of creating a copy.
     This function is designed to work with:

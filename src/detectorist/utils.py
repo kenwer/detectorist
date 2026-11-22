@@ -222,8 +222,8 @@ def read_resource_text(path: str) -> str:
     resource = QFile(path)
     if not resource.open(QIODeviceBase.OpenModeFlag.ReadOnly | QIODeviceBase.OpenModeFlag.Text):
         return ""
-    # The PySide6 stubs type data() as a memoryview, it returns bytes
-    text = resource.readAll().data().decode("utf-8")  # pyright: ignore[reportAttributeAccessIssue]
+    # The PySide6 stubs leave out the bytes() conversion of a QByteArray that works at runtime
+    text = bytes(resource.readAll()).decode("utf-8")  # pyright: ignore[reportArgumentType]
     resource.close()
     return text
 

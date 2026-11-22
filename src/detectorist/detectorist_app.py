@@ -36,7 +36,7 @@ from .detector import Detector
 from .enum_button_group import EnumButtonGroup
 from .export_dialog import ExportDialog, PreviewImage
 from .export_files import CLASSIFICATION_CSV_NAME, DETECTIONS_CSV_NAME, SETTINGS_JSON_NAME
-from .export_planner import CropMode, CropSettings, ExportOptions, plan_crops
+from .export_planner import Aspect, CropMode, CropSettings, ExportOptions, plan_crops
 from .export_run import DetectionFilter, ExportResult, ExportWriter
 from .image_label import ImageLabel
 from .image_list_model import ImageListModel
@@ -100,7 +100,7 @@ NO_MODELS_MESSAGE = "No models available<br/>Use File -> Download Models"
 PREFETCH_PER_SIDE = 16
 
 # The crop aspect ratio combo box's entries, in order. Settings save the ratio, see aspect_ratio_setting().
-ASPECT_RATIOS: list[tuple[str, tuple[int, int] | str]] = [
+ASPECT_RATIOS: list[tuple[str, Aspect]] = [
     ("Same as source image", "source_image"),
     ("Same as detection frame", "detection_frame"),
     ("3:2 (landscape)", (3, 2)),
@@ -245,7 +245,9 @@ class DetectoristApp(QMainWindow):
         self._default_padding = self.ui.padding_slider.value()
         self._default_aspect_ratio_index = self.ui.crop_ratio_combo_box.currentIndex()
         self._default_auto_correct_exposure = self.ui.cb_comp_cam_exposure.isChecked()
-        self._default_crop_mode = self._crop_modes.value()
+        default_crop_mode = self._crop_modes.value()
+        assert default_crop_mode is not None, "the UI file checks a crop mode"
+        self._default_crop_mode = default_crop_mode
 
         self.model = ImageListModel()
         self.ui.image_list_view.setModel(self.model)
@@ -785,6 +787,8 @@ class DetectoristApp(QMainWindow):
             self._activity_timer.start()
 
     def _show_activity(self):
+        if self._activity is None:
+            return
         if self._activity_placeholder:
             self.ui.image_label.setText(self._activity_placeholder)
         self.ui.status_bar.showMessage(self._activity)
@@ -792,7 +796,7 @@ class DetectoristApp(QMainWindow):
 
     def trigger_processing(self):
         """Asks the Pipeline for the current image and the neighbours to prefetch."""
-        if not self._show_current_image():
+        if not self._show_current_image() or self.current_image_path is None:
             return
         self.pipeline.prefetch(neighbours(self.model.imagePaths(), self.current_image_path, PREFETCH_PER_SIDE))
 
@@ -1406,8 +1410,9 @@ class DetectoristApp(QMainWindow):
 
         # Only the shown image has its detections at hand
         image = self.ui.image_label.image
-        preview_image = (PreviewImage(self.current_image_path, self._filtered_results(), image.height, image.width,
-                                      self._taxonomy_by_box) if image is not None else None)
+        path = self.current_image_path
+        preview_image = (PreviewImage(path, self._filtered_results(), image.height, image.width,
+                                      self._taxonomy_by_box) if image is not None and path is not None else None)
         run_files = [DETECTIONS_CSV_NAME, *([CLASSIFICATION_CSV_NAME] if classifier_filename else []), SETTINGS_JSON_NAME]
         crop_summary = (f"{self._crop_modes.button(crop_settings.mode).text()}, "
                         f"{self.ui.crop_ratio_combo_box.currentText()}, {self.ui.padding_slider.value()}% padding")

@@ -51,6 +51,25 @@ class Setting[T]:
         settings._write(self, value)
 
 
+class DefaultedSetting[T](Setting[T]):
+    """A setting that reads as its default while it is unset, so it is never None."""
+
+    def __init__(self, group: str, value_type: type[T], doc: str, default: T, key: str = "",
+                 validate: Callable[[T], bool] | None = None):
+        super().__init__(group, value_type, doc, key, default, validate)
+
+    @overload
+    def __get__(self, settings: None, owner: type | None = None) -> Self: ...
+
+    @overload
+    def __get__(self, settings: Settings, owner: type | None = None) -> T: ...
+
+    def __get__(self, settings: Settings | None, owner: type | None = None) -> Self | T:
+        if settings is None:
+            return self
+        return settings._read(self)
+
+
 def _are_species_lists(value: dict) -> bool:
     """Whether value is shaped as Settings.classification_species_lists describes."""
     return all(isinstance(entry, dict) and type(entry.get("on")) is bool and isinstance(entry.get("species"), list)
@@ -129,24 +148,24 @@ class Settings:
                                    "Padding added around a crop, in percent of the detection's width and height.")
 
     # Export settings
-    export_crop_images = Setting(GROUP_EXPORT, bool,
-                                 "Whether Export crops the images or copies them whole, as last chosen in the Export dialog.",
-                                 default=ExportOptions.crop)
-    export_prefix_class = Setting(GROUP_EXPORT, bool,
-                                  "Whether exported file names start with the detected class, as last chosen in the Export dialog.",
-                                  default=ExportOptions.prefix_class)
-    export_prefix_taxa = Setting(GROUP_EXPORT, bool,
-                                 "Whether exported file names hold the identified family, genus and species, "
-                                 "as last chosen in the Export dialog. Kept while no classifier is selected.",
-                                 default=ExportOptions.prefix_taxa)
-    export_skip_no_detection = Setting(GROUP_EXPORT, bool,
-                                       "Whether Export writes no file for images without detections, "
-                                       "as last chosen in the Export dialog.",
-                                       default=ExportOptions.skip_no_detection)
-    export_skip_unidentified = Setting(GROUP_EXPORT, bool,
-                                       "Whether Export also leaves out detections not identified to family, "
-                                       "as last chosen in the Export dialog. Kept while no classifier is selected.",
-                                       default=ExportOptions.skip_unidentified)
+    export_crop_images = DefaultedSetting(GROUP_EXPORT, bool,
+                                          "Whether Export crops the images or copies them whole, as last chosen in the Export dialog.",
+                                          default=ExportOptions.crop)
+    export_prefix_class = DefaultedSetting(GROUP_EXPORT, bool,
+                                           "Whether exported file names start with the detected class, as last chosen in the Export dialog.",
+                                           default=ExportOptions.prefix_class)
+    export_prefix_taxa = DefaultedSetting(GROUP_EXPORT, bool,
+                                          "Whether exported file names hold the identified family, genus and species, "
+                                          "as last chosen in the Export dialog. Kept while no classifier is selected.",
+                                          default=ExportOptions.prefix_taxa)
+    export_skip_no_detection = DefaultedSetting(GROUP_EXPORT, bool,
+                                                "Whether Export writes no file for images without detections, "
+                                                "as last chosen in the Export dialog.",
+                                                default=ExportOptions.skip_no_detection)
+    export_skip_unidentified = DefaultedSetting(GROUP_EXPORT, bool,
+                                                "Whether Export also leaves out detections not identified to family, "
+                                                "as last chosen in the Export dialog. Kept while no classifier is selected.",
+                                                default=ExportOptions.skip_unidentified)
     export_class_filter = Setting(GROUP_EXPORT, str,
                                   "The class chosen in Show, whose detections alone are exported, or None for all classes.")
 
