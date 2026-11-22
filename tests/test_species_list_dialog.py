@@ -5,13 +5,13 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidgetItem, QWidget
 
 from detectorist.species_list_dialog import SpeciesListDialog
-from tests.fakes import FakeClassifier
+from tests.fakes import FakeClassifier, fake_classifier
 
 CHECKED, PARTIAL, UNCHECKED = Qt.CheckState.Checked, Qt.CheckState.PartiallyChecked, Qt.CheckState.Unchecked
 
 
 def make_dialog(qtbot, species=()) -> SpeciesListDialog:
-    dialog = SpeciesListDialog("Fake Fish", FakeClassifier(), species)
+    dialog = SpeciesListDialog("Fake Fish", fake_classifier(), species)
     qtbot.addWidget(dialog)
     return dialog
 
@@ -110,6 +110,6 @@ def test_the_dialog_is_four_fifths_as_tall_as_its_window_but_not_below_its_minim
     qtbot.addWidget(window)
     window.resize(800, window_height)
 
-    dialog = SpeciesListDialog("Fake Fish", FakeClassifier(), (), window)
+    dialog = SpeciesListDialog("Fake Fish", fake_classifier(), (), window)
 
     assert dialog.height() == dialog_height

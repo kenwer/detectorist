@@ -2,10 +2,14 @@
 
 import copy
 import os
+from typing import cast
 
 import numpy as np
 from PIL import Image
 
+from detectorist.classifier import Classifier
+from detectorist.detector import Detector
+from detectorist.image_object import ImageObject
 from detectorist.structures import RankedName, Taxonomy
 from detectorist.utils import FileStamp
 
@@ -55,13 +59,13 @@ class FakeDetectorFactory:
         self.is_segmentation = False
         self.created: list[FakeDetector] = []
 
-    def __call__(self, model_path: str) -> FakeDetector:
+    def __call__(self, model_path: str) -> Detector:
         if self.error is not None:
             raise self.error
         class_names = self.class_names_by_model.get(os.path.basename(model_path), self.class_names)
         detector = FakeDetector(self.detections_by_file, class_names, model_path, self.on_detect, self.is_segmentation)
         self.created.append(detector)
-        return detector
+        return cast(Detector, detector)
 
 
 def make_images(dir_path, names, size=(64, 48)) -> list[str]:
@@ -142,12 +146,12 @@ class FakeClassifierFactory:
         self.classify_error: Exception | None = None
         self.created: list[FakeClassifier] = []
 
-    def __call__(self, model_path: str, patterns=("*",)) -> FakeClassifier:
+    def __call__(self, model_path: str, patterns=("*",)) -> Classifier:
         if self.error is not None:
             raise self.error
         classifier = FakeClassifier(self.taxonomy, model_path, self.classify_error, patterns, self.taxonomy_by_box)
         self.created.append(classifier)
-        return classifier
+        return cast(Classifier, classifier)
 
     @property
     def classified(self) -> list[list]:
@@ -162,3 +166,13 @@ class FakeImage:
         self.image_path = path
         self.stamp = FileStamp(path, mtime_ns, 2)
         self.image_data = np.zeros(nbytes, dtype=np.uint8)
+
+
+def fake_image(path: str, mtime_ns: int = 1, nbytes: int = 100) -> ImageObject:
+    """A FakeImage typed as the ImageObject it stands in for."""
+    return cast(ImageObject, FakeImage(path, mtime_ns, nbytes))
+
+
+def fake_classifier() -> Classifier:
+    """A FakeClassifier typed as the Classifier it stands in for."""
+    return cast(Classifier, FakeClassifier())

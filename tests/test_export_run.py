@@ -52,7 +52,11 @@ def run_export(qtbot, tmp_path_factory):
         writer = ExportWriter(output_dir, options, False, classifier is not None,
                              classifier.patterns if classifier is not None else (), taxon_confidence)
         writer.open()
-        pipeline = Pipeline(lambda _path: detector, lambda _path, _patterns: classifier)
+        def classifier_factory(_path, _patterns):
+            assert classifier is not None  # only loaded below when there is one
+            return classifier
+
+        pipeline = Pipeline(lambda _path: detector, classifier_factory)
         try:
             pipeline.load_detector(str(models_dir / "detector.onnx"))
             if classifier is not None:

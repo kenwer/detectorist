@@ -10,7 +10,7 @@ import pytest
 from detectorist.cache import ImageResults, ImageStore, LoadedImage, LruCache, image_cache_budget, results_cache_budget
 from detectorist.structures import Detection, PackedMask
 from detectorist.utils import FileStamp
-from tests.fakes import TAXONOMY, FakeImage
+from tests.fakes import TAXONOMY, fake_image
 
 STAMP = FileStamp("a.png", 1, 2)
 
@@ -131,7 +131,7 @@ def results_of(store: ImageStore, path: str) -> ImageResults:
 
 def test_store_hides_results_of_another_version_of_the_file():
     store = ImageStore(10_000, 10_000)
-    old, new = FakeImage("a.png", mtime_ns=1), FakeImage("a.png", mtime_ns=2)
+    old, new = fake_image("a.png", mtime_ns=1), fake_image("a.png", mtime_ns=2)
     store.put_image("a.png", old, 1.0)
     store.put_detections(old, [FISH], 1.0)
     store.put_image("a.png", new, 1.0)
@@ -142,7 +142,7 @@ def test_store_hides_results_of_another_version_of_the_file():
 
 def test_store_hands_out_results_for_the_image_detected():
     store = ImageStore(10_000, 10_000)
-    image = FakeImage("a.png")
+    image = fake_image("a.png")
     store.put_image("a.png", image, 1.0)
     store.put_detections(image, [FISH], 1.0)
 
@@ -150,12 +150,12 @@ def test_store_hands_out_results_for_the_image_detected():
     results = store.results_for(image)
     assert results is not None
     assert results.detections == [FISH]
-    assert store.results_for(FakeImage("a.png", mtime_ns=2)) is None
+    assert store.results_for(fake_image("a.png", mtime_ns=2)) is None
 
 
 def test_store_ignores_the_display_of_a_replaced_image():
     store = ImageStore(10_000, 10_000)
-    old, new = FakeImage("a.png", mtime_ns=1), FakeImage("a.png", mtime_ns=2)
+    old, new = fake_image("a.png", mtime_ns=1), fake_image("a.png", mtime_ns=2)
     store.put_image("a.png", new, 1.0)
 
     store.put_display(old, np.zeros(10, dtype=np.uint8), exposure_correction=False, display_time_ms=1.0)
@@ -166,7 +166,7 @@ def test_store_ignores_the_display_of_a_replaced_image():
 
 def test_store_room_is_estimated_from_the_image_displayed_last():
     store = ImageStore(1_000, 10_000)
-    image = FakeImage("a.png", nbytes=150)
+    image = fake_image("a.png", nbytes=150)
     store.put_image("a.png", image, 1.0)
 
     store.put_display(image, np.zeros(50, dtype=np.uint8), exposure_correction=True, display_time_ms=1.0)
@@ -178,7 +178,7 @@ def test_store_room_is_estimated_from_the_image_displayed_last():
 
 def test_store_keeps_the_decode_time_when_the_display_is_rebuilt():
     store = ImageStore(10_000, 10_000)
-    image = FakeImage("a.png")
+    image = fake_image("a.png")
     store.put_image("a.png", image, 900.0)
     store.put_display(image, np.zeros(10, dtype=np.uint8), exposure_correction=False, display_time_ms=100.0)
 

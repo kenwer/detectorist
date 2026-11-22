@@ -8,6 +8,7 @@ same way it would for a long path on Windows.
 """
 
 import os
+from typing import Any
 
 import numpy as np
 import piexif
@@ -42,7 +43,7 @@ def write_image(real_dir, name):
     elif name.endswith(".gif"):
         Image.new("P", (64, 48)).save(path)
     else:
-        kwargs = {"exif": EXIF} if name.endswith(".jpg") else {}
+        kwargs: dict[str, Any] = {"exif": EXIF} if name.endswith(".jpg") else {}
         Image.new("RGB", (64, 48), (60, 70, 80)).save(path, **kwargs)
 
 

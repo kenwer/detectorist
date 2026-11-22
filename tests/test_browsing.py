@@ -15,14 +15,15 @@ from detectorist.browsing import (
     ImageLoaded,
 )
 from detectorist.cache import ImageStore
-from detectorist.jobs import ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
+from detectorist.image_object import ImageObject
+from detectorist.jobs import CancelToken, ClassifierId, ClassifyJob, DecodeJob, DetectJob, DisplayJob, ShowRequest
 from detectorist.model_loader import Models, ModelState
 from detectorist.structures import Detection
 from detectorist.utils import FileStamp
-from tests.fakes import TAXONOMY, FakeImage
+from tests.fakes import TAXONOMY, fake_image
 
 DETECTOR = FileStamp("detector.onnx", 1, 0)
-CLASSIFIER = FileStamp("classifier.onnx", 1, 0)
+CLASSIFIER = ClassifierId(FileStamp("classifier.onnx", 1, 0), frozenset())
 FISH = Detection((0, 0, 10, 10), 0.9, "Fish")
 DISPLAY = np.zeros(10, dtype=np.uint8)
 
@@ -32,17 +33,39 @@ def models(detector=ModelState.LOADED, classifier=ModelState.NONE) -> Models:
                   CLASSIFIER if classifier is ModelState.LOADED else None, classifier, ("Fish",))
 
 
-def make_browsing(path="a.png") -> tuple[Browsing, FakeImage]:
+def make_browsing(path="a.png") -> tuple[Browsing, ImageObject]:
     browsing = Browsing(ImageStore(10_000, 10_000))
     browsing.show(ShowRequest(path, exposure_correction=False, detection_threshold=0.5))
-    return browsing, FakeImage(path)
+    return browsing, fake_image(path)
 
 
-def decode_and_display(browsing: Browsing, image: FakeImage, m: Models) -> None:
-    decode = browsing.next_decode(m)
-    browsing.on_decoded(decode, image, 30.0)
-    display = browsing.next_decode(m)
-    browsing.on_displayed(display, DISPLAY, 5.0)
+def decode_job(browsing: Browsing, m: Models) -> DecodeJob:
+    job = browsing.next_decode(m)
+    assert isinstance(job, DecodeJob)
+    return job
+
+
+def display_job(browsing: Browsing, m: Models) -> DisplayJob:
+    job = browsing.next_decode(m)
+    assert isinstance(job, DisplayJob)
+    return job
+
+
+def detect_job(browsing: Browsing, m: Models) -> DetectJob:
+    job = browsing.next_inference(m)
+    assert isinstance(job, DetectJob)
+    return job
+
+
+def classify_job(browsing: Browsing, m: Models) -> ClassifyJob:
+    job = browsing.next_inference(m)
+    assert isinstance(job, ClassifyJob)
+    return job
+
+
+def decode_and_display(browsing: Browsing, image: ImageObject, m: Models) -> None:
+    browsing.on_decoded(decode_job(browsing, m), image, 30.0)
+    browsing.on_displayed(display_job(browsing, m), DISPLAY, 5.0)
 
 
 def test_the_shown_image_is_decoded_then_displayed_then_reported():
@@ -75,7 +98,7 @@ def test_nothing_is_detected_while_the_detector_loads():
 def test_detections_of_a_replaced_detector_are_dropped():
     browsing, image = make_browsing()
     decode_and_display(browsing, image, models())
-    job = browsing.next_inference(models())
+    job = detect_job(browsing, models())
 
     replaced = Models(FileStamp("other.onnx", 1, 0), ModelState.LOADED, None, ModelState.NONE, ())
     browsing.on_detected(job, [FISH], 1.0, replaced)
@@ -87,7 +110,7 @@ def test_names_are_reported_once_the_classifier_named_every_box():
     browsing, image = make_browsing()
     m = models(classifier=ModelState.LOADED)
     decode_and_display(browsing, image, m)
-    browsing.on_detected(browsing.next_inference(m), [FISH], 1.0, m)
+    browsing.on_detected(detect_job(browsing, m), [FISH], 1.0, m)
 
     classify = browsing.next_inference(m)
     assert isinstance(classify, ClassifyJob) and classify.boxes == [FISH.box]
@@ -105,7 +128,7 @@ def test_a_classifier_that_failed_to_load_reports_the_image_without_names():
     browsing, image = make_browsing()
     m = models(classifier=ModelState.FAILED)
     decode_and_display(browsing, image, m)
-    browsing.on_detected(browsing.next_inference(m), [FISH], 1.0, m)
+    browsing.on_detected(detect_job(browsing, m), [FISH], 1.0, m)
 
     reports = browsing.reports(m)
 
@@ -118,9 +141,9 @@ def test_a_failed_box_counts_as_named_for_the_shown_image_but_not_for_the_cache(
     browsing, image = make_browsing()
     m = models(classifier=ModelState.LOADED)
     decode_and_display(browsing, image, m)
-    browsing.on_detected(browsing.next_inference(m), [FISH], 1.0, m)
+    browsing.on_detected(detect_job(browsing, m), [FISH], 1.0, m)
 
-    browsing.on_classify_failed(browsing.next_inference(m), "out of memory", m)
+    browsing.on_classify_failed(classify_job(browsing, m), "out of memory", m)
 
     reports = browsing.reports(m)
     assert [type(r) for r in reports] == [ClassifierError, ImageLoaded, DetectionComplete, ClassificationComplete]
@@ -130,7 +153,7 @@ def test_a_failed_box_counts_as_named_for_the_shown_image_but_not_for_the_cache(
 def test_a_decode_failure_of_the_shown_image_is_reported_once_and_not_retried():
     browsing, _ = make_browsing()
     m = models()
-    browsing.on_decode_failed(browsing.next_decode(m), "corrupt")
+    browsing.on_decode_failed(decode_job(browsing, m), "corrupt")
 
     assert browsing.reports(m) == [ImageError("a.png", "corrupt")]
     assert browsing.reports(m) == []
@@ -140,7 +163,7 @@ def test_a_decode_failure_of_the_shown_image_is_reported_once_and_not_retried():
 def test_the_shown_image_preempts_naming_a_neighbour():
     browsing, image = make_browsing()
     m = models(classifier=ModelState.LOADED)
-    neighbour = ClassifyJob(FakeImage("b.png"), [FISH.box], CLASSIFIER, None)
+    neighbour = ClassifyJob(fake_image("b.png"), [FISH.box], CLASSIFIER, CancelToken())
 
     assert not browsing.should_preempt(neighbour, m)  # the shown image is not decoded yet
     decode_and_display(browsing, image, m)

@@ -99,7 +99,7 @@ def test_masks_are_binary_at_model_input_resolution(tmp_path):
 
 def test_gzipped_model_is_loaded(tmp_path):
     gz_path = tmp_path / "tiny-detect.onnx.gz"
-    with open(DETECT_MODEL, "rb") as source, gzip.open(gz_path, "wb") as target:
+    with open(DETECT_MODEL, "rb") as source, gzip.GzipFile(gz_path, "wb") as target:
         shutil.copyfileobj(source, target)
 
     detector = Detector(str(gz_path))

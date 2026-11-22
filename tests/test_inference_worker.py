@@ -5,13 +5,13 @@ from PySide6.QtCore import QObject, QThread, Signal
 
 from detectorist.image_object import ImageObject
 from detectorist.inference_worker import InferenceWorker
-from detectorist.jobs import CancelToken, ClassifyJob, DetectJob
+from detectorist.jobs import CancelToken, ClassifierId, ClassifyJob, DetectJob
 from detectorist.structures import Detection
 from detectorist.utils import FileStamp
 from tests.fakes import TAXONOMY, FakeClassifier, FakeDetector, make_images
 
 DETECTOR_ID = FileStamp("detector.onnx", 1, 0)
-CLASSIFIER_ID = FileStamp("classifier.onnx", 1, 0)
+CLASSIFIER_ID = ClassifierId(FileStamp("classifier.onnx", 1, 0), frozenset())
 FISH = Detection((1, 1, 10, 10), 0.9, "Fish")
 BOXES = [(i, 0, 5, 5) for i in range(11)]
 

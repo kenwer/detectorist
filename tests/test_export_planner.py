@@ -257,7 +257,7 @@ def test_plan_of_an_image_without_detections():
 
 # Scores higher than FISH, but the classifier names no family for it
 UNKNOWN = Detection((30, 30, 10, 10), 0.95, "Fish")
-WITH_UNKNOWN = {**TAXONOMY, UNKNOWN.box: Taxonomy(RankedName("Pomacentridae", 0.2), *FULL[1:])}
+WITH_UNKNOWN = {**TAXONOMY, UNKNOWN.box: Taxonomy(RankedName("Pomacentridae", 0.2), FULL[1], FULL[2])}
 
 
 def skipping_names(detections, skip_no_detection=True, skip_unidentified=True, has_classifier=True,
