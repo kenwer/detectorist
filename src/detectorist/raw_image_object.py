@@ -98,7 +98,7 @@ class RawImageObject(ImageObject):
         logger.debug("Cropping RAW image file: %s", self.image_path)
 
         x, y, w, h = rect
-        cropped_np_array = self._image_data[y:y+h, x:x+w]
+        cropped_np_array = self.image_data[y:y+h, x:x+w]
 
         cropped_np_array = self._apply_exposure_correction(cropped_np_array, enabled=exposure_correction)
 

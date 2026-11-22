@@ -84,7 +84,7 @@ def test_bgr_8bit_channel_order_and_scaling(mode, bpc):
     result = image.image_data_bgr_8bit
 
     assert result.dtype == np.uint8
-    np.testing.assert_array_equal(result, expected_bgr(image._image_data, mode, bpc))
+    np.testing.assert_array_equal(result, expected_bgr(image.image_data, mode, bpc))
 
 
 @pytest.mark.parametrize("mode,bpc", CASES, ids=lambda v: getattr(v, "value", v))
@@ -100,11 +100,11 @@ def test_rgb_8bit_is_channel_reverse_of_bgr(mode, bpc):
 @pytest.mark.parametrize("mode,bpc", CASES, ids=lambda v: getattr(v, "value", v))
 def test_converted_arrays_do_not_alias_source(mode, bpc):
     image = make_image(mode, bpc)
-    original = image._image_data.copy()
+    original = image.image_data.copy()
 
     for result in (image.image_data_bgr_8bit, image.image_data_rgb_8bit):
         result[:] = 0
-        np.testing.assert_array_equal(image._image_data, original)
+        np.testing.assert_array_equal(image.image_data, original)
 
 
 @pytest.mark.parametrize("mode,bpc", [(ImageMode.RGB, 16), (ImageMode.BGR, 8)])

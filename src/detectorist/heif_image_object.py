@@ -292,7 +292,7 @@ class HeifImageObject(ImageObject):
         logger.debug("EXIF orientation: %s (%s)", orientation, orientation_text)
 
         # The image data in self._image_data is already rotated based on EXIF orientation by pillow-heif
-        rotated_np_array = self._image_data
+        rotated_np_array = self.image_data
 
         # Crop the array using numpy slicing
         # The cropping performed on the rotated_np_array before we reverse the pixel data arrangement to the original value so that the crop rectangle matches the users intend.
