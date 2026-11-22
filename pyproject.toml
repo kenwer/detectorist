@@ -32,6 +32,7 @@ dev = [
     "pyright>=1.1.414",
     "pytest-qt>=4.5",
     "ruff>=0.17",
+    "ty>=0.0.108",
 ]
 
 # Only the build-* tasks need these, so they stay out of the default groups a plain `uv sync` installs
@@ -61,7 +62,7 @@ test-shipped-models = { cmd = "pytest -m shipped_models", deps = ["compile-qt"],
 install-hooks = { cmd = "git config core.hooksPath .githooks", help = "Point git at the repo's tracked hooks (pre-push runs test)" }
 clean-dist = { shell = "rm -rf ./dist/*", help = "Clean the dist directory" }
 bench = { cmd = "python benchmarks/bench_conversions.py", help = "Time the image conversion hot paths" }
-lint = { sequence = ["ruff check src tests", "pyright"], default_item_type = "cmd", deps = ["compile-qt"], help = "Run the ruff linter and the pyright type checker" }
+lint = { sequence = ["ruff check src tests", "pyright", "uv check --preview-features check-command"], default_item_type = "cmd", deps = ["compile-qt"], help = "Run the ruff linter and the pyright and ty type checkers" }
 fmt = { cmd = "ruff format src tests", help = "Run ruff formatter" }
 
 # uv ships the list of downloadable Pythons inside its own release, so upgrade uv first to see new patches

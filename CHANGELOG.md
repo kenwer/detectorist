@@ -7,7 +7,7 @@
   - A List fit column in the results and the classification CSV gives the summed probability of the listed species before they are rescaled to sum to 1.
 - [Dev] Add additional functionality to load class name metadata from onnx models.
 ### Changed
-- [Dev] `poe lint` also runs the pyright type checker, in strict mode for the fully typed modules.
+- [Dev] `poe lint` also runs the pyright type checker, in strict mode for the fully typed modules, and ty through `uv check`.
 
 ## [0.14.2] - 2026-11-12
 ### Added
