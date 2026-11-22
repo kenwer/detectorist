@@ -35,7 +35,6 @@ class PillowImageObject(ImageObject):
         or CMYK image file using the Pillow library.
         """
         super().__init__(image_path)
-        self._pil_image = None
         self._exif = None
 
         # Validate file extension
@@ -51,7 +50,9 @@ class PillowImageObject(ImageObject):
             # Pillow keeps the stored pixel layout, so a portrait shot would be displayed and
             # analyzed sideways. exif_transpose also drops the tag from the image's EXIF,
             # so crops saved with it are not rotated a second time by viewers.
-            self._pil_image = ImageOps.exif_transpose(opened)
+            transposed = ImageOps.exif_transpose(opened)
+            assert transposed is not None  # Pillow returns None only when asked to transpose in place
+            self._pil_image = transposed
 
         self._image_data = np.array(self._pil_image)
         self._original_bpc = self._image_data.dtype.itemsize * 8
