@@ -173,11 +173,8 @@ class HeifImageObject(ImageObject):
         logger.debug("Loading HEIF file: %s", image_path)
         heif_file = pillow_heif.open_heif(self.long_image_path, convert_hdr_to_8bit=False)
 
-        if heif_file is None or len(heif_file) == 0:
-            raise OSError(f"Error: Could not load HEIF image from '{image_path}' or it contains no images.")
-
-        if heif_file[0] is None:
-            raise OSError(f"Error: First image in HEIF file '{image_path}' is None.")
+        if len(heif_file) == 0:
+            raise OSError(f"Error: HEIF file '{image_path}' contains no images.")
 
         # Store metadata extracted from the HEIF file
         self._original_bpc = heif_file.info.get('bits', heif_file.info.get('bit_depth', 8))
@@ -210,9 +207,6 @@ class HeifImageObject(ImageObject):
         # own "irot" property box, not the classic EXIF Orientation tag. It helps when displaying the
         # image, but we need to be aware of this when cropping and saving later.
         self._image_data = np.asarray(heif_file[0]).copy()
-
-        if self._image_data is None:
-            raise OSError(f"Error: Could not read image from '{self.image_path}'")
 
         # Initialize EXIF data dictionary using the overwritten _load_exif_data() method
         self._exif_dict = self._load_exif_data()

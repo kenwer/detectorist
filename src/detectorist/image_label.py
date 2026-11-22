@@ -203,7 +203,7 @@ class ImageLabel(QLabel):
         self._clear_detection_bands()
         styles = styles or {}
 
-        if self.image is None or self.image.image_data is None:
+        if self.image is None:
             self._set_hovered_box(None)
             return
 

@@ -32,9 +32,6 @@ class RawImageObject(ImageObject):
         else:
             self._original_bpc = 8
 
-        if self._image_data is None:
-            raise OSError(f"Error: Could not read image from '{self.image_path}'")
-
         self._exif_dict = self._load_exif_data()
 
     def _load_raw_image_data(self, path: str, output_bps=16) -> np.ndarray:

@@ -291,6 +291,11 @@ select = [
 include = ["src", "tests"]
 exclude = ["src/detectorist/ui_*.py", "src/detectorist/*_rc.py"]
 typeCheckingMode = "standard"
+# Strict-mode rules that cost nothing to keep: they flag checks the types already rule out
+reportUnnecessaryComparison = "error"
+reportUnnecessaryContains = "error"
+reportUnnecessaryIsInstance = "error"
+reportUnnecessaryCast = "error"
 
 [tool.pytest]
 testpaths = ["tests"]

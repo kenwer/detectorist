@@ -84,8 +84,7 @@ class UpdateDownloadWorker(QObject):
         self._update = update
 
     def _is_cancelled(self) -> bool:
-        thread = self.thread()
-        return thread is not None and thread.isInterruptionRequested()
+        return self.thread().isInterruptionRequested()
 
     @Slot()
     def run(self) -> None:

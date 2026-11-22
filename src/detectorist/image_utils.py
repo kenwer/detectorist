@@ -198,11 +198,8 @@ def convert_16bit_to_8bit(image_16bit: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: The converted 8-bit image data (dtype is uint8).
     Raises:
-        ValueError: If the input image is None.
         TypeError: If the input image is not of dtype uint16.
     """
-    if image_16bit is None:
-        raise ValueError("Input image data cannot be None.")
     if image_16bit.dtype != np.uint16:
         raise TypeError(f"Input image must be of dtype uint16, but got {image_16bit.dtype}.")
 
