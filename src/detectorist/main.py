@@ -34,10 +34,11 @@ def attach_updater(window: DetectoristApp, compiled: bool) -> UpdateController:
     updater = UpdateController(window, __version__, install, feed_url, release_asset_name())
     window.ui.menu_help.insertAction(window.ui.about_action, updater.action)
     window.ui.status_bar.addPermanentWidget(updater.status_link)
-    # An app update link takes priority, and the model hint waits for the check to settle
+    # An app update link takes priority. The model hint also waits out CHECKING,
+    # so it does not flash up at startup only to give way to an app update.
     hint = window.model_update_hint
     hint.set_suppressed(True)
-    updater.state_changed.connect(lambda: hint.set_suppressed(updater.state is not UpdateState.IDLE))
+    updater.state_changed.connect(lambda state: hint.set_suppressed(state is not UpdateState.IDLE))
     return updater
 
 

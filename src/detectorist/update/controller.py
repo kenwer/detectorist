@@ -46,7 +46,7 @@ class _WorkerThread(QThread):
 
 
 class UpdateController(QObject):
-    state_changed = Signal()
+    state_changed = Signal(object)  # UpdateState
 
     def __init__(
         self,
@@ -264,4 +264,4 @@ class UpdateController(QObject):
         self._set_link_text(link_text)
         self.action.setText(action_text)
         self.action.setEnabled(state not in (UpdateState.CHECKING, UpdateState.DOWNLOADING))
-        self.state_changed.emit()
+        self.state_changed.emit(state)
