@@ -71,6 +71,7 @@ class ModelDownloader(QObject):
         download_finished(str):             Emitted when a file has been saved successfully (filename).
         download_error(str):                Emitted when a model download fails (message).
         all_downloads_finished():           Emitted when the download queue is drained.
+        download_cancelled():               Emitted once cancel() has dropped the download and the queue.
     """
 
     manifest_loaded = Signal(list)
@@ -80,6 +81,7 @@ class ModelDownloader(QObject):
     download_finished = Signal(str)        # filename
     download_error = Signal(str)           # error message
     all_downloads_finished = Signal()
+    download_cancelled = Signal()
 
     def __init__(self, models_dir: str, parent: QObject | None = None):
         super().__init__(parent)
@@ -380,3 +382,4 @@ class ModelDownloader(QObject):
         part_path = os.path.join(self._current_dir, self._current_filename + ".part")
         if os.path.exists(part_path):
             os.remove(part_path)
+        self.download_cancelled.emit()

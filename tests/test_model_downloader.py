@@ -291,7 +291,8 @@ def test_cancel_stops_the_download_and_drops_the_queue(qtbot, make_downloader, s
 
     downloader.download([{"name": "A", "url": f"{stalled_server.url}/a.onnx"}, {"name": "B", "url": f"{stalled_server.url}/b.onnx"}])
     qtbot.waitUntil(stalled_server.requested.is_set)
-    downloader.cancel()
+    with qtbot.waitSignal(downloader.download_cancelled):
+        downloader.cancel()
 
     assert downloader.is_downloading is False
     assert downloader.queued_filenames == []

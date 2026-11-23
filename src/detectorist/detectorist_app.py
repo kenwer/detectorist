@@ -1014,13 +1014,13 @@ class DetectoristApp(QMainWindow):
     def show_manage_models_dialog(self):
         dialog = ManageModelsDialog(self._model_downloader, self.models_dir, self)
         dialog.models_changed.connect(self._refresh_model_list)
+        # A deleted model is the one change to the models the downloader does not report
+        dialog.models_changed.connect(self.model_update_hint.refresh)
         self._models_dialog_open = True
         try:
             dialog.exec()
         finally:
             self._models_dialog_open = False
-        # A download cancelled in the dialog emits nothing the hint listens to
-        self.model_update_hint.refresh()
 
     def _model_name(self, filename: str) -> str:
         """The name a model file is shown by: its manifest name, else the file name without its extension."""
@@ -1067,7 +1067,6 @@ class DetectoristApp(QMainWindow):
             self.on_model_selected(combo.currentIndex())
 
         self._on_model_availability_changed()
-        self.model_update_hint.refresh()
 
     def _refresh_classifier_list(self):
         """

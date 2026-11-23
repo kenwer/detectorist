@@ -49,7 +49,6 @@ def make_hint(qtbot, make_downloader, tmp_path, remote):
         opened: list[None] = []
         downloader = make_downloader(models)
         hint = ModelUpdateHint(downloader, lambda: opened.append(None), window)
-        hint.refresh()
         return hint, downloader, opened
 
     yield _make

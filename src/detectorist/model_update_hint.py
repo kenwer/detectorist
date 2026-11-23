@@ -30,10 +30,11 @@ class ModelUpdateHint(QObject):
         self.status_link.hide()
 
         # A failed manifest fetch can still have refreshed the other manifest.
-        # A failed download drops the queue, so its rows count as outdated again.
+        # A failed or cancelled download drops the queue, so its models count as outdated again.
         for signal in (downloader.manifest_loaded, downloader.manifest_error, downloader.download_started,
-                       downloader.download_finished, downloader.download_error):
+                       downloader.download_finished, downloader.download_error, downloader.download_cancelled):
             signal.connect(self.refresh)
+        self.refresh()
 
     @property
     def count(self) -> int:
