@@ -182,10 +182,11 @@ class Browsing:
         """Detects and names the wanted images, the shown image first."""
         for path in self._wanted_paths():
             needs = self._needs(path, models)
-            # The ids are checked again as _needs only names a job for a loaded model
-            if needs.inference is Work.DETECT and models.detector_id is not None:
+            if needs.inference is Work.DETECT:
+                assert models.detector_id is not None, "_needs only names a job for a loaded model"
                 return DetectJob(self._loaded(path).image, models.detector_id, CancelToken())
-            if needs.inference is Work.CLASSIFY and models.classifier_id is not None:
+            if needs.inference is Work.CLASSIFY:
+                assert models.classifier_id is not None, "_needs only names a job for a loaded model"
                 return ClassifyJob(self._loaded(path).image, list(needs.boxes), models.classifier_id,
                                    CancelToken())
         return None
