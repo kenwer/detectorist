@@ -332,8 +332,9 @@ class DetectoristApp(QMainWindow):
         self._model_downloader.download_finished.connect(self._refresh_model_list)
         self._model_downloader.download_finished.connect(self._notify_model_download_finished)
         self._model_downloader.download_error.connect(self._notify_model_download_error)
-        self.model_update_hint = ModelUpdateHint(self._model_downloader, self.show_manage_models_dialog, self)
-        self.ui.status_bar.addPermanentWidget(self.model_update_hint.status_link)
+        self.model_update_hint = ModelUpdateHint(self._model_downloader, self)
+        self.model_update_hint.linkActivated.connect(self.show_manage_models_dialog)
+        self.ui.status_bar.addPermanentWidget(self.model_update_hint)
 
         # Defers showing the activity: a cached image arrives within a few
         # milliseconds, detections and names included, so nothing flashes for it.

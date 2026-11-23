@@ -369,23 +369,23 @@ def test_model_update_hint_waits_for_the_app_update(qtbot, make_window, models_d
     ]))
     window = make_window()
     hint = window.model_update_hint
-    assert hint.count == 1
+    assert "Model update available" in hint.text()
     controller = attach_updater(window, compiled=False)
     # The link sits at the status bar's end, so it is visible once the window is
     window.show()
     # Hidden until the first check says whether an app update comes first
-    assert not hint.status_link.isVisible()
+    assert not hint.isVisible()
 
     _feed(monkeypatch, update=None)
     controller.check()
     qtbot.waitUntil(lambda: controller.state is UpdateState.IDLE)
-    assert hint.status_link.isVisible()
+    assert hint.isVisible()
 
     _feed(monkeypatch, update=UPDATE)
     controller.check()
     qtbot.waitUntil(lambda: controller.state is UpdateState.AVAILABLE)
     assert controller.status_link.isVisible()
-    assert not hint.status_link.isVisible()
+    assert not hint.isVisible()
     stop_worker_threads(window)
 
 
