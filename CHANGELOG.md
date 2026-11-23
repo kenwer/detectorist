@@ -8,6 +8,7 @@
 - The status bar notifies about model updates.
 - [Dev] Add additional functionality to load class name metadata from onnx models.
 ### Changed
+- Updated `Apoidea Segmentation (Focus-Aware)` model.
 - [Dev] `poe lint` also runs the pyright and ty type checkers.
 
 ## [0.14.2] - 2026-11-12
