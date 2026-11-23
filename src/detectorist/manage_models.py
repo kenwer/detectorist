@@ -1,5 +1,3 @@
-# Not strict: the setupUi of the generated Ui class takes an untyped argument
-# pyright: standard
 import os
 
 from PySide6.QtCore import Qt, Signal
@@ -222,9 +220,7 @@ class ManageModelsDialog(QDialog):
             action_button.setFixedWidth(90)
 
             local_path = os.path.join(folder, filename) if is_downloaded else ""
-            row = _ModelRow(model, action_button, progress_bar, status_label, desc_label, local_path)
-            action_button.clicked.connect(lambda _checked, r=row: self._on_action_clicked(r))
-            self._rows.append(row)
+            row = self._add_row(_ModelRow(model, action_button, progress_bar, status_label, desc_label, local_path))
 
             grid.addWidget(desc_label, 1, 0)
             grid.addWidget(action_button, 1, 1, Qt.AlignmentFlag.AlignTop)
@@ -278,9 +274,7 @@ class ManageModelsDialog(QDialog):
             action_button.setFixedWidth(90)
 
             local_path = os.path.join(folder, filename)
-            row = _ModelRow(model, action_button, progress_bar, status_label, desc_label, local_path)
-            action_button.clicked.connect(lambda _checked, r=row: self._on_action_clicked(r))
-            self._rows.append(row)
+            row = self._add_row(_ModelRow(model, action_button, progress_bar, status_label, desc_label, local_path))
 
             grid.addWidget(desc_label, 1, 0)
             grid.addWidget(action_button, 1, 1, Qt.AlignmentFlag.AlignTop)
@@ -334,6 +328,12 @@ class ManageModelsDialog(QDialog):
             row.status_label.setStyleSheet("color: gray; font-weight: bold;")
             row.status_label.setToolTip("This model is not available for download.")
             row.status_label.setVisible(True)
+
+    def _add_row(self, row: _ModelRow) -> _ModelRow:
+        """Keeps the row and wires its button. The lambda captures the parameter, so each row's button sees its own."""
+        row.action_button.clicked.connect(lambda: self._on_action_clicked(row))
+        self._rows.append(row)
+        return row
 
     def _on_action_clicked(self, row: _ModelRow):
         """Handle Download / Cancel / Remove / Retry button clicks for a model row."""

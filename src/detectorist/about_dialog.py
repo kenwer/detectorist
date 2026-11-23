@@ -1,5 +1,3 @@
-# Not strict: the setupUi of the generated Ui class takes an untyped argument
-# pyright: standard
 from PySide6.QtWidgets import QDialog, QWidget
 
 from detectorist import __version__

@@ -1,5 +1,3 @@
-# Not strict: the setupUi of the generated Ui class takes an untyped argument
-# pyright: standard
 import re
 import sys
 
@@ -47,7 +45,7 @@ def shortcut_tables(readme: str) -> str:
 def shortcuts_for_platform(markdown: str, platform: str = sys.platform) -> str:
     """The shortcut tables with only the platform's key column, naming its file manager as the menu does."""
     key_column = _KEY_COLUMNS.get(platform, _LINUX_KEY_COLUMN)
-    lines = []
+    lines: list[str] = []
     for line in markdown.splitlines():
         if line.startswith("|"):
             cells = [cell.strip() for cell in line.split("|")[1:-1]]

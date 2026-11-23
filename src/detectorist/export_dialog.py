@@ -1,5 +1,3 @@
-# Not strict: the setupUi of the generated Ui class takes an untyped argument
-# pyright: standard
 """The Export dialog: which images to export, how to crop and name them, and where they go."""
 
 import html
@@ -109,7 +107,7 @@ class ExportDialog(QDialog):
         self.ui.choose_button.clicked.connect(self._choose_folder)
         self.ui.default_link_label.linkActivated.connect(self._reset_folder)
         self.ui.output_path_label.linkActivated.connect(
-            lambda _: QDesktopServices.openUrl(QUrl.fromLocalFile(self.output_dir())))
+            lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(self.output_dir())))
         self.ui.output_path_label.installEventFilter(self)
         self._update_output_folder()
         # As tall as the preview's lines or the choices need, whichever is more

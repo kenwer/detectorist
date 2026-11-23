@@ -1,5 +1,3 @@
-# Not strict: the setupUi of the generated Ui class takes an untyped argument, and pillow_heif is partly untyped
-# pyright: standard
 import html
 import logging
 import os
@@ -194,7 +192,7 @@ class DetectoristApp(QMainWindow):
         self._shortcuts_dialog: ShortcutsDialog | None = None
 
         # Ensure opener is registered (otherwise the native code will segfault)
-        pillow_heif.register_heif_opener()
+        pillow_heif.register_heif_opener()  # pyright: ignore[reportUnknownMemberType]  its options are untyped
 
         # Set up the UI
         self.ui = _Ui()
@@ -614,14 +612,18 @@ class DetectoristApp(QMainWindow):
             no_recent.setEnabled(False)
         else:
             for path in recent:
-                # Qt reads a single "&" in a menu text as mnemonic marker and hides it ("R&D" is shown as "RD"), "&&" is shown as "&".
-                action = self.ui.recent_folders_menu.addAction(contract_user_path(path).replace("&", "&&"))
-                action.triggered.connect(lambda checked, p=path: self._open_recent_folder(p))
+                self._add_recent_folder_action(path)
 
         # Re-add the separator and Clear Recent action (defined in .ui, removed by clear())
         self.ui.recent_folders_menu.addSeparator()
         self.ui.clear_recent_folders_action.setEnabled(bool(recent))
         self.ui.recent_folders_menu.addAction(self.ui.clear_recent_folders_action)
+
+    def _add_recent_folder_action(self, path: str) -> None:
+        """Adds a Recent Folders entry. The lambda captures the parameter, so each entry opens its own folder."""
+        # Qt reads a single "&" in a menu text as mnemonic marker and hides it ("R&D" is shown as "RD"), "&&" is shown as "&".
+        action = self.ui.recent_folders_menu.addAction(contract_user_path(path).replace("&", "&&"))
+        action.triggered.connect(lambda: self._open_recent_folder(path))
 
     def _open_recent_folder(self, path: str) -> None:
         """Open a folder from the recent list."""
