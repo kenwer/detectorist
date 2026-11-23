@@ -13,6 +13,7 @@ from PySide6.QtCore import QDir
 
 from detectorist.detectorist_app import image_name_filter
 from detectorist.image_object import supported_extensions
+from tests.fakes import present
 
 # Names as cameras and people write them
 IMAGES = ["lower.jpg", "UPPER.JPG", "Mixed.Jpg", "sony.HIF", "raw.ARW", "canon.CR3", "phone.heic"]
@@ -20,9 +21,7 @@ OTHERS = ["notes.txt", "image.jpg.bak", "jpg"]
 
 
 def patterns_of(name_filter):
-    match = re.fullmatch(r"Images \((.*)\)", name_filter)
-    assert match is not None
-    return match.group(1).split(" ")
+    return present(re.fullmatch(r"Images \((.*)\)", name_filter)).group(1).split(" ")
 
 
 @pytest.mark.parametrize("platform", ["win32", "darwin"])

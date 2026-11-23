@@ -23,6 +23,7 @@ from detectorist.update.install import (
     UnixAppInstall,
     WindowsAppInstall,
 )
+from tests.fakes import present
 from tests.update_helpers import UPDATE, RecordingWindow, linux_install, stop_worker_threads
 
 
@@ -248,9 +249,7 @@ def _on_ui_thread() -> bool:
     from PySide6.QtCore import QThread
     from PySide6.QtWidgets import QApplication
 
-    app = QApplication.instance()
-    assert app is not None
-    return QThread.currentThread() is app.thread()
+    return QThread.currentThread() is present(QApplication.instance()).thread()
 
 
 def test_failed_download_is_handled_on_the_ui_thread(qtbot, window, monkeypatch, tmp_path) -> None:

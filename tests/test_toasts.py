@@ -10,6 +10,7 @@ from pyqttoast import Toast, ToastPreset
 from PySide6.QtWidgets import QLabel, QWidget
 
 from detectorist.toasts import _show_toast as real_show_toast
+from tests.fakes import of_type
 
 
 def test_a_toast_link_runs_its_callback(qtbot, monkeypatch):
@@ -22,8 +23,7 @@ def test_a_toast_link_runs_its_callback(qtbot, monkeypatch):
     toast = real_show_toast(parent, "Done", "Exported.", ToastPreset.SUCCESS, link_text="Reveal",
                             on_link=lambda: clicked.append(True))
 
-    label = getattr(toast, "_Toast__text_label", None)
-    assert isinstance(label, QLabel)
+    label = of_type(getattr(toast, "_Toast__text_label", None), QLabel)
     assert '<a href="#">Reveal</a>' in label.text()
     label.linkActivated.emit("#")
     assert clicked == [True]

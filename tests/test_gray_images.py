@@ -11,6 +11,7 @@ from PIL import Image
 from detectorist import image_utils
 from detectorist.image_object import ImageObject
 from detectorist.structures import ImageMode
+from tests.fakes import present
 
 # Left half black, right half white
 BILEVEL = np.zeros((48, 64), dtype=bool)
@@ -54,8 +55,7 @@ def test_crop_of_gray_file_keeps_its_bit_depth(tmp_path, name, pixels, bits):
     # Spans the black and white halves
     image.save_cropped((16, 8, 32, 24), output)
 
-    crop = image_utils.imread(output)
-    assert crop is not None
+    crop = present(image_utils.imread(output))
     assert crop.shape == (24, 32)
     assert crop.dtype == (np.uint16 if bits == 16 else np.uint8)
     assert crop[:, :16].max() == 0

@@ -176,3 +176,15 @@ def fake_image(path: str, mtime_ns: int = 1, nbytes: int = 100) -> ImageObject:
 def fake_classifier() -> Classifier:
     """A FakeClassifier typed as the Classifier it stands in for."""
     return cast(Classifier, FakeClassifier())
+
+
+def present[T](value: T | None) -> T:
+    """The value, failing the test if it is None."""
+    assert value is not None
+    return value
+
+
+def of_type[T](value: object, kind: type[T]) -> T:
+    """The value, failing the test if it is not a kind."""
+    assert isinstance(value, kind), f"expected {kind.__name__}, got {type(value).__name__}"
+    return value

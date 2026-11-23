@@ -7,10 +7,10 @@ the heavyweight payloads, sized by their length.
 import numpy as np
 import pytest
 
-from detectorist.cache import ImageResults, ImageStore, LoadedImage, LruCache, image_cache_budget, results_cache_budget
+from detectorist.cache import ImageResults, ImageStore, LruCache, image_cache_budget, results_cache_budget
 from detectorist.structures import Detection, PackedMask
 from detectorist.utils import FileStamp
-from tests.fakes import TAXONOMY, fake_image
+from tests.fakes import TAXONOMY, fake_image, present
 
 STAMP = FileStamp("a.png", 1, 2)
 
@@ -117,18 +117,6 @@ def test_results_size_counts_packed_masks():
 
 
 
-def image_of(store: ImageStore, path: str) -> LoadedImage:
-    loaded = store.image(path)
-    assert loaded is not None
-    return loaded
-
-
-def results_of(store: ImageStore, path: str) -> ImageResults:
-    results = store.results(path)
-    assert results is not None
-    return results
-
-
 def test_store_hides_results_of_another_version_of_the_file():
     store = ImageStore(10_000, 10_000)
     old, new = fake_image("a.png", mtime_ns=1), fake_image("a.png", mtime_ns=2)
@@ -146,10 +134,8 @@ def test_store_hands_out_results_for_the_image_detected():
     store.put_image("a.png", image, 1.0)
     store.put_detections(image, [FISH], 1.0)
 
-    assert results_of(store, "a.png").detections == [FISH]
-    results = store.results_for(image)
-    assert results is not None
-    assert results.detections == [FISH]
+    assert present(store.results("a.png")).detections == [FISH]
+    assert present(store.results_for(image)).detections == [FISH]
     assert store.results_for(fake_image("a.png", mtime_ns=2)) is None
 
 
@@ -160,7 +146,7 @@ def test_store_ignores_the_display_of_a_replaced_image():
 
     store.put_display(old, np.zeros(10, dtype=np.uint8), exposure_correction=False, display_time_ms=1.0)
 
-    assert image_of(store, "a.png").display is None
+    assert present(store.image("a.png")).display is None
     assert store.room() == 0
 
 
@@ -173,7 +159,7 @@ def test_store_room_is_estimated_from_the_image_displayed_last():
 
     # 1000 bytes hold 5 images of 200 bytes, one of them the shown image
     assert store.room() == 4
-    assert image_of(store, "a.png").display_exposure is True
+    assert present(store.image("a.png")).display_exposure is True
 
 
 def test_store_keeps_the_decode_time_when_the_display_is_rebuilt():
@@ -184,7 +170,7 @@ def test_store_keeps_the_decode_time_when_the_display_is_rebuilt():
 
     store.put_display(image, np.zeros(10, dtype=np.uint8), exposure_correction=True, display_time_ms=60.0)
 
-    assert image_of(store, "a.png").load_time_ms == 960.0
+    assert present(store.image("a.png")).load_time_ms == 960.0
 
 
 GB = 10**9
