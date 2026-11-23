@@ -48,10 +48,7 @@ class ModelUpdateHint(QObject):
         self._downloader.fetch_manifest()
 
     def refresh(self) -> None:
-        active = set(self._downloader.queued_filenames)
-        if self._downloader.is_downloading:
-            active.add(self._downloader.current_filename)
-        self._count = len(self._downloader.outdated_models(active))
+        self._count = len(self._downloader.outdated_models())
         text = "Model update available" if self._count == 1 else f"{self._count} model updates available"
         # The href is unused, linkActivated only needs an anchor to click
         self.status_link.setText(f'<a href="#">{text}</a>')

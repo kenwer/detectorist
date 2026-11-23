@@ -162,14 +162,11 @@ class ManageModelsDialog(QDialog):
         # Model files on disk by folder: detection models at the top, classifiers in their subfolder
         folders = (self._models_dir, self._downloader.classifiers_dir)
         files_in = {folder: set(list_model_files(folder)) for folder in folders}
-        active_filenames: set[str] = set()
-        if self._downloader.is_downloading:
-            active_filenames.add(self._downloader.current_filename)
-            active_filenames.update(self._downloader.queued_filenames)
+        active_filenames = self._downloader.active_filenames
 
         # Set of all filenames superseded by any manifest entry
         all_superseded = {fname for m in manifest for fname in m.get("supersedes", [])}
-        outdated = {model_filename_from_url(m["url"]) for m in self._downloader.outdated_models(active_filenames)}
+        outdated = self._downloader.outdated_models()
 
         for i, model in enumerate(manifest):
             # TODO: maybe there's a more elegant way to separate rows than manually adding a separator widget?
@@ -187,7 +184,7 @@ class ManageModelsDialog(QDialog):
             existing_models = files_in[folder]
             is_downloaded = filename in existing_models
             is_active = filename in active_filenames
-            superseded_on_disk = filename in outdated
+            is_outdated = model in outdated
 
             # Row 0: name + progress bar (combined), status label
             header_widget, progress_bar, status_label = self._build_row_header(model["name"])
@@ -195,7 +192,7 @@ class ManageModelsDialog(QDialog):
             grid.addWidget(status_label, 0, 1)
 
             # Row 1: description, action button
-            filename_label = "Update available:" if superseded_on_disk else "File name:"
+            filename_label = "Update available:" if is_outdated else "File name:"
             desc_label = QLabel(f"""
             <p>{model.get("description", "no description available")}</p>
             <p><table style="border-collapse: collapse;">
@@ -233,11 +230,10 @@ class ManageModelsDialog(QDialog):
                 self._set_row_state(row, "downloading")
             elif is_downloaded:
                 self._set_row_state(row, "downloaded")
+            elif is_outdated:
+                self._set_row_state(row, "outdated")
             else:
-                if superseded_on_disk:
-                    self._set_row_state(row, "outdated")
-                else:
-                    self._set_row_state(row, "available")
+                self._set_row_state(row, "available")
 
             self.ui.scroll_contents_layout.addWidget(row_widget)
 
@@ -351,10 +347,10 @@ class ManageModelsDialog(QDialog):
 
     def _reset_downloading_rows(self):
         """Return rows still marked downloading to the state they had before they were queued."""
-        outdated = {model_filename_from_url(m["url"]) for m in self._downloader.outdated_models()}
+        outdated = self._downloader.outdated_models()
         for r in self._rows:
             if r.state == "downloading":
-                self._set_row_state(r, "outdated" if model_filename_from_url(r.model["url"]) in outdated else "available")
+                self._set_row_state(r, "outdated" if r.model in outdated else "available")
 
     def _find_row(self, filename: str) -> _ModelRow | None:
         """Return the row whose model's filename matches the given filename, or None."""

@@ -113,7 +113,20 @@ def test_outdated_models_are_installed_models_with_a_newer_version(make_download
 
     # Bee's new version is on disk already, Ant's old one is in the wrong folder, Moth supersedes nothing
     assert [m["name"] for m in downloader.outdated_models()] == ["Fish", "Wasp", "Species"]
-    assert [m["name"] for m in downloader.outdated_models({"wasp-v2.onnx"})] == ["Fish", "Species"]
+
+
+def test_outdated_models_leave_out_the_model_being_downloaded(qtbot, make_downloader, stalled_server, target):
+    model = {"name": "Fish", "url": f"{stalled_server.url}/fish-v2.onnx", "supersedes": ["fish-v1.onnx"]}
+    (target / "models.json").write_text(json.dumps([model]))
+    (target / "fish-v1.onnx").write_bytes(b"installed")
+    downloader = make_downloader(target)
+
+    downloader.download([model])
+    qtbot.waitUntil(stalled_server.requested.is_set)
+    assert downloader.outdated_models() == []
+
+    downloader.cancel()
+    assert downloader.outdated_models() == [model]
 
 
 def test_missing_or_corrupt_cached_manifest_gives_no_names(make_downloader, target):
@@ -233,6 +246,7 @@ def test_state_while_a_download_is_active(qtbot, make_downloader, remote, target
         assert downloader.is_downloading is True
         assert downloader.current_filename == "a.onnx"
         assert downloader.queued_filenames == ["b.onnx"]
+        assert downloader.active_filenames == {"a.onnx", "b.onnx"}
 
 
 def test_download_replaces_an_existing_file(qtbot, make_downloader, remote, target):
@@ -281,6 +295,8 @@ def test_cancel_stops_the_download_and_drops_the_queue(qtbot, make_downloader, s
 
     assert downloader.is_downloading is False
     assert downloader.queued_filenames == []
+    # current_filename still names the cancelled file, active_filenames does not
+    assert downloader.active_filenames == set()
     assert os.listdir(target) == []  # the partial file is removed
     # A cancel the user asked for is not a failed download
     assert events == [("started", "a.onnx")]

@@ -188,13 +188,22 @@ class ModelDownloader(QObject):
                 return current_filename
         return None
 
-    def outdated_models(self, active: frozenset[str] | set[str] = frozenset()) -> list[ManifestEntry]:
+    @property
+    def active_filenames(self) -> set[str]:
+        """Filenames of the model being downloaded and of those queued behind it."""
+        active = set(self.queued_filenames)
+        if self._current_reply is not None:
+            active.add(self._current_filename)
+        return active
+
+    def outdated_models(self) -> list[ManifestEntry]:
         """
         The cached manifest entries whose own file is missing while a file
         they supersede is on disk, i.e. installed models with a newer version.
-        Entries whose file name is in active (downloading or queued) are left
-        out, as their update is already under way.
+        Entries being downloaded or queued are left out, as their update is
+        already under way.
         """
+        active = self.active_filenames
         outdated: list[ManifestEntry] = []
         for model in self._manifest:
             filename = model_filename_from_url(model["url"])
