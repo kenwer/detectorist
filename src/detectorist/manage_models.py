@@ -169,6 +169,7 @@ class ManageModelsDialog(QDialog):
 
         # Set of all filenames superseded by any manifest entry
         all_superseded = {fname for m in manifest for fname in m.get("supersedes", [])}
+        outdated = {model_filename_from_url(m["url"]) for m in self._downloader.outdated_models(active_filenames)}
 
         for i, model in enumerate(manifest):
             # TODO: maybe there's a more elegant way to separate rows than manually adding a separator widget?
@@ -186,7 +187,7 @@ class ManageModelsDialog(QDialog):
             existing_models = files_in[folder]
             is_downloaded = filename in existing_models
             is_active = filename in active_filenames
-            superseded_on_disk = not is_downloaded and not is_active and any(f in existing_models for f in model.get("supersedes", []))
+            superseded_on_disk = filename in outdated
 
             # Row 0: name + progress bar (combined), status label
             header_widget, progress_bar, status_label = self._build_row_header(model["name"])
@@ -350,12 +351,10 @@ class ManageModelsDialog(QDialog):
 
     def _reset_downloading_rows(self):
         """Return rows still marked downloading to the state they had before they were queued."""
+        outdated = {model_filename_from_url(m["url"]) for m in self._downloader.outdated_models()}
         for r in self._rows:
             if r.state == "downloading":
-                existing_models = list_model_files(self._downloader.model_dir(r.model))
-                superseded_on_disk = [f for f in r.model.get("supersedes", [])
-                                      if f in existing_models]
-                self._set_row_state(r, "outdated" if superseded_on_disk else "available")
+                self._set_row_state(r, "outdated" if model_filename_from_url(r.model["url"]) in outdated else "available")
 
     def _find_row(self, filename: str) -> _ModelRow | None:
         """Return the row whose model's filename matches the given filename, or None."""

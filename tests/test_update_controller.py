@@ -1,5 +1,6 @@
 """UpdateController against fake feed and install functions on real worker threads."""
 
+import json
 import re
 import threading
 from collections.abc import Callable
@@ -359,6 +360,33 @@ def test_attach_updater_places_the_action_and_link(app_window) -> None:
     assert texts.index("Check for Updates...") < texts.index(app_window.ui.about_action.text())
     assert controller.status_link.parent() is app_window.ui.status_bar
     assert controller.block_reason() == NO_INSTALL_REASON
+
+
+def test_model_update_hint_waits_for_the_app_update(qtbot, make_window, models_dir, monkeypatch) -> None:
+    # The cached manifest offers a newer version of the installed tiny-detect.onnx
+    (models_dir / "models.json").write_text(json.dumps([
+        {"name": "Tiny Detect", "url": "https://example.invalid/tiny-detect-v2.onnx", "supersedes": ["tiny-detect.onnx"]},
+    ]))
+    window = make_window()
+    hint = window.model_update_hint
+    assert hint.count == 1
+    controller = attach_updater(window, compiled=False)
+    # The link sits at the status bar's end, so it is visible once the window is
+    window.show()
+    # Hidden until the first check says whether an app update comes first
+    assert not hint.status_link.isVisible()
+
+    _feed(monkeypatch, update=None)
+    controller.check()
+    qtbot.waitUntil(lambda: controller.state is UpdateState.IDLE)
+    assert hint.status_link.isVisible()
+
+    _feed(monkeypatch, update=UPDATE)
+    controller.check()
+    qtbot.waitUntil(lambda: controller.state is UpdateState.AVAILABLE)
+    assert controller.status_link.isVisible()
+    assert not hint.status_link.isVisible()
+    stop_worker_threads(window)
 
 
 @pytest.mark.parametrize("override", [None, "http://localhost:8000/release.json"])

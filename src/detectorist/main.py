@@ -18,7 +18,7 @@ import detectorist.resources_rc  # noqa: F401  registers :/icons/* resources
 from detectorist import __version__
 from detectorist.detectorist_app import DetectoristApp
 from detectorist.running_mutex import hold_running_mutex
-from detectorist.update.controller import UpdateController
+from detectorist.update.controller import UpdateController, UpdateState
 from detectorist.update.feed import DEFAULT_FEED_URL, release_asset_name
 from detectorist.update.install import detect_install
 
@@ -34,6 +34,10 @@ def attach_updater(window: DetectoristApp, compiled: bool) -> UpdateController:
     updater = UpdateController(window, __version__, install, feed_url, release_asset_name())
     window.ui.menu_help.insertAction(window.ui.about_action, updater.action)
     window.ui.status_bar.addPermanentWidget(updater.status_link)
+    # An app update link takes priority, and the model hint waits for the check to settle
+    hint = window.model_update_hint
+    hint.set_suppressed(True)
+    updater.state_changed.connect(lambda: hint.set_suppressed(updater.state is not UpdateState.IDLE))
     return updater
 
 
@@ -54,6 +58,7 @@ def main():
     updater = attach_updater(window, compiled="__compiled__" in globals())
     window.show()
     QTimer.singleShot(0, updater.check)
+    QTimer.singleShot(0, window.model_update_hint.check)
     exit_code = app.exec()
     # Only reached once the window closed, so a refused close applies nothing
     updater.apply_pending_update()

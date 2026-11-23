@@ -188,6 +188,23 @@ class ModelDownloader(QObject):
                 return current_filename
         return None
 
+    def outdated_models(self, active: frozenset[str] | set[str] = frozenset()) -> list[ManifestEntry]:
+        """
+        The cached manifest entries whose own file is missing while a file
+        they supersede is on disk, i.e. installed models with a newer version.
+        Entries whose file name is in active (downloading or queued) are left
+        out, as their update is already under way.
+        """
+        outdated: list[ManifestEntry] = []
+        for model in self._manifest:
+            filename = model_filename_from_url(model["url"])
+            folder = self.model_dir(model)
+            if filename in active or os.path.isfile(os.path.join(folder, filename)):
+                continue
+            if any(os.path.isfile(os.path.join(folder, old)) for old in model.get("supersedes", [])):
+                outdated.append(model)
+        return outdated
+
     def fetch_manifest(self):
         """
         Fetch the detection model and classifier manifests, each from the

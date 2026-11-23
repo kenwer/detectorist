@@ -93,6 +93,29 @@ def test_successor_of_names_the_model_that_supersedes_a_file(make_downloader, ta
     assert downloader.successor_of("kept.onnx") is None
 
 
+def test_outdated_models_are_installed_models_with_a_newer_version(make_downloader, target):
+    (target / "models.json").write_text(json.dumps([
+        {"name": "Fish", "url": "https://example.org/fish-v2.onnx", "supersedes": ["fish-v1.onnx"]},
+        {"name": "Bee", "url": "https://example.org/bee-v2.onnx", "supersedes": ["bee-v1.onnx"]},
+        {"name": "Ant", "url": "https://example.org/ant-v2.onnx", "supersedes": ["ant-v1.onnx"]},
+        {"name": "Wasp", "url": "https://example.org/wasp-v2.onnx", "supersedes": ["wasp-v1.onnx"]},
+        {"name": "Moth", "url": "https://example.org/moth.onnx"},
+    ]))
+    write_classifier_manifest(target, [
+        {"name": "Species", "url": "https://example.org/species-v2.onnx", "supersedes": ["species-v1.onnx"]},
+    ])
+    for filename in ("fish-v1.onnx", "bee-v1.onnx", "bee-v2.onnx", "wasp-v1.onnx", "classifiers/species-v1.onnx"):
+        (target / filename).write_bytes(b"installed")
+    # The superseded file in the other folder does not count
+    (target / "classifiers" / "ant-v1.onnx").write_bytes(b"installed")
+
+    downloader = make_downloader(target)
+
+    # Bee's new version is on disk already, Ant's old one is in the wrong folder, Moth supersedes nothing
+    assert [m["name"] for m in downloader.outdated_models()] == ["Fish", "Wasp", "Species"]
+    assert [m["name"] for m in downloader.outdated_models({"wasp-v2.onnx"})] == ["Fish", "Species"]
+
+
 def test_missing_or_corrupt_cached_manifest_gives_no_names(make_downloader, target):
     assert make_downloader(target).filename_to_name == {}
 

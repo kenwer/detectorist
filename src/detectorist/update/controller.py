@@ -9,7 +9,7 @@ import logging
 from enum import Enum, auto
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QThread, QUrl, SignalInstance, Slot
+from PySide6.QtCore import QObject, Qt, QThread, QUrl, Signal, SignalInstance, Slot
 from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import QLabel, QMessageBox, QWidget
 
@@ -46,6 +46,8 @@ class _WorkerThread(QThread):
 
 
 class UpdateController(QObject):
+    state_changed = Signal()
+
     def __init__(
         self,
         window: QWidget,
@@ -262,3 +264,4 @@ class UpdateController(QObject):
         self._set_link_text(link_text)
         self.action.setText(action_text)
         self.action.setEnabled(state not in (UpdateState.CHECKING, UpdateState.DOWNLOADING))
+        self.state_changed.emit()

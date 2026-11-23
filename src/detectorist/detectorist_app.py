@@ -53,6 +53,7 @@ from .image_object import (
 from .jobs import ShowRequest
 from .manage_models import ManageModelsDialog
 from .model_downloader import ModelDownloader
+from .model_update_hint import ModelUpdateHint
 from .pipeline import Pipeline, neighbours
 from .settings import Settings
 from .shortcuts_dialog import ShortcutsDialog
@@ -331,6 +332,8 @@ class DetectoristApp(QMainWindow):
         self._model_downloader.download_finished.connect(self._refresh_model_list)
         self._model_downloader.download_finished.connect(self._notify_model_download_finished)
         self._model_downloader.download_error.connect(self._notify_model_download_error)
+        self.model_update_hint = ModelUpdateHint(self._model_downloader, self.show_manage_models_dialog, self)
+        self.ui.status_bar.addPermanentWidget(self.model_update_hint.status_link)
 
         # Defers showing the activity: a cached image arrives within a few
         # milliseconds, detections and names included, so nothing flashes for it.
@@ -1016,6 +1019,8 @@ class DetectoristApp(QMainWindow):
             dialog.exec()
         finally:
             self._models_dialog_open = False
+        # A download cancelled in the dialog emits nothing the hint listens to
+        self.model_update_hint.refresh()
 
     def _model_name(self, filename: str) -> str:
         """The name a model file is shown by: its manifest name, else the file name without its extension."""
@@ -1062,6 +1067,7 @@ class DetectoristApp(QMainWindow):
             self.on_model_selected(combo.currentIndex())
 
         self._on_model_availability_changed()
+        self.model_update_hint.refresh()
 
     def _refresh_classifier_list(self):
         """
