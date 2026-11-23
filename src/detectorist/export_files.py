@@ -1,8 +1,8 @@
 """The files an Export writes besides the images.
 
 The rows and columns of the detections and classification CSV files, and
-the names of the CSV and settings files. Knows nothing about detecting or
-classifying.
+the names of the CSV and settings files. Turns detections and taxonomies
+into CSV cells, without running a detector or classifier.
 """
 
 import csv
@@ -11,7 +11,8 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, NamedTuple
 
-from .structures import Detection
+from .classifier import identified_ranks
+from .structures import RANK_COUNT, Box, Detection, Taxonomy
 from .utils import long_path
 
 CSV_ENCODING = "utf-8-sig"
@@ -65,6 +66,25 @@ class ClassificationRow(NamedTuple):
     species: str
     species_score: float | str
     list_fit: float | str
+
+    @classmethod
+    def from_taxonomy(cls, file_name: str, number: int, detection: Detection, box: Box,
+                      taxonomy: Taxonomy | None, taxon_confidence: float) -> ClassificationRow:
+        """
+        The row of one named detection, numbered within its image, with box
+        as its (x1, y1, x2, y2) corners. A rank scoring below
+        taxon_confidence is left empty, and so is every rank below it, as in
+        the tooltip (see identified_ranks). Without a taxonomy, because the
+        classifier failed, the family reads "classify-error".
+        """
+        x1, y1, x2, y2 = box
+        head = (file_name, number, detection.class_name, detection.score, x1, y1, x2 - x1, y2 - y1)
+        if taxonomy is None:
+            return cls(*head, "classify-error", "", "", "", "", "", "")
+        ranks: list[tuple[str, float | str]] = [*identified_ranks(taxonomy, taxon_confidence)]
+        family, genus, species = ranks + [("", "")] * (RANK_COUNT - len(ranks))
+        list_fit = "" if taxonomy.list_fit is None else taxonomy.list_fit
+        return cls(*head, *family, *genus, *species, list_fit)
 
 
 @contextmanager

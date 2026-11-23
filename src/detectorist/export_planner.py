@@ -13,13 +13,12 @@ from types import MappingProxyType
 from typing import Literal, NamedTuple
 
 from .classifier import identified_ranks
-from .structures import Box, Detection, RankedName, SettingEnum, Taxonomy
+from .structures import RANK_COUNT, Box, Detection, RankedName, SettingEnum, Taxonomy
 
 # A crop rectangle as (x, y, w, h) in image pixel space.
 type Rect = tuple[int, int, int, int]
 type Aspect = tuple[int, int] | Literal["detection_frame", "source_image"]
 
-RANK_COUNT = 3  # family, genus, species
 UNIDENTIFIED = "unidentified"  # stands in for the ranks below the taxon confidence
 NO_DETECTION = "no-detection"  # prefix of an image without detections
 

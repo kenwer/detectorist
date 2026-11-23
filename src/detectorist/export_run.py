@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from .cache import ImageStore
-from .classifier import detections_to_classify, identified_ranks
+from .classifier import detections_to_classify
 from .export_files import (
     CLASSIFICATION_CSV_HEADER,
     CLASSIFICATION_CSV_NAME,
@@ -30,7 +30,7 @@ from .export_planner import ExportOptions, PlannedFile
 from .image_object import ImageObject
 from .jobs import CancelToken, ClassifyJob, DecodeJob, DetectJob, Job
 from .model_loader import Models
-from .structures import RANK_COUNT, Box, Detection, Taxonomy, clamp_box
+from .structures import Box, Detection, Taxonomy, clamp_box
 from .utils import long_path
 
 logger = logging.getLogger(__name__)
@@ -40,31 +40,17 @@ def classification_rows(image: ImageObject, named: list[Detection], taxonomy_by_
     """
     The classification CSV rows of one image: one per named detection,
     numbered from 1 in the order of named (see detections_to_classify). A
-    rank scoring below taxon_confidence is left empty, and so is every rank
-    below it, as in the tooltip (see identified_ranks). A detection without
-    any identified rank still gets its row, so it is counted. So does one
-    missing from taxonomy_by_box because the classifier failed, with
-    "classify-error" as its family. The list fit is empty without a species
-    list.
+    detection without any identified rank still gets its row, so it is
+    counted. So does one missing from taxonomy_by_box because the classifier
+    failed (see ClassificationRow.from_taxonomy).
 
     The box is clamped to the image (see clamp_box).
     """
     file_name = os.path.basename(image.image_path)
-    rows: list[ClassificationRow] = []
-    for number, detection in enumerate(named, start=1):
-        x1, y1, x2, y2 = clamp_box(detection.box, image.width, image.height)
-        taxonomy = taxonomy_by_box.get(detection.box)
-        if taxonomy is None:
-            names = ["classify-error"] + [""] * (2 * RANK_COUNT - 1)
-            list_fit = ""
-        else:
-            ranks = identified_ranks(taxonomy, taxon_confidence)
-            names = [value for rank in ranks for value in rank] + ["", ""] * (RANK_COUNT - len(ranks))
-            list_fit = "" if taxonomy.list_fit is None else taxonomy.list_fit
-        # _make takes an iterable of Any, so the fields go unchecked. The constructor cannot take names, as its length is not static.
-        rows.append(ClassificationRow._make([file_name, number, detection.class_name, detection.score,
-                                             x1, y1, x2 - x1, y2 - y1, *names, list_fit]))
-    return rows
+    return [ClassificationRow.from_taxonomy(file_name, number, detection,
+                                            clamp_box(detection.box, image.width, image.height),
+                                            taxonomy_by_box.get(detection.box), taxon_confidence)
+            for number, detection in enumerate(named, start=1)]
 
 
 @dataclass
