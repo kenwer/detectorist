@@ -61,6 +61,7 @@ def classification_rows(image: ImageObject, named: list[Detection], taxonomy_by_
             ranks = identified_ranks(taxonomy, taxon_confidence)
             names = [value for rank in ranks for value in rank] + ["", ""] * (RANK_COUNT - len(ranks))
             list_fit = "" if taxonomy.list_fit is None else taxonomy.list_fit
+        # _make takes an iterable of Any, so the fields go unchecked. The constructor cannot take names, as its length is not static.
         rows.append(ClassificationRow._make([file_name, number, detection.class_name, detection.score,
                                              x1, y1, x2 - x1, y2 - y1, *names, list_fit]))
     return rows
