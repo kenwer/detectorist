@@ -1,4 +1,4 @@
-# Not strict: onnxruntime has no type stubs
+# Not strict: onnxruntime has no stubs, and its inline annotations leave most of its API untyped
 # pyright: standard
 import ast
 import json
