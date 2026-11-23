@@ -266,7 +266,7 @@ class Pipeline(QObject):
         self._detector.unload()
         self._browsing.on_detector_dropped()
         # An export job is left alone: what it detects with the dropped model is dropped as it arrives
-        if self._inference_job is not None and not self._export_owns(self._inference_job):
+        if self._inference_job is not None and self._export_for(self._inference_job) is None:
             self._inference_job.token.cancel()
 
     def _drop_classifier(self):
@@ -280,7 +280,7 @@ class Pipeline(QObject):
     def _drop_names(self):
         """Forgets the names given so far, before the next schedule can report new ones."""
         job = self._inference_job
-        if isinstance(job, ClassifyJob) and not self._export_owns(job):
+        if isinstance(job, ClassifyJob) and self._export_for(job) is None:
             job.token.cancel()  # its names belong to the old classifier or species list
         self._browsing.on_classifier_dropped()
         self.names_dropped.emit()
@@ -324,10 +324,10 @@ class Pipeline(QObject):
             if not self._browsing.is_wanted(job):
                 job.token.cancel()
 
-    def _browsing_jobs(self) -> list[DecodeJob | DisplayJob | DetectJob | ClassifyJob]:
+    def _browsing_jobs(self) -> list[Job]:
         """The lanes' jobs, without those of the export under way."""
         return [job for job in (self._decode_job, self._inference_job)
-                if job is not None and not self._export_owns(job)]
+                if job is not None and self._export_for(job) is None]
 
     def _export_for(self, job: Job) -> ExportRun | None:
         """The export under way if it made job, else None."""
@@ -335,13 +335,9 @@ class Pipeline(QObject):
             return self._export
         return None
 
-    def _export_owns(self, job: Job) -> bool:
-        return self._export_for(job) is not None
-
     def _owner(self, job: Job) -> Browsing | ExportRun:
         """Who made job, so its outcome goes back there."""
-        run = self._export_for(job)
-        return run if run is not None else self._browsing
+        return self._export_for(job) or self._browsing
 
     def _end_export(self) -> ExportRun | None:
         """Forgets the export under way and cancels its jobs. Returns it, None if there was none."""
