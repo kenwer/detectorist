@@ -22,10 +22,12 @@
   {
     "name": "Apoidea Species Classification",
     "classifies": ["Apoidea*"],
-    "size_mb": 531,
-    "description": "Names the family, genus and species of each detected bee or apoid wasp. Knows 3147 species in 377 genera and 11 families. Used together with an Apoidea detection or segmentation model.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/classifiers/apoidea-classification-bc2-224-ft-full-fp16-2026-10-17.onnx.gz",
-    "release_date": "2026-10-17",
-    "supersedes": []
+    "size_mb": 536,
+    "description": "Names the family, genus and species of each detected bee or apoid wasp. Knows 5429 species in 468 genera and 11 families. Used together with an Apoidea detection or segmentation model.",
+    "url": "https://github.com/kenwer/detectorist/raw/main/models/classifiers/apoidea-classification-bc2-224-ft-full-fp16-2026-11-26.onnx.gz",
+    "release_date": "2026-11-26",
+    "supersedes": [
+      "apoidea-classification-bc2-224-ft-full-fp16-2026-10-17.onnx.gz"
+    ]
   }
 ]
