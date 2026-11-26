@@ -9,6 +9,7 @@
 - [Dev] Add additional functionality to load class name metadata from onnx models.
 ### Changed
 - Updated `Apoidea Segmentation (Focus-Aware)` model.
+- The update dialog lists the changes of every release since the installed version.
 - [Dev] `poe lint` also runs the pyright and ty type checkers.
 - [Dev] Upgrade dependencies.
 

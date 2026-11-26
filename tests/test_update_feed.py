@@ -9,7 +9,7 @@ import pytest
 from detectorist.update.feed import (
     USER_AGENT,
     UpdateError,
-    fetch_latest_release,
+    fetch_releases,
     find_update,
     release_asset_name,
 )
@@ -19,20 +19,27 @@ ASSET = "Detectorist-macos-arm64.dmg"
 HEX = "ab" * 32
 
 
-def release(tag: str = "v0.9.0", digest: str | None = f"sha256:{HEX}", asset: str = ASSET) -> dict[str, Any]:
+def release(
+    tag: str = "v0.9.0",
+    digest: str | None = f"sha256:{HEX}",
+    asset: str = ASSET,
+    body: str = "## Changes\n- Something",
+    **flags: bool,
+) -> dict[str, Any]:
     entry = {"name": asset, "browser_download_url": f"https://example.org/{asset}", "size": 1234}
     if digest is not None:
         entry["digest"] = digest
     return {
         "tag_name": tag,
-        "body": "## Changes\n- Something",
+        "body": body,
         "html_url": f"https://github.com/kenwer/detectorist/releases/tag/{tag}",
         "assets": [entry],
+        **flags,
     }
 
 
 def test_newer_release_is_an_update() -> None:
-    update = find_update(release("v0.9.0"), "0.8.0", ASSET)
+    update = find_update([release("v0.9.0")], "0.8.0", ASSET)
     assert update is not None
     assert update.version == "0.9.0"
     assert update.sha256 == HEX
@@ -43,24 +50,51 @@ def test_newer_release_is_an_update() -> None:
     assert update.size == 1234
 
 
+def test_notes_cover_every_release_since_the_current_version() -> None:
+    releases = [
+        release("v0.11.0", body="## 0.11.0"),
+        release("v0.10.2", body="## 0.10.2"),
+        release("v0.10.1", body="## 0.10.1", prerelease=True),
+        release("v0.10.0", body="## 0.10.0"),
+    ]
+    update = find_update(releases, "0.10.0", ASSET)
+    assert update is not None
+    assert update.version == "0.11.0"
+    assert update.notes == "## 0.11.0\n\n## 0.10.2\n\n## 0.10.1"
+
+
+def test_newer_pre_releases_and_drafts_are_not_offered() -> None:
+    releases = [
+        release("v0.12.0", body="## 0.12.0", draft=True),
+        release("v0.11.1", body="## 0.11.1", prerelease=True),
+        release("v0.11.0", body="## 0.11.0"),
+        release("nightly", body="## nightly"),
+    ]
+    update = find_update(releases, "0.10.0", ASSET)
+    assert update is not None
+    assert update.version == "0.11.0"
+    assert update.notes == "## 0.11.0"
+    assert find_update(releases[:2], "0.10.0", ASSET) is None
+
+
 def test_same_version_is_no_update() -> None:
-    assert find_update(release("v0.8.0"), "0.8.0", ASSET) is None
+    assert find_update([release("v0.8.0")], "0.8.0", ASSET) is None
 
 
 def test_unparsable_versions_are_no_update() -> None:
-    assert find_update(release("v0.9.0"), "unknown", ASSET) is None
-    assert find_update(release("nightly"), "0.8.0", ASSET) is None
+    assert find_update([release("v0.9.0")], "unknown", ASSET) is None
+    assert find_update([release("nightly")], "0.8.0", ASSET) is None
 
 
 def test_missing_asset_is_no_update() -> None:
-    assert find_update(release(asset="other.zip"), "0.8.0", ASSET) is None
-    assert find_update(release(), "0.8.0", None) is None
+    assert find_update([release(asset="other.zip")], "0.8.0", ASSET) is None
+    assert find_update([release()], "0.8.0", None) is None
 
 
 @pytest.mark.parametrize("digest", [None, f"md5:{HEX}", "sha256:nothex"])
 def test_a_release_without_a_sha256_digest_is_no_update(digest: str | None) -> None:
     """Without a digest the download could not be verified, so it is never offered."""
-    assert find_update(release(digest=digest), "0.8.0", ASSET) is None
+    assert find_update([release(digest=digest)], "0.8.0", ASSET) is None
 
 
 def test_asset_names_match_the_build_matrix() -> None:
@@ -79,8 +113,8 @@ def test_unknown_platform_has_no_asset() -> None:
 
 
 def test_fetch_returns_the_release_and_names_the_client(local_http_server: FakeServer) -> None:
-    local_http_server.routes["/latest"] = Route(json.dumps(release()).encode(), content_type="application/json")
-    assert fetch_latest_release(local_http_server.url("/latest"))["tag_name"] == "v0.9.0"
+    local_http_server.routes["/latest"] = Route(json.dumps([release()]).encode(), content_type="application/json")
+    assert fetch_releases(local_http_server.url("/latest"))[0]["tag_name"] == "v0.9.0"
     # GitHub's API refuses requests without a User-Agent
     assert local_http_server.requests[0]["User-Agent"] == USER_AGENT
 
@@ -88,13 +122,13 @@ def test_fetch_returns_the_release_and_names_the_client(local_http_server: FakeS
 def test_fetch_raises_update_error_on_rate_limit(local_http_server: FakeServer) -> None:
     local_http_server.routes["/latest"] = Route(b'{"message": "API rate limit exceeded"}', status=403)
     with pytest.raises(UpdateError):
-        fetch_latest_release(local_http_server.url("/latest"))
+        fetch_releases(local_http_server.url("/latest"))
 
 
 def test_fetch_raises_update_error_on_bad_json(local_http_server: FakeServer) -> None:
     local_http_server.routes["/latest"] = Route(b"not json")
     with pytest.raises(UpdateError):
-        fetch_latest_release(local_http_server.url("/latest"))
+        fetch_releases(local_http_server.url("/latest"))
 
 
 def test_fetch_raises_update_error_when_offline() -> None:
@@ -102,19 +136,22 @@ def test_fetch_raises_update_error_when_offline() -> None:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
     with pytest.raises(UpdateError):
-        fetch_latest_release(f"http://127.0.0.1:{port}/latest", timeout=2)
+        fetch_releases(f"http://127.0.0.1:{port}/latest", timeout=2)
 
 
 @pytest.mark.parametrize(
     "bad",
     [
-        [],  # a list instead of an object
-        {"tag_name": "v0.9.0", "assets": ["not-a-dict"]},
-        {"tag_name": "v0.9.0", "assets": [{"name": ASSET, "digest": f"sha256:{HEX}", "size": 1}]},  # no URL
-        {
-            "tag_name": "v0.9.0",
-            "assets": [{"name": ASSET, "digest": f"sha256:{HEX}", "browser_download_url": "u", "size": "big"}],
-        },
+        {"tag_name": "v0.9.0"},  # an object instead of a list
+        ["not-a-dict"],
+        [{"tag_name": "v0.9.0", "assets": ["not-a-dict"]}],
+        [{"tag_name": "v0.9.0", "assets": [{"name": ASSET, "digest": f"sha256:{HEX}", "size": 1}]}],  # no URL
+        [
+            {
+                "tag_name": "v0.9.0",
+                "assets": [{"name": ASSET, "digest": f"sha256:{HEX}", "browser_download_url": "u", "size": "big"}],
+            }
+        ],
     ],
 )
 def test_malformed_release_raises_update_error(bad) -> None:
@@ -126,4 +163,4 @@ def test_fetch_raises_update_error_on_a_truncated_body(local_http_server: FakeSe
     local_http_server.routes["/latest"] = Route(json.dumps(release()).encode())
     local_http_server.cut_after = 10
     with pytest.raises(UpdateError):
-        fetch_latest_release(local_http_server.url("/latest"))
+        fetch_releases(local_http_server.url("/latest"))

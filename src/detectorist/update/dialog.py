@@ -6,7 +6,7 @@ from .feed import Update
 
 
 class UpdateDialog(QDialog):
-    """Accepted means install, or with a block_reason open the download page.
+    """Accepted means download, or with a block_reason open the download page.
 
     With a block_reason the app cannot install by itself, so the dialog
     explains why and offers the download page instead.
@@ -31,7 +31,7 @@ class UpdateDialog(QDialog):
             layout.addWidget(reason)
 
         buttons = QDialogButtonBox()
-        primary_text = "Open download page" if block_reason else "Download and install"
+        primary_text = "Open download page" if block_reason else "Download"
         primary = buttons.addButton(primary_text, QDialogButtonBox.ButtonRole.AcceptRole)
         buttons.addButton("Later", QDialogButtonBox.ButtonRole.RejectRole)
         primary.setDefault(True)

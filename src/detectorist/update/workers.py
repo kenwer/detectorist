@@ -47,8 +47,8 @@ class UpdateCheckWorker(QObject):
         if self._install is not None:
             self._install.cleanup(self._current_version)
         try:
-            release = feed.fetch_latest_release(self._feed_url)
-            update = feed.find_update(release, self._current_version, self._asset_name)
+            releases = feed.fetch_releases(self._feed_url)
+            update = feed.find_update(releases, self._current_version, self._asset_name)
         except UpdateError as exc:
             self.failed.emit(str(exc))
             return

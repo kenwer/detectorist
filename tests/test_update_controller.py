@@ -46,7 +46,7 @@ def _feed(monkeypatch: pytest.MonkeyPatch, update: Update | None = UPDATE, error
             raise UpdateError(error)
         return {}
 
-    monkeypatch.setattr(feed, "fetch_latest_release", fetch)
+    monkeypatch.setattr(feed, "fetch_releases", fetch)
     monkeypatch.setattr(feed, "find_update", lambda release, version, asset: update)
     return asked
 

@@ -18,7 +18,7 @@ from detectorist import __version__
 
 _log = logging.getLogger(__name__)
 
-DEFAULT_FEED_URL = "https://api.github.com/repos/kenwer/detectorist/releases/latest"
+DEFAULT_FEED_URL = "https://api.github.com/repos/kenwer/detectorist/releases?per_page=100"
 USER_AGENT = f"Detectorist/{__version__}"
 TLS_CONTEXT = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)  # Verifies certs with the OS trust store
 
@@ -55,8 +55,8 @@ def release_asset_name(system: str = sys.platform, machine: str = platform.machi
     return None
 
 
-def fetch_latest_release(url: str, timeout: float = 10.0) -> dict[str, Any]:
-    """The release JSON at url. Every failure becomes UpdateError."""
+def fetch_releases(url: str, timeout: float = 10.0) -> list[dict[str, Any]]:
+    """The release list JSON at url, newest first. Every failure becomes UpdateError."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"})
     try:
         with urllib.request.urlopen(request, timeout=timeout, context=TLS_CONTEXT) as response:
@@ -65,27 +65,46 @@ def fetch_latest_release(url: str, timeout: float = 10.0) -> dict[str, Any]:
         raise UpdateError(f"Could not read the release feed: {exc}") from exc
 
 
-def find_update(release: dict[str, Any], current_version: str, asset_name: str | None) -> Update | None:
-    """The update release offers over current_version, or None.
+def find_update(releases: list[dict[str, Any]], current_version: str, asset_name: str | None) -> Update | None:
+    """The update the newest full release offers over current_version, or None.
 
-    No update when either version does not parse, the release is not newer,
-    or it lacks the platform's asset or that asset's sha256 digest. A release
-    of an unexpected shape raises UpdateError.
+    Drafts and pre-releases are never offered, as on GitHub's latest release.
+    The notes join those of every release newer than current_version, newest
+    first, pre-releases included since their changes ship in the offered one.
+    No update when current_version does not parse, no full release is newer,
+    or the newest lacks the platform's asset or that asset's sha256 digest.
+    Releases whose tag does not parse are skipped. A feed of an unexpected
+    shape raises UpdateError.
     """
     try:
-        return _find_update(release, current_version, asset_name)
+        return _find_update(releases, current_version, asset_name)
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise UpdateError(f"The release feed has an unexpected format: {exc!r}") from exc
 
 
-def _find_update(release: dict[str, Any], current_version: str, asset_name: str | None) -> Update | None:
+def _version(release: dict[str, Any]) -> Version | None:
     try:
-        offered = Version(str(release.get("tag_name", "")).removeprefix("v"))
-        if offered <= Version(current_version):
-            return None
+        return Version(str(release.get("tag_name", "")).removeprefix("v"))
     except InvalidVersion:
         return None
-    if asset_name is None:
+
+
+def _find_update(releases: list[dict[str, Any]], current_version: str, asset_name: str | None) -> Update | None:
+    try:
+        current = Version(current_version)
+    except InvalidVersion:
+        return None
+    newer = sorted(
+        (
+            (version, r)
+            for r in releases
+            if not r.get("draft") and (version := _version(r)) is not None and version > current
+        ),
+        key=lambda pair: pair[0],
+        reverse=True,
+    )
+    offered, release = next(((v, r) for v, r in newer if not r.get("prerelease")), (None, None))
+    if offered is None or release is None or asset_name is None:
         return None
     asset = next((a for a in release.get("assets", []) if a.get("name") == asset_name), None)
     if asset is None:
@@ -94,9 +113,10 @@ def _find_update(release: dict[str, Any], current_version: str, asset_name: str 
     if match is None:
         _log.warning("release %s has no sha256 digest for %s, so it is not offered", offered, asset_name)
         return None
+    notes = [str(r.get("body") or "").strip() for v, r in newer if v <= offered]
     return Update(
         version=str(offered),
-        notes=release.get("body") or "",
+        notes="\n\n".join(n for n in notes if n),
         page_url=release.get("html_url", ""),
         asset_name=asset_name,
         asset_url=asset["browser_download_url"],
