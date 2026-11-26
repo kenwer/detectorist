@@ -3,14 +3,15 @@
     "name": "Fish Segmentation (Focus-Aware)",
     "size_mb": 115,
     "description": "Locates fish using a transformer-based instance segmentation model with two classes that separate in-focus from out-of-focus fish.",
-    "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-focus-036-seg-transformer-2026-10-18.onnx.gz",
-    "release_date": "2026-10-18",
+    "url": "https://github.com/kenwer/detectorist/raw/main/models/fish-focus-036-maxsp500-simp05-seg-transformer-2026-11-25.onnx.gz",
+    "release_date": "2026-11-25",
     "supersedes": [
       "fish-detect-2025-08-01.onnx",
       "fish-detect-2025-09-11.onnx",
       "fish-detect-transformer-2026-02-15.onnx.gz",
       "fish-seg-transormer-2026-02-24.onnx.gz",
-      "fish-focus-seg-transformer-2026-09-29.onnx.gz"
+      "fish-focus-seg-transformer-2026-09-29.onnx.gz",
+      "fish-focus-036-seg-transformer-2026-10-18.onnx.gz"
     ]
   },
   {
