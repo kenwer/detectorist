@@ -6,9 +6,11 @@
   - Each classifier keeps its own list, which can be switched off without losing it.
   - A List fit column in the results and the classification CSV gives the summed probability of the listed species before they are rescaled to sum to 1.
 - The status bar notifies about model updates.
+- New `Generic Fish Species Classification` model with 15100 species, 3733 genera, 579 families worldwide.
 - [Dev] Add additional functionality to load class name metadata from onnx models.
 ### Changed
-- Updated `Apoidea Segmentation (Focus-Aware)` model.
+- Updated `Apoidea Segmentation (Focus-Aware)` and `Fish Segmentation (Focus-Aware)` models.
+- Updated `Apoidea Species Classification` model with 5429 species, 468 genera, 11 families.
 - The update dialog lists the changes of every release since the installed version.
 - [Dev] `poe lint` also runs the pyright and ty type checkers.
 - [Dev] Upgrade dependencies.
