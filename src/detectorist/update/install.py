@@ -11,6 +11,7 @@ import plistlib
 import shutil
 import subprocess
 import tempfile
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -307,14 +308,29 @@ def _remove(path: Path) -> None:
         warn(None, path, exc)
 
 
-def _extract_bundle(dmg: Path, dest: Path) -> None:
-    try:
-        with tempfile.TemporaryDirectory() as mount:
+def _attach(dmg: Path, mount: str, attempts: int = 3) -> None:
+    # hdiutil intermittently fails with "Resource temporarily unavailable" while
+    # another process still holds the image, as seen on GitHub's macOS runners
+    # (actions/runner-images#7522), and succeeds when tried again
+    for attempt in range(1, attempts + 1):
+        try:
             subprocess.run(
                 ["hdiutil", "attach", "-nobrowse", "-readonly", "-mountpoint", mount, str(dmg)],
                 check=True,
                 capture_output=True,
             )
+            return
+        except subprocess.CalledProcessError:
+            if attempt == attempts:
+                raise
+            _log.info("hdiutil attach failed (attempt %d/%d), retrying", attempt, attempts)
+            time.sleep(2)
+
+
+def _extract_bundle(dmg: Path, dest: Path) -> None:
+    try:
+        with tempfile.TemporaryDirectory() as mount:
+            _attach(dmg, mount)
             try:
                 # ditto keeps the bundle's symlinks and its ad-hoc signature
                 subprocess.run(["ditto", str(Path(mount) / _APP_BUNDLE), str(dest)], check=True, capture_output=True)

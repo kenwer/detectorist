@@ -396,8 +396,26 @@ def test_a_failed_dmg_mount_reads_as_update_error(monkeypatch: pytest.MonkeyPatc
         raise subprocess.CalledProcessError(1, command, stderr=b"hdiutil: attach failed - image not recognized")
 
     monkeypatch.setattr(install.subprocess, "run", failing_run)
+    monkeypatch.setattr(install.time, "sleep", lambda _s: None)
     mac = MacOSAppInstall(tmp_path / "Detectorist.app", tmp_path / "stage")
     update = make_update(asset="x.dmg")
     with pytest.raises(UpdateError, match="image not recognized"):
         mac.prepare(update, mac.archive_path(update))
     assert not (mac.version_dir(update) / "Detectorist.app.partial").exists()
+
+
+def test_a_dmg_mount_that_fails_once_is_tried_again(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import subprocess
+
+    attaches = []
+
+    def run(command, **_kw):
+        if command[:2] == ["hdiutil", "attach"]:
+            attaches.append(command)
+            if len(attaches) == 1:
+                raise subprocess.CalledProcessError(1, command, stderr=b"hdiutil: attach failed - Resource temporarily unavailable")
+
+    monkeypatch.setattr(install.subprocess, "run", run)
+    monkeypatch.setattr(install.time, "sleep", lambda _s: None)
+    install._extract_bundle(tmp_path / "x.dmg", tmp_path / "dest")
+    assert len(attaches) == 2

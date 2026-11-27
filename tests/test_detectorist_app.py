@@ -905,6 +905,9 @@ def test_selection_follows_a_model_across_its_update(make_window, qtbot, models_
     write_manifest_superseding(models_dir, "tiny-detect-v2.onnx", MODEL_FILENAME)
     window = make_window()
     window.ui.model_select_combo_box.setCurrentIndex(window.ui.model_select_combo_box.findData(MODEL_FILENAME))
+    # Loads run on a thread pool, so a load still under way could create its
+    # detector after the update's and be last in created
+    qtbot.waitUntil(lambda: os.path.basename(detector_factory.created[-1].model_path) == MODEL_FILENAME)
 
     # What a finished update download leaves behind
     (models_dir / "tiny-detect-v2.onnx").write_bytes(b"model")
