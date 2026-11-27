@@ -178,6 +178,12 @@ def test_classifier_reads_its_framing_from_the_model(classifier):
     assert classifier.species == [CLASSIFY_SPECIES[i] for i in range(4)]
 
 
+def test_taxa_pair_each_species_with_its_genus_and_family(classifier):
+    assert [taxon.species for taxon in classifier.taxa] == classifier.species
+    assert all(classifier.genera[g] == taxon.genus and classifier.families[f] == taxon.family
+               for taxon, g, f in zip(classifier.taxa, classifier.genus_of, classifier.family_of, strict=True))
+
+
 def test_classify_returns_one_taxonomy_per_box_in_order(classifier, tmp_path):
     image = painted_image(tmp_path)
 

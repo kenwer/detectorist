@@ -18,6 +18,7 @@ import fnmatch
 import json
 import math
 from collections.abc import Collection, Sequence
+from functools import cached_property
 from itertools import takewhile
 from typing import cast
 
@@ -26,7 +27,7 @@ import onnxruntime as ort
 from PIL import Image
 
 from .image_object import ImageObject
-from .structures import Box, Detection, RankedName, Taxonomy, clamp_box
+from .structures import Box, Detection, RankedName, Taxon, Taxonomy, clamp_box
 from .utils import load_model_bytes
 
 # Most crops in one run of the model. A detection confidence slider pulled to the
@@ -245,6 +246,12 @@ class Classifier:
         self.patterns = tuple(patterns)
         self.input_name = self.session.get_inputs()[0].name
         self.listed: np.ndarray | None = None  # whether each species is on the species list, None for no list
+
+    @cached_property
+    def taxa(self) -> list[Taxon]:
+        """Each species with its genus and family, in model order."""
+        return [Taxon(name, self.genera[genus], self.families[family])
+                for name, genus, family in zip(self.species, self.genus_of, self.family_of, strict=True)]
 
     def with_species(self, species: Collection[str]) -> Classifier:
         """

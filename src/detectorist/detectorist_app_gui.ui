@@ -225,7 +225,7 @@
                 <bool>false</bool>
                </property>
                <property name="toolTip">
-                <string>Apply the species list. Unticked, the list is kept and the classifier names any species</string>
+                <string>Apply the species list. Unchecked, the list is kept and the classifier names any species</string>
                </property>
               </widget>
              </item>

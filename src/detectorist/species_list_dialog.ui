@@ -2,20 +2,6 @@
 <ui version="4.0">
  <class>SpeciesListDialog</class>
  <widget class="QDialog" name="SpeciesListDialog">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>480</width>
-    <height>560</height>
-   </rect>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>360</width>
-    <height>320</height>
-   </size>
-  </property>
   <property name="windowTitle">
    <string>Species list</string>
   </property>
@@ -33,9 +19,9 @@
       </widget>
      </item>
      <item>
-      <widget class="QCheckBox" name="selected_only_check_box">
+      <widget class="QCheckBox" name="checked_only_check_box">
        <property name="text">
-        <string>Show selected only</string>
+        <string>Show checked only</string>
        </property>
       </widget>
      </item>
@@ -58,10 +44,30 @@
      <item>
       <widget class="QPushButton" name="clear_button">
        <property name="toolTip">
-        <string>Untick all species, so the classifier names any species</string>
+        <string>Uncheck all species, so the classifier names any species</string>
        </property>
        <property name="text">
-        <string>Clear</string>
+        <string>Uncheck All</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="import_button">
+       <property name="toolTip">
+        <string>Add the species from a text file to those checked. Each line names a species, genus or family, and may use the wildcards * and ?</string>
+       </property>
+       <property name="text">
+        <string>Add from File...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="export_button">
+       <property name="toolTip">
+        <string>Save the checked species to a text file, one per line</string>
+       </property>
+       <property name="text">
+        <string>Save to File...</string>
        </property>
       </widget>
      </item>

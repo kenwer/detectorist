@@ -402,9 +402,9 @@ def test_a_lower_threshold_names_only_the_boxes_it_reveals(qtbot, tmp_path, make
 def test_classification_time_sums_the_runs_until_another_classifier_is_loaded(qtbot, tmp_path, make_pipeline,
                                                                              monkeypatch, models_dir):
     # Each reading of the clock is 100 ms after the previous one, so a run takes 100 ms
-    ticks = iter(range(1000))
+    timestamps = iter(range(1000))
     # The worker's own time module, as patching time.perf_counter would reach every caller
-    monkeypatch.setattr(inference_worker_module, "time", SimpleNamespace(perf_counter=lambda: next(ticks) / 10))
+    monkeypatch.setattr(inference_worker_module, "time", SimpleNamespace(perf_counter=lambda: next(timestamps) / 10))
     (path_a,) = make_images(tmp_path, ["a.png"], IMAGE_SIZE)
     env = make_classifying(make_pipeline, {"a.png": [FISH, FAINT_FISH]})
     show(env.pipeline, path_a)

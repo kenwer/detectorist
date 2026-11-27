@@ -1247,7 +1247,7 @@ def test_dragging_the_confidence_asks_for_names_once(qtbot, species_model, windo
         window.ui.detection_confidence_slider.setValue(value)
 
     qtbot.waitUntil(lambda: len(labels(window)) == 2 and labels(window)[1] is not None)
-    # The faint fish is named once, not once per tick of the drag
+    # The faint fish is named once, not once per step of the drag
     assert classifier_factory.classified == [[FISH.box], [FAINT_FISH.box]]
 
 
@@ -1886,10 +1886,10 @@ def test_a_species_list_from_the_dialog_is_saved_and_names_from_the_list(qtbot, 
     table = window.ui.results_table
     assert table.isColumnHidden(list_fit_column(window))
 
-    def tick_ocellaris(dialog):
+    def check_ocellaris(dialog):
         dialog.ui.species_tree.topLevelItem(0).child(0).child(1).setCheckState(0, Qt.CheckState.Checked)
         return QDialog.DialogCode.Accepted
-    monkeypatch.setattr(species_list_controls.SpeciesListDialog, "exec", tick_ocellaris)
+    monkeypatch.setattr(species_list_controls.SpeciesListDialog, "exec", check_ocellaris)
     window.ui.species_list_button.click()
     qtbot.waitUntil(lambda: table.topLevelItemCount() == 1 and table.topLevelItem(0).text(list_fit_column(window)) != "")
 
@@ -2032,10 +2032,10 @@ def test_changing_the_species_list_renames_the_shown_detections(qtbot, species_m
     window.ui.classifier_combo_box.setCurrentIndex(1)
     qtbot.waitUntil(lambda: "Amphiprion ocellaris" in result_rows(window)[0])
 
-    def tick_halichoeres(dialog):
+    def check_halichoeres(dialog):
         dialog.ui.species_tree.topLevelItem(0).setCheckState(0, Qt.CheckState.Checked)  # Labridae, which sorts first
         return QDialog.DialogCode.Accepted
-    monkeypatch.setattr(species_list_controls.SpeciesListDialog, "exec", tick_halichoeres)
+    monkeypatch.setattr(species_list_controls.SpeciesListDialog, "exec", check_halichoeres)
     window.ui.species_list_button.click()
     qtbot.waitUntil(lambda: result_rows(window)[0][2] == "Labridae")
 
@@ -2044,7 +2044,7 @@ def test_changing_the_species_list_renames_the_shown_detections(qtbot, species_m
 
     # Clearing the list names the fish as before
     monkeypatch.setattr(species_list_controls.SpeciesListDialog, "exec",
-                        lambda dialog: (dialog._clear(), QDialog.DialogCode.Accepted)[1])
+                        lambda dialog: (dialog.ui.clear_button.click(), QDialog.DialogCode.Accepted)[1])
     window.ui.species_list_button.click()
     qtbot.waitUntil(lambda: "Amphiprion ocellaris" in result_rows(window)[0])
     assert window.ui.results_table.isColumnHidden(list_fit_column(window))

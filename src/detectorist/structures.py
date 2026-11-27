@@ -92,6 +92,14 @@ class RankedName(NamedTuple):
     score: float
 
 
+@dataclass(frozen=True)
+class Taxon:
+    """A species a classifier knows, in the model's Genus_species form, with its genus and family."""
+    species: str
+    genus: str
+    family: str
+
+
 # The ranks of Taxonomy.ranks
 RANK_COUNT = 3
 

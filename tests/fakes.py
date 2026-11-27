@@ -10,7 +10,7 @@ from PIL import Image
 from detectorist.classifier import Classifier
 from detectorist.detector import Detector
 from detectorist.image_object import ImageObject
-from detectorist.structures import Box, RankedName, Taxonomy
+from detectorist.structures import Box, RankedName, Taxon, Taxonomy
 from detectorist.utils import FileStamp
 
 
@@ -101,6 +101,9 @@ class FakeClassifier:
     families = ["Pomacentridae"]
     genus_of = [0, 0, 1]
     family_of = [0, 0, 0]
+    taxa = [Taxon("Amphiprion_clarkii", "Amphiprion", "Pomacentridae"),
+            Taxon("Amphiprion_ocellaris", "Amphiprion", "Pomacentridae"),
+            Taxon("Chromis_viridis", "Chromis", "Pomacentridae")]
 
     def __init__(self, taxonomy=TAXONOMY, model_path="fake-classifier.onnx", error=None, patterns=("*",),
                  taxonomy_by_box=None):

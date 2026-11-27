@@ -5,6 +5,9 @@
 - Add support for species lists, which restrict the classifier to the picked species:
   - Each classifier keeps its own list, which can be switched off without losing it.
   - A List fit column in the results and the classification CSV gives the summed probability of the listed species before they are rescaled to sum to 1.
+  - Species lists can be added from and saved to text files:
+    - Each line names a species, genus or family.
+    - Wildcards `*` and `?` can also be used.
 - The status bar notifies about model updates.
 - New `Generic Fish Species Classification` model with 15100 species, 3733 genera, 579 families worldwide.
 - [Dev] Add additional functionality to load class name metadata from onnx models.
