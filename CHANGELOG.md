@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.15.0] - 2026-11-27
 ### Added
 - Add support for species lists, which restrict the classifier to the picked species:
   - Each classifier keeps its own list, which can be switched off without losing it.

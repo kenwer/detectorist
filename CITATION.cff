@@ -8,8 +8,8 @@ authors:
     email: ken.werner@uni-tuebingen.de
     affiliation: University of Tübingen
     orcid: "https://orcid.org/0009-0008-4940-5080"
-version: 0.14.2
-date-released: 2026-11-12
+version: 0.15.0
+date-released: 2026-11-27
 repository-code: https://github.com/kenwer/detectorist
 license: AGPL-3.0-or-later
 abstract: >
