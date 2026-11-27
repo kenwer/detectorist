@@ -46,6 +46,8 @@ build = [
 detectorist = "detectorist.main:main"
 
 [tool.uv]
+# The lint task runs `uv check`, a preview command of recent uv releases. setup-uv in CI installs the newest release matching this
+required-version = ">=0.13"
 # Ignore system Pythons, so every build bundles the uv-managed Python that .python-version names
 python-preference = "only-managed"
 
@@ -114,7 +116,7 @@ esac
 """
 
 [tool.poe.tasks.sync-build]
-cmd = "uv sync --group build"
+cmd = "uv sync --locked --group build"
 help = "Install the build group (Nuitka) into the venv"
 
 # Each build-* task starts with set -e, so a failed Nuitka run fails the task instead of being hidden by the trailing commands.

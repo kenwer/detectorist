@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Every uv command fails on a uv.lock that is out of date instead of re-locking
+  UV_LOCKED: "1"
+
 jobs:
   test:
     name: Test (${{ matrix.name }})
