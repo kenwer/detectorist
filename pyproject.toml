@@ -167,7 +167,7 @@ nuitka \
     --linux-icon=assets/icon.png \
     --output-filename=Detectorist \
     --linux-create-installer \
-    --linux-installer-output="$OUTPUT_DIR/Detectorist-linux-$ARCH.AppImage" \
+    --linux-installer-output="Detectorist-linux-$ARCH.AppImage" \
     --linux-installer-appimagetool-path="$TOOL_DIR" \
     ./src/detectorist/main.py
 """
