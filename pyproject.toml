@@ -202,7 +202,7 @@ nuitka \
 # Unversioned, so Dock items survive an update
 APP="$OUTPUT_DIR/Detectorist.app"
 mv "$OUTPUT_DIR/main.app" "$APP"
-python scripts/strip_macos_bundle.py "$APP"
+uv run --locked --script scripts/strip_macos_bundle.py "$APP"
 # Plain hdiutil rather than create-dmg: no Finder AppleScript to hang on a headless runner.
 # The staging folder puts the app next to an Applications link for drag-to-install.
 STAGE="$OUTPUT_DIR/dmg-stage"

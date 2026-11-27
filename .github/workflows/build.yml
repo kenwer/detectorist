@@ -12,6 +12,7 @@ on:
       - '.github/actions/**'
       - 'packaging/**'
       - 'scripts/strip_macos_bundle.py'
+      - 'scripts/strip_macos_bundle.py.lock'
   workflow_dispatch:
   release:
     types: [published]
