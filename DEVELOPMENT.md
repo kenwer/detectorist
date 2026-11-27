@@ -41,7 +41,7 @@ uv run poe test-shipped-models  # only the tests that load the shipped models
 uv run poe lint
 ```
 
-`poe test` needs no model files. `Detector` and `Classifier` are tested against tiny ONNX models in `tests/data`, whose outputs are fixed values defined in `tests/tiny_models.py`. After changing those values, regenerate the files with `uv run --script scripts/make_test_models.py`.
+`poe test` needs no model files. `Detector` and `Classifier` are tested against tiny ONNX models in `tests/data`, whose outputs are fixed values defined in `tests/tiny_models.py`. After changing those values, regenerate the files with `scripts/make_test_models.py`.
 
 The shipped model tests in `tests/test_shipped_models.py` load every detection model listed in `models/models.json` and every classifier listed in `models/classifiers/models.json`. They only run when asked for with `poe test-shipped-models`, since CI does not fetch the Git LFS model files. A model whose file has not been fetched is skipped.
 

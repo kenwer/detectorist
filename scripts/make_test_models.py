@@ -1,12 +1,13 @@
+#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.14"
-# dependencies = ["onnx"]
+# dependencies = ["numpy", "onnx"]
 # ///
 """Regenerate the tiny ONNX models in tests/data.
 
 Run by hand after changing tests/tiny_models.py:
 
-    uv run --script scripts/make_test_models.py
+    scripts/make_test_models.py
 
 onnxruntime can load a model but not create one, and the onnx package is not
 a project dependency, so it is declared inline above and installed into a
@@ -23,7 +24,7 @@ from onnx import TensorProto, helper, numpy_helper
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests import tiny_models  # noqa: E402
+from tests import tiny_models
 
 
 def build(path: Path, logits: list, class_names: dict, masks: list | None = None, rfdetr_metadata: bool = False) -> None:

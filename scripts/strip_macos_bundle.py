@@ -1,3 +1,8 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.14"
+# dependencies = []
+# ///
 """Strip local symbols from every Mach-O file in a macOS app bundle, then re-sign it.
 
 The wheels ship their extensions unstripped. strip -x keeps the global symbols
@@ -5,7 +10,7 @@ that dlopen and the Python C API resolve. Stripping invalidates the signature
 Nuitka wrote, so the bundle is re-signed ad hoc with the flags Nuitka uses.
 
 Usage:
-    python scripts/strip_macos_bundle.py dist/macos-arm64/Detectorist.app
+    scripts/strip_macos_bundle.py dist/macos-arm64/Detectorist.app
 """
 
 import subprocess

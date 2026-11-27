@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.13"
+# requires-python = ">=3.14"
 # dependencies = ["typst", "qrcode[pil]", "pillow"]
 # ///
 """Builds the poster.
@@ -12,7 +12,7 @@ assets/icon.png, no local copy needed. No system Typst install is needed:
 the `typst` wheel ships the compiler, and uv runs this in a throwaway
 environment.
 
-    uv run scripts/build_poster.py
+    scripts/build_poster.py
 """
 
 import io
