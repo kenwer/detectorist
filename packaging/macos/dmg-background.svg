@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Render with: scripts/render_dmg_background.py -->
+<!-- Icon centres (165,180) and (495,180) must match icon_locations in dmg_settings.py.
+     The bottom 30 px sit under the window edge, they only cover title bar height differences. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="430" viewBox="0 0 660 430">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBFDFD"/>
+      <stop offset="100%" stop-color="#E4F4F5"/>
+    </linearGradient>
+    <linearGradient id="accent" gradientUnits="userSpaceOnUse" x1="262" y1="0" x2="398" y2="0">
+      <stop offset="0%" stop-color="#4ECDC4"/>
+      <stop offset="100%" stop-color="#45B7D1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="660" height="430" fill="url(#bg)"/>
+
+  <!-- Faint echo of the app icon's lens and waves in the corners -->
+  <g fill="none" stroke="#45B7D1" opacity="0.10">
+    <circle cx="640" cy="-10" r="90" stroke-width="10"/>
+    <circle cx="640" cy="-10" r="150" stroke-width="6"/>
+    <path d="M-20 375 Q60 315, 140 375 Q220 435, 300 375" stroke-width="8"/>
+  </g>
+
+  <!-- Arrow from the app slot to the Applications slot -->
+  <g fill="none" stroke="url(#accent)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M262 180 L388 180" stroke-width="10" stroke-dasharray="0.1 22"/>
+    <path d="M374 160 L398 180 L374 200" stroke-width="10"/>
+  </g>
+
+  <text x="330" y="335" text-anchor="middle"
+        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="16" fill="#3E5560">Drag Detectorist to Applications to install</text>
+</svg>

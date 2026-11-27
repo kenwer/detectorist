@@ -73,7 +73,7 @@ On macOS:
     source .venv/bin/activate
     poe build-mac
     ```
-    This will use Nuitka to compile the Python code into a `.app` bundle and pack it into `Detectorist-macos-arm64.dmg` in the `dist/macos-arm64/` directory.
+    This will use Nuitka to compile the Python code into a `.app` bundle, which dmgbuild (`packaging/macos/dmg_settings.py`) packs into `Detectorist-macos-arm64.dmg` in the `dist/macos-arm64/` directory. After editing the DMG window background `packaging/macos/dmg-background.svg`, regenerate its PNGs with `scripts/render_dmg_background.py`.
 
 ### Windows Executable
 
