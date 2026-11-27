@@ -6,12 +6,37 @@ Wraps pyqt-toast-notification so callers get a one-line helper and the
 version-specific link handling stays in a single place.
 """
 
+import math
 from collections.abc import Callable
 
 from pyqttoast import Toast, ToastPreset
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QFontMetrics, QTextDocument
 from PySide6.QtWidgets import QApplication, QWidget
+
+
+def _fit_width_to_markdown(toast: Toast) -> None:
+    """
+    Caps the toast width at what its Markdown text needs, so pyqttoast sizes
+    the text label by its size hint. Otherwise pyqttoast measures the raw
+    Markdown as a single line, so the toast is as wide as all of it and one
+    line high.
+    """
+    document = QTextDocument()
+    document.setDefaultFont(toast.getTextFont())
+    document.setDocumentMargin(0)
+    document.setMarkdown(toast.getText())
+    content = max(math.ceil(document.idealWidth()),
+                  QFontMetrics(toast.getTitleFont()).horizontalAdvance(toast.getTitle()))
+    margins, icon_margins = toast.getMargins(), toast.getIconMargins()
+    icon_section, text_section = toast.getIconSectionMargins(), toast.getTextSectionMargins()
+    close_margins = toast.getCloseButtonMargins()
+    icon = (icon_section.left() + icon_margins.left() + toast.getIconSize().width() + icon_margins.right()
+            + toast.getIconSeparatorWidth() + icon_section.right()) if toast.isShowIcon() else 0
+    close = (close_margins.left() + toast.getCloseButtonWidth()
+             + close_margins.right()) if toast.isShowCloseButton() else 0
+    toast.setMaximumWidth(margins.left() + icon + text_section.left() + content + text_section.right()
+                          + close + margins.right())
 
 
 def _show_toast(
@@ -23,6 +48,7 @@ def _show_toast(
     link_text: str | None = None,
     on_link: Callable[[], None] | None = None,
     duration: int | None = None,
+    markdown: bool = False,
 ) -> Toast:
     """Build and show a toast with the given preset.
 
@@ -44,6 +70,10 @@ def _show_toast(
         on_link: Callback invoked when the link is clicked.
         duration: Auto-dismiss time in milliseconds. None keeps pyqttoast's
             default (5000); 0 disables auto-dismiss.
+        markdown: Whether text is Markdown, shown formatted and selectable
+            so it can be copied. Ignored when a link is given. Like the link, it
+            goes through the internal text label, and shows as plain text if
+            that label is renamed.
 
     Returns:
         The shown Toast instance.
@@ -76,7 +106,13 @@ def _show_toast(
         label.linkActivated.connect(lambda _href: on_link())
         toast.setText(f'{text} <a href="#">{link_text}</a>')
     else:
+        # Set before show(), as pyqttoast sizes the toast to its text there
+        if markdown and label is not None:
+            label.setTextFormat(Qt.TextFormat.MarkdownText)
+            label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         toast.setText(text)
+        if markdown and label is not None:
+            _fit_width_to_markdown(toast)
 
     toast.show()
     return toast
@@ -90,6 +126,7 @@ def show_success_toast(
     link_text: str | None = None,
     on_link: Callable[[], None] | None = None,
     duration: int | None = None,
+    markdown: bool = False,
 ) -> Toast:
     """Show a success toast, optionally ending in a clickable link."""
     return _show_toast(
@@ -100,6 +137,7 @@ def show_success_toast(
         link_text=link_text,
         on_link=on_link,
         duration=duration,
+        markdown=markdown,
     )
 
 
@@ -111,6 +149,7 @@ def show_info_toast(
     link_text: str | None = None,
     on_link: Callable[[], None] | None = None,
     duration: int | None = None,
+    markdown: bool = False,
 ) -> Toast:
     """Show a non-blocking information toast, optionally ending in a clickable link."""
     return _show_toast(
@@ -121,6 +160,7 @@ def show_info_toast(
         link_text=link_text,
         on_link=on_link,
         duration=duration,
+        markdown=markdown,
     )
 
 
@@ -130,9 +170,10 @@ def show_error_toast(
     text: str,
     *,
     duration: int | None = None,
+    markdown: bool = False,
 ) -> Toast:
     """Show a non-blocking error toast."""
-    return _show_toast(parent, title, text, ToastPreset.ERROR, duration=duration)
+    return _show_toast(parent, title, text, ToastPreset.ERROR, duration=duration, markdown=markdown)
 
 
 def show_warning_toast(
@@ -143,6 +184,7 @@ def show_warning_toast(
     link_text: str | None = None,
     on_link: Callable[[], None] | None = None,
     duration: int | None = None,
+    markdown: bool = False,
 ) -> Toast:
     """Show a non-blocking warning toast, optionally ending in a clickable link."""
     return _show_toast(
@@ -153,4 +195,5 @@ def show_warning_toast(
         link_text=link_text,
         on_link=on_link,
         duration=duration,
+        markdown=markdown,
     )
